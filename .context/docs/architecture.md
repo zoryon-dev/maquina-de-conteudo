@@ -1,333 +1,118 @@
-# Arquitetura - Máquina de Conteúdo
+# Architecture Overview
 
-## Visão Geral
+This document describes the high-level architecture, design patterns, and technical decisions for the **Máquina de Conteúdo** repository.
 
-Este projeto segue uma arquitetura baseada em **App Router do Next.js 15**, com separação clara entre Server Components (renderização e fetch de dados) e Client Components (interatividade).
+## System Topology
+The application is a **Monolithic Frontend** built with Next.js (App Router), deployed as a server-rendered application. It relies on a component-driven architecture for UI and utilizes TypeScript for type safety across the stack.
 
-## Camadas da Arquitetura
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Presentation Layer                    │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │   Pages      │  │  Components  │  │    Layouts   │  │
-│  │ (app/*.tsx)  │  │ (components) │  │ (layouts)    │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  │
-└─────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────┐
-│                     Business Logic Layer                 │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │ Server Acts  │  │   Stores     │  │     Hooks    │  │
-│  │ (*/actions)  │  │  (zustand)   │  │  (use*.ts)   │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  │
-└─────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────┐
-│                       Data Layer                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │    DB ORM    │  │  API Client  │  │     Cache    │  │
-│  │  (drizzle)   │  │  (lib/api)   │  │  (next/cache)│  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  │
-└─────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────┐
-│                    External Services                     │
-│  ┌──────┐  ┌────────┐  ┌──────────┐  ┌──────────────┐  │
-│  │ Neon │  │ Clerk  │  │OpenRouter│  │ Tavily/FireC │  │
-│  └──────┘  └────────┘  └──────────┘  └──────────────┘  │
-└─────────────────────────────────────────────────────────┘
+### High-Level Diagram
+```mermaid
+graph TD
+    User[Browser/Client] -->|HTTP Request| Edge[Next.js Middleware/Edge]
+    Edge -->|Routing| App[App Router /src/app]
+    
+    subgraph Frontend Logic
+        App --> Layouts[RootLayout & Feature Layouts]
+        Layouts --> pages[Pages /page.tsx]
+        pages --> Features[Feature Components]
+        Features --> UI[Atomic UI Components /src/components/ui]
+        
+        UI --> Hooks[Custom Hooks /src/hooks]
+        UI --> Lib[Utils /src/lib]
+    end
+    
+    subgraph Data & Config
+        App --> Config[Next Config & Env]
+        Features --> State[React Context/State]
+    end
 ```
 
-## Estrutura de Arquivos
+## Technology Stack
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Core Framework** | [Next.js 14+](https://nextjs.org/) | App Router, SSR/CSR, Routing |
+| **Language** | [TypeScript](https://www.typescriptlang.org/) | Static typing and interfaces |
+| **Styling** | [Tailwind CSS](https://tailwindcss.com/) | Utility-first CSS |
+| **UI Library** | [Shadcn UI](https://ui.shadcn.com/) / Radix UI | Headless accessible components |
+| **Icons** | Lucide React | Iconography |
+| **Package Manager** | Npm/Node | Dependency management |
+
+## Directory Structure & Modules
+
+The project follows the standard Next.js App Router structure with a focus on feature encapsulation.
 
 ```
-src/
-├── app/                          # Next.js App Router
-│   ├── (chat)/                   # Grupo de rotas de chat
-│   │   ├── chat/
-│   │   │   ├── [id]/             # Chat específico
-│   │   │   │   ├── page.tsx      # Server Component
-│   │   │   │   └── loading.tsx
-│   │   │   └── page.tsx          # Lista de chats
-│   │   └── layout.tsx            # Layout compartilhado
-│   ├── (dashboard)/              # Rotas do dashboard
-│   │   ├── library/
-│   │   ├── knowledge/
-│   │   └── settings/
-│   ├── api/                      # API Routes
-│   │   ├── chat/
-│   │   ├── generate/
-│   │   └── webhooks/
-│   ├── layout.tsx                # Root layout
-│   └── page.tsx                  # Landing page
-│
-├── components/                   # Componentes React
-│   ├── ui/                       # Componentes base
-│   │   ├── button.tsx
-│   │   ├── input.tsx
-│   │   └── modal.tsx
-│   ├── chat/                     # Componentes de chat
-│   │   ├── chat-message.tsx
-│   │   ├── chat-input.tsx
-│   │   └── chat-list.tsx
-│   ├── library/                  # Componentes de biblioteca
-│   └── knowledge/                # Componentes de knowledge
-│
-├── db/                           # Database
-│   ├── schema.ts                 # Drizzle schema
-│   └── index.ts                  # DB connection
-│
-├── lib/                          # Utilitários e configs
-│   ├── api/                      # API clients
-│   │   ├── openrouter.ts
-│   │   ├── tavily.ts
-│   │   └── firecrawl.ts
-│   ├── utils.ts                  # Helpers (cn, etc)
-│   └── constants.ts              # Constantes globais
-│
-└── stores/                       # Zustand stores
-    ├── chat.ts                   # Chat state
-    ├── library.ts                # Library state
-    └── ui.ts                     # UI state (modals, etc)
+/src
+├── /app             # Application routes and layouts
+│   ├── /styleguide  # Internal documentation maps/routes
+│   ├── globals.css  # Global styles and Tailwind directives
+│   └── layout.tsx   # Root layout (Html/Body wrappers)
+├── /components      # React components
+│   └── /ui          # Atomic, reusable UI primitives (Shadcn)
+├── /hooks           # Custom React hooks (e.g., use-mobile)
+└── /lib             # Shared utilities and helper functions
 ```
 
-## Server vs Client Components
+### Key Modules
 
-### Server Components (Padrão)
+#### 1. App Router (`src/app`)
+*   **Entry Point**: `RootLayout` in `src/app/layout.tsx` handles the global shell, font injection, and metadata.
+*   **Styleguide**: A dedicated section (`src/app/styleguide`) serves as an internal playground or design system documentation, utilizing `navigation.ts` for structure.
 
-```typescript
-// app/chat/page.tsx
-async function ChatListPage() {
-  // ✅ Pode fazer fetch de dados
-  const chats = await db.query.chats.findMany();
+#### 2. UI Components (`src/components/ui`)
+This directory contains atomic design elements. The project relies heavily on **Shadcn UI**, where components are owned source code rather than NPM dependencies.
+*   **Pattern**: Components export named primitives (e.g., `Sheet`, `SheetTrigger`, `SheetContent`).
+*   **Styling**: Uses clsx/tailwind-merge via the `cn()` utility for class overrides.
+*   **Specialty Components**: Includes specialized UI like `TubelightNavbar` and `Spinner` alongside standard primitives.
 
-  // ✅ Pode acessar banco diretamente
-  // ✅ Pode usar server actions
-  // ✅ Mais performático (sem JS enviado)
+#### 3. Utilities (`src/lib`)
+*   **`utils.ts`**: Contains the canonical `cn` function used across virtually every component to safely merge Tailwind classes.
 
-  return <ChatList initialData={chats} />;
-}
+## Design Patterns & Decisions
+
+### 1. Composition over Inheritance
+The UI architecture relies on composition. For example, the `Dialog` component allows arbitrary content injection via `DialogContent` rather than prop-heavy configuration.
+
+```tsx
+// Pattern used in src/components/ui/dialog.tsx
+<Dialog>
+  <DialogTrigger>Open</DialogTrigger>
+  <DialogContent>
+    <DialogHeader>...</DialogHeader>
+    {/* Composition allows flexibility here */}
+  </DialogContent>
+</Dialog>
 ```
 
-### Client Components
+### 2. Client vs. Server Components
+*   **Default**: Next.js App Router creates Server Components by default.
+*   **Client Boundaries**: Files containing interactive logic (hooks, event listeners) are marked with `"use client"`.
+    *   *Example*: `src/components/ui/sidebar.tsx` and `src/hooks/use-mobile.ts` imply client-side interactivity.
 
-```typescript
-// 'use client'
-import { useState } from 'react';
+### 3. Responsive Design Strategy
+*   **CSS**: Tailwind's prefix modifiers (`md:`, `lg:`) are the primary method for responsiveness.
+*   **Logic**: The `useIsMobile` hook (`src/hooks/use-mobile.ts`) provides programmatic access to viewport state for conditional rendering logic that CSS cannot handle alone (e.g., changing event handlers or drastic layout shifts).
 
-export function ChatInput() {
-  // ✅ Pode usar useState, useEffect
-  // ✅ Pode ter event handlers
-  // ✅ Pode acessar browser APIs
+## Data Flow & State Management
 
-  const [value, setValue] = useState('');
-  return <input value={value} onChange={(e) => setValue(e.target.value)} />;
-}
-```
+*   **Local State**: `useState` and `useReducer` for component-level interaction (e.g., opening menus, toggling inputs).
+*   **Context API**: Used for global UI state, such as Sidebar visibility or Theme providers.
+    *   *Evidence*: `SidebarContextProps` in `src/components/ui/sidebar.tsx`.
 
-### Padrão: Compound Components
+## Key Files & Exports
 
-Separe a lógica:
+| Component | Location | Description |
+|-----------|----------|-------------|
+| `cn` | `src/lib/utils.ts` | **Critical**. CSS class merger utility. |
+| `RootLayout` | `src/app/layout.tsx` | Main HTML wrapper. App entry point. |
+| `useIsMobile` | `src/hooks/use-mobile.ts` | Device detection hook. |
+| `TubelightNavbar` | `src/components/ui/tubelight-navbar.tsx` | Custom navigation component. |
+| `NavItem` | `src/app/styleguide/navigation.ts` | Interface for menu structures. |
 
-```typescript
-// app/chat/[id]/page.tsx (Server)
-async function ChatPage({ params }) {
-  const chat = await getChat(params.id);
-  return <ChatContainer chatId={chat.id} />;
-}
+## Future Considerations
+*   **ORM Layer**: Existence of `drizzle/` folder implies Drizzle ORM is/will be used for database interaction, though explicit symbols were not analyzed in this pass.
+*   **Testing**: No explicit test setup (Jest/Vitest) was detected in the file scan, though `styleguide` serves as visual testing.
 
-// components/chat/chat-container.tsx (Client)
-'use client';
-export function ChatContainer({ chatId }) {
-  // Toda a interatividade fica aqui
-}
-```
-
-## Fluxo de Dados
-
-### Criar um Chat
-
-```
-User Action (Client Component)
-    │
-    ▼
-Server Action (app/chat/actions.ts)
-    │
-    ▼
-Database (drizzle)
-    │
-    ▼
-Revalidate Path (Next.js cache)
-    │
-    ▼
-UI Update (automatic via Server Component re-render)
-```
-
-### Gerar Conteúdo com IA
-
-```
-User Input (Client)
-    │
-    ▼
-Server Action (app/api/generate/route.ts)
-    │
-    ├──▶ OpenRouter API
-    │        │
-    │        ▼
-    │   LLM Response
-    │
-    ├──▶ Tavily (se search)
-    │
-    └──▶ Firecrawl (se scraping)
-    │
-    ▼
-Database (salvar mensagem)
-    │
-    ▼
-UI Update (stream via SSE ou revalidate)
-```
-
-## Database Schema
-
-### Tabelas Principais
-
-```sql
--- Chats (conversas)
-chats (id, title, created_at, updated_at)
-
--- Messages (mensagens do chat)
-messages (id, chat_id, role, content, metadata, created_at)
-
--- Library Items (conteúdo criado)
-library_items (id, type, content, metadata, status, created_at)
-
--- Knowledge Docs (documentos base)
-knowledge_docs (id, filename, content, embedding, status, created_at)
-```
-
-### Relacionamentos
-
-```
-chats 1──N messages
-              │
-              └──> metadata pode referenciar library_items
-```
-
-## Autenticação (Clerk)
-
-### Middleware Proteção
-
-```typescript
-// middleware.ts
-const isPublicRoute = createRouteMatcher(['/', '/sign-in', '/sign-up']);
-
-export default clerkMiddleware(async (auth, req) => {
-  if (!isPublicRoute(req)) await auth.protect();
-});
-```
-
-### Acesso ao Usuário
-
-```typescript
-// Server Component
-const user = await currentUser();
-
-// Client Component
-const { user } = useUser();
-```
-
-## Estado Global (Zustand)
-
-### Chat Store
-
-```typescript
-interface ChatStore {
-  // Estado
-  activeChatId: string | null;
-  messages: Message[];
-  isGenerating: boolean;
-
-  // Actions
-  setActiveChat: (id: string) => void;
-  addMessage: (msg: Message) => void;
-  setGenerating: (bool: boolean) => void;
-}
-```
-
-## API Routes
-
-### Estrutura
-
-```
-app/api/
-├── chat/
-│   ├── route.ts              # GET (list), POST (create)
-│   └── [id]/
-│       └── route.ts          # GET, PUT, DELETE
-├── generate/
-│   └── route.ts              # POST (gerar conteúdo)
-└── webhooks/
-    └── clerk/
-        └── route.ts          # POST (webhooks do Clerk)
-```
-
-## Performance
-
-### Estratégias
-
-1. **Server Components por padrão** - Menos JS enviado
-2. **Streaming com Suspense** - Loading progressivo
-3. **RevalidatePath** - Invalidação de cache granular
-4. **Dynamic imports** - Code splitting para componentes pesados
-5. **Images com next/image** - Otimização automática
-
-### Exemplo de Streaming
-
-```typescript
-// app/chat/[id]/page.tsx
-export default function ChatPage({ params }) {
-  return (
-    <Suspense fallback={<ChatListSkeleton />}>
-      <ChatList chatId={params.id} />
-    </Suspense>
-  );
-}
-```
-
-## Segurança
-
-### Práticas
-
-1. **API Keys** - Sempre em variáveis de ambiente
-2. **Server Actions** - Validar permissões no servidor
-3. **SQL Injection** - Usar Drizzle ORM (parameterized queries)
-4. **XSS** - React escapa automaticamente, cuidado com dangerouslySetInnerHTML
-5. **CSRF** - Next.js protege automaticamente
-
-## Monitoramento
-
-### Logs Estruturados
-
-```typescript
-console.log(JSON.stringify({
-  event: 'chat_created',
-  userId: user.id,
-  chatId: chat.id,
-  timestamp: new Date().toISOString(),
-}));
-```
-
-### Error Tracking
-
-```typescript
-// Error boundaries em cada rota
-// app/chat/[id]/error.tsx
-export default function Error({ error }) {
-  // Log error para serviço de monitoring
-  return <ErrorUI />;
-}
-```
+---
+*Generated based on codebase analysis as of Jan 14, 2026.*

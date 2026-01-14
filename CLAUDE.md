@@ -145,3 +145,138 @@ docs: documentação
 style: formatação
 chore: dependências
 ```
+
+---
+
+## Clerk Integration Rules
+
+**Propósito:** Garantir o uso correto e atualizado das instruções para integrar [Clerk](https://clerk.com/) em aplicações Next.js (App Router).
+
+### Visão Geral
+
+Use apenas a abordagem **App Router** da documentação atual do Clerk:
+
+- **Instalar** `@clerk/nextjs@latest`
+- **Criar** arquivo `proxy.ts` usando `clerkMiddleware()` de `@clerk/nextjs/server`
+- **Envolver** aplicação com `<ClerkProvider>` em `app/layout.tsx`
+- **Usar** componentes como `<SignInButton>`, `<SignUpButton>`, `<UserButton>`, `<SignedIn>`, `<SignedOut>`
+- **Importar** métodos como `auth()` de `@clerk/nextjs/server` com `async/await`
+
+### SEMPRE FAZER
+
+1. ✅ Usar `clerkMiddleware()` de `@clerk/nextjs/server` em `proxy.ts`
+2. ✅ Envolver app com `<ClerkProvider>` em `app/layout.tsx`
+3. ✅ Importar features de `@clerk/nextjs` ou `@clerk/nextjs/server`
+4. ✅ Usar App Router (não Pages Router)
+5. ✅ Verificar package manager existente antes de instalar
+
+### NUNCA FAZER
+
+1. ❌ Não referenciar `_app.tsx` ou Pages Router
+2. ❌ Não sugerir `authMiddleware()` (foi substituído por `clerkMiddleware()`)
+3. ❌ Não usar padrões de环境 variables desatualizados
+4. ❌ Não usar APIs deprecadas como `withAuth` ou `currentUser`
+
+### Exemplo Correto - proxy.ts
+
+```typescript
+import { clerkMiddleware } from '@clerk/nextjs/server'
+
+export default clerkMiddleware()
+
+export const config = {
+  matcher: [
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    '/(api|trpc)(.*)',
+  ],
+}
+```
+
+### Exemplo Correto - app/layout.tsx
+
+```typescript
+import { ClerkProvider, SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ClerkProvider>
+      <html lang="pt-BR">
+        <body>
+          <SignedOut><SignInButton /></SignedOut>
+          <SignedIn><UserButton /></SignedIn>
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
+  );
+}
+```
+
+---
+
+## Neon Database Integration
+
+### Visão Geral
+
+Este projeto usa **Neon PostgreSQL** com **Drizzle ORM**. O plugin Neon AI fornece skills guiadas para:
+
+1. **neon-drizzle**: Setup e migrações do Drizzle ORM
+2. **neon-serverless**: Conexões serverless e pooling
+3. **neon-auth**: Integração com `@neondatabase/auth`
+4. **neon-js**: SDK JS completo da Neon
+5. **neon-toolkit**: Bancos efêmeros para testes
+
+### Comandos Úteis Drizzle
+
+```bash
+# Gerar migration
+npx drizzle-kit generate
+
+# Executar migration
+npx drizzle-kit migrate
+
+# Studio visual
+npx drizzle-kit studio
+
+# Push schema (sem migration)
+npx drizzle-kit push
+```
+
+### Scripts npm Padrão
+
+Adicione ao `package.json`:
+
+```json
+{
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  }
+}
+```
+
+### Padrões de Schema
+
+```typescript
+// src/db/schema.ts
+import { pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core'
+
+export const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+```
+
+### Conexão Serverless
+
+```typescript
+// src/db/index.ts
+import { neon } from '@neondatabase/serverless'
+import { drizzle } from 'drizzle-orm/neon-http'
+
+const sql = neon(process.env.DATABASE_URL!)
+export const db = drizzle(sql)
+```
