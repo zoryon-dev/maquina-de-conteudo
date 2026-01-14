@@ -50,3 +50,6 @@ drizzle/
 # OS
 .DS_Store
 Thumbs.db
+
+# Cursor - IDE specific rules
+.cursor/rules/openmemory.mdc
