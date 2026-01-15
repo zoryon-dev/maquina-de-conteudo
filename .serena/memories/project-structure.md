@@ -11,23 +11,36 @@ maquina-de-conteudo/
 │   │   ├── nextjs-specialist.md
 │   │   ├── neon-database-specialist.md
 │   │   ├── clerk-auth-specialist.md
-│   │   └── ...
+│   │   └── documentation-writer.md
 │   └── docs/                 # Documentação do projeto
 │       ├── architecture.md
-│       ├── development-workflow.md
-│       └── ...
+│       ├── development-plan/
+│       │   ├── idea.md
+│       │   └── initial-phases.md
+│       └── insights/          # Insights por etapa ⭐
 │
-├── .claude/                  # Skills do Claude Code
-│   └── skills/              # Skills reutilizáveis
-│       ├── tailwind-patterns.md
-│       └── component-patterns.md
+├── .serena/                  # Memórias do Serena
+│   └── memories/             # Documentação de padrões
+│       ├── index.md
+│       ├── project-structure.md
+│       ├── queue-patterns.md ⭐
+│       ├── database-patterns.md ⭐
+│       ├── auth-patterns.md ⭐
+│       └── ...
 │
 ├── src/
 │   ├── app/                 # Next.js App Router
-│   │   ├── layout.tsx       # Root layout
+│   │   ├── layout.tsx       # Root layout + ClerkProvider
 │   │   ├── page.tsx         # Home page
 │   │   ├── globals.css      # CSS global + design tokens
-│   │   └── styleguide/      # Página de styleguide
+│   │   ├── sign-in/[[...sign-in]]/page.tsx  ⭐
+│   │   ├── sign-up/[[...sign-up]]/page.tsx  ⭐
+│   │   ├── styleguide/      # Página de styleguide
+│   │   └── api/             # API Routes ⭐
+│   │       ├── jobs/        # Job CRUD
+│   │       ├── jobs/[id]/   # Job status
+│   │       ├── workers/     # Queue processor
+│   │       └── webhooks/    # Clerk webhook
 │   │
 │   ├── components/          # Componentes React
 │   │   ├── ui/              # Componentes UI base (shadcn)
@@ -44,14 +57,20 @@ maquina-de-conteudo/
 │   │   └── use-mobile.ts    # Hook de breakpoint móvel
 │   │
 │   ├── lib/                 # Utilitários
-│   │   └── utils.ts         # cn() + helpers
+│   │   ├── utils.ts         # cn() + helpers
+│   │   └── queue/           # Sistema de filas ⭐
+│   │       ├── types.ts      # JobType, JobStatus, payloads
+│   │       ├── client.ts     # Upstash Redis client
+│   │       └── jobs.ts       # Job CRUD functions
 │   │
-│   ├── db/                  # Database (Drizzle)
-│   │   ├── schema.ts        # Schema das tabelas
-│   │   └── index.ts         # Conexão com DB
+│   ├── db/                  # Database (Drizzle) ⭐
+│   │   ├── index.ts         # Conexão Neon (HTTP adapter)
+│   │   └── schema.ts        # Schema 8 tabelas + types
 │   │
-│   └── stores/              # Zustand stores
-│       └── *.ts             # State management
+│   ├── stores/              # Zustand stores
+│   │   └── *.ts             # State management
+│   │
+│   └── middleware.ts        # Clerk middleware ⭐
 │
 ├── drizzle/                 # Migrations Drizzle
 │   └── *.sql               # Arquivos de migração
@@ -60,6 +79,7 @@ maquina-de-conteudo/
 ├── .env.local              # Variáveis de ambiente (local)
 ├── .env.example            # Exemplo de env vars
 ├── components.json          # Config shadcn/ui
+├── drizzle.config.ts        # Config Drizzle ⭐
 ├── next.config.ts          # Config Next.js
 ├── tailwind.config.ts      # Config Tailwind
 ├── tsconfig.json           # Config TypeScript

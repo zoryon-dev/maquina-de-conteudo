@@ -17,6 +17,9 @@
 - **[nextjs-patterns](serena:read?memory=nextjs-patterns.md)** - Padrões Next.js App Router
 - **[shadcn-patterns](serena:read?memory=shadcn-patterns.md)** - Padrões shadcn/ui
 - **[form-validation-patterns](serena:read?memory=form-validation-patterns.md)** - Validação de formulários
+- **[queue-patterns](serena:read?memory=queue-patterns.md)** - Sistema de filas com Upstash Redis ⭐
+- **[database-patterns](serena:read?memory=database-patterns.md)** - Banco de dados com Drizzle ORM ⭐
+- **[auth-patterns](serena:read?memory=auth-patterns.md)** - Autenticação com Clerk ⭐
 
 ## Stack Tecnológica
 
