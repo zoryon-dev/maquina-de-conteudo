@@ -10,6 +10,10 @@
 
 ### Frontend
 - **[frontend-structure](serena:read?memory=frontend-structure.md)** - Estrutura de componentes e layouts (Fase 4) ⭐
+- **[settings-page](serena:read?memory=settings-page.md)** - Página de configurações completa ⭐
+
+### Backend & Features
+- **[prompt-system](serena:read?memory=prompt-system.md)** - Sistema de prompts em 4 camadas ⭐
 
 ### Padrões de Código
 - **[component-patterns](serena:read?memory=component-patterns.md)** - Padrões de componentes React e Radix UI

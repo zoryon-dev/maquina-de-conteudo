@@ -1,9 +1,9 @@
 # Plano de Desenvolvimento Inicial
 # Máquina de Conteúdo - AI Content Studio
 
-**Status**: Infraestrutura Concluída ✓ | Fase 4 em Andamento
+**Status**: Infraestrutura Concluída ✓ | Frontend Foundation Concluído ✅
 **Branch**: `feat/start-dev`
-**Data Atualização**: 2026-01-15
+**Data Atualização**: 2026-01-15 (Fase 4: 100% completa)
 
 ---
 
@@ -13,7 +13,7 @@ Este plano define a implementação da infraestrutura base da aplicação:
 1. ✅ **Neon PostgreSQL + Drizzle ORM** - Camada de dados
 2. ✅ **Clerk Authentication** - Autenticação e autorização
 3. ✅ **Sistema de Filas (Upstash Redis)** - Processamento de jobs assíncronos
-4. 🔄 **Frontend Foundation** - Interface visual e navegação
+4. ✅ **Frontend Foundation** - Interface visual e navegação
 
 ---
 
@@ -255,244 +255,140 @@ Client → API /jobs → Enqueue (Qstash)
 
 ---
 
-## Fase 4: Frontend Foundation 🔄 EM ANDAMENTO
+## Fase 4: Frontend Foundation ✅ CONCLUÍDA (100%)
 
 **Objetivo**: Criar a estrutura visual base da aplicação, focando em UI/UX antes da lógica de negócio.
 
-### Visão Geral
+### Status Final (Janeiro 2026)
 
-Esta fase estabelece a fundação visual da aplicação:
-1. **Telas de Autenticação Refinadas** - Login, logout, recuperação de senha
-2. **Dashboard Principal** - Home page com AnimatedAIChat
-3. **Estrutura de Navegação** - Menu tubelight-navbar + layout base
+| Item | Status | Arquivos |
+|------|--------|----------|
+| **Telas de Autenticação** | ✅ Concluído | `sign-in-card.tsx`, `sign-up-card.tsx`, `oauth-buttons.tsx`, `auth-layout.tsx` |
+| **Landing Page** | ✅ Concluído | `app/page.tsx` com hero e CTAs |
+| **AppLayout** | ✅ Concluído | `app-layout.tsx` com header centralizado (grid 3 colunas) |
+| **Tubelight Navbar** | ✅ Concluído | `tubelight-navbar.tsx` com detect de rota ativa |
+| **UserMenu** | ✅ Concluído | `user-menu.tsx` com Clerk UserButton |
+| **Route Groups** | ✅ Concluído | `(auth)` e `(app)` com layouts separados |
+| **AnimatedAIChat** | ✅ Concluído | `animated-ai-chat.tsx` com Lime Green e command palette |
+| **ModelSelector** | ✅ Concluído | `model-selector.tsx` + `lib/models.ts` com OpenRouter |
+| **Páginas Placeholder** | ✅ Concluído | `/library`, `/calendar`, `/sources`, `/settings` |
+| **DevHelp** | ✅ Concluído | `dev-help.tsx` (só em dev) |
+| **Settings Page** | ✅ Concluído | `/settings` com 5 seções completas |
+| **4-Layer Prompt System** | ✅ Concluído | System → User → Variables → RAG |
+| **Document Upload** | ✅ Concluído | Categorias, drag & drop, validação |
+| **Fontes Page** | ✅ Concluído | Visualização RAG, estatísticas |
 
----
-
-## 4.1 Telas de Autenticação
-
-### 4.1.1 Componentes a Criar
+### 4.1 Componentes Criados
 
 | Arquivo | Descrição |
 |---------|-----------|
-| `src/components/auth/sign-in-card.tsx` | Card de login estilizado |
-| `src/components/auth/sign-up-card.tsx` | Card de cadastro estilizado |
-| `src/components/auth/forgot-password-card.tsx` | Recuperação de senha |
-| `src/components/auth/reset-password-card.tsx` | Reset de senha |
-| `src/components/auth/oauth-buttons.tsx` | Botões OAuth (Google, GitHub) |
+| `src/app/page.tsx` | Landing page pública com hero section |
+| `src/app/(auth)/layout.tsx` | Layout para páginas não autenticadas |
+| `src/app/(auth)/sign-in/[[...sign-in]]/page.tsx` | Página de sign-in |
+| `src/app/(auth)/sign-up/[[...sign-up]]/page.tsx` | Página de sign-up |
+| `src/app/(app)/layout.tsx` | Layout com AppLayout para rotas protegidas |
+| `src/app/(app)/dashboard/page.tsx` | Dashboard com AnimatedAIChat |
+| `src/components/app-layout.tsx` | Header com logo, navbar centralizada, user menu |
+| `src/components/auth/sign-in-card.tsx` | Card de login com Clerk |
+| `src/components/auth/sign-up-card.tsx` | Card de cadastro com Clerk |
+| `src/components/auth/oauth-buttons.tsx` | Botões Google + Discord |
+| `src/components/auth/dev-help.tsx` | Ajuda em desenvolvimento |
+| `src/components/auth/user-menu.tsx` | UserButton do Clerk |
 | `src/components/auth/auth-layout.tsx` | Layout container para auth |
+| `src/components/auth/forgot-password-card.tsx` | Recuperação de senha |
+| `src/components/dashboard/animated-ai-chat.tsx` | Chat com command palette |
+| `src/components/chat/model-selector.tsx` | Dropdown para modelos OpenRouter |
+| `src/components/page-placeholder.tsx` | Placeholder para páginas futuras |
+| `src/lib/models.ts` | Constantes de modelos OpenRouter |
+| `src/proxy.ts` | Middleware Clerk (renomeado de middleware.ts) |
+| `src/lib/system-prompts.ts` | Seed de prompts do sistema e constantes de camadas |
+| `src/app/(app)/settings/page.tsx` | Página de configurações com 4 abas |
+| `src/app/(app)/settings/components/sections/` | Componentes de cada seção de settings |
+| `src/app/(app)/settings/actions/save-settings.ts` | Server Actions para settings |
+| `src/app/(app)/settings/components/settings-tabs.tsx` | Tabs navigation (4 abas) |
+| `src/app/(app)/settings/components/settings-page.tsx` | Client component principal |
+| `src/app/(app)/sources/page.tsx` | Página de fontes com enhanced navbar |
+| `src/app/(app)/sources/components/documents-tab.tsx` | Gerenciamento de documentos |
+| `src/app/(app)/sources/components/semantic-search-tab.tsx` | Busca semântica |
+| `src/app/(app)/sources/components/stats-tab.tsx` | Estatísticas de embeddings |
+| `src/app/(app)/sources/components/upload-dialog.tsx` | Dialog de upload (categorizado) |
+| `src/app/(app)/sources/components/document-card.tsx` | Card individual de documento |
+| `src/app/(app)/sources/actions/sources-actions.ts` | Server Actions para /fontes |
 
-### 4.1.2 Design Tokens
+### 4.2 Design System Implementado
 
 ```css
-/* Cores do Design System */
---primary: hsl(84 76% 55%);      /* Lime Green */
---primary-hover: hsl(84 76% 48%);
---bg-primary: #0a0a0f;           /* Fundo principal */
---bg-card: #1a1a2e;              /* Cards */
---border-color: rgba(255,255,255,0.1);
---text-primary: #ffffff;
---text-secondary: rgba(255,255,255,0.7);
+/* Primary - Lime Green */
+--primary: hsl(84 76% 55%);      /* #a3e635 */
+
+/* Backgrounds (Dark Mode Only) */
+--bg-primary: #0a0a0f;
+--bg-card: #1a1a2e;
+--bg-overlay: #0a0a0f/90;
+
+/* Text (Dark Mode) */
+--text-white: #ffffff;
+--text-white/90: rgba(255,255,255,0.9);
+--text-white/70: rgba(255,255,255,0.7);
+--text-white/40: rgba(255,255,255,0.4);
 ```
 
-### 4.1.3 Padrão Glassmorphism
-
-```typescript
-// Aplicar a todos os cards de autenticação
-className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl shadow-2xl"
+**IMPORTANTE**: Devido a problemas com Tailwind v4 `@theme inline`, classes explícitas foram criadas em `globals.css`:
+```css
+.bg-primary { background-color: hsl(84 76% 55%); }
+.text-primary { color: hsl(84 76% 55%); }
+.border-primary { border-color: hsl(84 76% 55%); }
 ```
 
-### 4.1.4 Checklist
+### 4.3 OpenRouter Models Configurados
 
-- [ ] Criar `auth-layout.tsx` com background animado
-- [ ] Criar `sign-in-card.tsx` com inputs estilizados
-- [ ] Criar `sign-up-card.tsx` com validações
-- [ ] Criar `forgot-password-card.tsx`
-- [ ] Criar `oauth-buttons.tsx` com ícones
-- [ ] Atualizar páginas de sign-in/sign-up para usar novos componentes
-- [ ] Adicionar transições e animações
+**Modelos de Texto:**
+- `openai/gpt-5.2` (default)
+- `openai/gpt-5.1`, `openai/gpt-5.2-chat`
+- `google/gemini-3-flash-preview`, `google/gemini-3-pro-preview`
+- `anthropic/claude-sonnet-4.5`, `claude-opus-4.5`, `claude-haiku-4.5`
+- `x-ai/grok-4.1-fast`, `x-ai/grok-4-fast`
 
----
+**Modelos de Imagem:**
+- `openai/gpt-5-image` (default)
+- `google/gemini-3-pro-image-preview`
+- `black-forest-labs/flux.2-pro`, `flux.2-flex`, `flux.2-max`
+- `sourceful/riverflow-v2-max-preview`
+- `bytedance-seed/seedream-4.5`
 
-## 4.2 Dashboard Principal (Chat AI)
+### 4.4 Command Palette Implementada
 
-### 4.2.1 AnimatedAIChat Component
+| Comando | Descrição | Status |
+|---------|-----------|--------|
+| `/texto` | Criar texto para redes sociais | ✅ UI pronta |
+| `/imagem` | Gerar imagem com IA | ✅ UI pronta |
+| `/carrossel` | Criar carrossel para post | ✅ UI pronta |
+| `/agendar` | Agendar publicação | ✅ UI pronta |
+| `/fontes` | Adicionar fonte de conteúdo | ✅ UI pronta |
+| `/especialistas` | Ver especialistas disponíveis | ✅ UI pronta |
 
-**Fonte**: 21st.dev - `/ui animated-ai-chat`
+### 4.5 Checklist Fase 4 - Status
 
-**Adaptações Necessárias**:
-- Substituir cores originais por Lime Green do sistema
-- Ajustar para dark mode nativo
-- Integrar com design system existente
-- Adicionar glassmorphism effects
-
-### 4.2.2 Estrutura do Dashboard
-
-```
-src/app/dashboard/
-├── page.tsx              # Server Component principal
-├── loading.tsx           # Skeleton loading
-└── components/
-    ├── chat-container.tsx    # "use client" - Container do chat
-    ├── chat-message.tsx      # Componente de mensagem
-    ├── chat-input.tsx        # Input com textarea
-    └── chat-header.tsx       # Header com título e controles
-```
-
-### 4.2.3 Integração com Clerk
-
-```typescript
-// src/app/dashboard/page.tsx
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
-
-export default async function DashboardPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
-
-  return <ChatContainer userId={userId} />;
-}
-```
-
-### 4.2.4 Checklist
-
-- [ ] Instalar/baixar componente AnimatedAIChat do 21st.dev
-- [ ] Adaptar cores para Lime Green (hsl(84 76% 55%))
-- [ ] Criar estrutura de diretórios `dashboard/`
-- [ ] Implementar `chat-container.tsx` com estado de mensagens
-- [ ] Implementar `chat-message.tsx` com avatar e timestamp
-- [ ] Implementar `chat-input.tsx` com auto-resize
-- [ ] Adicionar loading states e skeleton screens
-- [ ] Testar responsividade
-
----
-
-## 4.3 Estrutura de Navegação
-
-### 4.3.1 Tubelight Navbar
-
-**Status**: Componente já instalado em `src/components/ui/tubelight-navbar.tsx`
-
-**Configuração Necessária**:
-
-```typescript
-// Menu items
-const menuItems = [
-  { label: "Chat", href: "/dashboard", icon: MessageSquare },
-  { label: "Biblioteca", href: "/library", icon: Library },
-  { label: "Calendário", href: "/calendar", icon: Calendar },
-  { label: "Fontes", href: "/sources", icon: Globe },
-  { label: "Configurações", href: "/settings", icon: Settings },
-];
-```
-
-### 4.3.2 Layout Base
-
-```typescript
-// src/components/app-layout.tsx
-interface AppLayoutProps {
-  children: React.ReactNode;
-}
-
-export function AppLayout({ children }: AppLayoutProps) {
-  return (
-    <div className="min-h-screen bg-[--bg-primary]">
-      <TubelightNavbar />
-      <main className="container mx-auto px-4 py-6">
-        {children}
-      </main>
-    </div>
-  );
-}
-```
-
-### 4.3.3 Estrutura de Rotas
-
-```
-src/app/
-├── (auth)/
-│   ├── sign-in/[[...sign-in]]/page.tsx
-│   └── sign-up/[[...sign-up]]/page.tsx
-│
-├── (app)/                    # Grupo com layout próprio
-│   ├── layout.tsx            # Layout com AppLayout + Clerk auth
-│   ├── dashboard/            # Chat AI (rota padrão após login)
-│   ├── library/              # Biblioteca de conteúdo
-│   ├── calendar/             # Calendário de posts
-│   ├── sources/              # Fontes de scraping
-│   └── settings/             # Configurações do usuário
-```
-
-### 4.3.4 Checklist
-
-- [ ] Configurar itens do menu tubelight-navbar
-- [ ] Criar `AppLayout` component
-- [ ] Criar grupo de rotas `(app)` com layout
-- [ ] Implementar layouts para cada rota principal
-- [ ] Adicionar proteção de autenticação no layout
-- [ ] Testar navegação entre páginas
-- [ ] Adicionar página inicial (landing) pública
-
----
-
-## 4.4 User Menu Component
-
-### 4.4.1 Componente a Criar
-
-| Arquivo | Descrição |
-|---------|-----------|
-| `src/components/auth/user-menu.tsx` | Menu de usuário no navbar |
-
-### 4.4.2 Funcionalidades
-
-```typescript
-// Integrado com tubelight-navbar
-<UserButton
-  appearance={{
-    elements: {
-      avatarBox: "w-10 h-10",
-      card: "bg-[--bg-card] border-white/10",
-    },
-  }}
-  afterSignOutUrl="/"
-/>
-```
-
-### 4.4.3 Checklist
-
-- [ ] Criar `user-menu.tsx`
-- [ ] Integrar com tubelight-navbar
-- [ ] Adicionar link para configurações
-- [ ] Adicionar botão de logout
-
----
-
-## 4.5 Ordem de Implementação Sugerida
-
-```
-1. Estrutura de Rotas e Layout
-   ├─ Criar grupo (app) com layout protegido
-   ├─ Implementar AppLayout component
-   ├─ Configurar tubelight-navbar
-   └─ Criar user-menu component
-
-2. Telas de Autenticação
-   ├─ Refinar sign-in/sign-up existentes
-   ├─ Adicionar forgot-password
-   ├─ Implementar oauth-buttons
-   └─ Aplicar design system consistente
-
-3. Dashboard com Chat AI
-   ├─ Obter componente AnimatedAIChat
-   ├─ Adaptar cores e estilos
-   ├─ Criar estrutura do dashboard
-   └─ Integrar com Clerk
-
-4. Páginas Placeholder
-   ├─ /library (placeholder)
-   ├─ /calendar (placeholder)
-   ├─ /sources (placeholder)
-   └─ /settings (placeholder)
-```
+- [x] Criar `auth-layout.tsx` com background animado
+- [x] Criar `sign-in-card.tsx` com inputs estilizados
+- [x] Criar `sign-up-card.tsx` com validações
+- [x] Criar `forgot-password-card.tsx`
+- [x] Criar `oauth-buttons.tsx` com ícones (Google, Discord)
+- [x] Atualizar páginas de sign-in/sign-up para usar novos componentes
+- [x] Adicionar transições e animações (Framer Motion)
+- [x] Instalar/baixar componente AnimatedAIChat do 21st.dev
+- [x] Adaptar cores para Lime Green
+- [x] Criar estrutura de diretórios `dashboard/`
+- [x] Implementar chat com auto-resize e command palette
+- [x] Adicionar loading states
+- [x] Configurar itens do menu tubelight-navbar
+- [x] Criar `AppLayout` component com header centralizado
+- [x] Criar grupo de rotas `(app)` com layout
+- [x] Criar grupo de rotas `(auth)` com layout
+- [x] Implementar páginas placeholder
+- [x] Adicionar página inicial (landing) pública
+- [x] Integrar ModelSelector com OpenRouter
+- [x] Renomear middleware.ts para proxy.ts (Next.js 16)
 
 ---
 
@@ -507,27 +403,142 @@ src/app/
 // - Dados estáticos
 
 // ⚠️ Client Components (use client quando necessário)
-// - ChatContainer (interatividade)
+// - AnimatedAIChat (interatividade)
+// - AppLayout (event handlers)
 // - Formulários
 // - Componentes com useState/useEffect
 ```
 
-### Padrão de Composição
+### Estrutura de Rotas Final
 
 ```
-Page (Server)
-  └─ Layout (Server)
-      └─ AppLayout (Server)
-          ├─ Navbar (Client)
-          │   └─ UserMenu (Client)
-          └─ Main Content
-              ├─ Server Components
-              └─ Client Components (quando necessário)
+src/app/
+├── (auth)/                          # Route group - SEM navbar
+│   ├── layout.tsx                   # AuthLayout
+│   ├── sign-in/[[...sign-in]]/
+│   │   └── page.tsx                 # Usa SignInCard
+│   └── sign-up/[[...sign-up]]/
+│       └── page.tsx                 # Usa SignUpCard
+│
+├── (app)/                           # Route group - COM navbar
+│   ├── layout.tsx                   # AppLayout + Navbar
+│   ├── dashboard/page.tsx           # Chat AI
+│   ├── library/page.tsx             # Placeholder
+│   ├── calendar/page.tsx            # Placeholder
+│   ├── sources/page.tsx             # Placeholder
+│   └── settings/page.tsx            # Placeholder
+│
+├── layout.tsx                       # Root layout (ClerkProvider)
+└── page.tsx                         # Landing page pública
 ```
 
 ---
 
-## Fase 5: Estrutura Final de Arquivos (Após Fase 4)
+## 4.7 Próximos Passos Fase 4 - Pendentes de Decisão
+
+### 🔴 PENDENTE: Sistema de Agentes Especializados
+
+**Definição do `idea.md`:** 4 agentes com handles, cores e system prompts:
+
+| Agente | Handle | Cor | Ícone | Propósito |
+|--------|--------|-----|-------|-----------|
+| **Zory** | `@zory` | Cyan (190°) | Bot | Assistente generalista |
+| **Estrategista** | `@estrategista` | Roxo (262°) | Target | Posicionamento, tom de voz |
+| **Calendário** | `@calendario` | Azul (199°) | Calendar | Frequência de posts |
+| **Criador** | `@criador` | Verde (142°) | Sparkles | Gera posts/carrosséis |
+
+**Ações Necessárias:**
+- [ ] Substituir command palette de `/comando` para `@agente`
+- [ ] Implementar cores temáticas para cada agente
+- [ ] Criar system prompts configuráveis via settings
+- [ ] Adicionar ícones específicos para cada agente
+
+**Decisão Pendente:** Manter ambos (`/comando` E `@agente`) ou substituir completamente?
+
+---
+
+### 🟡 PENDENTE: Integração OpenRouter API
+
+**Status:** Componente ModelSelector criado, mas sem integração real com API.
+
+**Ações Necessárias:**
+- [ ] Criar API route `/api/chat/stream` para streaming
+- [ ] Implementar chamada real à OpenRouter com API key do usuário
+- [ ] Adicionar suporte a streaming de respostas
+- [ ] Implementar rate limiting por usuário
+- [ ] Tratar erros de API
+
+**Decisão Pendente:** API key do usuário fica em settings ou é solicitada no primeiro uso?
+
+---
+
+### 🟢 PENDENTE: Desenvolvimento de Páginas Funcionais
+
+| Página | Prioridade | Dependências | Ações |
+|--------|-----------|--------------|-------|
+| `/library` | Alta | Database | CRUD de library_items, upload, preview |
+| `/settings` | Alta | Database | Configuração de API keys, system prompts |
+| `/calendar` | Média | Database | Visualização de agendamentos |
+| `/sources` | Média | Database | Gerenciamento RAG, upload de docs |
+
+---
+
+### 🔵 PENDENTE: Histórico de Conversas
+
+**Status:** Schema do banco tem tabelas `chats` e `messages`, mas sem implementação.
+
+**Ações Necessárias:**
+- [ ] Criar API routes para CRUD de chats
+- [ ] Implementar sidebar com histórico
+- [ ] Adicionar funcionalidade de criar nova conversa
+- [ ] Implementar renomear/arquivar conversas
+- [ ] Adicionar busca no histórico
+
+**Decisão Pendente:** Histórico por agente ou geral?
+
+---
+
+## 4.8 Resumo Fase 4
+
+```
+✅ CONCLUÍDO (100%):
+├── Estrutura visual base completa
+├── Autenticação com design refinado
+├── AppLayout com navbar centralizada
+├── AnimatedAIChat com command palette
+├── ModelSelector para OpenRouter
+├── Landing page pública
+├── Páginas placeholder criadas
+├── Design system com Lime Green
+├── Settings page com 4 seções funcionais
+│   ├── API Keys (com criptografia AES-256-GCM)
+│   ├── System Prompts (4-layer architecture)
+│   ├── User Variables (expansão via IA)
+│   └── Models (seleção de modelos padrão)
+├── Fontes page com gerenciamento completo RAG (Janeiro 2026)
+│   ├── Enhanced navbar (3 colunas, animado)
+│   ├── UploadDialog com categorização
+│   ├── DocumentsTab com filtros e busca
+│   ├── SemanticSearchTab (busca semântica)
+│   ├── StatsTab (estatísticas de embeddings)
+│   └── Ação "Documentos" removida de /settings
+└── Sistema de prompts em 4 camadas
+    ├── Layer 1: System Prompt (dev-defined)
+    ├── Layer 2: User Prompt (customizável)
+    ├── Layer 3: Variáveis Processadas (IA-enriched)
+    └── Layer 4: RAG Context (document embeddings)
+
+⏳ PENDENTE (Fases Futuras):
+├── Sistema de @agentes especializados
+├── Integração real com OpenRouter API
+├── Histórico de conversas
+├── Páginas funcionais (library, calendar)
+└── Streaming de respostas
+```
+
+---
+
+## 4.9 Estrutura Final de Arquivos (Status Atual)
 
 ```
 src/
@@ -535,29 +546,36 @@ src/
 │   ├── index.ts              # ✅ Conexão DB (Neon HTTP)
 │   └── schema.ts             # ✅ 8 tabelas
 │
-├── middleware.ts             # ✅ Clerk middleware
+├── proxy.ts                  # ✅ Clerk middleware (renomeado)
 │
 ├── app/
-│   ├── layout.tsx            # ✅ +ClerkProvider
-│   ├── sign-in/[[...sign-in]]/page.tsx    # ✅ Criado
-│   ├── sign-up/[[...sign-up]]/page.tsx    # ✅ Criado
-│   ├── (auth)/               # 🔄 Grupo de rotas públicas
-│   ├── (app)/                # 🔄 Grupo de rotas protegidas
-│   │   ├── layout.tsx        # 🔄 AppLayout + Navbar
-│   │   ├── dashboard/        # 🔄 Chat AI
-│   │   ├── library/          # 🔄 Placeholder
-│   │   ├── calendar/         # 🔄 Placeholder
-│   │   ├── sources/          # 🔄 Placeholder
-│   │   └── settings/         # 🔄 Placeholder
-│   ├── api/
-│   │   ├── webhooks/clerk/route.ts  # ✅ Criado
-│   │   └── jobs/
-│   │       ├── route.ts      # ✅ Criado
-│   │       ├── [id]/route.ts # ✅ Criado
-│   │       └── workers/route.ts  # ✅ Criado
-│   └── page.tsx              # 🔄 Landing page pública
+│   ├── layout.tsx            # ✅ +ClerkProvider + dark mode
+│   ├── globals.css           # ✅ Classes explícitas primary
+│   ├── page.tsx              # ✅ Landing page
+│   ├── (auth)/               # ✅ Grupo de rotas públicas
+│   │   ├── layout.tsx        # ✅ AuthLayout
+│   │   ├── sign-in/[[...sign-in]]/page.tsx  # ✅
+│   │   └── sign-up/[[...sign-up]]/page.tsx  # ✅
+│   ├── (app)/                # ✅ Grupo de rotas protegidas
+│   │   ├── layout.tsx        # ✅ AppLayout + Navbar
+│   │   ├── dashboard/page.tsx# ✅ AnimatedAIChat
+│   │   ├── library/page.tsx  # ✅ Placeholder
+│   │   ├── calendar/page.tsx # ✅ Placeholder
+│   │   ├── sources/page.tsx  # ✅ Enhanced navbar + upload
+│   │   │   └── components/
+│   │   │       ├── documents-tab.tsx      # ✅ Gerenciamento
+│   │   │       ├── semantic-search-tab.tsx # ✅ Busca semântica
+│   │   │       ├── stats-tab.tsx          # ✅ Estatísticas
+│   │   │       ├── upload-dialog.tsx      # ✅ Upload categorizado
+│   │   │       └── document-card.tsx      # ✅ Card individual
+│   │   │   └── actions/
+│   │   │       └── sources-actions.ts     # ✅ Server Actions
+│   │   └── settings/page.tsx # ✅ 4 abas (docs movido p/ fontes)
+│   └── api/
+│       └── webhooks/clerk/route.ts  # ✅ Criado
 │
 ├── lib/
+│   ├── models.ts             # ✅ OpenRouter models
 │   ├── queue/
 │   │   ├── types.ts          # ✅ Criado
 │   │   ├── client.ts         # ✅ Upstash Redis client
@@ -565,11 +583,21 @@ src/
 │   └── utils.ts              # ✅ cn() helper
 │
 ├── components/
-│   ├── ui/                   # ✅ shadcn/ui (30+ componentes)
-│   │   └── tubelight-navbar.tsx  # ✅ Instalado
+│   ├── ui/                   # ✅ shadcn/ui + tubelight-navbar
 │   ├── auth/
-│   │   └── user-menu.tsx     # 🔄 Pendente
-│   └── app-layout.tsx        # 🔄 Pendente
+│   │   ├── sign-in-card.tsx  # ✅
+│   │   ├── sign-up-card.tsx  # ✅
+│   │   ├── oauth-buttons.tsx # ✅
+│   │   ├── dev-help.tsx      # ✅
+│   │   ├── user-menu.tsx     # ✅
+│   │   ├── auth-layout.tsx   # ✅
+│   │   └── forgot-password-card.tsx # ✅
+│   ├── chat/
+│   │   └── model-selector.tsx# ✅
+│   ├── dashboard/
+│   │   └── animated-ai-chat.tsx # ✅
+│   ├── app-layout.tsx        # ✅ Grid centralizado
+│   └── page-placeholder.tsx  # ✅
 │
 └── hooks/
     └── use-job-status.ts     # ⏸️ Futuro
@@ -577,6 +605,7 @@ src/
 drizzle.config.ts             # ✅ Criado
 package.json                  # ✅ Scripts db:* adicionados
 .env.example                  # ✅ Atualizado
+DEV_AUTH.md                    # ✅ Documentação auth
 ```
 
 ---
@@ -614,42 +643,91 @@ WORKER_SECRET=...
 | Fase 1 | Neon Database + Drizzle ORM | ✅ Concluída |
 | Fase 2 | Clerk Authentication | ✅ Concluída |
 | Fase 3 | Sistema de Filas (Upstash) | ✅ Concluída |
-| **Fase 4** | **Frontend Foundation** | **🔄 Em Andamento** |
-| Fase 5 | Lógica de Negócio | ⏳ Futuro |
+| **Fase 4** | **Frontend Foundation** | **✅ Concluída (100%)** |
+| Fase 5 | Agentes Especializados | ⏳ Pendente de Decisão |
 | Fase 6 | Integrações AI | ⏳ Futuro |
+
+---
+
+## Atualização Recente (Janeiro 2026)
+
+### Refatoração da Página /fontes
+
+**Alterações realizadas:**
+- ✅ Enhanced navbar com grid layout (3 colunas)
+- ✅ Active indicator animado (Framer Motion `layoutId`)
+- ✅ UploadDialog integrado com categorização
+- ✅ Botão Upload integrado ao DocumentsTab
+- ✅ Filtros por categoria com scroll horizontal
+- ✅ Estatísticas visuais (cards de contagem)
+- ✅ Busca integrada com documentos
+- ✅ Remoção da aba "Documentos" de /settings
+- ✅ Criação de `sources-actions.ts` com operações específicas
+
+**Arquivos criados:**
+- `src/app/(app)/sources/components/upload-dialog.tsx`
+- `src/app/(app)/sources/actions/sources-actions.ts`
+
+**Arquivos modificados:**
+- `src/app/(app)/sources/page.tsx` - Enhanced navbar
+- `src/app/(app)/sources/components/documents-tab.tsx` - Upload integrado
+- `src/app/(app)/settings/components/settings-tabs.tsx` - Docs removido
+- `src/app/(app)/settings/components/settings-page.tsx` - Docs removido
 
 ---
 
 ## Próximos Passos (Após Fase 4)
 
-1. **Funcionalidades de Chat AI**
-   - Conectar com OpenRouter API
-   - Implementar streaming de respostas
-   - Histórico de conversas
-   - Multi-modelo selection
+### 🔴 URGENTE - Decisão Necessária: Sistema de @agentes
 
-2. **Biblioteca de Conteúdo**
-   - CRUD de library_items
-   - Upload de arquivos
-   - Preview de conteúdo
-   - Status management
+**Pergunta:** Devemos manter os comandos `/texto`, `/imagem` OU substituir por `@criador`, `@zory`, etc?
 
-3. **Calendário de Publicações**
-   - Visualização mensal/semanal
-   - Agendamento de posts
-   - Integração com redes sociais
+**Opções:**
+1. **Híbrido:** Manter `/comando` para ações rápidas E adicionar `@agente` para especializar
+2. **Substituição:** Usar apenas `@agente` (ex: `@criador criar post sobre X`)
+3. **Separado:** Comandos `/` em uma paleta, agentes `@` em outra
 
-4. **Fontes de Conteúdo**
-   - CRUD de sources
-   - Web scraping interface
-   - Configurações de extração
+**Referência:** `.context/docs/development-plan/idea.md` - Seção "Sistema de Agentes de IA"
 
-5. **Painel de Configurações**
-   - Configuração de APIs do usuário
-   - OpenRouter API key
-   - Tavily API key
-   - Firecrawl API key
-   - Preferências do sistema
+---
+
+### 🟡 ALTA PRIORIDADE - Integração OpenRouter
+
+1. **API Route `/api/chat/stream`**
+   - Endpoint para streaming de respostas OpenRouter
+   - Autenticação via userId (Clerk)
+   - Rate limiting por usuário
+
+2. **Frontend Integration**
+   - Conectar AnimatedAIChat com API real
+   - Exibir typing indicator durante streaming
+   - Tratar erros de API (timeout, quota, etc.)
+
+3. **API Key Management**
+   - Decisão: Onde configurar API key do usuário?
+     - Opção A: Campo em `/settings`
+     - Opção B: Solicitar no primeiro uso
+     - Opção C: Ambos
+
+---
+
+### 🟢 MÉDIA PRIORIDADE - Páginas Funcionais
+
+| Página | Funcionalidades Principais | Dependências |
+|--------|---------------------------|--------------|
+| `/settings` | API keys, system prompts, preferências | Database |
+| `/library` | CRUD de conteúdo, preview, status | Database |
+| `/calendar` | Visualização de agendamentos | Database |
+| `/sources` | Upload docs, gerenciar RAG | Database |
+
+---
+
+### 🔵 BAIXA PRIORIDADE - Histórico de Conversas
+
+- Sidebar com lista de conversas
+- Criar/nova/renomear/arquivar conversas
+- Busca no histórico
+- Decisão: Histórico por agente ou geral?
 
 ---
 
@@ -659,8 +737,9 @@ WORKER_SECRET=...
 - `.context/agents/clerk-auth-specialist.md`
 - `.serena/memories/` - Documentação de padrões
 - `.context/docs/architecture.md` - Arquitetura completa
-- `.context/docs/development-plan/idea.md` - Visão geral do projeto
+- `.context/docs/development-plan/idea.md` - Visão completa do projeto (agentes!)
 - `.context/docs/known-and-corrected-errors/` - Erros conhecidos
+- `.context/docs/insights/03-fase-4-frontend-foundation.md` - Insights Fase 4
 
 ---
 

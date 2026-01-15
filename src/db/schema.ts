@@ -140,7 +140,10 @@ export const documents = pgTable(
     content: text("content").notNull(),
     sourceUrl: text("source_url"),
     fileType: text("file_type"), // pdf, txt, md, etc.
+    category: text("category").default("general"), // Para seleção em massa no RAG
     metadata: text("metadata"), // JSON
+    embedded: boolean("embedded").default(false).notNull(), // Se possui embeddings gerados
+    embeddingModel: text("embedding_model").default("voyage-large-2"), // Modelo usado
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at"),
@@ -148,6 +151,8 @@ export const documents = pgTable(
   (table) => [
     index("documents_user_id_idx").on(table.userId),
     index("documents_created_at_idx").on(table.createdAt),
+    index("documents_category_idx").on(table.category),
+    index("documents_embedded_idx").on(table.embedded),
   ]
 );
 
@@ -227,14 +232,7 @@ export const jobs = pgTable(
   ]
 );
 
-// Relations
-export const usersRelations = relations(users, ({ many }) => ({
-  chats: many(chats),
-  libraryItems: many(libraryItems),
-  documents: many(documents),
-  sources: many(sources),
-  jobs: many(jobs),
-}));
+// Relations - usersRelations movido para SETTINGS RELATIONS para incluir settings tables
 
 export const chatsRelations = relations(chats, ({ one, many }) => ({
   user: one(users, {
@@ -259,12 +257,7 @@ export const libraryItemsRelations = relations(libraryItems, ({ one, many }) => 
   scheduledPosts: many(scheduledPosts),
 }));
 
-export const documentsRelations = relations(documents, ({ one }) => ({
-  user: one(users, {
-    fields: [documents.userId],
-    references: [users.id],
-  }),
-}));
+// documentsRelations - movido para SETTINGS RELATIONS para incluir embeddings
 
 export const sourcesRelations = relations(sources, ({ one }) => ({
   user: one(users, {
@@ -287,8 +280,217 @@ export const jobsRelations = relations(jobs, ({ one }) => ({
   }),
 }));
 
+// ========================================
+// SETTINGS TABLES
+// ========================================
+
+// 9. USER_SETTINGS - Configurações gerais do usuário
+export const userSettings = pgTable(
+  "user_settings",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .unique()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // Modelos padrão (fallback)
+    defaultTextModel: text("default_text_model")
+      .notNull()
+      .default("openai/gpt-5.2"),
+    defaultImageModel: text("default_image_model")
+      .notNull()
+      .default("openai/gpt-5-image"),
+    embeddingModel: text("embedding_model")
+      .notNull()
+      .default("voyage-large-2"),
+    variableProcessingModel: text("variable_processing_model")
+      .notNull()
+      .default("google/gemini-3-flash-preview"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("user_settings_user_id_idx").on(table.userId),
+  ]
+);
+
+// 10. USER_API_KEYS - API keys encriptadas
+export const userApiKeys = pgTable(
+  "user_api_keys",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(), // openrouter, voyage, firecrawl, tavily, screenshotone, apify
+    encryptedKey: text("encrypted_key").notNull(),
+    nonce: text("nonce").notNull(), // Para AES-256-GCM
+    isValid: boolean("is_valid"), // null = não validado ainda
+    lastValidatedAt: timestamp("last_validated_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("user_api_keys_user_id_idx").on(table.userId),
+    index("user_api_keys_provider_idx").on(table.provider),
+    unique("user_api_keys_user_provider_unique").on(table.userId, table.provider),
+  ]
+);
+
+// 11. SYSTEM_PROMPTS - Prompts de sistema (controlado pelos devs)
+export const systemPrompts = pgTable(
+  "system_prompts",
+  {
+    id: serial("id").primaryKey(),
+    agent: text("agent").notNull().unique(), // zory, estrategista, calendario, criador
+    prompt: text("prompt").notNull(),
+    version: integer("version").notNull().default(1),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("system_prompts_agent_idx").on(table.agent),
+  ]
+);
+
+// 12. USER_PROMPTS - Sobrescrita de prompts pelo usuário
+export const userPrompts = pgTable(
+  "user_prompts",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    agent: text("agent").notNull(), // zory, estrategista, calendario, criador
+    prompt: text("prompt").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("user_prompts_user_id_idx").on(table.userId),
+    unique("user_prompts_user_agent_unique").on(table.userId, table.agent),
+  ]
+);
+
+// 13. USER_VARIABLES - Variáveis personalizáveis do usuário
+export const userVariables = pgTable(
+  "user_variables",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    variableKey: text("variable_key").notNull(), // tone, niche, targetAudience, platform, etc.
+    variableValue: text("variable_value").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("user_variables_user_id_idx").on(table.userId),
+    index("user_variables_key_idx").on(table.variableKey),
+    unique("user_variables_user_key_unique").on(table.userId, table.variableKey),
+  ]
+);
+
+// 14. DOCUMENT_EMBEDDINGS - Embeddings para RAG
+export const documentEmbeddings = pgTable(
+  "document_embeddings",
+  {
+    id: serial("id").primaryKey(),
+    documentId: integer("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    embedding: text("embedding").notNull(), // Vetor serializado como JSON string
+    model: text("model").notNull().default("voyage-large-2"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("document_embeddings_document_id_idx").on(table.documentId),
+  ]
+);
+
+// Update documents table to add document_type
+// Adicionar coluna via migration (não quebra schema atual)
+
+// ========================================
+// SETTINGS RELATIONS
+// ========================================
+
+export const userSettingsRelations = relations(userSettings, ({ one }) => ({
+  user: one(users, {
+    fields: [userSettings.userId],
+    references: [users.id],
+  }),
+}));
+
+export const userApiKeysRelations = relations(userApiKeys, ({ one }) => ({
+  user: one(users, {
+    fields: [userApiKeys.userId],
+    references: [users.id],
+  }),
+}));
+
+export const userPromptsRelations = relations(userPrompts, ({ one }) => ({
+  user: one(users, {
+    fields: [userPrompts.userId],
+    references: [users.id],
+  }),
+}));
+
+export const userVariablesRelations = relations(userVariables, ({ one }) => ({
+  user: one(users, {
+    fields: [userVariables.userId],
+    references: [users.id],
+  }),
+}));
+
+export const documentEmbeddingsRelations = relations(documentEmbeddings, ({ one }) => ({
+  document: one(documents, {
+    fields: [documentEmbeddings.documentId],
+    references: [documents.id],
+  }),
+}));
+
+// Update documents relations to include embeddings
+export const documentsRelations = relations(documents, ({ one, many }) => ({
+  user: one(users, {
+    fields: [documents.userId],
+    references: [users.id],
+  }),
+  embeddings: many(documentEmbeddings),
+}));
+
+// Update users relations to include settings tables
+export const usersRelations = relations(users, ({ many }) => ({
+  chats: many(chats),
+  libraryItems: many(libraryItems),
+  documents: many(documents),
+  sources: many(sources),
+  jobs: many(jobs),
+  settings: many(userSettings),
+  apiKeys: many(userApiKeys),
+  prompts: many(userPrompts),
+  variables: many(userVariables),
+}));
+
+// ========================================
+// TYPE EXPORTS - SETTINGS
+// ========================================
+
+export type UserSettings = typeof userSettings.$inferSelect;
+export type NewUserSettings = typeof userSettings.$inferInsert;
+export type UserApiKey = typeof userApiKeys.$inferSelect;
+export type NewUserApiKey = typeof userApiKeys.$inferInsert;
+export type SystemPrompt = typeof systemPrompts.$inferSelect;
+export type NewSystemPrompt = typeof systemPrompts.$inferInsert;
+export type UserPrompt = typeof userPrompts.$inferSelect;
+export type NewUserPrompt = typeof userPrompts.$inferInsert;
+export type UserVariable = typeof userVariables.$inferSelect;
+export type NewUserVariable = typeof userVariables.$inferInsert;
+export type DocumentEmbedding = typeof documentEmbeddings.$inferSelect;
+export type NewDocumentEmbedding = typeof documentEmbeddings.$inferInsert;
+
 // Type exports
-export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Chat = typeof chats.$inferSelect;
 export type NewChat = typeof chats.$inferInsert;

@@ -1,17 +1,11 @@
-import { Settings } from "lucide-react"
-import { PagePlaceholder } from "@/components/page-placeholder"
-
 /**
- * Configurações
+ * Settings Page
  *
- * Gerencie suas configurações e integrações.
+ * Gerencie configurações de API, prompts e variáveis do sistema.
  */
+
+import { SettingsPage as SettingsPageComponent } from "./components/settings-page"
+
 export default function SettingsPage() {
-  return (
-    <PagePlaceholder
-      title="Configurações"
-      description="Configure suas APIs (OpenRouter, Tavily, Firecrawl), preferências de sistema e integrações com redes sociais."
-      icon={Settings}
-    />
-  )
+  return <SettingsPageComponent />
 }
