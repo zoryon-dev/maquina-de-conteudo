@@ -2,22 +2,21 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 // Rotas protegidas - requerem autenticação
 const isProtectedRoute = createRouteMatcher([
-  "/chat(.*)",
+  "/dashboard(.*)",
   "/library(.*)",
   "/calendar(.*)",
   "/sources(.*)",
   "/settings(.*)",
 ]);
 
-// Rotas públicas - acessíveis sem autenticação
-const isPublicRoute = createRouteMatcher([
-  "/",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/api/webhooks(.*)", // Webhooks devem ser públicos
-]);
-
 export default clerkMiddleware(async (auth, request) => {
+  // Redirecionar usuário autenticado da home para dashboard
+  if (request.nextUrl.pathname === "/" && (await auth()).userId) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    return Response.redirect(url);
+  }
+
   if (isProtectedRoute(request)) {
     await auth.protect();
   }

@@ -8,6 +8,9 @@
 - **[project-structure](serena:read?memory=project-structure.md)** - Estrutura completa de diretórios e arquivos
 - **[design-system-tokens](serena:read?memory=design-system-tokens.md)** - Tokens de design (cores, tipografia, espaçamento)
 
+### Frontend
+- **[frontend-structure](serena:read?memory=frontend-structure.md)** - Estrutura de componentes e layouts (Fase 4) ⭐
+
 ### Padrões de Código
 - **[component-patterns](serena:read?memory=component-patterns.md)** - Padrões de componentes React e Radix UI
 - **[tailwind-patterns](serena:read?memory=tailwind-patterns.md)** - Padrões e convenções de Tailwind CSS

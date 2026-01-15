@@ -26,9 +26,9 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="pt-BR" suppressHydrationWarning>
+      <html lang="pt-BR" className="dark" suppressHydrationWarning>
         <body
-          className={`${inter.variable} ${geistMono.variable} antialiased`}
+          className={`${inter.variable} ${geistMono.variable} antialiased bg-[#0a0a0f]`}
         >
           {children}
         </body>
