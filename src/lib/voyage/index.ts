@@ -2,8 +2,14 @@
  * Voyage AI Client
  *
  * Main client for Voyage AI API integration.
- * Retrieves encrypted API keys from database and provides
- * authenticated client for embedding operations.
+ *
+ * **Migration to System-Controlled Keys (Phase 3):**
+ *
+ * Priority order for API key retrieval:
+ * 1. Environment variable `VOYAGE_API_KEY` (system-controlled, recommended)
+ * 2. Database with encrypted key (legacy, for backwards compatibility)
+ *
+ * The database approach is deprecated and will be removed in a future version.
  */
 
 import { db } from "@/db"
@@ -19,13 +25,15 @@ const VOYAGE_API_URL = "https://api.voyageai.com/v1"
 export interface VoyageClientConfig {
   apiKey: string
   baseURL?: string
+  source?: "env" | "database" // Track where the key came from
 }
 
 /**
  * Get Voyage API client with authenticated API key
  *
- * Retrieves the encrypted Voyage API key from the database,
- * decrypts it, and returns a client configuration.
+ * **Priority:**
+ * 1. Environment variable `VOYAGE_API_KEY` (system-controlled)
+ * 2. Database with encrypted key (legacy fallback)
  *
  * @throws Error if Voyage API key is not configured
  *
@@ -38,6 +46,17 @@ export interface VoyageClientConfig {
  * ```
  */
 export async function getVoyageClient(): Promise<VoyageClientConfig> {
+  // Priority 1: System-controlled environment variable
+  const envApiKey = process.env.VOYAGE_API_KEY
+  if (envApiKey && envApiKey.trim().length > 0) {
+    return {
+      apiKey: envApiKey,
+      baseURL: VOYAGE_API_URL,
+      source: "env",
+    }
+  }
+
+  // Priority 2: Legacy database lookup (backwards compatibility)
   const [keyRecord] = await db
     .select()
     .from(userApiKeys)
@@ -46,13 +65,15 @@ export async function getVoyageClient(): Promise<VoyageClientConfig> {
 
   if (!keyRecord) {
     throw new VoyageError(
-      "Voyage AI API key not configured. Please add your API key in Settings > API Keys."
+      "Voyage AI API key not configured. " +
+      "Set VOYAGE_API_KEY environment variable for system-wide access."
     )
   }
 
   if (!keyRecord.isValid) {
     throw new VoyageError(
-      "Voyage AI API key is invalid. Please reconfigure your API key in Settings."
+      "Voyage AI API key is invalid. " +
+      "Please update VOYAGE_API_KEY environment variable."
     )
   }
 
@@ -61,15 +82,25 @@ export async function getVoyageClient(): Promise<VoyageClientConfig> {
   return {
     apiKey,
     baseURL: VOYAGE_API_URL,
+    source: "database",
   }
 }
 
 /**
  * Check if Voyage API is configured
  *
+ * Checks both environment variable and database (legacy).
+ *
  * @returns true if API key is configured and valid
  */
 export async function isVoyageConfigured(): Promise<boolean> {
+  // Check environment variable first
+  const envApiKey = process.env.VOYAGE_API_KEY
+  if (envApiKey && envApiKey.trim().length > 0) {
+    return true
+  }
+
+  // Fallback to database check (legacy)
   const [keyRecord] = await db
     .select({ isValid: userApiKeys.isValid })
     .from(userApiKeys)
@@ -77,6 +108,16 @@ export async function isVoyageConfigured(): Promise<boolean> {
     .limit(1)
 
   return !!keyRecord?.isValid
+}
+
+/**
+ * Check if Voyage is using environment variable (system-controlled)
+ *
+ * @returns true if using environment variable, false if using database (legacy)
+ */
+export function isVoyageUsingEnvVar(): boolean {
+  const envApiKey = process.env.VOYAGE_API_KEY
+  return !!(envApiKey && envApiKey.trim().length > 0)
 }
 
 /**
