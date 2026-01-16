@@ -14,9 +14,11 @@ import {
   RefreshCw,
   Filter,
   Upload,
+  Play,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
 import {
   DocumentCard,
   type DocumentWithEmbeddings as DocumentCardProps,
@@ -81,6 +83,7 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null)
   const [searchQuery, setSearchQuery] = React.useState("")
   const [uploadDialogOpen, setUploadDialogOpen] = React.useState(false)
+  const [isProcessing, setIsProcessing] = React.useState(false)
 
   // Fetch documents and stats
   const fetchData = React.useCallback(async () => {
@@ -98,6 +101,43 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
       setIsLoading(false)
     }
   }, [selectedCollectionId])
+
+  // Process pending embedding jobs
+  const handleProcessEmbeddings = React.useCallback(async () => {
+    setIsProcessing(true)
+    try {
+      const response = await fetch("/api/embeddings/process", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const result = await response.json()
+
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        const processed = result.jobsProcessed || 0
+        if (processed > 0) {
+          toast.success(`${processed} job(s) processado(s) com sucesso`)
+        } else {
+          toast.info("Nenhum job pendente encontrado")
+        }
+        // Refresh to show updated status
+        await fetchData()
+      }
+    } catch (error) {
+      console.error("Process embeddings error:", error)
+      toast.error("Falha ao processar embeddings")
+    } finally {
+      setIsProcessing(false)
+    }
+  }, [fetchData])
 
   React.useEffect(() => {
     fetchData()
@@ -181,7 +221,7 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
           ))}
         </div>
 
-        {/* Search Input and Upload Button */}
+        {/* Search Input and Action Buttons */}
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-auto">
             <input
@@ -193,6 +233,16 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
             />
             <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
           </div>
+          <Button
+            type="button"
+            onClick={handleProcessEmbeddings}
+            disabled={isProcessing}
+            variant="outline"
+            className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 whitespace-nowrap"
+          >
+            <Play className="h-4 w-4 mr-1" />
+            {isProcessing ? "Processando..." : "Processar"}
+          </Button>
           <Button
             type="button"
             onClick={() => setUploadDialogOpen(true)}

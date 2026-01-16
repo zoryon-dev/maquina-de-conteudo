@@ -1,15 +1,18 @@
 /**
  * API Keys Section
  *
- * Configure and validate API keys for external services
+ * Configure and validate API keys for external services.
+ * Keys are automatically saved when validation succeeds.
  */
 
 "use client"
 
 import * as React from "react"
-import { Key, Eye, EyeOff, Check, AlertCircle, Loader2 } from "lucide-react"
+import { Key, Eye, EyeOff, Check, AlertCircle, Loader2, ShieldCheck, ShieldX } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { validateApiKeyAction } from "../../actions"
+import { getApiKeysStatusAction, type ApiKeyStatus } from "../../actions"
+import { toast } from "sonner"
 
 /**
  * API provider configuration
@@ -80,6 +83,7 @@ const API_PROVIDERS: ApiProvider[] = [
 interface ValidationState {
   status: "idle" | "validating" | "valid" | "invalid" | "error"
   message?: string
+  saved?: boolean
 }
 
 /**
@@ -95,40 +99,52 @@ export interface ApiKeysSectionProps {
  */
 interface ApiKeyCardProps {
   provider: ApiProvider
-  value: string
   visible: boolean
   validation: ValidationState
+  savedStatus: ApiKeyStatus | null
   onValueChange: (value: string) => void
   onVisibilityToggle: () => void
   onValidate: () => Promise<void>
+  onClear: () => Promise<void>
 }
 
 function ApiKeyCard({
   provider,
-  value,
   visible,
   validation,
+  savedStatus,
   onValueChange,
   onVisibilityToggle,
   onValidate,
+  onClear,
 }: ApiKeyCardProps) {
-  const [localValue, setLocalValue] = React.useState(value)
-  const [debouncedValue, setDebouncedValue] = React.useState(value)
+  const [localValue, setLocalValue] = React.useState("")
+  const [debouncedValue, setDebouncedValue] = React.useState("")
+  const inputRef = React.useRef<HTMLInputElement>(null)
+  const isEditing = React.useRef(false)
+
+  // Initialize with masked value if key is saved
+  React.useEffect(() => {
+    if (savedStatus?.hasKey && !isEditing.current) {
+      setLocalValue("") // Empty for saved keys, shows placeholder
+    }
+  }, [savedStatus])
 
   // Debounce value changes
   React.useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedValue(localValue)
-    }, 500)
+    }, 800)
 
     return () => clearTimeout(timer)
   }, [localValue])
 
-  // Validate when debounced value changes
+  // Validate when debounced value changes and is not empty
   React.useEffect(() => {
-    if (debouncedValue && debouncedValue !== value) {
+    if (debouncedValue && debouncedValue.trim().length > 5) {
       onValidate()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedValue])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,18 +152,70 @@ function ApiKeyCard({
     onValueChange(e.target.value)
   }
 
-  const getStatusIcon = () => {
+  const handleFocus = () => {
+    // Mark as editing when user focuses
+    isEditing.current = true
+    // Clear the placeholder if showing masked value
+    if (savedStatus?.hasKey && !localValue) {
+      setLocalValue("")
+    }
+  }
+
+  const handleBlur = () => {
+    // Mark as not editing when user leaves
+    isEditing.current = false
+    // If empty and key is saved, keep empty (will show placeholder)
+    if (savedStatus?.hasKey && !localValue) {
+      setLocalValue("")
+    }
+  }
+
+  const getStatusDisplay = () => {
+    if (savedStatus?.hasKey && validation.status === "valid") {
+      return (
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-500/10 border border-green-500/20">
+          <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
+          <span className="text-xs font-medium text-green-500">Salva e válida</span>
+        </div>
+      )
+    }
+
     switch (validation.status) {
       case "validating":
-        return <Loader2 className="h-4 w-4 animate-spin text-primary" />
+        return (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-primary/10 border border-primary/20">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+            <span className="text-xs font-medium text-primary">Validando...</span>
+          </div>
+        )
       case "valid":
-        return <Check className="h-4 w-4 text-green-500" />
+        return (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-500/10 border border-green-500/20">
+            <Check className="h-3.5 w-3.5 text-green-500" />
+            <span className="text-xs font-medium text-green-500">Válida</span>
+          </div>
+        )
       case "invalid":
-        return <AlertCircle className="h-4 w-4 text-red-500" />
+        return (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-red-500/10 border border-red-500/20">
+            <AlertCircle className="h-3.5 w-3.5 text-red-500" />
+            <span className="text-xs font-medium text-red-500">Inválida</span>
+          </div>
+        )
       case "error":
-        return <AlertCircle className="h-4 w-4 text-orange-500" />
+        return (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-orange-500/10 border border-orange-500/20">
+            <ShieldX className="h-3.5 w-3.5 text-orange-500" />
+            <span className="text-xs font-medium text-orange-500">Erro de conexão</span>
+          </div>
+        )
       default:
-        return null
+        return savedStatus?.hasKey ? (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 border border-white/10">
+            <ShieldCheck className="h-3.5 w-3.5 text-white/40" />
+            <span className="text-xs font-medium text-white/40">Salva</span>
+          </div>
+        ) : null
     }
   }
 
@@ -163,7 +231,7 @@ function ApiKeyCard({
       <div className="flex items-start justify-between gap-4">
         {/* Info */}
         <div className="flex-1 space-y-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-sm font-medium text-white">
               {provider.name}
             </h3>
@@ -172,17 +240,18 @@ function ApiKeyCard({
                 Obrigatório
               </span>
             )}
+            {getStatusDisplay()}
           </div>
           <p className="text-xs text-white/60">{provider.description}</p>
-          {validation.message && (
+          {validation.message && validation.status !== "valid" && (
             <p
               className={cn(
                 "text-xs",
-                validation.status === "valid"
-                  ? "text-green-500"
-                  : validation.status === "invalid"
-                    ? "text-red-500"
-                    : "text-orange-500"
+                validation.status === "invalid"
+                  ? "text-red-500"
+                  : validation.status === "error"
+                    ? "text-orange-500"
+                    : "text-white/60"
               )}
             >
               {validation.message}
@@ -190,8 +259,16 @@ function ApiKeyCard({
           )}
         </div>
 
-        {/* Status Icon */}
-        <div className="flex items-center gap-2">{getStatusIcon()}</div>
+        {/* Clear button (only show if saved) */}
+        {savedStatus?.hasKey && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="text-xs text-white/40 hover:text-red-400 transition-colors"
+          >
+            Limpar
+          </button>
+        )}
       </div>
 
       {/* Input */}
@@ -200,10 +277,17 @@ function ApiKeyCard({
           <div className="relative flex-1">
             <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40 pointer-events-none" />
             <input
+              ref={inputRef}
               type={visible ? "text" : "password"}
               value={localValue}
               onChange={handleChange}
-              placeholder={provider.placeholder}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              placeholder={
+                savedStatus?.hasKey && !localValue
+                  ? "•••••••••••••••• (salva)"
+                  : provider.placeholder
+              }
               className={cn(
                 "w-full pl-10 pr-10 py-2 rounded-lg",
                 "bg-[#0a0a0f] border border-white/10",
@@ -229,7 +313,7 @@ function ApiKeyCard({
               href={provider.validationUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3 py-2 text-xs text-white/60 hover:text-white transition-colors"
+              className="px-3 py-2 text-xs text-white/60 hover:text-white transition-colors whitespace-nowrap"
             >
               Obter key
             </a>
@@ -248,9 +332,46 @@ export function ApiKeysSection({ onChange, className }: ApiKeysSectionProps) {
   const [apiKeys, setApiKeys] = React.useState<Record<string, string>>({})
   const [visibility, setVisibility] = React.useState<Record<string, boolean>>({})
   const [validations, setValidations] = React.useState<Record<string, ValidationState>>({})
+  const [savedStatuses, setSavedStatuses] = React.useState<Record<string, ApiKeyStatus>>({})
+  const [isLoading, setIsLoading] = React.useState(true)
+
+  // Load saved API keys status on mount
+  React.useEffect(() => {
+    const loadStatuses = async () => {
+      try {
+        const statuses = await getApiKeysStatusAction()
+        setSavedStatuses(statuses)
+
+        // Set validation state for saved keys
+        const initialValidations: Record<string, ValidationState> = {}
+        for (const [provider, status] of Object.entries(statuses)) {
+          if (status.hasKey) {
+            initialValidations[provider] = {
+              status: status.isValid ? "valid" : "idle",
+              saved: true,
+            }
+          }
+        }
+        setValidations((prev) => ({ ...prev, ...initialValidations }))
+      } catch (error) {
+        console.error("Failed to load API keys status:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadStatuses()
+  }, [])
 
   const handleValueChange = (providerId: string, value: string) => {
     setApiKeys((prev) => ({ ...prev, [providerId]: value }))
+    // Clear validation when value changes
+    if (value !== (apiKeys[providerId] || "")) {
+      setValidations((prev) => ({
+        ...prev,
+        [providerId]: { status: "idle" },
+      }))
+    }
     onChange?.()
   }
 
@@ -281,8 +402,19 @@ export function ApiKeysSection({ onChange, className }: ApiKeysSectionProps) {
       if (result.valid) {
         setValidations((prev) => ({
           ...prev,
-          [provider.id]: { status: "valid", message: "Válida" },
+          [provider.id]: { status: "valid", message: "Salva com sucesso", saved: true },
         }))
+        // Update saved status
+        setSavedStatuses((prev) => ({
+          ...prev,
+          [provider.id]: {
+            provider: provider.id,
+            hasKey: true,
+            isValid: true,
+            lastValidatedAt: new Date(),
+          },
+        }))
+        toast.success(`${provider.name}: API key salva com sucesso`)
       } else {
         setValidations((prev) => ({
           ...prev,
@@ -291,13 +423,53 @@ export function ApiKeysSection({ onChange, className }: ApiKeysSectionProps) {
             message: result.error || "Inválida",
           },
         }))
+        toast.error(`${provider.name}: ${result.error || "API key inválida"}`)
       }
     } catch (error) {
       setValidations((prev) => ({
         ...prev,
         [provider.id]: { status: "error", message: "Erro de conexão" },
       }))
+      toast.error(`${provider.name}: Erro ao validar API key`)
     }
+  }
+
+  const handleClear = async (providerId: string) => {
+    try {
+      const { deleteApiKeyAction } = await import("../../actions")
+      const result = await deleteApiKeyAction(providerId)
+
+      if (result.success) {
+        // Clear local state
+        setApiKeys((prev) => ({ ...prev, [providerId]: "" }))
+        setValidations((prev) => ({
+          ...prev,
+          [providerId]: { status: "idle" },
+        }))
+        setSavedStatuses((prev) => {
+          const newStatuses = { ...prev }
+          delete newStatuses[providerId]
+          return newStatuses
+        })
+        toast.success("API key removida")
+        onChange?.()
+      } else {
+        toast.error(result.error || "Falha ao remover API key")
+      }
+    } catch (error) {
+      toast.error("Erro ao remover API key")
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-lg font-medium text-white">Chaves de API</h2>
+          <p className="text-sm text-white/60">Carregando...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -307,7 +479,7 @@ export function ApiKeysSection({ onChange, className }: ApiKeysSectionProps) {
         <h2 className="text-lg font-medium text-white">Chaves de API</h2>
         <p className="text-sm text-white/60">
           Configure as chaves de API para os serviços externos. As chaves são
-          encriptadas antes de serem salvas.
+          encriptadas e salvas automaticamente quando validadas.
         </p>
       </div>
 
@@ -328,12 +500,13 @@ export function ApiKeysSection({ onChange, className }: ApiKeysSectionProps) {
           <ApiKeyCard
             key={provider.id}
             provider={provider}
-            value={apiKeys[provider.id] || ""}
             visible={visibility[provider.id] || false}
             validation={validations[provider.id] || { status: "idle" }}
+            savedStatus={savedStatuses[provider.id] || null}
             onValueChange={(value) => handleValueChange(provider.id, value)}
             onVisibilityToggle={() => handleVisibilityToggle(provider.id)}
             onValidate={() => handleValidate(provider)}
+            onClear={() => handleClear(provider.id)}
           />
         ))}
       </div>

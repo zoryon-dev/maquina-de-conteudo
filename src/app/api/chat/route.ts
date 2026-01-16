@@ -89,6 +89,17 @@ Ajude o usuário a criar textos envolventes, planejar calendários editorial, e 
  */
 export async function POST(request: NextRequest) {
   try {
+    // Check if AI is configured
+    if (!openrouter) {
+      return new Response(
+        JSON.stringify({ error: "AI service not configured" }),
+        {
+          status: 503,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    }
+
     const { userId } = await auth()
 
     if (!userId) {

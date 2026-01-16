@@ -28,16 +28,16 @@ if (!OPENROUTER_API_KEY) {
  *
  * OpenRouter requires these headers for ranking and analytics.
  */
-export const openrouter = createOpenAI({
-  baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: OPENROUTER_API_KEY || (() => {
-    throw new Error('OPENROUTER_API_KEY is required')
-  })(),
-  headers: {
-    'X-Title': OPENROUTER_APP_NAME,
-    'HTTP-Referer': OPENROUTER_APP_URL,
-  },
-})
+export const openrouter = OPENROUTER_API_KEY
+  ? createOpenAI({
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: OPENROUTER_API_KEY,
+      headers: {
+        'X-Title': OPENROUTER_APP_NAME,
+        'HTTP-Referer': OPENROUTER_APP_URL,
+      },
+    })
+  : null
 
 /**
  * Default models

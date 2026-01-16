@@ -11,8 +11,10 @@ import { writeFile, mkdir } from "fs/promises"
 import { join } from "path"
 import { existsSync } from "fs"
 import { db } from "@/db"
-import { documents } from "@/db/schema"
+import { documents, users } from "@/db/schema"
 import { eq, and, isNull } from "drizzle-orm"
+import { createJob } from "@/lib/queue/jobs"
+import { JobType } from "@/lib/queue/types"
 
 // Maximum file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -21,6 +23,32 @@ const ALLOWED_TYPES = ["application/pdf", "text/plain", "text/markdown"]
 
 // Upload directory
 const UPLOAD_DIR = join(process.cwd(), "public", "uploads", "documents")
+
+/**
+ * Ensure user exists in database (auto-create if missing)
+ * This handles cases where Clerk webhook didn't sync the user
+ */
+async function ensureUserExists(userId: string) {
+  const [existingUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+
+  if (!existingUser) {
+    // Get user data from Clerk
+    const { createClerkClient } = await import("@clerk/nextjs/server")
+    const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
+    const clerkUser = await clerkClient.users.getUser(userId)
+
+    await db.insert(users).values({
+      id: userId,
+      email: clerkUser.emailAddresses[0]?.emailAddress || "",
+      name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || clerkUser.username || "User",
+      avatarUrl: clerkUser.imageUrl,
+    })
+  }
+}
 
 /**
  * Extract text from PDF buffer
@@ -88,6 +116,9 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       )
     }
+
+    // Ensure user exists in database (auto-create if missing from Clerk webhook)
+    await ensureUserExists(userId)
 
     const formData = await request.formData()
     const file = formData.get("file") as File | null
@@ -224,6 +255,16 @@ export async function POST(request: NextRequest) {
           })
       }
     }
+
+    // Create embedding job to process the document asynchronously
+    await createJob(
+      userId,
+      JobType.DOCUMENT_EMBEDDING,
+      {
+        documentId: newDocument.id,
+        userId,
+      }
+    )
 
     return NextResponse.json({
       success: true,

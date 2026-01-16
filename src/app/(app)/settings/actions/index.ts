@@ -13,6 +13,7 @@ export {
   deletePromptAction,
   saveVariableAction,
   deleteVariableAction,
+  getApiKeysStatusAction,
 } from "./save-settings"
 
 export {
@@ -25,6 +26,7 @@ export type {
   UserSettingsData,
   PromptData,
   VariableData,
+  ApiKeyStatus,
 } from "./save-settings"
 
 export type {
