@@ -19,6 +19,46 @@
     "Neon": {
       "command": "npx",
       "args": ["-y", "@neondatabase/mcp-server-neon", "start", "napi_9zsjb2e6ulhmlbx8ip0c4q3iszl7w1ptzro55azliii4jh31r88xqyi859hqd0xe"]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ]
+    },
+    "firecrawl-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "firecrawl-mcp"
+      ],
+      "env": {
+        "FIRECRAWL_API_KEY": "fc-4649e2896d104acc8e993965b03d3362"
+      }
+    },
+    "serena": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server",
+        "--context",
+        "claude-code",
+        "--project",
+        "/Users/jonasviana/developer/maquina-de-conteudo"
+      ],
+      "env": {
+        "ENABLE_TOOL_SEARCH": "true"
+      }
     }
   }
 }
