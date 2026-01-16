@@ -13,7 +13,6 @@ import {
   Sparkles,
   RefreshCw,
   Filter,
-  Plus,
   Upload,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -24,7 +23,7 @@ import {
 } from "./document-card"
 import { UploadDialog } from "./upload-dialog"
 import {
-  getDocumentsWithEmbeddingsAction,
+  getDocumentsByCollectionAction,
   getDocumentStatsAction,
   type DocumentStats,
 } from "../actions/sources-actions"
@@ -65,9 +64,17 @@ function StatCard({ label, value, icon: Icon, color }: StatCardProps) {
 }
 
 /**
+ * Main Documents Tab Component Props
+ */
+export interface DocumentsTabProps {
+  selectedCollectionId?: number | null
+  onRefresh?: () => void
+}
+
+/**
  * Main Documents Tab Component
  */
-export function DocumentsTab() {
+export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabProps) {
   const [documents, setDocuments] = React.useState<DocumentCardProps[]>([])
   const [stats, setStats] = React.useState<DocumentStats | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
@@ -80,7 +87,7 @@ export function DocumentsTab() {
     setIsLoading(true)
     try {
       const [docsData, statsData] = await Promise.all([
-        getDocumentsWithEmbeddingsAction(),
+        getDocumentsByCollectionAction(selectedCollectionId ?? null),
         getDocumentStatsAction(),
       ])
       setDocuments(docsData)
@@ -90,7 +97,7 @@ export function DocumentsTab() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [selectedCollectionId])
 
   React.useEffect(() => {
     fetchData()
@@ -253,6 +260,7 @@ export function DocumentsTab() {
         open={uploadDialogOpen}
         onOpenChange={setUploadDialogOpen}
         onSuccess={fetchData}
+        collectionId={selectedCollectionId}
       />
     </div>
   )

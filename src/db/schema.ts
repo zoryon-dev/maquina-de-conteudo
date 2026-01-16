@@ -36,6 +36,7 @@ export const jobTypeEnum = pgEnum("job_type", [
   "carousel_creation",
   "scheduled_publish",
   "web_scraping",
+  "document_embedding",
 ]);
 
 export const jobStatusEnum = pgEnum("job_status", [
@@ -205,11 +206,16 @@ export const documents = pgTable(
     title: text("title").notNull(),
     content: text("content").notNull(),
     sourceUrl: text("source_url"),
+    filePath: text("file_path"), // Caminho do arquivo uploadado (pdf, txt, etc)
     fileType: text("file_type"), // pdf, txt, md, etc.
     category: text("category").default("general"), // Para seleção em massa no RAG
     metadata: text("metadata"), // JSON
     embedded: boolean("embedded").default(false).notNull(), // Se possui embeddings gerados
-    embeddingModel: text("embedding_model").default("voyage-large-2"), // Modelo usado
+    embeddingModel: text("embedding_model").default("voyage-4-large"), // Modelo usado
+    embeddingStatus: text("embedding_status"), // pending, processing, completed, failed
+    embeddingProgress: integer("embedding_progress").default(0), // Chunks processados
+    chunksCount: integer("chunks_count").default(0), // Total de chunks
+    lastEmbeddedAt: timestamp("last_embedded_at"), // Última vez que foi embeddado
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at"),
@@ -219,6 +225,55 @@ export const documents = pgTable(
     index("documents_created_at_idx").on(table.createdAt),
     index("documents_category_idx").on(table.category),
     index("documents_embedded_idx").on(table.embedded),
+    index("documents_embedding_status_idx").on(table.embeddingStatus),
+    index("documents_embedded_category_idx").on(table.userId, table.category, table.embedded),
+  ]
+);
+
+// 5.1. DOCUMENT_COLLECTIONS - Coleções/Pastas para organizar documentos
+export const documentCollections = pgTable(
+  "document_collections",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    parentId: integer("parent_id"), // null = coleção raiz
+    color: text("color"), // hex color para badge (ex: "#a3e635")
+    icon: text("icon"), // nome do ícone Lucide (ex: "folder", "folder-archive")
+    orderIdx: integer("order_idx").default(0).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    deletedAt: timestamp("deleted_at"), // Soft delete
+  },
+  (table) => [
+    index("document_collections_user_id_idx").on(table.userId),
+    index("document_collections_parent_id_idx").on(table.parentId),
+    unique("document_collections_user_parent_name_unique").on(
+      table.userId,
+      table.parentId,
+      table.name
+    ),
+  ]
+);
+
+// 5.2. DOCUMENT_COLLECTION_ITEMS - Relação many-to-many entre documentos e coleções
+export const documentCollectionItems = pgTable(
+  "document_collection_items",
+  {
+    documentId: integer("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    collectionId: integer("collection_id")
+      .notNull()
+      .references(() => documentCollections.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("document_collection_items_document_id_idx").on(table.documentId),
+    index("document_collection_items_collection_id_idx").on(table.collectionId),
+    primaryKey({ columns: [table.documentId, table.collectionId] }),
   ]
 );
 
@@ -411,7 +466,7 @@ export const userSettings = pgTable(
       .default("openai/gpt-5-image"),
     embeddingModel: text("embedding_model")
       .notNull()
-      .default("voyage-large-2"),
+      .default("voyage-4-large"),
     variableProcessingModel: text("variable_processing_model")
       .notNull()
       .default("google/gemini-3-flash-preview"),
@@ -510,11 +565,16 @@ export const documentEmbeddings = pgTable(
       .notNull()
       .references(() => documents.id, { onDelete: "cascade" }),
     embedding: text("embedding").notNull(), // Vetor serializado como JSON string
-    model: text("model").notNull().default("voyage-large-2"),
+    model: text("model").notNull().default("voyage-4-large"),
+    chunkIndex: integer("chunk_index").default(0), // Índice do chunk no documento
+    chunkText: text("chunk_text"), // Texto do chunk para exibição
+    startPos: integer("start_pos"), // Posição inicial no documento original
+    endPos: integer("end_pos"), // Posição final no documento original
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
     index("document_embeddings_document_id_idx").on(table.documentId),
+    index("document_embeddings_document_chunk_idx").on(table.documentId, table.chunkIndex),
   ]
 );
 
@@ -560,20 +620,51 @@ export const documentEmbeddingsRelations = relations(documentEmbeddings, ({ one 
   }),
 }));
 
-// Update documents relations to include embeddings
+// Update documents relations to include embeddings and collections
 export const documentsRelations = relations(documents, ({ one, many }) => ({
   user: one(users, {
     fields: [documents.userId],
     references: [users.id],
   }),
   embeddings: many(documentEmbeddings),
+  collectionItems: many(documentCollectionItems),
 }));
 
-// Update users relations to include settings tables
+// Document collections relations
+export const documentCollectionsRelations = relations(documentCollections, ({ one, many }) => ({
+  user: one(users, {
+    fields: [documentCollections.userId],
+    references: [users.id],
+  }),
+  parent: one(documentCollections, {
+    fields: [documentCollections.parentId],
+    references: [documentCollections.id],
+    relationName: "collection_hierarchy",
+  }),
+  children: many(documentCollections, {
+    relationName: "collection_hierarchy",
+  }),
+  items: many(documentCollectionItems),
+}));
+
+// Document collection items relations (junction table)
+export const documentCollectionItemsRelations = relations(documentCollectionItems, ({ one }) => ({
+  document: one(documents, {
+    fields: [documentCollectionItems.documentId],
+    references: [documents.id],
+  }),
+  collection: one(documentCollections, {
+    fields: [documentCollectionItems.collectionId],
+    references: [documentCollections.id],
+  }),
+}));
+
+// Update users relations to include settings tables and collections
 export const usersRelations = relations(users, ({ many }) => ({
   chats: many(chats),
   libraryItems: many(libraryItems),
   documents: many(documents),
+  documentCollections: many(documentCollections),
   sources: many(sources),
   jobs: many(jobs),
   settings: many(userSettings),
@@ -598,6 +689,10 @@ export type UserVariable = typeof userVariables.$inferSelect;
 export type NewUserVariable = typeof userVariables.$inferInsert;
 export type DocumentEmbedding = typeof documentEmbeddings.$inferSelect;
 export type NewDocumentEmbedding = typeof documentEmbeddings.$inferInsert;
+export type DocumentCollection = typeof documentCollections.$inferSelect;
+export type NewDocumentCollection = typeof documentCollections.$inferInsert;
+export type DocumentCollectionItem = typeof documentCollectionItems.$inferSelect;
+export type NewDocumentCollectionItem = typeof documentCollectionItems.$inferInsert;
 
 // ========================================
 // TYPE EXPORTS - LIBRARY

@@ -16,8 +16,11 @@ import { auth } from "@clerk/nextjs/server";
 import { dequeueJob, markAsProcessing, removeFromProcessing, enqueueJob } from "@/lib/queue/client";
 import { getJob, incrementJobAttempts, updateJobStatus } from "@/lib/queue/jobs";
 import { db } from "@/db";
-import { jobs } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { jobs, documents, documentEmbeddings } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import { splitDocumentIntoChunks } from "@/lib/voyage/chunking";
+import { generateEmbeddingsBatch } from "@/lib/voyage/embeddings";
+import type { DocumentEmbeddingPayload } from "@/lib/queue/types";
 
 /**
  * Secret para validar chamadas internas do worker
@@ -54,6 +57,107 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     // TODO: Implementar web scraping
     await new Promise((resolve) => setTimeout(resolve, 2000)); // Simulação
     return { scraped: true, data: [] };
+  },
+
+  /**
+   * Document Embedding Handler
+   *
+   * Processes a document by:
+   * 1. Fetching the document from database
+   * 2. Splitting content into chunks
+   * 3. Generating embeddings using Voyage AI
+   * 4. Storing embeddings in database
+   * 5. Updating document status
+   */
+  document_embedding: async (payload: unknown) => {
+    const { documentId, userId, force = false, model = "voyage-4-large" } =
+      payload as DocumentEmbeddingPayload;
+
+    // 1. Get document
+    const [doc] = await db
+      .select()
+      .from(documents)
+      .where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
+      .limit(1);
+
+    if (!doc) {
+      throw new Error(`Document ${documentId} not found for user ${userId}`);
+    }
+
+    // Check if already embedded (unless force is true)
+    if (doc.embedded && !force) {
+      return {
+        success: true,
+        alreadyEmbedded: true,
+        chunksProcessed: doc.chunksCount ?? 0,
+      };
+    }
+
+    // 2. Split into chunks
+    const chunks = await splitDocumentIntoChunks(doc.content || "");
+
+    if (chunks.length === 0) {
+      throw new Error("Document content is empty or could not be chunked");
+    }
+
+    // 3. Update document with chunk count and status
+    await db
+      .update(documents)
+      .set({
+        chunksCount: chunks.length,
+        embeddingProgress: 0,
+        embeddingStatus: "processing",
+      })
+      .where(eq(documents.id, documentId));
+
+    // 4. Delete old embeddings if re-embedding
+    await db
+      .delete(documentEmbeddings)
+      .where(eq(documentEmbeddings.documentId, documentId));
+
+    // 5. Generate embeddings for all chunks
+    const texts = chunks.map((c) => c.text);
+    const embeddings = await generateEmbeddingsBatch(texts, model);
+
+    // 6. Insert embeddings with progress tracking
+    for (let i = 0; i < chunks.length; i++) {
+      await db.insert(documentEmbeddings).values({
+        documentId,
+        embedding: JSON.stringify(embeddings[i]),
+        model,
+        chunkIndex: chunks[i].index,
+        chunkText: chunks[i].text,
+        startPos: chunks[i].startPosition,
+        endPos: chunks[i].endPosition,
+      });
+
+      // Update progress every few chunks to reduce DB writes
+      if (i % 3 === 0 || i === chunks.length - 1) {
+        await db
+          .update(documents)
+          .set({ embeddingProgress: i + 1 })
+          .where(eq(documents.id, documentId));
+      }
+    }
+
+    // 7. Mark document as fully embedded
+    await db
+      .update(documents)
+      .set({
+        embedded: true,
+        embeddingStatus: "completed",
+        lastEmbeddedAt: new Date(),
+        embeddingModel: model,
+        embeddingProgress: chunks.length,
+      })
+      .where(eq(documents.id, documentId));
+
+    return {
+      success: true,
+      chunksProcessed: chunks.length,
+      model,
+      documentId,
+    };
   },
 };
 

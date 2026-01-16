@@ -424,6 +424,116 @@ useEffect(() => {
 - `src/app/(app)/calendar/hooks/use-calendar-posts.ts` (Fase 6)
 - `src/app/(app)/library/hooks/use-library-data.ts` (Fase 7)
 
+### 20. pdf-parse v2.4.5 Import Pattern
+
+**Erro:** Multiple TypeScript errors when using pdf-parse:
+```
+Property 'default' does not exist on 'typeof import("pdf-parse")'
+Value of type 'typeof PDFParse' is not callable
+Property 'parse' does not exist on type 'PDFParse'
+```
+
+**Causa:** O pacote `pdf-parse` v2.4.5 mudou sua API. A importação antiga não funciona mais.
+
+**Solução:** Usar named import com construtor que recebe `{ data: Uint8Array }`:
+```typescript
+// ❌ ERRADO - Não funciona mais
+import pdf from 'pdf-parse'
+const data = await pdf(buffer)
+
+// ✅ CORRETO
+const { PDFParse } = await import("pdf-parse")
+const uint8Array = new Uint8Array(buffer)
+const parser = new PDFParse({ data: uint8Array })
+const data = await parser.getText()
+return data.text || ""
+```
+
+**Contexto de Uso:** `/src/app/api/documents/upload/route.ts`
+
+**Documentação:** `.context/docs/known-and-corrected-errors/005-pdf-parse-import.md`
+
+---
+
+**Erro:** Componente React faz requests POST infinitas para o servidor.
+
+**Sintoma:**
+```
+POST /calendar 200 in 93ms
+POST /calendar 200 in 93ms
+POST /calendar 200 in 101ms
+... (repeating infinitely)
+```
+
+**Causa:** Usar `useCallback` com dependências de objeto (`dateRange`, `filters`) que criam nova referência a cada render:
+```typescript
+// ❌ ERRADO
+const fetchPosts = useCallback(async () => {
+  const result = await getCalendarPostsAction(dateRange, filters)
+  setPosts(result)
+}, [dateRange, filters])  // Nova referência a cada render!
+```
+
+**Solução:** Usar `useRef` para comparação de estabilidade:
+```typescript
+// ✅ CORRETO
+const prevDepsRef = useRef<string>("")
+
+useEffect(() => {
+  const deps = JSON.stringify({ dateRange, filters })
+  if (deps !== prevDepsRef.current) {
+    prevDepsRef.current = deps
+    fetchPosts()
+  }
+}, [dateRange, filters])
+```
+
+**Arquivos:**
+- `.context/docs/known-and-corrected-errors/004-infinite-loop-hooks.md`
+- `src/app/(app)/calendar/hooks/use-calendar-posts.ts` (Fase 6)
+- `src/app/(app)/library/hooks/use-library-data.ts` (Fase 7)
+
+---
+
+### 21. DATABASE_URL no Browser - Import de Banco em Client Component
+
+**Erro:**
+```
+Runtime Error: DATABASE_URL environment variable is not set
+    at module evaluation (src/db/index.ts:5:9)
+```
+
+**Contexto:** O erro ocorre no **browser**, não no servidor. Stack trace mostra:
+```
+rag-context-selector.tsx (client) → lib/rag/index.ts → lib/rag/assembler.ts → db/index.ts
+```
+
+**Causa:** Código que acessa banco de dados foi importado por um Client Component. No Next.js, quando um Client Component importa um módulo, todo o código é enviado ao browser - incluindo código server-side como `process.env.DATABASE_URL`.
+
+**Solução:** Separar exports do módulo RAG:
+```typescript
+// lib/rag/index.ts - Apenas tipos e constantes (safe for client)
+export type { RagCategory, RagContextOptions } from "./types"
+export { RAG_CATEGORIES } from "./types"
+// NOTA: assembleRagContext NÃO é re-exportado (usa db)
+
+// API routes importam diretamente
+import { assembleRagContext } from "@/lib/rag/assembler"
+```
+
+**Padrão:**
+```
+Client Component → lib/rag/index.ts (tipos/constantes) ✅
+Server/API Route → lib/rag/assembler.ts (funções com db) ✅
+Client Component → lib/rag/assembler.ts ❌
+```
+
+**Arquivos:**
+- `.context/docs/known-and-corrected-errors/006-db-import-client-component.md`
+- `src/lib/rag/index.ts`
+- `src/app/api/rag/route.ts`
+- `src/app/api/chat/route.ts`
+
 ---
 
 ## Padrões de Solução

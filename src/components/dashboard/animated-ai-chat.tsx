@@ -18,6 +18,8 @@ import {
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ModelSelector, useModelSelector } from "@/components/chat/model-selector"
+import { RagContextSelector, useRagCategories } from "@/components/chat/rag-context-selector"
+import { ChatMessageSources, type ChatSource } from "@/components/chat"
 import { DEFAULT_TEXT_MODEL } from "@/lib/models"
 
 interface UseAutoResizeTextareaProps {
@@ -80,6 +82,12 @@ interface CommandSuggestion {
 
 interface AnimatedAIChatProps {
   onSendMessage?: (message: string, model?: string) => void
+  /** External typing state (controlled by parent) */
+  isTyping?: boolean
+  /** Response text to display */
+  response?: string | null
+  /** RAG sources from the response */
+  sources?: ChatSource[] | null
 }
 
 /**
@@ -90,10 +98,15 @@ interface AnimatedAIChatProps {
  *
  * Cores adaptadas para Lime Green do sistema.
  */
-export function AnimatedAIChat({ onSendMessage }: AnimatedAIChatProps) {
+export function AnimatedAIChat({
+  onSendMessage,
+  isTyping: externalIsTyping,
+  response,
+  sources,
+}: AnimatedAIChatProps) {
   const [value, setValue] = useState("")
   const [attachments, setAttachments] = useState<string[]>([])
-  const [isTyping, setIsTyping] = useState(false)
+  const [internalIsTyping, setInternalIsTyping] = useState(false)
   const [, startTransition] = useTransition()
   const [activeSuggestion, setActiveSuggestion] = useState<number>(-1)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
@@ -105,8 +118,14 @@ export function AnimatedAIChat({ onSendMessage }: AnimatedAIChatProps) {
   const [inputFocused, setInputFocused] = useState(false)
   const commandPaletteRef = useRef<HTMLDivElement>(null)
 
+  // Use external typing state if provided, otherwise use internal
+  const isTyping = externalIsTyping !== undefined ? externalIsTyping : internalIsTyping
+
   // Model selection state
   const { selectedModel, setSelectedModel } = useModelSelector()
+
+  // RAG context selection state
+  const { selected: ragCategories } = useRagCategories()
 
   // Comandos específicos para Máquina de Conteúdo
   const commandSuggestions: CommandSuggestion[] = [
@@ -232,14 +251,16 @@ export function AnimatedAIChat({ onSendMessage }: AnimatedAIChatProps) {
     if (value.trim()) {
       startTransition(() => {
         onSendMessage?.(value, selectedModel)
-        setIsTyping(true)
+        // Only set internal typing state if external is not controlled
+        if (externalIsTyping === undefined) {
+          setInternalIsTyping(true)
+          // Simular resposta da IA quando não controlado externamente
+          setTimeout(() => {
+            setInternalIsTyping(false)
+          }, 2000)
+        }
         setValue("")
         adjustHeight(true)
-
-        // Simular resposta da IA
-        setTimeout(() => {
-          setIsTyping(false)
-        }, 2000)
       })
     }
   }
@@ -449,6 +470,8 @@ export function AnimatedAIChat({ onSendMessage }: AnimatedAIChatProps) {
                   value={selectedModel}
                   onValueChange={setSelectedModel}
                 />
+                {/* RAG Context Selector */}
+                <RagContextSelector compact />
               </div>
 
               <motion.button
@@ -523,6 +546,42 @@ export function AnimatedAIChat({ onSendMessage }: AnimatedAIChatProps) {
                 <span>Digitando</span>
                 <TypingDots />
               </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Response Display */}
+      <AnimatePresence>
+        {response && !isTyping && (
+          <motion.div
+            className="fixed bottom-8 left-1/2 right-4 sm:right-auto -translate-x-1/2 sm:w-full sm:max-w-2xl backdrop-blur-2xl bg-white/[0.02] rounded-xl border border-white/[0.05] shadow-lg overflow-hidden"
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.98 }}
+          >
+            <div className="p-4">
+              {/* Response header */}
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Bot className="w-4 h-4 text-primary" />
+                </div>
+                <span className="text-sm font-medium text-white/90">Assistente</span>
+              </div>
+
+              {/* Response text */}
+              <div className="text-sm text-white/80 whitespace-pre-wrap mb-4">
+                {response}
+              </div>
+
+              {/* RAG Sources */}
+              {sources && sources.length > 0 && (
+                <ChatMessageSources
+                  sources={sources}
+                  chunksIncluded={sources.length}
+                  className="border-t border-white/10 pt-3"
+                />
+              )}
             </div>
           </motion.div>
         )}

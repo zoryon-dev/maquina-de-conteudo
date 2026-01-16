@@ -14,6 +14,7 @@ import {
   Edit,
   Trash2,
   RefreshCw,
+  Database,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -34,7 +35,12 @@ import { toast } from "sonner"
 import {
   deleteDocumentWithEmbeddingsAction,
   updateDocumentAction,
+  reembedDocumentAction,
 } from "../actions/sources-actions"
+import {
+  EmbeddingStatusBadge,
+  EmbeddingProgressMini,
+} from "@/components/embeddings"
 
 /**
  * Category configuration
@@ -63,6 +69,11 @@ export interface DocumentWithEmbeddings {
   createdAt: Date
   updatedAt: Date
   embeddingCount?: number
+  // New RAG fields
+  embeddingStatus?: "pending" | "processing" | "completed" | "failed" | null
+  embeddingProgress?: number | null
+  chunksCount?: number | null
+  lastEmbeddedAt?: Date | null
 }
 
 /**
@@ -341,8 +352,26 @@ function DeleteDocumentDialog({
 export function DocumentCard({ document, onUpdate }: DocumentCardProps) {
   const [editOpen, setEditOpen] = React.useState(false)
   const [deleteOpen, setDeleteOpen] = React.useState(false)
+  const [isReembedding, setIsReembedding] = React.useState(false)
 
   const isIndexed = document.embedded && document.embeddingCount && document.embeddingCount > 0
+
+  const handleReembed = async () => {
+    setIsReembedding(true)
+    try {
+      const result = await reembedDocumentAction(document.id)
+      if (result.success) {
+        toast.success("Documento enviado para reindexação")
+        onUpdate?.()
+      } else {
+        toast.error(result.error || "Falha ao iniciar reindexação")
+      }
+    } catch (error) {
+      toast.error("Erro ao iniciar reindexação")
+    } finally {
+      setIsReembedding(false)
+    }
+  }
 
   return (
     <>
@@ -358,11 +387,19 @@ export function DocumentCard({ document, onUpdate }: DocumentCardProps) {
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <h3 className="text-sm font-medium text-white truncate">
               {document.title}
             </h3>
             <CategoryBadge category={document.category} />
+            {/* Embedding Status Badge */}
+            <EmbeddingStatusBadge
+              embedded={document.embedded}
+              status={document.embeddingStatus}
+              progress={document.embeddingProgress ?? undefined}
+              total={document.chunksCount ?? undefined}
+              compact
+            />
           </div>
 
           <p className="text-xs text-white/50 line-clamp-2 mb-2">
@@ -375,7 +412,7 @@ export function DocumentCard({ document, onUpdate }: DocumentCardProps) {
               <>
                 <span className="text-white/20">•</span>
                 <span className="text-green-500 flex items-center gap-1">
-                  ✓ {document.embeddingCount} chunks
+                  ✓ {document.embeddingCount || document.chunksCount} {document.chunksCount === 1 ? "chunk" : "chunks"}
                 </span>
                 <span className="text-white/20">•</span>
                 <span className="text-cyan-400">
@@ -383,10 +420,14 @@ export function DocumentCard({ document, onUpdate }: DocumentCardProps) {
                 </span>
               </>
             )}
-            {!isIndexed && (
+            {/* Show progress if processing */}
+            {document.embeddingStatus === "processing" && document.chunksCount && (
               <>
                 <span className="text-white/20">•</span>
-                <span className="text-amber-500">Pendente de indexação</span>
+                <EmbeddingProgressMini
+                  current={document.embeddingProgress ?? 0}
+                  total={document.chunksCount}
+                />
               </>
             )}
           </div>
@@ -410,6 +451,14 @@ export function DocumentCard({ document, onUpdate }: DocumentCardProps) {
             >
               <Edit className="h-4 w-4 mr-2" />
               Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={handleReembed}
+              disabled={isReembedding || document.embeddingStatus === "processing"}
+              className="text-white/70 hover:text-white hover:bg-white/5 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isReembedding ? "animate-spin" : ""}`} />
+              {isReembedding ? "Reindexando..." : "Reindexar"}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => setDeleteOpen(true)}

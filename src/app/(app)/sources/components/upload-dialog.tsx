@@ -30,7 +30,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { uploadDocumentAction } from "../../settings/actions/save-settings"
 
 /**
  * Category configuration - matches DOCUMENT_CATEGORIES from system-prompts.ts
@@ -52,12 +51,13 @@ export interface UploadDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
+  collectionId?: number | null
 }
 
 /**
  * Main Upload Dialog Component
  */
-export function UploadDialog({ open, onOpenChange, onSuccess }: UploadDialogProps) {
+export function UploadDialog({ open, onOpenChange, onSuccess, collectionId }: UploadDialogProps) {
   const [isUploading, setIsUploading] = React.useState(false)
   const [isDragging, setIsDragging] = React.useState(false)
   const [selectedCategory, setSelectedCategory] = React.useState("general")
@@ -110,19 +110,22 @@ export function UploadDialog({ open, onOpenChange, onSuccess }: UploadDialogProp
     setIsUploading(true)
 
     try {
-      // Read file content
-      const content = await file.text()
+      // Create FormData for API upload
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("title", file.name.replace(/\.[^/.]+$/, "")) // Remove extension
+      formData.append("category", selectedCategory)
+      if (collectionId) {
+        formData.append("collectionId", collectionId.toString())
+      }
 
-      // Determine file type
-      const fileType = file.name.split(".").pop()?.toLowerCase() || "txt"
-
-      // Upload to server
-      const result = await uploadDocumentAction({
-        title: file.name,
-        type: fileType,
-        category: selectedCategory,
-        content,
+      // Upload to API route
+      const response = await fetch("/api/documents/upload", {
+        method: "POST",
+        body: formData,
       })
+
+      const result = await response.json()
 
       if (result.success) {
         toast.success("Documento enviado com sucesso!")

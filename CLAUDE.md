@@ -698,3 +698,262 @@ const fetchPosts = useCallback(async () => {
 - Label visível em telas maiores
 
 ---
+
+## Fontes e Documentos (`/fontes`)
+
+### Visão Geral
+
+A página de Fontes (`/sources`) é o centro de gerenciamento de documentos para RAG (Retrieval Augmented Generation). Localizada em `/fontes`, permite:
+
+- **Upload de arquivos** (PDF, TXT, MD) com extração automática de texto
+- **Coleções** para organizar documentos em pastas
+- **Categorias** para classificar tipo de conteúdo
+- **Busca e filtros** por categoria e termo de busca
+- **Estatísticas** de documentos, chunks e indexação
+
+### Estrutura de Arquivos
+
+```
+src/app/(app)/sources/
+├── page.tsx                               # Server Component (root)
+├── components/
+│   ├── sources-page.tsx                   # Client Component principal
+│   ├── collections-sidebar.tsx            # Sidebar com coleções
+│   ├── documents-tab.tsx                  # Tab de documentos
+│   ├── upload-dialog.tsx                  # Modal de upload
+│   ├── collection-card.tsx                # Card de coleção
+│   ├── collection-form-dialog.tsx         # Modal criar/editar coleção
+│   └── document-card.tsx                  # Card de documento
+├── actions/
+│   ├── sources-actions.ts                 # Ações de documentos
+│   └── collections-actions.ts             # Ações de coleções
+└── hooks/
+    └── use-sources-data.ts                # Hook de dados
+
+src/app/api/documents/
+└── upload/
+    └── route.ts                           # Endpoint de upload com PDF parse
+```
+
+### Schema do Banco
+
+```typescript
+// Tabela de coleções (pastas)
+export const documentCollections = pgTable("document_collections", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  userId: text("user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"), // Soft delete
+})
+
+// Tabela de junção (many-to-many)
+export const documentCollectionItems = pgTable("document_collection_items", {
+  id: serial("id").primaryKey(),
+  collectionId: integer("collection_id")
+    .references(() => documentCollections.id)
+    .notNull(),
+  documentId: integer("document_id")
+    .references(() => documents.id)
+    .notNull(),
+  addedAt: timestamp("added_at").defaultNow(),
+})
+
+// Tabela de documentos
+export const documents = pgTable("documents", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  fileType: text("file_type"), // "pdf", "txt", "md"
+  category: text("category"), // "general", "products", "offers", etc.
+  userId: text("user_id").notNull(),
+  embedded: boolean("embedded").default(false),
+  embeddingModel: text("embedding_model").default("voyage-4-large"),
+  embeddingStatus: text("embedding_status"), // "pending", "processing", "completed", "failed"
+  embeddingProgress: integer("embedding_progress").default(0),
+  chunksCount: integer("chunks_count").default(0),
+  lastEmbeddedAt: timestamp("last_embedded_at"),
+  filePath: text("file_path"), // Caminho do arquivo (opcional)
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"), // Soft delete
+})
+```
+
+### Categorias de Documentos
+
+As categorias correspondem aos tipos de conteúdo usados pelo sistema de prompts:
+
+```typescript
+const DOCUMENT_CATEGORIES = {
+  general: "Geral - Documentos gerais sobre o negócio",
+  products: "Catálogo - Lista completa de produtos/serviços",
+  offers: "Ofertas - Promoções, descontos, lançamentos",
+  brand: "Marca - Tom de voz, valores, missão, visão",
+  audience: "Público - Personas, pesquisas, dados demográficos",
+  competitors: "Concorrentes - Análise competitiva",
+  content: "Conteúdo - Posts que funcionaram, calendário anterior",
+}
+```
+
+### Upload de Arquivos
+
+**Cliente (FormData):**
+```typescript
+const formData = new FormData()
+formData.append("file", file)
+formData.append("title", file.name.replace(/\.[^/.]+$/, ""))
+formData.append("category", selectedCategory)
+if (collectionId) {
+  formData.append("collectionId", collectionId.toString())
+}
+
+await fetch("/api/documents/upload", {
+  method: "POST",
+  body: formData,
+})
+```
+
+**Servidor (request.formData()):**
+```typescript
+export async function POST(request: Request) {
+  const formData = await request.formData()
+  const file = formData.get("file") as File
+  const title = formData.get("title") as string
+  const category = formData.get("category") as string
+  const collectionId = formData.get("collectionId") as string | null
+
+  const buffer = Buffer.from(await file.arrayBuffer())
+
+  // Extrair texto do PDF se necessário
+  const text = fileType === "pdf"
+    ? await extractTextFromPDF(buffer)
+    : buffer.toString("utf-8")
+
+  // Salvar no banco
+  await db.insert(documents).values({
+    title,
+    content: text,
+    fileType,
+    category,
+    userId,
+  })
+}
+```
+
+### Extração de Texto PDF
+
+**IMPORTANTE:** Usar o padrão correto para pdf-parse v2.4.5:
+
+```typescript
+// ✅ CORRETO
+async function extractTextFromPDF(buffer: Buffer): Promise<string> {
+  const { PDFParse } = await import("pdf-parse")
+  const uint8Array = new Uint8Array(buffer)
+  const parser = new PDFParse({ data: uint8Array })
+  const data = await parser.getText()
+  return data.text || ""
+}
+```
+
+### Server Actions - Coleções
+
+```typescript
+// Listar coleções do usuário
+getCollectionsAction(): Promise<DocumentCollection[]>
+
+// Criar nova coleção
+createCollectionAction(data: {
+  name: string
+  description?: string
+}): Promise<ActionResult>
+
+// Atualizar coleção
+updateCollectionAction(id: number, data: {
+  name?: string
+  description?: string
+}): Promise<ActionResult>
+
+// Soft delete coleção
+deleteCollectionAction(id: number): Promise<ActionResult>
+
+// Adicionar documento a coleção
+addDocumentToCollectionAction(
+  documentId: number,
+  collectionId: number
+): Promise<ActionResult>
+
+// Remover documento de coleção
+removeDocumentFromCollectionAction(
+  documentId: number,
+  collectionId: number
+): Promise<ActionResult>
+```
+
+### Server Actions - Documentos
+
+```typescript
+// Buscar documentos (todos ou de uma coleção)
+getDocumentsByCollectionAction(
+  collectionId: number | null
+): Promise<DocumentWithEmbeddings[]>
+
+// Buscar estatísticas
+getDocumentStatsAction(): Promise<DocumentStats>
+
+// Atualizar documento
+updateDocumentAction(
+  documentId: number,
+  data: { title?: string; category?: string; content?: string }
+): Promise<SourceResult>
+
+// Excluir documento (e embeddings)
+deleteDocumentWithEmbeddingsAction(
+  documentId: number
+): Promise<SourceResult>
+
+// Buscar por categoria
+getDocumentsByCategoryAction(
+  category: string | null
+): Promise<Document[]>
+
+// Busca simples (ILIKE)
+searchDocumentsAction(
+  query: string,
+  category?: string | null,
+  limit?: number
+): Promise<Document[]>
+
+// Re-embed documento
+reembedDocumentAction(
+  documentId: number,
+  force?: boolean
+): Promise<SourceResult & { jobId?: number }>
+
+// Status de embedding
+getEmbeddingStatusAction(documentId: number): Promise<EmbeddingStatus | null>
+```
+
+### Padrões de UI
+
+**Sidebar de Coleções:**
+- Lista hierárquica de pastas
+- Active state com `bg-primary`
+- Contador de documentos por coleção
+- Ações: criar, editar, excluir
+
+**Cards de Documento:**
+- Badge de categoria com cor específica
+- Badge de status de embedding (Indexado/Pendente/Processando)
+- Contador de chunks
+- Ações: editar, excluir, re-embed
+
+**Upload Dialog:**
+- Drag & drop com highlight visual
+- Seletor de categoria em grid
+- Validação: PDF, TXT, MD (max 10MB)
+- Progress indicator durante upload
+
+---

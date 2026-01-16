@@ -2,7 +2,7 @@
  * Semantic Search Tab
  *
  * Interface para testar buscas semânticas nos documentos indexados.
- * TODO: Implementar busca vetorial real com Voyage AI.
+ * Usa Voyage AI embeddings para busca por significado.
  */
 
 "use client"
@@ -11,28 +11,38 @@ import * as React from "react"
 import {
   Search,
   Sparkles,
-  FileText,
   TrendingUp,
   Filter,
   Send,
+  Loader2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import {
-  searchDocumentsAction,
-} from "../actions/sources-actions"
+import { toast } from "sonner"
+import { RAG_CATEGORIES, type RagCategory } from "@/lib/rag"
+
+/**
+ * Semantic search result with chunk information
+ */
+interface SemanticSearchResult {
+  documentId: number
+  documentTitle: string
+  chunkIndex: number
+  text: string
+  score: number
+  category: string
+  startPosition?: number
+  endPosition?: number
+}
 
 /**
  * Search Result Component
  */
 interface SearchResultProps {
-  title: string
-  content: string
-  category: string | null
-  score?: number
+  result: SemanticSearchResult
 }
 
-function SearchResult({ title, content, category, score }: SearchResultProps) {
+function SearchResult({ result }: SearchResultProps) {
   const categoryConfig: Record<string, { label: string; color: string }> = {
     general: { label: "Geral", color: "bg-gray-500/10 text-gray-400" },
     products: { label: "Catálogo", color: "bg-blue-500/10 text-blue-400" },
@@ -43,24 +53,34 @@ function SearchResult({ title, content, category, score }: SearchResultProps) {
     content: { label: "Conteúdo", color: "bg-amber-500/10 text-amber-400" },
   }
 
-  const config = categoryConfig[category || ""] || categoryConfig.general
+  const config = categoryConfig[result.category] || categoryConfig.general
+
+  // Score color
+  const scoreColor = result.score >= 0.8
+    ? "text-green-400"
+    : result.score >= 0.6
+      ? "text-yellow-400"
+      : "text-orange-400"
 
   return (
-    <div className="flex items-start gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5">
-      <FileText className="h-5 w-5 text-cyan-400 shrink-0 mt-0.5" />
+    <div className="flex items-start gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors">
+      <div className="flex items-center justify-center w-8 h-8 rounded bg-primary/10 shrink-0 mt-0.5">
+        <Sparkles className="h-4 w-4 text-primary" />
+      </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <h4 className="text-sm font-medium text-white truncate">{title}</h4>
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <h4 className="text-sm font-medium text-white truncate">{result.documentTitle}</h4>
           <span className={cn("px-2 py-0.5 rounded text-[10px] font-medium", config.color)}>
             {config.label}
           </span>
-          {score !== undefined && (
-            <span className="ml-auto text-xs text-white/40">
-              {(score * 100).toFixed(0)}% similaridade
-            </span>
-          )}
+          <span className={cn("ml-auto text-xs font-mono", scoreColor)}>
+            {(result.score * 100).toFixed(0)}%
+          </span>
         </div>
-        <p className="text-xs text-white/60 line-clamp-2">{content}</p>
+        <p className="text-xs text-white/60 line-clamp-3">{result.text}</p>
+        <p className="text-[10px] text-white/30 mt-1">
+          Chunk {result.chunkIndex}
+        </p>
       </div>
     </div>
   )
@@ -71,13 +91,13 @@ function SearchResult({ title, content, category, score }: SearchResultProps) {
  */
 export function SemanticSearchTab() {
   const [query, setQuery] = React.useState("")
-  const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null)
-  const [results, setResults] = React.useState<any[]>([])
+  const [selectedCategories, setSelectedCategories] = React.useState<Set<RagCategory>>(new Set(RAG_CATEGORIES))
+  const [results, setResults] = React.useState<SemanticSearchResult[]>([])
   const [isSearching, setIsSearching] = React.useState(false)
   const [hasSearched, setHasSearched] = React.useState(false)
+  const [selectedResult, setSelectedResult] = React.useState<SemanticSearchResult | null>(null)
 
   const categories = [
-    { value: null, label: "Todas" },
     { value: "general", label: "Geral" },
     { value: "products", label: "Catálogo" },
     { value: "offers", label: "Ofertas" },
@@ -87,22 +107,92 @@ export function SemanticSearchTab() {
     { value: "content", label: "Conteúdo" },
   ]
 
+  const toggleCategory = (cat: RagCategory) => {
+    const newSelected = new Set(selectedCategories)
+    if (newSelected.has(cat)) {
+      // Don't allow deselecting all
+      if (newSelected.size > 1) {
+        newSelected.delete(cat)
+      }
+    } else {
+      newSelected.add(cat)
+    }
+    setSelectedCategories(newSelected)
+  }
+
   const handleSearch = async () => {
     if (!query.trim()) return
 
     setIsSearching(true)
     setHasSearched(true)
+    setSelectedResult(null)
 
     try {
-      // TODO: Replace with actual semantic search using embeddings
-      const searchResults = await searchDocumentsAction(
-        query,
-        selectedCategory,
-        10
-      )
+      const response = await fetch("/api/rag", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query,
+          categories: Array.from(selectedCategories),
+          threshold: 0.5,
+          maxChunks: 10,
+          includeSources: false,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Search failed")
+      }
+
+      const data = await response.json()
+
+      if (data.available === false) {
+        toast.error("Nenhum documento indexado encontrado. Indexe alguns documentos primeiro.")
+        setResults([])
+        return
+      }
+
+      // Transform results to SemanticSearchResult format
+      const searchResults: SemanticSearchResult[] = data.sources?.map((source: any, idx: number) => ({
+        documentId: source.id,
+        documentTitle: source.title,
+        chunkIndex: idx, // Approximate
+        text: "", // Will be populated from context
+        score: source.score,
+        category: source.category || "general",
+      })) || []
+
       setResults(searchResults)
+
+      // If we have context, parse it for full chunk display
+      if (data.context && data.chunksIncluded > 0) {
+        // Parse context to extract individual chunks
+        const chunkPattern = /\[([^\]]+)\]\n([\s\S]+?)(?=\n\n---|\n*$)/g
+        const chunks: SemanticSearchResult[] = []
+        let match
+
+        while ((match = chunkPattern.exec(data.context)) !== null) {
+          const titleMatch = match[1].match(/^(.+) \((\w+)\)$/)
+          if (titleMatch) {
+            chunks.push({
+              documentTitle: titleMatch[1],
+              category: titleMatch[2],
+              text: match[2].trim(),
+              score: 0.8, // Default score for context results
+              chunkIndex: chunks.length,
+              documentId: 0,
+            })
+          }
+        }
+
+        if (chunks.length > 0) {
+          setResults(chunks)
+        }
+      }
     } catch (error) {
       console.error("Search error:", error)
+      toast.error(error instanceof Error ? error.message : "Erro na busca")
     } finally {
       setIsSearching(false)
     }
@@ -124,11 +214,11 @@ export function SemanticSearchTab() {
           <div className="text-sm space-y-1">
             <p className="text-white/90">
               <span className="font-medium text-cyan-300">Busca Semântica:</span> Encontre
-              conteúdo relevante usando buscas por significado, não apenas por palavras-chave.
+              conteúdo relevante usando IA que entende significado e contexto.
             </p>
             <p className="text-white/60 text-xs">
-              A IA usa embeddings para entender o contexto e retornar os trechos mais relevantes,
-              mesmo que não usem exatamente as mesmas palavras.
+              A IA usa embeddings Voyage AI para comparar sua pergunta com todos os documentos
+              e retornar os trechos mais relevantes, mesmo que não usem exatamente as mesmas palavras.
             </p>
           </div>
         </div>
@@ -141,12 +231,12 @@ export function SemanticSearchTab() {
           <Filter className="h-4 w-4 text-white/40 shrink-0" />
           {categories.map((cat) => (
             <button
-              key={cat.value || "all"}
+              key={cat.value}
               type="button"
-              onClick={() => setSelectedCategory(cat.value)}
+              onClick={() => toggleCategory(cat.value as RagCategory)}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all",
-                selectedCategory === cat.value
+                selectedCategories.has(cat.value as RagCategory)
                   ? "bg-primary text-black"
                   : "bg-white/5 text-white/70 hover:bg-white/10"
               )}
@@ -173,7 +263,7 @@ export function SemanticSearchTab() {
             className="absolute bottom-3 right-3 h-8 w-8 p-0 bg-primary text-black hover:bg-primary/90"
           >
             {isSearching ? (
-              <Sparkles className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Send className="h-4 w-4" />
             )}
@@ -182,7 +272,7 @@ export function SemanticSearchTab() {
       </div>
 
       {/* Results */}
-      {hasSearched && (
+      {hasSearched && !selectedResult && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium text-white flex items-center gap-2">
@@ -196,14 +286,14 @@ export function SemanticSearchTab() {
 
           {results.length > 0 ? (
             <div className="space-y-2">
-              {results.map((doc, i) => (
-                <SearchResult
-                  key={doc.id || i}
-                  title={doc.title}
-                  content={doc.content}
-                  category={doc.category}
-                  score={doc.score}
-                />
+              {results.map((result, i) => (
+                <div
+                  key={i}
+                  onClick={() => setSelectedResult(result)}
+                  className="cursor-pointer hover:bg-white/5 rounded-lg transition-colors"
+                >
+                  <SearchResult result={result} />
+                </div>
               ))}
             </div>
           ) : (
@@ -217,7 +307,7 @@ export function SemanticSearchTab() {
                     Nenhum resultado encontrado
                   </p>
                   <p className="text-white/40 text-xs mt-1">
-                    Tente usar termos diferentes ou selecione outra categoria
+                    Tente usar termos diferentes ou selecione outras categorias
                   </p>
                 </div>
               </div>
@@ -226,8 +316,33 @@ export function SemanticSearchTab() {
         </div>
       )}
 
+      {/* Expanded Result View */}
+      {selectedResult && (
+        <div className="space-y-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedResult(null)}
+            className="text-white/60 hover:text-white"
+          >
+            ← Voltar para resultados
+          </Button>
+          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/10">
+            <div className="flex items-center gap-2 mb-3">
+              <h4 className="text-sm font-medium text-white">{selectedResult.documentTitle}</h4>
+              <span className="text-xs text-white/40">
+                Similaridade: {(selectedResult.score * 100).toFixed(0)}%
+              </span>
+            </div>
+            <div className="p-3 rounded-lg bg-black/30 text-sm text-white/80 whitespace-pre-wrap">
+              {selectedResult.text}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Usage Tips */}
-      {results.length > 0 && (
+      {hasSearched && results.length > 0 && !selectedResult && (
         <div className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/20">
           <p className="text-xs text-white/60">
             <span className="font-medium text-purple-400">💡 Dica:</span> Quanto mais específica

@@ -296,6 +296,95 @@ Gerenciamento de preferências e integrações.
 
 ---
 
+## 5. Sistema de Coleções e Upload de Documentos (Fase 8)
+
+Implementado em Jan 2026 - Sistema completo de gerenciamento de documentos para RAG.
+
+### 5.1 Funcionalidades
+
+**Coleções (Pastas):**
+- Organização hierárquica de documentos
+- Relacionamento many-to-many (documento em múltiplas coleções)
+- CRUD completo: criar, editar, excluir coleções
+- Soft delete com `deletedAt`
+
+**Upload de Arquivos:**
+- Formatos: PDF, TXT, MD
+- Limite: 10MB
+- Extração automática de texto de PDFs (pdf-parse v2.4.5)
+- Categorização no upload
+- Associação a coleção opcional
+
+**Categorias de Documentos:**
+- General (Geral)
+- Products (Catálogo)
+- Offers (Ofertas)
+- Brand (Marca)
+- Audience (Público)
+- Competitors (Concorrentes)
+- Content (Conteúdo)
+
+### 5.2 Estrutura do Banco
+
+```typescript
+// Tabelas novas na Fase 8
+documentCollections       // Coleções/pastas
+documentCollectionItems  // Junção many-to-many
+documents                 // Documentos (extendido)
+document_embeddings       // Embeddings (preparado para Fase RAG)
+```
+
+### 5.3 Server Actions
+
+**Coleções:**
+- `getCollectionsAction()`
+- `createCollectionAction({ name, description })`
+- `updateCollectionAction(id, data)`
+- `deleteCollectionAction(id)`
+- `addDocumentToCollectionAction(documentId, collectionId)`
+- `removeDocumentFromCollectionAction(documentId, collectionId)`
+
+**Documentos:**
+- `getDocumentsByCollectionAction(collectionId | null)`
+- `getDocumentStatsAction()`
+- `updateDocumentAction(id, data)`
+- `deleteDocumentWithEmbeddingsAction(id)`
+- `searchDocumentsAction(query, category?, limit?)`
+
+### 5.4 Upload API
+
+**Endpoint:** `/api/documents/upload` (POST)
+
+**Cliente:**
+```typescript
+const formData = new FormData()
+formData.append("file", file)
+formData.append("title", title)
+formData.append("category", category)
+formData.append("collectionId", collectionId) // opcional
+await fetch("/api/documents/upload", { method: "POST", body: formData })
+```
+
+**Servidor:**
+- Extrai texto de PDF com `pdf-parse`
+- Salva conteúdo no banco
+- Cria job de embedding (quando RAG implementado)
+
+### 5.5 Status da Fase 8
+
+| Funcionalidade | Status |
+|----------------|--------|
+| Coleções CRUD | ✅ |
+| Upload PDF/TXT/MD | ✅ |
+| Extração de texto PDF | ✅ |
+| Categorização | ✅ |
+| Busca por categoria | ✅ |
+| Busca textual (ILIKE) | ✅ |
+| Embeddings (Voyage AI) | 🔄 Próxima fase |
+| Busca semântica | 🔄 Próxima fase |
+
+---
+
 ## 6. Integrações Planejadas
 
 | Serviço | Propósito |

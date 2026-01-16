@@ -11,6 +11,7 @@ export enum JobType {
   CAROUSEL_CREATION = "carousel_creation",
   SCHEDULED_PUBLISH = "scheduled_publish",
   WEB_SCRAPING = "web_scraping",
+  DOCUMENT_EMBEDDING = "document_embedding",
 }
 
 // Status dos jobs
@@ -53,13 +54,29 @@ export interface WebScrapingPayload {
   selector?: string;
 }
 
+/**
+ * Payload for document embedding job
+ * Processes a document through chunking and generates Voyage AI embeddings
+ */
+export interface DocumentEmbeddingPayload {
+  /** Document ID to process */
+  documentId: number;
+  /** User ID for authorization */
+  userId: string;
+  /** Optional: force re-embedding even if already embedded */
+  force?: boolean;
+  /** Optional: specific model to use (default: voyage-4-large) */
+  model?: "voyage-4-large" | "voyage-4";
+}
+
 // Tipo union de todos os payloads
 export type JobPayload =
   | AiTextGenerationPayload
   | AiImageGenerationPayload
   | CarouselCreationPayload
   | ScheduledPublishPayload
-  | WebScrapingPayload;
+  | WebScrapingPayload
+  | DocumentEmbeddingPayload;
 
 // Estrutura de um job
 export interface QueueJob {

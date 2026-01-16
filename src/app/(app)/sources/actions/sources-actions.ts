@@ -9,8 +9,10 @@
 import { auth } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
 import { db } from "@/db"
-import { documents, documentEmbeddings } from "@/db/schema"
-import { eq, and, desc, count, sql } from "drizzle-orm"
+import { documents, documentEmbeddings, documentCollectionItems } from "@/db/schema"
+import { eq, and, desc, count, sql, isNull, or } from "drizzle-orm"
+import { createJob } from "@/lib/queue/jobs"
+import { JobType, type DocumentEmbeddingPayload } from "@/lib/queue/types"
 
 /**
  * Result of a source operation
@@ -95,6 +97,71 @@ export async function getDocumentsWithEmbeddingsAction(): Promise<DocumentWithEm
     return result
   } catch (error) {
     console.error("Get documents with embeddings error:", error)
+    return []
+  }
+}
+
+/**
+ * Fetches documents in a specific collection with embedding count
+ */
+export async function getDocumentsByCollectionAction(
+  collectionId: number | null
+): Promise<DocumentWithEmbeddings[]> {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return []
+  }
+
+  try {
+    // If collectionId is null, return all documents (same as getDocumentsWithEmbeddingsAction)
+    if (collectionId === null) {
+      return await getDocumentsWithEmbeddingsAction()
+    }
+
+    // Get documents in the specified collection
+    const docs = await db
+      .select({
+        id: documents.id,
+        title: documents.title,
+        content: documents.content,
+        fileType: documents.fileType,
+        category: documents.category,
+        embedded: documents.embedded,
+        embeddingModel: documents.embeddingModel,
+        createdAt: documents.createdAt,
+        updatedAt: documents.updatedAt,
+      })
+      .from(documents)
+      .innerJoin(
+        documentCollectionItems,
+        eq(documentCollectionItems.documentId, documents.id)
+      )
+      .where(
+        and(
+          eq(documents.userId, userId),
+          eq(documentCollectionItems.collectionId, collectionId)
+        )
+      )
+      .orderBy(desc(documents.createdAt))
+
+    // Get embedding counts for each document
+    const result: DocumentWithEmbeddings[] = []
+    for (const doc of docs) {
+      const embeddingCount = await db
+        .select({ count: count() })
+        .from(documentEmbeddings)
+        .where(eq(documentEmbeddings.documentId, doc.id))
+
+      result.push({
+        ...doc,
+        embeddingCount: embeddingCount[0]?.count || 0,
+      })
+    }
+
+    return result
+  } catch (error) {
+    console.error("Get documents by collection error:", error)
     return []
   }
 }
@@ -327,5 +394,87 @@ export async function searchDocumentsAction(
   } catch (error) {
     console.error("Search documents error:", error)
     return []
+  }
+}
+
+/**
+ * Queue a document for re-embedding
+ *
+ * Creates a job to regenerate embeddings for a document.
+ * Useful after content changes or model updates.
+ */
+export async function reembedDocumentAction(
+  documentId: number,
+  force: boolean = true
+): Promise<SourceResult & { jobId?: number }> {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return { success: false, error: "Unauthorized" }
+  }
+
+  try {
+    // Verify document exists and belongs to user
+    const [doc] = await db
+      .select()
+      .from(documents)
+      .where(and(eq(documents.id, documentId), eq(documents.userId, userId), isNull(documents.deletedAt)))
+      .limit(1)
+
+    if (!doc) {
+      return { success: false, error: "Document not found" }
+    }
+
+    // Check if already embedding
+    if (doc.embeddingStatus === "processing") {
+      return { success: false, error: "Document is already being processed" }
+    }
+
+    // Queue the embedding job
+    const payload: DocumentEmbeddingPayload = {
+      documentId,
+      userId,
+      force,
+    }
+
+    const jobId = await createJob(userId, JobType.DOCUMENT_EMBEDDING, payload)
+
+    revalidatePath("/sources")
+    return { success: true, jobId }
+  } catch (error) {
+    console.error("Re-embed document error:", error)
+    return { success: false, error: "Failed to queue re-embedding job" }
+  }
+}
+
+/**
+ * Get embedding status for a document
+ */
+export async function getEmbeddingStatusAction(documentId: number) {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return null
+  }
+
+  try {
+    const [doc] = await db
+      .select({
+        id: documents.id,
+        embedded: documents.embedded,
+        embeddingStatus: documents.embeddingStatus,
+        embeddingProgress: documents.embeddingProgress,
+        chunksCount: documents.chunksCount,
+        lastEmbeddedAt: documents.lastEmbeddedAt,
+        embeddingModel: documents.embeddingModel,
+      })
+      .from(documents)
+      .where(and(eq(documents.id, documentId), eq(documents.userId, userId), isNull(documents.deletedAt)))
+      .limit(1)
+
+    return doc || null
+  } catch (error) {
+    console.error("Get embedding status error:", error)
+    return null
   }
 }

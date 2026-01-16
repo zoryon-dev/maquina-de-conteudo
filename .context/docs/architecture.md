@@ -59,7 +59,9 @@ graph TD
 │   │   ├── /jobs           # Job management (CRUD)
 │   │   ├── /jobs/[id]      # Job status endpoint
 │   │   ├── /workers        # Queue processor
-│   │   └── /webhooks       # Clerk webhook sync
+│   │   ├── /webhooks       # Clerk webhook sync
+│   │   └── /documents      # Document upload (FormData + PDF parse) ⭐
+│   │       └── /upload      # PDF/TXT/MD upload with text extraction
 │   ├── /sign-in            # Clerk sign-in page
 │   ├── /sign-up            # Clerk sign-up page
 │   ├── /styleguide         # Design system documentation
@@ -71,7 +73,7 @@ graph TD
 │
 ├── /db                     # Database layer
 │   ├── index.ts            # Neon connection (HTTP adapter)
-│   └── schema.ts           # Drizzle schema (8 tables)
+│   └── schema.ts           # Drizzle schema (10+ tables)
 │
 ├── /lib                    # Utilities
 │   ├── utils.ts            # cn() + helpers
@@ -88,18 +90,22 @@ graph TD
 
 ## Database Schema
 
-### 8 Tables
+### 10+ Tables
 
 ```mermaid
 erDiagram
     users ||--o{ chats : "has many"
     users ||--o{ library_items : "owns"
     users ||--o{ documents : "owns"
+    users ||--o{ document_collections : "owns"
     users ||--o{ sources : "owns"
     users ||--o{ jobs : "creates"
 
     chats ||--o{ messages : "contains"
     library_items ||--o{ scheduled_posts : "scheduled as"
+    document_collections ||--o{ document_collection_items : "contains"
+    documents ||--o{ document_collection_items : "belongs to"
+    documents ||--o{ document_embeddings : "has many"
 
     users {
         text id PK "Clerk user ID"
@@ -111,9 +117,55 @@ erDiagram
         timestamp updatedAt
     }
 
+    document_collections {
+        serial id PK
+        text name
+        text description
+        text userId FK
+        timestamp deletedAt "soft delete"
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    document_collection_items {
+        serial id PK
+        integer collectionId FK
+        integer documentId FK
+        timestamp addedAt
+    }
+
+    documents {
+        serial id PK
+        text title
+        text content "extracted text"
+        text fileType "pdf/txt/md"
+        text category "general/products/..."
+        text userId FK
+        boolean embedded "RAG indexed"
+        text embeddingModel "voyage-4-large"
+        text embeddingStatus "pending/processing/completed/failed"
+        integer embeddingProgress
+        integer chunksCount
+        timestamp lastEmbeddedAt
+        text filePath "optional file path"
+        timestamp deletedAt "soft delete"
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    document_embeddings {
+        serial id PK
+        integer documentId FK
+        jsonb embedding "1024-dim vector"
+        integer chunkIndex
+        text chunkText
+        text model "voyage-4-large"
+        timestamp createdAt
+    }
+
     jobs {
         serial id PK
-        job_type type "ai_text_generation, ai_image_generation, etc."
+        job_type type "ai_text_generation, ai_image_generation, document_embedding, etc."
         job_status status "pending, processing, completed, failed"
         text userId FK
         jsonb payload "job input data"
@@ -133,7 +185,10 @@ erDiagram
 | `chats` | AI conversations | userId, title, model |
 | `messages` | Chat messages | chatId, role, content |
 | `library_items` | Content library | type, status, content (JSONB) |
-| `documents` | Knowledge base | title, content, fileType |
+| `documents` | Knowledge base | title, content, fileType, category |
+| `document_collections` | Document folders | name, description, userId |
+| `document_collection_items` | Many-to-many junction | collectionId, documentId |
+| `document_embeddings` | RAG embeddings | documentId, embedding (JSONB), chunkIndex |
 | `sources` | Scraping sources | url, type, config (JSONB) |
 | `scheduled_posts` | Publishing queue | platform, scheduledFor, status |
 | `jobs` | Background jobs | type, status, payload, attempts |
@@ -193,6 +248,7 @@ sequenceDiagram
 | `carousel_creation` | Create social carousels | 🔄 Mock |
 | `scheduled_publish` | Publish to social media | 🔄 Mock |
 | `web_scraping` | Scrape web content | 🔄 Mock |
+| `document_embedding` | Generate embeddings for RAG | ⭐ Ready |
 
 ## Authentication Flow
 
@@ -295,4 +351,4 @@ Clerk webhooks keep database in sync rather than fetching user data on each requ
 
 ---
 
-*Updated based on codebase analysis as of Jan 14, 2026.*
+*Updated based on codebase analysis as of Jan 16, 2026 (Fase 8 - Document Collections & File Upload).*
