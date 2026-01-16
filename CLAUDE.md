@@ -10,7 +10,8 @@ Este é um estúdio de conteúdo alimentado por IA que permite criar, editar e g
 - **Autenticação**: Clerk
 - **Banco de Dados**: Neon (PostgreSQL) + Drizzle ORM
 - **State Management**: Zustand
-- **LLM**: OpenRouter
+- **LLM**: Vercel AI SDK + OpenRouter
+- **Embeddings**: Voyage AI
 - **Search**: Tavily
 - **Scraping**: Firecrawl
 - **Animação**: Framer Motion
@@ -52,7 +53,10 @@ maquina-de-conteudo/
 │   │   └── ui/              # shadcn/ui components
 │   ├── db/                  # Schema e conexões do DB
 │   ├── lib/                 # Utilitários e configs
-│   │   └── models.ts        # OpenRouter model constants
+│   │   ├── ai/              # Vercel AI SDK config
+│   │   ├── voyage/          # Voyage AI embeddings
+│   │   ├── rag/             # RAG utilities
+│   │   └── queue/           # Queue system
 │   └── stores/              # Zustand stores
 ├── drizzle/                 # Migrations
 ├── CLAUDE.md                # Este arquivo
@@ -333,64 +337,158 @@ export const db = drizzle(sql)
 
 ---
 
-## OpenRouter Integration
+## Vercel AI SDK Integration
 
 ### Visão Geral
 
-Este projeto usa **OpenRouter** para acessar múltiplos modelos de IA de diferentes providers através de uma única API.
+Este projeto usa **Vercel AI SDK** para acessar múltiplos modelos de IA através do **OpenRouter**. A migração de cliente customizado para o SDK foi completada em Janeiro 2026.
+
+### Estrutura
+
+```
+src/lib/ai/
+├── config.ts           # Configuração central + modelos disponíveis
+└── ...
+
+src/app/api/chat/
+└── route.ts            # Streaming chat endpoint com streamText
+
+src/components/chat/
+├── ai-chat-sdk.tsx     # Componente com useChat hook
+└── model-selector.tsx  # Seletor de modelos
+```
+
+### Configuração
+
+```typescript
+// src/lib/ai/config.ts
+import { createOpenAI } from '@ai-sdk/openai'
+
+export const openrouter = OPENROUTER_API_KEY
+  ? createOpenAI({
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: OPENROUTER_API_KEY,
+      headers: {
+        'X-Title': OPENROUTER_APP_NAME,
+        'HTTP-Referer': OPENROUTER_APP_URL,
+      },
+    })
+  : null
+```
 
 ### Modelos Disponíveis
 
-Todos os modelos estão documentados em `src/lib/models.ts` com IDs **exatos** da OpenRouter:
+**Modelos de Texto (12):**
+- `openai/gpt-5-mini`, `openai/gpt-5.1`, `openai/gpt-5.2`
+- `openai/gpt-4.1`, `openai/gpt-4.1-mini`
+- `anthropic/claude-sonnet-4.5`, `anthropic/claude-opus-4.5`, `anthropic/claude-haiku-4.5`
+- `google/gemini-3-flash-preview`, `google/gemini-3-pro-preview`
+- `x-ai/grok-4.1-fast`, `x-ai/grok-4`
 
-**Modelos de Texto:**
-- `openai/gpt-5.2` - GPT 5.2 (default)
-- `openai/gpt-5.1` - GPT 5.1
-- `openai/gpt-5.2-chat` - GPT 5.2 Chat
-- `google/gemini-3-flash-preview` - Gemini 3 Flash Preview
-- `google/gemini-3-pro-preview` - Gemini 3 Pro Preview
-- `anthropic/claude-sonnet-4.5` - Claude Sonnet 4.5
-- `anthropic/claude-opus-4.5` - Claude Opus 4.5
-- `anthropic/claude-haiku-4.5` - Claude Haiku 4.5
-- `x-ai/grok-4.1-fast` - Grok 4.1 Fast
-- `x-ai/grok-4-fast` - Grok 4 Fast
+**Modelos de Imagem (4):**
+- `google/gemini-3-pro-image-preview`
+- `openai/gpt-5-image`
+- `bytedance-seed/seedream-4.5`
+- `black-forest-labs/flux.2-max`
 
-**Modelos de Imagem:**
-- `openai/gpt-5-image` - GPT 5 Image (default)
-- `google/gemini-3-pro-image-preview` - Gemini 3 Pro Image Preview
-- `black-forest-labs/flux.2-pro` - Flux 2 Pro
-- `black-forest-labs/flux.2-flex` - Flux 2 Flex
-- `sourceful/riverflow-v2-max-preview` - Riverflow V2 Max Preview
-- `black-forest-labs/flux.2-max` - Flux 2 Max
-- `bytedance-seed/seedream-4.5` - Seedream 4.5
-
-### Componentes
-
-**ModelSelector** (`src/components/chat/model-selector.tsx`):
-- Dropdown com shadcn `DropdownMenu`
-- Organiza modelos por tipo (texto/imagem)
-- Indica modelo selecionado com `✓`
-
-**useModelSelector** Hook:
-```typescript
-const { selectedModel, setSelectedModel, modelInfo, isTextModel, isImageModel }
-  = useModelSelector(defaultModel)
-```
-
-### Constantes
+### API Route - Streaming Chat
 
 ```typescript
-import {
-  TEXT_MODELS,
-  IMAGE_MODELS,
-  DEFAULT_TEXT_MODEL,
-  DEFAULT_IMAGE_MODEL,
-  getModelById,
-  formatModelId
-} from "@/lib/models"
+// src/app/api/chat/route.ts
+import { streamText } from 'ai'
+import { openrouter } from '@/lib/ai/config'
+
+export async function POST(request: NextRequest) {
+  const { messages, model, ragOptions } = await request.json()
+
+  const result = streamText({
+    model: openrouter(model),
+    messages,
+    temperature: 0.7,
+  })
+
+  return result.toTextStreamResponse()
+}
 ```
 
-**IMPORTANTE:** IDs dos modelos devem ser usados **EXATAMENTE** como documentados. Small differences cause API failures.
+### Client Component - useChat Hook
+
+```typescript
+// src/components/chat/ai-chat-sdk.tsx
+import { useChat } from "@ai-sdk/react"
+import type { UIMessage } from "ai"
+
+const {
+  messages,
+  status,
+  error,
+  sendMessage,
+  stop,
+  clearError,
+} = useChat({
+  onFinish: ({ message }) => {
+    const text = getMessageText(message)
+    onComplete?.(text)
+  },
+})
+
+const isLoading = status === "streaming"
+
+function getMessageText(message: UIMessage): string {
+  return message.parts
+    .filter((part) => part.type === "text")
+    .map((part) => (part as { type: "text"; text: string }).text)
+    .join("")
+}
+```
+
+### Importante: API do useChat
+
+**Propriedades retornadas:**
+- `messages` - Array de mensagens
+- `status` - `"ready" | "streaming" | "error"`
+- `error` - Error object quando status é "error"
+- `sendMessage(message)` - Enviar mensagem
+- `stop()` - Parar streaming
+- `clearError()` - Limpar erro
+
+**Não usar:**
+- ❌ `input`, `handleInputChange`, `handleSubmit` (não existem)
+- ❌ `isLoading` (use `status === "streaming"`)
+- ❌ `CoreMessage` (use `UIMessage`)
+
+### Environment Variables
+
+```env
+# OBRIGATÓRIO para LLMs
+OPENROUTER_API_KEY=sk-or-v1-...
+
+# OBRIGATÓRIO para Embeddings (Voyage)
+VOYAGE_API_KEY=voyage-...
+
+# OPCIONAIS
+FIRECRAWL_API_KEY=fc-...
+TAVILY_API_KEY=tvly-...
+```
+
+### System Status Monitoring
+
+Use `getSystemStatusAction()` para verificar configuração:
+
+```typescript
+import { getSystemStatusAction } from "@/app/(app)/settings/actions"
+
+const status = await getSystemStatusAction()
+// Returns: { overallConfigured: boolean, services: {...} }
+```
+
+---
+
+## OpenRouter Legacy (Referência)
+
+**Nota:** OpenRouter agora é acessado via Vercel AI SDK. Abaixo, referência para IDs de modelo.
+
+**IMPORTANTE:** IDs dos modelos devem ser usados **EXATAMENTE** como documentados em `src/lib/ai/config.ts`. Small differences cause API failures.
 
 ### Command Palette (Chat)
 

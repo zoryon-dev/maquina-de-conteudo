@@ -536,6 +536,49 @@ Client Component → lib/rag/assembler.ts ❌
 
 ---
 
+### 22. Vercel AI SDK Migration - API incorreta do useChat
+
+**Erros:** Múltiplos TypeScript errors ao implementar chat com Vercel AI SDK
+
+**Documentação completa:** `.context/docs/known-and-corrected-errors/007-vercel-ai-sdk-migration.md`
+
+**Resumo dos erros:**
+1. **API incorreta do `useChat`**: Assumi propriedades `input`, `handleInputChange`, `handleSubmit`, `isLoading` que não existem
+2. **Tipo `CoreMessage` não existe**: Usar `UIMessage` em vez disso
+3. **Propriedade `initialMessages` não existe**: Remover das opções
+4. **Variável `initialMessage` não utilizada**: Remover das props
+5. **Build failure**: `openrouter` lançando erro durante import - fazer nullable
+6. **Turbopack + Clerk**: Incompatibilidade pré-existente, usar `tsc --noEmit` para validação
+
+**Solução - API correta do useChat:**
+```typescript
+import { useChat } from "@ai-sdk/react"
+import type { UIMessage } from "ai"
+
+const {
+  messages,
+  status,
+  error,
+  sendMessage,
+  stop,
+  clearError,
+} = useChat({
+  onFinish: ({ message }) => {
+    const text = getMessageText(message)
+    onComplete?.(text)
+  },
+})
+
+const isLoading = status === "streaming"
+```
+
+**Arquivos:**
+- `.context/docs/known-and-corrected-errors/007-vercel-ai-sdk-migration.md`
+- `src/components/chat/ai-chat-sdk.tsx`
+- `src/lib/ai/config.ts`
+
+---
+
 ## Padrões de Solução
 
 ### 1. Sempre validar tipos de DB

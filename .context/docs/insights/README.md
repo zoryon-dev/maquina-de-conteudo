@@ -27,6 +27,9 @@ Documentação de insights e padrões aprendidos durante cada fase do desenvolvi
 - **[008](./008-collections-rag-patterns.md)** - Sistema de Coleções e Upload de Documentos
 - **[009](./009-rag-module-structure.md)** - Estrutura de Módulos RAG (Server/Client Separation)
 
+### Vercel AI SDK Migration
+- **[010](./010-vercel-ai-sdk-migration.md)** - Migração para Vercel AI SDK (useChat, streamText)
+
 ## Tópicos Recorrentes
 
 ### Padrões React

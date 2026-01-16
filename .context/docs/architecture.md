@@ -47,6 +47,9 @@ graph TD
 | **Database** | Neon PostgreSQL | 17 | Serverless PostgreSQL |
 | **ORM** | Drizzle ORM | 0.45.x | Type-safe database queries |
 | **Queue** | Upstash Redis | 1.36.x | Background job processing |
+| **AI SDK** | Vercel AI SDK | 1.x | LLM streaming + hooks |
+| **LLM Provider** | OpenRouter | - | Multi-model aggregation |
+| **Embeddings** | Voyage AI | - | RAG embeddings (1024-dim) |
 | **Icons** | Lucide React | - | Iconography |
 | **Animation** | Framer Motion, GSAP | - | Declarative animations |
 
@@ -77,6 +80,15 @@ graph TD
 │
 ├── /lib                    # Utilities
 │   ├── utils.ts            # cn() + helpers
+│   ├── /ai                 # Vercel AI SDK config
+│   │   └── config.ts       # openrouter client, models
+│   ├── /voyage             # Voyage AI embeddings
+│   │   ├── index.ts        # client with env + DB fallback
+│   │   └── embeddings.ts   # generateEmbedding()
+│   ├── /rag                # RAG utilities
+│   │   ├── index.ts        # types, constants (client-safe)
+│   │   ├── assembler.ts    # assembleRagContext() (server-only)
+│   │   └── filters.ts      # relevance filters
 │   └── /queue              # Queue system
 │       ├── types.ts        # JobType, JobStatus enums
 │       ├── client.ts       # Upstash Redis client
@@ -285,6 +297,89 @@ sequenceDiagram
 - **Protected:** `/chat`, `/library`, `/calendar`, `/sources`, `/settings`
 - **Public:** `/`, `/sign-in`, `/sign-up`, `/api/webhooks`
 
+## AI/LLM Integration
+
+### Architecture (Vercel AI SDK + OpenRouter)
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant SDK as useChat Hook
+    participant API as /api/chat
+    participant Router as OpenRouter
+    participant LLM as AI Model
+
+    Client->>SDK: sendMessage({role, parts})
+    SDK->>API: POST /api/chat (SSE)
+    API->>Router: streamText({model, messages})
+    Router->>LLM: Generate tokens
+    LLM-->>Router: Token stream
+    Router-->>API: Server-Sent Events
+    API-->>SDK: Stream tokens
+    SDK-->>Client: Update UI (streaming)
+```
+
+### Environment Variables (System-Controlled)
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `OPENROUTER_API_KEY` | ✅ Yes | LLM access via Vercel AI SDK |
+| `VOYAGE_API_KEY` | ✅ Yes | Embeddings for RAG |
+| `FIRECRAWL_API_KEY` | ⬜ No | Web scraping |
+| `TAVILY_API_KEY` | ⬜ No | Real-time search |
+
+**Note:** API keys are now system-controlled (environment variables) rather than user-controlled (database-encrypted). This was changed in January 2026 for a B2B model where the company provides AI services.
+
+### Available Models
+
+**Text Models (12):**
+- OpenAI: gpt-5-mini, gpt-5.1, gpt-5.2, gpt-4.1, gpt-4.1-mini
+- Anthropic: claude-sonnet-4.5, claude-opus-4.5, claude-haiku-4.5
+- Google: gemini-3-flash-preview, gemini-3-pro-preview
+- xAI: grok-4.1-fast, grok-4
+
+**Image Models (4):**
+- google/gemini-3-pro-image-preview
+- openai/gpt-5-image
+- bytedance-seed/seedream-4.5
+- black-forest-labs/flux.2-max
+
+### RAG (Retrieval Augmented Generation)
+
+```mermaid
+graph LR
+    Query[User Query] --> Embed[Voyage Embedding]
+    Docs[(Document Embeddings)] --> Search[Semantic Search]
+    Embed --> Search
+    Search --> Context[Top-K Chunks]
+    Context --> LLM[LLM with Context]
+    LLM --> Response[Augmented Response]
+```
+
+**Voyage AI Config:**
+- Model: `voyage-4-large`
+- Dimensions: 1024
+- Chunk Size: ~4000 tokens
+- Overlap: 200 tokens
+
+### System Status Monitoring
+
+```typescript
+const status = await getSystemStatusAction()
+// Returns:
+// {
+//   overallConfigured: boolean,
+//   services: {
+//     openrouter: { configured: boolean, source: "env" },
+//     voyage: { configured: boolean, source: "env" | "database" },
+//     firecrawl: { configured: boolean, source: "none" },
+//     tavily: { configured: boolean, source: "none" }
+//   }
+// }
+```
+
+---
+
 ## Design Patterns
 
 ### 1. Serverless Queue Pattern
@@ -351,4 +446,4 @@ Clerk webhooks keep database in sync rather than fetching user data on each requ
 
 ---
 
-*Updated based on codebase analysis as of Jan 16, 2026 (Fase 8 - Document Collections & File Upload).*
+*Updated based on codebase analysis as of Jan 16, 2026 (Fase 8 - Vercel AI SDK Migration).*

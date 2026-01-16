@@ -19,6 +19,7 @@
 
 ### Backend & Features
 - **[prompt-system](serena:read?memory=prompt-system.md)** - Sistema de prompts em 4 camadas ⭐
+- **[vercel-ai-sdk-patterns](serena:read?memory=vercel-ai-sdk-patterns.md)** - Vercel AI SDK + OpenRouter ⭐
 
 ### Padrões de Código
 - **[component-patterns](serena:read?memory=component-patterns.md)** - Padrões de componentes React e Radix UI
@@ -49,6 +50,9 @@
 | Database | Neon (PostgreSQL) | - |
 | ORM | Drizzle ORM | 0.45.x |
 | State Management | Zustand | 5.x |
+| **AI SDK** | **Vercel AI SDK** | **1.x** ⭐ |
+| **LLM Provider** | **OpenRouter** | **-** ⭐ |
+| **Embeddings** | **Voyage AI** | **voyage-4-large** ⭐ |
 
 ## Dependências Principais
 
@@ -82,6 +86,11 @@
 - `@clerk/nextjs` - Autenticação
 - `@neondatabase/serverless` - Client PostgreSQL serverless
 - `drizzle-orm` - ORM type-safe
+
+### AI & ML
+- `ai` - Vercel AI SDK core
+- `@ai-sdk/openai` - OpenAI adapter para OpenRouter
+- `@ai-sdk/react` - React hooks (useChat)
 
 ### Utilitários
 - `lucide-react` - Ícones
