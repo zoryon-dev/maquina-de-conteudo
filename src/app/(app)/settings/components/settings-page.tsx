@@ -12,7 +12,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { SettingsTabs, type TabValue } from "./settings-tabs"
-import { ApiKeysSection } from "./sections/api-keys-section"
+import { SystemStatusSection } from "./sections/system-status-section"
 import { ModelsSection } from "./sections/models-section"
 import { PromptsSection } from "./sections/prompts-section"
 import { VariablesSection } from "./sections/variables-section"
@@ -37,7 +37,7 @@ function SettingsSkeleton() {
  * Settings Page Component
  */
 export function SettingsPage() {
-  const [activeTab, setActiveTab] = React.useState<TabValue>("api-keys")
+  const [activeTab, setActiveTab] = React.useState<TabValue>("system-status")
   const [isLoading, setIsLoading] = React.useState(true)
   const [isSaving, setIsSaving] = React.useState(false)
   const [hasChanges, setHasChanges] = React.useState(false)
@@ -110,8 +110,8 @@ export function SettingsPage() {
           <SettingsSkeleton />
         ) : (
           <>
-            {activeTab === "api-keys" && (
-              <ApiKeysSection onChange={markAsChanged} />
+            {activeTab === "system-status" && (
+              <SystemStatusSection onChange={markAsChanged} />
             )}
             {activeTab === "models" && (
               <ModelsSection onChange={markAsChanged} />

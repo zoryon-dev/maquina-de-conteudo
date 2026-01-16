@@ -7,14 +7,14 @@
 "use client"
 
 import * as React from "react"
-import { Key, Cpu, MessageSquare, Sliders } from "lucide-react"
+import { Server, Cpu, MessageSquare, Sliders } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 /**
  * Available tabs in the settings page
  */
 export type TabValue =
-  | "api-keys"
+  | "system-status"
   | "models"
   | "prompts"
   | "variables"
@@ -31,10 +31,10 @@ interface TabConfig {
 
 const TABS: TabConfig[] = [
   {
-    value: "api-keys",
-    label: "API Keys",
-    icon: Key,
-    description: "Configure suas chaves de API",
+    value: "system-status",
+    label: "Status do Sistema",
+    icon: Server,
+    description: "Status dos serviços configurados",
   },
   {
     value: "models",
