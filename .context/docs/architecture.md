@@ -3,116 +3,296 @@
 This document describes the high-level architecture, design patterns, and technical decisions for the **Máquina de Conteúdo** repository.
 
 ## System Topology
-The application is a **Monolithic Frontend** built with Next.js (App Router), deployed as a server-rendered application. It relies on a component-driven architecture for UI and utilizes TypeScript for type safety across the stack.
+
+The application is an **AI-Powered Content Studio** built with Next.js (App Router), featuring authentication, background job processing, and a PostgreSQL database. It follows a serverless-first architecture optimized for deployment on platforms like Vercel.
 
 ### High-Level Diagram
+
 ```mermaid
 graph TD
-    User[Browser/Client] -->|HTTP Request| Edge[Next.js Middleware/Edge]
-    Edge -->|Routing| App[App Router /src/app]
-    
+    User[Browser/Client] -->|HTTP Request| Edge[Clerk Middleware]
+    Edge -->|Protected Routes| App[Next.js App Router]
+    Edge -->|Public Routes| App
+
+    App -->|Auth| Clerk[Clerk Authentication]
+    App -->|Webhooks| Webhook[/api/webhooks/clerk]
+
     subgraph Frontend Logic
-        App --> Layouts[RootLayout & Feature Layouts]
-        Layouts --> pages[Pages /page.tsx]
-        pages --> Features[Feature Components]
-        Features --> UI[Atomic UI Components /src/components/ui]
-        
-        UI --> Hooks[Custom Hooks /src/hooks]
-        UI --> Lib[Utils /src/lib]
+        App --> Layouts[RootLayout + ClerkProvider]
+        Layouts --> Pages[Sign In / Sign Up / Protected Routes]
+        Pages --> Components[UI Components]
+        Components --> UI[shadcn/ui Components]
     end
-    
-    subgraph Data & Config
-        App --> Config[Next Config & Env]
-        Features --> State[React Context/State]
+
+    subgraph Backend Services
+        App --> DB[Neon PostgreSQL]
+        App --> Queue[Upstash Redis Queue]
+        App --> Workers[/api/workers Processor]
+    end
+
+    subgraph External Integrations
+        Workers --> APIs[OpenRouter / Firecrawl / Social APIs]
     end
 ```
 
 ## Technology Stack
 
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| **Core Framework** | [Next.js 14+](https://nextjs.org/) | App Router, SSR/CSR, Routing |
-| **Language** | [TypeScript](https://www.typescriptlang.org/) | Static typing and interfaces |
-| **Styling** | [Tailwind CSS](https://tailwindcss.com/) | Utility-first CSS |
-| **UI Library** | [Shadcn UI](https://ui.shadcn.com/) / Radix UI | Headless accessible components |
-| **Icons** | Lucide React | Iconography |
-| **Package Manager** | Npm/Node | Dependency management |
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| **Core Framework** | Next.js | 16.1.1 | App Router, SSR/CSR, Routing |
+| **Language** | TypeScript | 5.x | Static typing and interfaces |
+| **Styling** | Tailwind CSS | 4.x | Utility-first CSS |
+| **UI Library** | Radix UI | - | Headless accessible components |
+| **Authentication** | Clerk | 6.36.7 | User auth and session management |
+| **Database** | Neon PostgreSQL | 17 | Serverless PostgreSQL |
+| **ORM** | Drizzle ORM | 0.45.x | Type-safe database queries |
+| **Queue** | Upstash Redis | 1.36.x | Background job processing |
+| **Icons** | Lucide React | - | Iconography |
+| **Animation** | Framer Motion, GSAP | - | Declarative animations |
 
-## Directory Structure & Modules
-
-The project follows the standard Next.js App Router structure with a focus on feature encapsulation.
+## Directory Structure
 
 ```
 /src
-├── /app             # Application routes and layouts
-│   ├── /styleguide  # Internal documentation maps/routes
-│   ├── globals.css  # Global styles and Tailwind directives
-│   └── layout.tsx   # Root layout (Html/Body wrappers)
-├── /components      # React components
-│   └── /ui          # Atomic, reusable UI primitives (Shadcn)
-├── /hooks           # Custom React hooks (e.g., use-mobile)
-└── /lib             # Shared utilities and helper functions
+├── /app                    # Next.js App Router
+│   ├── /api                # API Routes
+│   │   ├── /jobs           # Job management (CRUD)
+│   │   ├── /jobs/[id]      # Job status endpoint
+│   │   ├── /workers        # Queue processor
+│   │   └── /webhooks       # Clerk webhook sync
+│   ├── /sign-in            # Clerk sign-in page
+│   ├── /sign-up            # Clerk sign-up page
+│   ├── /styleguide         # Design system documentation
+│   ├── layout.tsx          # Root layout + ClerkProvider
+│   └── globals.css         # Global styles + design tokens
+│
+├── /components             # React components
+│   └── /ui                 # shadcn/ui components (30+ components)
+│
+├── /db                     # Database layer
+│   ├── index.ts            # Neon connection (HTTP adapter)
+│   └── schema.ts           # Drizzle schema (8 tables)
+│
+├── /lib                    # Utilities
+│   ├── utils.ts            # cn() + helpers
+│   └── /queue              # Queue system
+│       ├── types.ts        # JobType, JobStatus enums
+│       ├── client.ts       # Upstash Redis client
+│       └── jobs.ts         # Job CRUD functions
+│
+├── /hooks                  # Custom React hooks
+│   └── use-mobile.ts       # useIsMobile() hook
+│
+└── middleware.ts           # Clerk route protection
 ```
 
-### Key Modules
+## Database Schema
 
-#### 1. App Router (`src/app`)
-*   **Entry Point**: `RootLayout` in `src/app/layout.tsx` handles the global shell, font injection, and metadata.
-*   **Styleguide**: A dedicated section (`src/app/styleguide`) serves as an internal playground or design system documentation, utilizing `navigation.ts` for structure.
+### 8 Tables
 
-#### 2. UI Components (`src/components/ui`)
-This directory contains atomic design elements. The project relies heavily on **Shadcn UI**, where components are owned source code rather than NPM dependencies.
-*   **Pattern**: Components export named primitives (e.g., `Sheet`, `SheetTrigger`, `SheetContent`).
-*   **Styling**: Uses clsx/tailwind-merge via the `cn()` utility for class overrides.
-*   **Specialty Components**: Includes specialized UI like `TubelightNavbar` and `Spinner` alongside standard primitives.
+```mermaid
+erDiagram
+    users ||--o{ chats : "has many"
+    users ||--o{ library_items : "owns"
+    users ||--o{ documents : "owns"
+    users ||--o{ sources : "owns"
+    users ||--o{ jobs : "creates"
 
-#### 3. Utilities (`src/lib`)
-*   **`utils.ts`**: Contains the canonical `cn` function used across virtually every component to safely merge Tailwind classes.
+    chats ||--o{ messages : "contains"
+    library_items ||--o{ scheduled_posts : "scheduled as"
 
-## Design Patterns & Decisions
+    users {
+        text id PK "Clerk user ID"
+        text email UK "unique"
+        text name "display name"
+        text avatarUrl "profile picture"
+        timestamp deletedAt "soft delete"
+        timestamp createdAt
+        timestamp updatedAt
+    }
 
-### 1. Composition over Inheritance
-The UI architecture relies on composition. For example, the `Dialog` component allows arbitrary content injection via `DialogContent` rather than prop-heavy configuration.
-
-```tsx
-// Pattern used in src/components/ui/dialog.tsx
-<Dialog>
-  <DialogTrigger>Open</DialogTrigger>
-  <DialogContent>
-    <DialogHeader>...</DialogHeader>
-    {/* Composition allows flexibility here */}
-  </DialogContent>
-</Dialog>
+    jobs {
+        serial id PK
+        job_type type "ai_text_generation, ai_image_generation, etc."
+        job_status status "pending, processing, completed, failed"
+        text userId FK
+        jsonb payload "job input data"
+        jsonb result "job output"
+        integer priority "higher = more urgent"
+        integer attempts "retry count"
+        integer maxAttempts
+        timestamp createdAt
+    }
 ```
 
-### 2. Client vs. Server Components
-*   **Default**: Next.js App Router creates Server Components by default.
-*   **Client Boundaries**: Files containing interactive logic (hooks, event listeners) are marked with `"use client"`.
-    *   *Example*: `src/components/ui/sidebar.tsx` and `src/hooks/use-mobile.ts` imply client-side interactivity.
+### Table Purposes
 
-### 3. Responsive Design Strategy
-*   **CSS**: Tailwind's prefix modifiers (`md:`, `lg:`) are the primary method for responsiveness.
-*   **Logic**: The `useIsMobile` hook (`src/hooks/use-mobile.ts`) provides programmatic access to viewport state for conditional rendering logic that CSS cannot handle alone (e.g., changing event handlers or drastic layout shifts).
+| Table | Purpose | Key Fields |
+|-------|---------|------------|
+| `users` | Clerk sync | id (Clerk), email, deletedAt |
+| `chats` | AI conversations | userId, title, model |
+| `messages` | Chat messages | chatId, role, content |
+| `library_items` | Content library | type, status, content (JSONB) |
+| `documents` | Knowledge base | title, content, fileType |
+| `sources` | Scraping sources | url, type, config (JSONB) |
+| `scheduled_posts` | Publishing queue | platform, scheduledFor, status |
+| `jobs` | Background jobs | type, status, payload, attempts |
 
-## Data Flow & State Management
+## Queue System Architecture
 
-*   **Local State**: `useState` and `useReducer` for component-level interaction (e.g., opening menus, toggling inputs).
-*   **Context API**: Used for global UI state, such as Sidebar visibility or Theme providers.
-    *   *Evidence*: `SidebarContextProps` in `src/components/ui/sidebar.tsx`.
+### Job Processing Flow
 
-## Key Files & Exports
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as /api/jobs
+    participant DB as Neon DB
+    participant Redis as Upstash
+    participant Worker as /api/workers
+    participant Handler as Job Handler
 
-| Component | Location | Description |
-|-----------|----------|-------------|
-| `cn` | `src/lib/utils.ts` | **Critical**. CSS class merger utility. |
-| `RootLayout` | `src/app/layout.tsx` | Main HTML wrapper. App entry point. |
-| `useIsMobile` | `src/hooks/use-mobile.ts` | Device detection hook. |
-| `TubelightNavbar` | `src/components/ui/tubelight-navbar.tsx` | Custom navigation component. |
-| `NavItem` | `src/app/styleguide/navigation.ts` | Interface for menu structures. |
+    Client->>API: POST {type, payload}
+    API->>DB: INSERT job (status: pending)
+    API->>Redis: LPUSH jobs:pending
+    API-->>Client: {jobId, status: "pending"}
+
+    Note over Worker: Triggered by cron/webhook
+
+    Worker->>Redis: RPOP jobs:pending
+    Redis-->>Worker: jobId
+    Worker->>DB: SELECT job BY id
+    Worker->>DB: UPDATE status: processing
+    Worker->>Redis: LPUSH jobs:processing
+
+    Worker->>Handler: process(payload)
+    Handler-->>Worker: result
+
+    alt Success
+        Worker->>DB: UPDATE status: completed
+        Worker->>Redis: LREM jobs:processing
+    else Failure + retries left
+        Worker->>DB: INCREMENT attempts
+        Worker->>DB: UPDATE status: pending
+        Worker->>Redis: LPUSH jobs:pending
+    else Failure + no retries
+        Worker->>DB: UPDATE status: failed
+        Worker->>Redis: LREM jobs:processing
+    end
+
+    Client->>API: GET /api/jobs/[id]
+    API->>DB: SELECT job BY id
+    API-->>Client: {status, result}
+```
+
+### Job Types
+
+| Type | Description | Handler Status |
+|------|-------------|-----------------|
+| `ai_text_generation` | Generate text with AI | 🔄 Mock |
+| `ai_image_generation` | Generate images with AI | 🔄 Mock |
+| `carousel_creation` | Create social carousels | 🔄 Mock |
+| `scheduled_publish` | Publish to social media | 🔄 Mock |
+| `web_scraping` | Scrape web content | 🔄 Mock |
+
+## Authentication Flow
+
+### Clerk Integration
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Browser
+    participant Clerk
+    participant Middleware as Clerk Middleware
+    participant Webhook as /api/webhooks/clerk
+    participant DB as Neon users table
+
+    User->>Browser: Visit /sign-in
+    Browser->>Clerk: Sign In flow
+    Clerk-->>Browser: Session token
+
+    User->>Browser: Visit protected route (/chat)
+    Browser->>Middleware: Request + session
+    Middleware->>Clerk: Verify session
+    Clerk-->>Middleware: userId
+    Middleware-->>Browser: Allow access
+
+    Note over Clerk: User created/updated
+
+    Clerk->>Webhook: POST user.created event
+    Webhook->>DB: INSERT user (id, email, name)
+    Webhook-->>Clerk: 200 OK
+```
+
+### Protected Routes
+
+- **Protected:** `/chat`, `/library`, `/calendar`, `/sources`, `/settings`
+- **Public:** `/`, `/sign-in`, `/sign-up`, `/api/webhooks`
+
+## Design Patterns
+
+### 1. Serverless Queue Pattern
+
+Workers are API routes triggered externally, eliminating need for continuous processes:
+
+```typescript
+// Worker is called by cron job or webhook
+export async function POST(request: Request) {
+  const jobId = await dequeueJob();
+  if (!jobId) return { message: "No jobs" };
+
+  const job = await getJob(jobId);
+  const result = await jobHandlers[job.type](job.payload);
+
+  await updateJobStatus(jobId, "completed", { result });
+  return { jobId, result };
+}
+```
+
+### 2. Type-Safe Database Queries
+
+Drizzle ORM provides full TypeScript type safety:
+
+```typescript
+export type Job = typeof jobs.$inferSelect;
+export type NewJob = typeof jobs.$inferInsert;
+export type JobType = typeof jobTypeEnum.enumValues[number];
+```
+
+### 3. Priority Queue via String Scoring
+
+```typescript
+// Higher priority = lower score (processed first)
+const score = `${String(999999 - priority).padStart(6, "0")}:${Date.now()}:${jobId}`;
+await redis.lpush(QUEUE, score);
+```
+
+## Key Decisions
+
+### 1. HTTP Adapter for Database
+
+Used `drizzle-orm/neon-http` for Edge Runtime compatibility over traditional connection pooling.
+
+### 2. Soft Delete Pattern
+
+All user-owned tables use `deletedAt` timestamp instead of physical deletion.
+
+### 3. JSONB for Flexible Data
+
+Payloads and content fields use `jsonb` with TypeScript type inference for schema flexibility.
+
+### 4. Webhook Sync over Polling
+
+Clerk webhooks keep database in sync rather than fetching user data on each request.
 
 ## Future Considerations
-*   **ORM Layer**: Existence of `drizzle/` folder implies Drizzle ORM is/will be used for database interaction, though explicit symbols were not analyzed in this pass.
-*   **Testing**: No explicit test setup (Jest/Vitest) was detected in the file scan, though `styleguide` serves as visual testing.
+
+- [ ] Implement real AI handlers (OpenRouter, Firecrawl)
+- [ ] Add dead letter queue for permanently failed jobs
+- [ ] Create job monitoring dashboard
+- [ ] Implement job scheduling (cron within queue)
+- [ ] Add rate limiting for job creation
 
 ---
-*Generated based on codebase analysis as of Jan 14, 2026.*
+
+*Updated based on codebase analysis as of Jan 14, 2026.*

@@ -53,3 +53,7 @@ Thumbs.db
 
 # Cursor - IDE specific rules
 .cursor/rules/openmemory.mdc
+
+# OpenMemory - IDE/Assistant specific rules
+CLAUDE.md
+AGENTS.md

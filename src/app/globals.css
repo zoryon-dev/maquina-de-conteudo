@@ -57,65 +57,39 @@
 
 /* ============================================================================
    LIGHT MODE (Default)
-   Design reference: Modern dark dashboard - light mode for accessibility
    ============================================================================ */
 :root {
-  /* Base radius - 12px as extracted from design */
   --radius: 0.75rem;
-
-  /* === BASE === */
-  --background: 0 0% 98%; /* #fafafa - light background */
-  --foreground: 0 0% 10%; /* #1a1a1a - dark text */
-
-  /* === CARD === */
-  --card: 0 0% 100%; /* #ffffff - white cards */
-  --card-foreground: 0 0% 10%; /* #1a1a1a - dark text */
-
-  /* === POPOVER === */
+  --background: 0 0% 98%;
+  --foreground: 0 0% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 10%;
   --popover: 0 0% 100%;
   --popover-foreground: 0 0% 10%;
-
-  /* === PRIMARY (Lime Green from design) === */
-  --primary: 84 76% 55%; /* #a3e635 - vibrant lime green */
-  --primary-foreground: 0 0% 15%; /* #262600 - dark text for contrast */
-
-  /* === SECONDARY === */
-  --secondary: 0 0% 94%; /* #f0f0f0 - light grey */
+  --primary: 84 76% 55%;
+  --primary-foreground: 0 0% 15%;
+  --secondary: 0 0% 94%;
   --secondary-foreground: 0 0% 10%;
-
-  /* === MUTED === */
   --muted: 0 0% 94%;
-  --muted-foreground: 0 0% 45%; /* #737373 - medium grey text */
-
-  /* === ACCENT === */
-  --accent: 84 76% 55%; /* Same as primary */
+  --muted-foreground: 0 0% 45%;
+  --accent: 84 76% 55%;
   --accent-foreground: 0 0% 15%;
-
-  /* === DESTRUCTIVE (Error) === */
-  --destructive: 0 84% 60%; /* Red */
+  --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-
-  /* === BORDERS & INPUTS === */
-  --border: 0 0% 88%; /* #e0e0e0 - light border */
-  --input: 0 0% 85%; /* Slightly darker for inputs */
-  --ring: 84 76% 55%; /* Primary color for focus rings */
-
-  /* === SEMANTIC COLORS === */
-  --success: 142 76% 45%; /* Green */
+  --border: 0 0% 88%;
+  --input: 0 0% 85%;
+  --ring: 84 76% 55%;
+  --success: 142 76% 45%;
   --success-foreground: 0 0% 98%;
-  --warning: 38 92% 55%; /* Orange/Yellow */
+  --warning: 38 92% 55%;
   --warning-foreground: 0 0% 15%;
-  --info: 217 91% 55%; /* Blue */
+  --info: 217 91% 55%;
   --info-foreground: 0 0% 98%;
-
-  /* === CHART COLORS (complementary palette) === */
-  --chart-1: 84 76% 55%; /* Primary lime */
-  --chart-2: 262 80% 60%; /* Purple from design */
-  --chart-3: 243 75% 59%; /* Indigo from design */
-  --chart-4: 142 70% 50%; /* Green variant */
-  --chart-5: 174 70% 45%; /* Teal */
-
-  /* === SIDEBAR === */
+  --chart-1: 84 76% 55%;
+  --chart-2: 262 80% 60%;
+  --chart-3: 243 75% 59%;
+  --chart-4: 142 70% 50%;
+  --chart-5: 174 70% 45%;
   --sidebar: 0 0% 98%;
   --sidebar-foreground: 0 0% 10%;
   --sidebar-primary: 84 76% 55%;
@@ -127,63 +101,39 @@
 }
 
 /* ============================================================================
-   DARK MODE (Primary design mode)
-   Design reference: Modern dark dashboard with lime-green accents
+   DARK MODE
    ============================================================================ */
 .dark {
-  /* === BASE === */
-  --background: 0 0% 10%; /* #1a1a1a - dark background from design */
-  --foreground: 0 0% 100%; /* #ffffff - white text */
-
-  /* === CARD === */
-  --card: 0 0% 15%; /* #252525 - card background from design */
+  --background: 0 0% 10%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 15%;
   --card-foreground: 0 0% 100%;
-
-  /* === POPOVER === */
   --popover: 0 0% 15%;
   --popover-foreground: 0 0% 100%;
-
-  /* === PRIMARY (Lime Green) === */
-  --primary: 84 76% 55%; /* #a3e635 - vibrant lime green */
-  --primary-foreground: 0 0% 15%; /* Dark text for contrast */
-
-  /* === SECONDARY === */
-  --secondary: 0 0% 20%; /* Darker grey */
+  --primary: 84 76% 55%;
+  --primary-foreground: 0 0% 15%;
+  --secondary: 0 0% 20%;
   --secondary-foreground: 0 0% 100%;
-
-  /* === MUTED === */
   --muted: 0 0% 20%;
-  --muted-foreground: 0 0% 63%; /* #a0a0a0 - secondary text from design */
-
-  /* === ACCENT === */
-  --accent: 84 76% 30%; /* Muted version of primary */
+  --muted-foreground: 0 0% 63%;
+  --accent: 84 76% 30%;
   --accent-foreground: 0 0% 100%;
-
-  /* === DESTRUCTIVE === */
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 98%;
-
-  /* === BORDERS & INPUTS === */
-  --border: 0 0% 20%; /* #333333 equivalent */
+  --border: 0 0% 20%;
   --input: 0 0% 25%;
-  --ring: 84 76% 55%; /* Primary lime for focus */
-
-  /* === SEMANTIC COLORS === */
+  --ring: 84 76% 55%;
   --success: 142 76% 45%;
   --success-foreground: 0 0% 100%;
   --warning: 38 92% 55%;
   --warning-foreground: 0 0% 15%;
   --info: 217 91% 55%;
   --info-foreground: 0 0% 100%;
-
-  /* === CHART COLORS (from design gradients) === */
-  --chart-1: 84 76% 55%; /* Lime green - New Patient Leads */
-  --chart-2: 262 80% 60%; /* Purple - Voicemail By Day */
-  --chart-3: 243 75% 59%; /* Indigo/Blue - Reasons Not Booked */
-  --chart-4: 174 70% 45%; /* Teal */
-  --chart-5: 142 70% 50%; /* Green */
-
-  /* === SIDEBAR === */
+  --chart-1: 84 76% 55%;
+  --chart-2: 262 80% 60%;
+  --chart-3: 243 75% 59%;
+  --chart-4: 174 70% 45%;
+  --chart-5: 142 70% 50%;
   --sidebar: 0 0% 15%;
   --sidebar-foreground: 0 0% 100%;
   --sidebar-primary: 84 76% 55%;
@@ -192,6 +142,73 @@
   --sidebar-accent-foreground: 0 0% 100%;
   --sidebar-border: 0 0% 20%;
   --sidebar-ring: 84 76% 55%;
+}
+
+/* ============================================================================
+   PRIMARY COLOR UTILITIES - Lime Green (#a3e635 = hsl(84 76% 55%))
+   ============================================================================ */
+.bg-primary {
+  background-color: hsl(84 76% 55%);
+}
+.bg-primary\/5 {
+  background-color: hsl(84 76% 55% / 0.05);
+}
+.bg-primary\/10 {
+  background-color: hsl(84 76% 55% / 0.1);
+}
+.bg-primary\/20 {
+  background-color: hsl(84 76% 55% / 0.2);
+}
+.bg-primary\/30 {
+  background-color: hsl(84 76% 55% / 0.3);
+}
+
+.text-primary {
+  color: hsl(84 76% 55%);
+}
+
+.border-primary {
+  border-color: hsl(84 76% 55%);
+}
+.border-primary\/10 {
+  border-color: hsl(84 76% 55% / 0.1);
+}
+.border-primary\/20 {
+  border-color: hsl(84 76% 55% / 0.2);
+}
+.border-primary\/30 {
+  border-color: hsl(84 76% 55% / 0.3);
+}
+
+/* Hover states */
+.hover\:bg-primary:hover {
+  background-color: hsl(84 76% 55%);
+}
+.hover\:bg-primary\/90:hover {
+  background-color: hsl(84 76% 55% / 0.9);
+}
+.hover\:bg-primary\/10:hover {
+  background-color: hsl(84 76% 55% / 0.1);
+}
+.hover\:bg-primary\/20:hover {
+  background-color: hsl(84 76% 55% / 0.2);
+}
+.hover\:text-primary:hover {
+  color: hsl(84 76% 55%);
+}
+
+/* Ring/Focus */
+.ring-primary\/20 {
+  --tw-ring-color: hsl(84 76% 55% / 0.2);
+}
+.ring-primary {
+  --tw-ring-color: hsl(84 76% 55%);
+}
+
+/* Shadow */
+.shadow-primary\/20 {
+  --tw-shadow-color: hsl(84 76% 55% / 0.2);
+  box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
 }
 
 /* ============================================================================
@@ -206,24 +223,15 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 
-  /* Glow effect for primary elements (from design) */
+  /* Glow effect for primary elements */
   .glow-primary {
     box-shadow: 0 0 20px hsl(84 76% 55% / 0.3);
   }
 
-  /* Glassmorphism effect (from design) */
+  /* Glassmorphism effect */
   .glass {
     background: hsl(var(--card) / 0.8);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
   }
 }

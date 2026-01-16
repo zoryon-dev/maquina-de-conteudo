@@ -7,13 +7,18 @@
         "mcp"
       ]
     },
-    "neon": {
+    "mem0": {
+      "command": "uvx",
+      "args": ["mem0-mcp-server"],
+      "env": {
+        "MEM0_API_KEY": "m0-n3SzrlOlBoWvxQrZGqtGFjWk1lSJyYCaubRzd48b",
+        "MEM0_DEFAULT_USER_ID": "maquina-conteudo",
+        "MEM0_ENABLE_GRAPH_DEFAULT": "true"
+      }
+    },
+    "Neon": {
       "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote@latest",
-        "https://mcp.neon.tech/mcp"
-      ]
+      "args": ["-y", "@neondatabase/mcp-server-neon", "start", "napi_9zsjb2e6ulhmlbx8ip0c4q3iszl7w1ptzro55azliii4jh31r88xqyi859hqd0xe"]
     }
   }
 }

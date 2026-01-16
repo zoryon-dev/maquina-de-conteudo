@@ -8,6 +8,18 @@
 - **[project-structure](serena:read?memory=project-structure.md)** - Estrutura completa de diretórios e arquivos
 - **[design-system-tokens](serena:read?memory=design-system-tokens.md)** - Tokens de design (cores, tipografia, espaçamento)
 
+### Frontend
+- **[frontend-structure](serena:read?memory=frontend-structure.md)** - Estrutura de componentes e layouts (Fase 4) ⭐
+- **[settings-page](serena:read?memory=settings-page.md)** - Página de configurações completa ⭐
+
+### Features
+- **[calendar-patterns](serena:read?memory=calendar-patterns.md)** - Calendário editorial ⭐
+- **[library-patterns](serena:read?memory=library-patterns.md)** - Biblioteca de conteúdo ⭐
+- **[sources-page-refactor](serena:read?memory=sources-page-refactor.md)** - Página de fontes com RAG
+
+### Backend & Features
+- **[prompt-system](serena:read?memory=prompt-system.md)** - Sistema de prompts em 4 camadas ⭐
+
 ### Padrões de Código
 - **[component-patterns](serena:read?memory=component-patterns.md)** - Padrões de componentes React e Radix UI
 - **[tailwind-patterns](serena:read?memory=tailwind-patterns.md)** - Padrões e convenções de Tailwind CSS
@@ -17,6 +29,11 @@
 - **[nextjs-patterns](serena:read?memory=nextjs-patterns.md)** - Padrões Next.js App Router
 - **[shadcn-patterns](serena:read?memory=shadcn-patterns.md)** - Padrões shadcn/ui
 - **[form-validation-patterns](serena:read?memory=form-validation-patterns.md)** - Validação de formulários
+- **[queue-patterns](serena:read?memory=queue-patterns.md)** - Sistema de filas com Upstash Redis ⭐
+- **[database-patterns](serena:read?memory=database-patterns.md)** - Banco de dados com Drizzle ORM ⭐
+- **[auth-patterns](serena:read?memory=auth-patterns.md)** - Autenticação com Clerk ⭐
+- **[calendar-patterns](serena:read?memory=calendar-patterns.md)** - Calendário editorial ⭐
+- **[library-patterns](serena:read?memory=library-patterns.md)** - Biblioteca de conteúdo ⭐
 
 ## Stack Tecnológica
 
