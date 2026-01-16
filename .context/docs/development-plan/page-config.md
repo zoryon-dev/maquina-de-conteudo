@@ -635,7 +635,68 @@ Settings não precisam de estado global. State local com Server Actions é mais 
 
 ## 11. Atualizações Recentes (Janeiro 2026)
 
-### 11.1 Refatoração da Página /fontes
+### 11.1 Biblioteca de Conteúdos - Fase Completa (Janeiro 2026)
+
+**Status:** ✅ CONCLUÍDA (100%)
+
+**Objetivo:** Implementar Biblioteca de Conteúdos completa para gerenciar todos os posts criados.
+
+**Funcionalidades Implementadas:**
+
+| Componente | Status | Descrição |
+|-----------|--------|-----------|
+| `library-page.tsx` | ✅ | Client Component principal |
+| `library-header.tsx` | ✅ | Header com search, view toggle, sort controls |
+| `library-filter-bar.tsx` | ✅ | Barra de filtros expansível |
+| `library-grid.tsx` | ✅ | Grid view com cards |
+| `library-list.tsx` | ✅ | List view (tabela) |
+| `content-card.tsx` | ✅ | Card individual com edição inline |
+| `content-row.tsx` | ✅ | Row individual (lista) |
+| `content-dialog.tsx` | ✅ | Modal de edição completa |
+| `category-picker.tsx` | ✅ | Seletor de categoria com busca |
+| `tag-picker.tsx` | ✅ | Multi-select de tags com busca |
+| `empty-library-state.tsx` | ✅ | Estado vazio |
+| `use-library-data.ts` | ✅ | Hook de dados com cache |
+| `use-library-filters.ts` | ✅ | Hook de filtros |
+| `use-library-view.ts` | ✅ | Hook de view mode |
+| `library-actions.ts` | ✅ | Server Actions completas |
+
+**Arquivos Criados:**
+```
+src/app/(app)/library/
+├── page.tsx
+├── components/
+│   ├── library-page.tsx
+│   ├── library-header.tsx
+│   ├── library-filter-bar.tsx
+│   ├── library-grid.tsx
+│   ├── library-list.tsx
+│   ├── content-card.tsx
+│   ├── content-row.tsx
+│   ├── content-dialog.tsx
+│   ├── category-picker.tsx
+│   ├── tag-picker.tsx
+│   └── empty-library-state.tsx
+├── hooks/
+│   ├── use-library-data.ts
+│   ├── use-library-filters.ts
+│   └── use-library-view.ts
+└── actions/
+    └── library-actions.ts
+
+src/types/
+└── library.ts
+```
+
+**Próximos Passos para Biblioteca:**
+1. Integrar com Calendário (agendar conteúdo)
+2. Adicionar funcionalidade de duplicar
+3. Implementar drag & drop para reordenar
+4. Adicionar export de conteúdos
+
+---
+
+### 11.2 Refatoração da Página /fontes
 
 **Objetivo:** Melhorar UX do gerenciamento de documentos RAG, centralizando em uma página dedicada.
 
@@ -665,6 +726,66 @@ Settings não precisam de estado global. State local com Server Actions é mais 
 - `src/app/(app)/sources/actions/sources-actions.ts` - Server Actions
 - `src/app/(app)/settings/components/settings-tabs.tsx` - Docs removido
 - `src/app/(app)/settings/components/settings-page.tsx` - Docs removido
+
+---
+
+### 11.2 Calendário Editorial - Fase Inicial (Janeiro 2026)
+
+**Status:** 🚧 EM DESENVOLVIMENTO (Fase 1-4 Concluída)
+
+**Objetivo:** Implementar calendário editorial completo para visualização e gerenciamento de posts agendados.
+
+**Fases Concluídas:**
+
+| Fase | Componentes | Status |
+|------|-------------|--------|
+| Fase 1: Foundation | `src/types/calendar.ts`, `src/lib/calendar-utils.ts`, `calendar-actions.ts` | ✅ |
+| Fase 2: Navigation & Filters | `use-calendar-navigation.ts`, `use-calendar-filters.ts`, `month-navigation.tsx`, `view-switcher.tsx`, `filter-bar.tsx` | ✅ |
+| Fase 3: Calendar Grid | `calendar-grid.tsx`, `calendar-day-header.tsx`, `calendar-day.tsx` | ✅ |
+| Fase 4: Post Cards | `post-card.tsx` com badges de plataforma | ✅ |
+| Fase 5: Drag & Drop | Drag & drop para reagendar | ⏸️ |
+| Fase 6: Post Dialog | `post-dialog.tsx` para criar/editar | ⏸️ |
+
+**Arquivos Criados:**
+```
+src/app/(app)/calendar/
+├── page.tsx                    # Server Component
+├── components/
+│   ├── calendar-page.tsx       # Client Component principal
+│   ├── calendar-header.tsx     # Header com navegação
+│   ├── month-navigation.tsx    # Botões ← mês → Hoje
+│   ├── view-switcher.tsx       # Mês/Semana/Dia
+│   ├── filter-bar.tsx          # Filtros plataforma/status
+│   ├── calendar-grid.tsx       # Grid principal
+│   ├── calendar-day-header.tsx # Dom Seg Ter...
+│   ├── calendar-day.tsx        # Célula do dia
+│   └── post-card.tsx           # Card de post
+├── hooks/
+│   ├── use-calendar-navigation.ts  # Navegação (sem URL sync)
+│   ├── use-calendar-filters.ts     # Filtros (state local)
+│   └── use-calendar-posts.ts       # Posts (useRef cache)
+└── actions/
+    └── calendar-actions.ts     # Server Actions CRUD
+```
+
+**Melhorias Visuais (Janeiro 2026):**
+- Datas: `text-base font-bold` (mais visíveis)
+- "Hoje": círculo aumentado (w-7 h-7)
+- Células: bordas `border-white/5`
+- Badges: ícones de plataforma com cores específicas
+
+**Bugs Corrigidos:**
+- Infinite POST loop: removido URL sync, usado `useRef` para cache
+- TypeScript errors: corrigidos imports e tipos
+
+**Próximos Passos:**
+1. Implementar drag & drop para reagendar
+2. Criar post dialog para criar/editar posts
+3. Implementar week e day views
+4. Adicionar skeleton loading e error handling
+
+**Documentação Relacionada:**
+- `.context/docs/development-plan/calendar-dev-plan.md` - Planejamento completo
 
 ---
 

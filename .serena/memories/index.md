@@ -12,6 +12,11 @@
 - **[frontend-structure](serena:read?memory=frontend-structure.md)** - Estrutura de componentes e layouts (Fase 4) ⭐
 - **[settings-page](serena:read?memory=settings-page.md)** - Página de configurações completa ⭐
 
+### Features
+- **[calendar-patterns](serena:read?memory=calendar-patterns.md)** - Calendário editorial ⭐
+- **[library-patterns](serena:read?memory=library-patterns.md)** - Biblioteca de conteúdo ⭐
+- **[sources-page-refactor](serena:read?memory=sources-page-refactor.md)** - Página de fontes com RAG
+
 ### Backend & Features
 - **[prompt-system](serena:read?memory=prompt-system.md)** - Sistema de prompts em 4 camadas ⭐
 
@@ -27,6 +32,8 @@
 - **[queue-patterns](serena:read?memory=queue-patterns.md)** - Sistema de filas com Upstash Redis ⭐
 - **[database-patterns](serena:read?memory=database-patterns.md)** - Banco de dados com Drizzle ORM ⭐
 - **[auth-patterns](serena:read?memory=auth-patterns.md)** - Autenticação com Clerk ⭐
+- **[calendar-patterns](serena:read?memory=calendar-patterns.md)** - Calendário editorial ⭐
+- **[library-patterns](serena:read?memory=library-patterns.md)** - Biblioteca de conteúdo ⭐
 
 ## Stack Tecnológica
 

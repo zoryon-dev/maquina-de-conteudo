@@ -384,6 +384,46 @@ import { Globe, FileText, Search, BarChart3, X } from "lucide-react"
 
 **Prevenção:** Sempre verificar se todos os ícones usados no componente estão importados.
 
+### 19. Infinite Loop em React Hooks com useCallback
+
+**Erro:** Componente React faz requests POST infinitas para o servidor.
+
+**Sintoma:**
+```
+POST /calendar 200 in 93ms
+POST /calendar 200 in 93ms
+POST /calendar 200 in 101ms
+... (repeating infinitely)
+```
+
+**Causa:** Usar `useCallback` com dependências de objeto (`dateRange`, `filters`) que criam nova referência a cada render:
+```typescript
+// ❌ ERRADO
+const fetchPosts = useCallback(async () => {
+  const result = await getCalendarPostsAction(dateRange, filters)
+  setPosts(result)
+}, [dateRange, filters])  // Nova referência a cada render!
+```
+
+**Solução:** Usar `useRef` para comparação de estabilidade:
+```typescript
+// ✅ CORRETO
+const prevDepsRef = useRef<string>("")
+
+useEffect(() => {
+  const deps = JSON.stringify({ dateRange, filters })
+  if (deps !== prevDepsRef.current) {
+    prevDepsRef.current = deps
+    fetchPosts()
+  }
+}, [dateRange, filters])
+```
+
+**Arquivos:**
+- `.context/docs/known-and-corrected-errors/004-infinite-loop-hooks.md`
+- `src/app/(app)/calendar/hooks/use-calendar-posts.ts` (Fase 6)
+- `src/app/(app)/library/hooks/use-library-data.ts` (Fase 7)
+
 ---
 
 ## Padrões de Solução

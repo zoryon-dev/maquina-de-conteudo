@@ -9,6 +9,7 @@ import {
   index,
   unique,
   jsonb,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -116,6 +117,10 @@ export const libraryItems = pgTable(
     metadata: text("metadata"), // JSON para dados adicionais
     scheduledFor: timestamp("scheduled_for"),
     publishedAt: timestamp("published_at"),
+    categoryId: integer("category_id").references(
+      () => categories.id,
+      { onDelete: "set null" }
+    ),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at"),
@@ -125,6 +130,67 @@ export const libraryItems = pgTable(
     index("library_items_status_idx").on(table.status),
     index("library_items_type_idx").on(table.type),
     index("library_items_scheduled_for_idx").on(table.scheduledFor),
+    index("library_items_category_id_idx").on(table.categoryId),
+  ]
+);
+
+// 4.1. CATEGORIES - Categorias hierárquicas para organização de conteúdo
+export const categories = pgTable(
+  "categories",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    parentId: integer("parent_id"),
+    color: text("color"), // hex color para badge (ex: "#a3e635")
+    icon: text("icon"), // nome do ícone Lucide (ex: "folder")
+    orderIdx: integer("order_idx").default(0).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("categories_user_id_idx").on(table.userId),
+    index("categories_parent_id_idx").on(table.parentId),
+    unique("categories_user_parent_name_unique").on(table.userId, table.parentId, table.name),
+  ]
+);
+
+// 4.2. TAGS - Tags livres para organização flexível
+export const tags = pgTable(
+  "tags",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    color: text("color"), // hex color para badge
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("tags_user_id_idx").on(table.userId),
+    unique("tags_user_name_unique").on(table.userId, table.name),
+  ]
+);
+
+// 4.3. LIBRARY_ITEM_TAGS - Relação many-to-many entre library_items e tags
+export const libraryItemTags = pgTable(
+  "library_item_tags",
+  {
+    libraryItemId: integer("library_item_id")
+      .notNull()
+      .references(() => libraryItems.id, { onDelete: "cascade" }),
+    tagId: integer("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("library_item_tags_library_item_id_idx").on(table.libraryItemId),
+    index("library_item_tags_tag_id_idx").on(table.tagId),
+    primaryKey({ columns: [table.libraryItemId, table.tagId] }),
   ]
 );
 
@@ -254,7 +320,50 @@ export const libraryItemsRelations = relations(libraryItems, ({ one, many }) => 
     fields: [libraryItems.userId],
     references: [users.id],
   }),
+  category: one(categories, {
+    fields: [libraryItems.categoryId],
+    references: [categories.id],
+  }),
   scheduledPosts: many(scheduledPosts),
+  tags: many(libraryItemTags),
+}));
+
+// Categories relations
+export const categoriesRelations = relations(categories, ({ one, many }) => ({
+  user: one(users, {
+    fields: [categories.userId],
+    references: [users.id],
+  }),
+  parent: one(categories, {
+    fields: [categories.parentId],
+    references: [categories.id],
+    relationName: "category_hierarchy",
+  }),
+  children: many(categories, {
+    relationName: "category_hierarchy",
+  }),
+  libraryItems: many(libraryItems),
+}));
+
+// Tags relations
+export const tagsRelations = relations(tags, ({ one, many }) => ({
+  user: one(users, {
+    fields: [tags.userId],
+    references: [users.id],
+  }),
+  libraryItems: many(libraryItemTags),
+}));
+
+// LibraryItemTags relations (junction table)
+export const libraryItemTagsRelations = relations(libraryItemTags, ({ one }) => ({
+  libraryItem: one(libraryItems, {
+    fields: [libraryItemTags.libraryItemId],
+    references: [libraryItems.id],
+  }),
+  tag: one(tags, {
+    fields: [libraryItemTags.tagId],
+    references: [tags.id],
+  }),
 }));
 
 // documentsRelations - movido para SETTINGS RELATIONS para incluir embeddings
@@ -490,6 +599,17 @@ export type NewUserVariable = typeof userVariables.$inferInsert;
 export type DocumentEmbedding = typeof documentEmbeddings.$inferSelect;
 export type NewDocumentEmbedding = typeof documentEmbeddings.$inferInsert;
 
+// ========================================
+// TYPE EXPORTS - LIBRARY
+// ========================================
+
+export type Category = typeof categories.$inferSelect;
+export type NewCategory = typeof categories.$inferInsert;
+export type Tag = typeof tags.$inferSelect;
+export type NewTag = typeof tags.$inferInsert;
+export type LibraryItemTag = typeof libraryItemTags.$inferSelect;
+export type NewLibraryItemTag = typeof libraryItemTags.$inferInsert;
+
 // Type exports
 export type NewUser = typeof users.$inferInsert;
 export type Chat = typeof chats.$inferSelect;
@@ -508,3 +628,5 @@ export type Job = typeof jobs.$inferSelect;
 export type NewJob = typeof jobs.$inferInsert;
 export type JobType = typeof jobTypeEnum.enumValues[number];
 export type JobStatus = typeof jobStatusEnum.enumValues[number];
+export type PostType = typeof postTypeEnum.enumValues[number];
+export type ContentStatus = typeof contentStatusEnum.enumValues[number];

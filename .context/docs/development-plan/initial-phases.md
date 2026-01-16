@@ -731,6 +731,230 @@ WORKER_SECRET=...
 
 ---
 
+## Fase 7: Biblioteca de Conteúdos ✅ CONCLUÍDA (Janeiro 2026)
+
+**Objetivo:** Implementar biblioteca completa para gerenciar todos os conteúdos criados.
+
+**Status:** 100% Concluída
+
+### 7.1 Arquivos Criados
+
+```
+✅ src/types/library.ts                    # Tipos TypeScript
+✅ src/app/(app)/library/page.tsx          # Server Component
+✅ src/app/(app)/library/components/
+   ├── library-page.tsx                    # Client Component principal
+   ├── library-header.tsx                  # Header com search, view toggle
+   ├── library-filter-bar.tsx             # Barra de filtros
+   ├── library-grid.tsx                    # Grid view
+   ├── library-list.tsx                    # List view
+   ├── content-card.tsx                    # Card individual
+   ├── content-row.tsx                     # Row individual
+   ├── content-dialog.tsx                  # Modal de edição
+   ├── category-picker.tsx                 # Seletor de categoria
+   ├── tag-picker.tsx                      # Multi-select de tags
+   └── empty-library-state.tsx             # Estado vazio
+✅ src/app/(app)/library/hooks/
+   ├── use-library-data.ts                 # Hook de dados
+   ├── use-library-filters.ts              # Hook de filtros
+   └── use-library-view.ts                 # Hook de view mode
+✅ src/app/(app)/library/actions/
+   └── library-actions.ts                  # Server Actions
+```
+
+### 7.2 Funcionalidades Implementadas
+
+| Funcionalidade | Status |
+|----------------|--------|
+| Grid/List view toggle | ✅ |
+| Filtros por tipo, status, categoria, tags | ✅ |
+| Ordenação (created/updated/title) | ✅ |
+| Seleção múltipla (checkboxes) | ✅ |
+| Ações em lote (excluir, mudar status) | ✅ |
+| Edição inline de título (duplo clique) | ✅ |
+| Edição completa em modal | ✅ |
+| Categorias e Tags com pickers | ✅ |
+| Upload de mídias (URLs) | ✅ |
+| Toast notifications | ✅ |
+| Loading/error states | ✅ |
+| Empty state | ✅ |
+
+### 7.3 Server Actions
+
+```typescript
+// CRUD básico
+getLibraryItemsAction(params): Promise<LibraryItem[]>
+createLibraryItemAction(data): Promise<ActionResult>
+updateLibraryItemAction(id, data): Promise<ActionResult>
+deleteLibraryItemAction(id): Promise<ActionResult>
+
+// Edição inline
+inlineUpdateLibraryItemAction(id, field, value): Promise<ActionResult>
+
+// Ações em lote
+batchDeleteAction(ids): Promise<ActionResult>
+batchUpdateStatusAction(ids, status): Promise<ActionResult>
+
+// Categorias e Tags
+getCategoriesAction(): Promise<Category[]>
+getTagsAction(): Promise<Tag[]>
+createCategoryAction(data): Promise<ActionResult>
+createTagAction(name, color?): Promise<ActionResult>
+```
+
+### 7.4 Padrões Implementados
+
+**useRef + JSON.stringify para evitar loops:**
+```typescript
+const prevDepsRef = useRef<string>("")
+
+useEffect(() => {
+  const deps = JSON.stringify({ filters, viewMode })
+  if (deps !== prevDepsRef.current) {
+    prevDepsRef.current = deps
+    fetchData()
+  }
+}, [filters, viewMode])
+```
+
+**Edição inline com input autofocus:**
+```typescript
+useEffect(() => {
+  if (isEditing && inputRef.current) {
+    inputRef.current.focus()
+    inputRef.current.select()
+  }
+}, [isEditing])
+```
+
+### 7.5 Documentação Relacionada
+
+- `.serena/memories/library-patterns.md` - Padrões da Biblioteca
+- `.context/docs/development-plan/library-dev-plan.md` - Planejamento completo
+
+---
+
+## Fase 6: Calendário Editorial 🚧 EM DESENVOLVIMENTO
+
+**Objetivo:** Implementar calendário editorial completo para visualização e gerenciamento de posts agendados.
+
+**Status:** Fase 1-4 Concluída (Janeiro 2026)
+
+### 6.1 Arquivos Criados
+
+```
+src/app/(app)/calendar/
+├── page.tsx                          # Server Component (root)
+├── components/
+│   ├── calendar-page.tsx             # Client Component principal
+│   ├── calendar-header.tsx           # Header com navegação
+│   ├── month-navigation.tsx          # Botões ← mês → Hoje
+│   ├── view-switcher.tsx             # Mês/Semana/Dia toggle
+│   ├── filter-bar.tsx                # Barra de filtros
+│   ├── calendar-grid.tsx             # Grid principal
+│   ├── calendar-day-header.tsx       # Dom Seg Ter...
+│   ├── calendar-day.tsx              # Célula do dia
+│   └── post-card.tsx                 # Card de post
+├── hooks/
+│   ├── use-calendar-navigation.ts    # Hook de navegação
+│   ├── use-calendar-filters.ts       # Hook de filtros
+│   └── use-calendar-posts.ts         # Hook de posts
+└── actions/
+    └── calendar-actions.ts           # Server Actions
+
+src/types/
+└── calendar.ts                       # Tipos TypeScript
+
+src/lib/
+└── calendar-utils.ts                 # Utilitários de data
+```
+
+### 6.2 Funcionalidades Implementadas
+
+| Funcionalidade | Status | Observações |
+|----------------|--------|-------------|
+| Tipos TypeScript | ✅ | `CalendarView`, `Platform`, `CalendarPost`, etc. |
+| Utilitários de data | ✅ | `getMonthRange`, `getWeekRange`, `getDayRange` |
+| Server Actions | ✅ | CRUD de posts via `calendar-actions.ts` |
+| Navegação | ✅ | `useCalendarNavigation` (sem URL sync) |
+| Filtros | ✅ | `useCalendarFilters` (platform, status, type) |
+| Calendar Grid | ✅ | 7x6 grid com Animações Framer Motion |
+| Post Cards | ✅ | Cards com badges de plataforma |
+| Visual improvements | ✅ | Datas mais visíveis, badges coloridos |
+
+### 6.3 Cores das Plataformas
+
+```typescript
+const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
+  instagram: {
+    label: "Instagram",
+    icon: "instagram",
+    color: "text-pink-400",
+    bgGradient: "from-pink-500/10 to-purple-500/10",
+    badgeColor: "from-pink-500/30 to-purple-500/30 text-pink-300",
+  },
+  twitter: {
+    label: "Twitter",
+    icon: "twitter",
+    color: "text-blue-400",
+    bgGradient: "from-blue-500/10",
+    badgeColor: "bg-blue-500/30 text-blue-300",
+  },
+  linkedin: {
+    label: "LinkedIn",
+    icon: "linkedin",
+    color: "text-sky-400",
+    bgGradient: "from-sky-500/10",
+    badgeColor: "bg-sky-500/30 text-sky-300",
+  },
+  tiktok: {
+    label: "TikTok",
+    icon: "video",
+    color: "text-gray-400",
+    bgGradient: "from-gray-500/10 to-white/5",
+    badgeColor: "bg-gray-500/30 text-gray-300",
+  },
+}
+```
+
+### 6.4 Bugs Conhecidos e Soluções
+
+| Bug | Causa | Solução |
+|-----|-------|---------|
+| Infinite POST loop | `useCallback` com object deps | Usar `useRef` + `JSON.stringify` |
+| TypeScript errors | Imports não utilizados | Remover imports não usados |
+| Re-render excessivo | URL sync no router | Removido, usar state local |
+
+### 6.5 Melhorias Visuais (Janeiro 2026)
+
+**Datas:**
+- `text-base font-bold` (antes `text-sm`)
+- Círculo "hoje" aumentado (w-7 h-7)
+- Bordas nas células (`border-white/5`)
+- Background sutil (`bg-white/[0.02]`)
+
+**Badges de Plataforma:**
+- Ícone da rede social
+- Background colorido por plataforma
+- Label em telas maiores
+
+### 6.6 Próximos Passos (Fase 5-10)
+
+| Fase | Descrição | Status |
+|------|-----------|--------|
+| Fase 5 | Drag & Drop para reagendar | ⏸️ Pendente |
+| Fase 6 | Post Dialog para criar/editar | ⏸️ Pendente |
+| Fase 7 | Quick Actions (menu) | ⏸️ Pendente |
+| Fase 8 | Week & Day Views | ⏸️ Pendente |
+| Fase 9 | Polish & Optimization | ⏸️ Pendente |
+| Fase 10 | Testing & Documentation | ⏸️ Pendente |
+
+### 6.7 Documentação Relacionada
+
+- `.context/docs/development-plan/calendar-dev-plan.md` - Planejamento completo
+
+---
+
 ## Referências
 
 - `.context/agents/neon-database-specialist.md`

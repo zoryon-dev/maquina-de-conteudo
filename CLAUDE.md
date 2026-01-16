@@ -404,3 +404,297 @@ O componente `AnimatedAIChat` possui command palette activada por `/`:
 | `/agendar` | Agendar publicação |
 | `/fontes` | Adicionar fonte de conteúdo |
 | `/especialistas` | Ver especialistas disponíveis |
+
+---
+
+## Biblioteca de Conteúdo (`/library`)
+
+### Visão Geral
+
+A Biblioteca de Conteúdo é uma página completa para gerenciar todos os conteúdos criados. Localizada em `/library`, permite:
+
+- **Visualização em Grid/Lista** de todos os conteúdos criados
+- **Filtros** por tipo, status, categoria e tags
+- **Edição inline** de título (duplo clique)
+- **Edição completa** em modal com todos os campos
+- **Ações em lote** (excluir múltiplos, mudar status)
+- **Organização** por categorias e tags
+
+### Estrutura de Arquivos
+
+```
+src/app/(app)/library/
+├── page.tsx                          # Server Component (root)
+├── components/
+│   ├── library-page.tsx              # Client Component principal
+│   ├── library-header.tsx            # Header com search, view toggle
+│   ├── library-filter-bar.tsx        # Barra de filtros expansível
+│   ├── library-grid.tsx              # Grid view (cards)
+│   ├── library-list.tsx              # List view (tabela)
+│   ├── content-card.tsx              # Card individual (grid)
+│   ├── content-row.tsx               # Row individual (lista)
+│   ├── content-dialog.tsx            # Modal de edição completa
+│   ├── category-picker.tsx           # Seletor de categoria
+│   ├── tag-picker.tsx                # Multi-select de tags
+│   └── empty-library-state.tsx       # Estado vazio
+├── hooks/
+│   ├── use-library-data.ts           # Hook de dados
+│   ├── use-library-filters.ts        # Hook de filtros
+│   └── use-library-view.ts           # Hook de view mode
+└── actions/
+    └── library-actions.ts            # Server Actions
+
+src/types/
+└── library.ts                         # Tipos TypeScript
+```
+
+### Tipos de Conteúdo
+
+```typescript
+type PostType = "text" | "image" | "carousel" | "video" | "story"
+type ContentStatus = "draft" | "scheduled" | "published" | "archived"
+```
+
+### Funcionalidades Implementadas
+
+| Funcionalidade | Status |
+|----------------|--------|
+| Grid/List toggle | ✅ |
+| Filtros expansíveis | ✅ |
+| Ordenação (created/updated/title) | ✅ |
+| Seleção múltipla (checkboxes) | ✅ |
+| Ações em lote (excluir, mudar status) | ✅ |
+| Edição inline de título | ✅ |
+| Edição completa em modal | ✅ |
+| Categorias e Tags | ✅ |
+| Upload de mídias (URLs) | ✅ |
+| Toast notifications | ✅ |
+| Loading/error states | ✅ |
+
+### Server Actions
+
+```typescript
+// Buscar itens da biblioteca
+getLibraryItemsAction(params): Promise<LibraryItem[]>
+
+// Criar novo item
+createLibraryItemAction(data): Promise<ActionResult>
+
+// Atualizar item
+updateLibraryItemAction(id, data): Promise<ActionResult>
+
+// Edição inline rápida
+inlineUpdateLibraryItemAction(id, field, value): Promise<ActionResult>
+
+// Soft delete
+deleteLibraryItemAction(id): Promise<ActionResult>
+
+// Ações em lote
+batchDeleteAction(ids): Promise<ActionResult>
+batchUpdateStatusAction(ids, status): Promise<ActionResult>
+
+// Categorias e Tags
+getCategoriesAction(): Promise<Category[]>
+getTagsAction(): Promise<Tag[]>
+createCategoryAction(data): Promise<ActionResult>
+createTagAction(name, color?): Promise<ActionResult>
+```
+
+### Padrões de UI
+
+**Edição Inline:**
+- Duplo clique no título para editar
+- Enter para salvar, Esc para cancelar
+- Toast de confirmação
+
+**Ações em Lote:**
+- Checkbox em cada card/linha
+- Select all no header
+- Toolbar com ações quando há seleção
+
+**Filtros:**
+- Barra expansível com chips
+- Contador de filtros ativos
+- Botão "Limpar filtros"
+
+---
+
+## Calendário Editorial (`/calendar`)
+
+### Visão Geral
+
+O calendário editorial é uma página completa para visualização e gerenciamento de posts agendados. Localizado em `/calendar`, permite:
+
+- **Visualização mensal/semanal/diária** de posts agendados
+- **Filtros** por plataforma (Instagram, Twitter, LinkedIn, TikTok)
+- **Filtros** por status (draft, scheduled, published, archived)
+- **Drag & drop** para reagendar posts
+- **Ações rápidas** (editar, duplicar, excluir)
+
+### Estrutura de Arquivos
+
+```
+src/app/(app)/calendar/
+├── page.tsx                          # Server Component (root)
+├── components/
+│   ├── calendar-page.tsx             # Client Component principal
+│   ├── calendar-header.tsx           # Header com navegação
+│   ├── month-navigation.tsx          # Botões ← mês → Hoje
+│   ├── view-switcher.tsx             # Mês/Semana/Dia toggle
+│   ├── filter-bar.tsx                # Barra de filtros
+│   ├── calendar-grid.tsx             # Grid principal
+│   ├── calendar-day-header.tsx       # Dom Seg Ter...
+│   ├── calendar-day.tsx              # Célula do dia
+│   └── post-card.tsx                 # Card de post
+├── hooks/
+│   ├── use-calendar-navigation.ts    # Hook de navegação
+│   ├── use-calendar-filters.ts       # Hook de filtros
+│   └── use-calendar-posts.ts         # Hook de posts
+└── actions/
+    └── calendar-actions.ts           # Server Actions
+
+src/types/
+└── calendar.ts                       # Tipos TypeScript
+
+src/lib/
+└── calendar-utils.ts                 # Utilitários de data
+```
+
+### Tipos Principais
+
+```typescript
+// Views disponíveis
+type CalendarView = "month" | "week" | "day"
+
+// Plataformas suportadas
+type Platform = "instagram" | "twitter" | "linkedin" | "tiktok"
+
+// Filtros do calendário
+interface CalendarFilters {
+  platforms?: Platform[]
+  statuses?: ContentStatus[]
+  types?: PostType[]
+}
+
+// Post combinado (libraryItems + scheduledPosts)
+interface CalendarPost {
+  id: number
+  libraryItemId: number
+  type: PostType
+  status: ContentStatus
+  title: string | null
+  content: string | null
+  scheduledFor: Date | null
+  platform: Platform
+  scheduledPostId: number
+  // ... outros campos
+}
+```
+
+### Cores das Plataformas (UI)
+
+```typescript
+const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
+  instagram: {
+    label: "Instagram",
+    color: "text-pink-400",
+    bgGradient: "from-pink-500/10 to-purple-500/10",
+    badgeColor: "from-pink-500/30 to-purple-500/30 text-pink-300",
+  },
+  twitter: {
+    label: "Twitter",
+    color: "text-blue-400",
+    bgGradient: "from-blue-500/10",
+    badgeColor: "bg-blue-500/30 text-blue-300",
+  },
+  linkedin: {
+    label: "LinkedIn",
+    color: "text-sky-400",
+    bgGradient: "from-sky-500/10",
+    badgeColor: "bg-sky-500/30 text-sky-300",
+  },
+  tiktok: {
+    label: "TikTok",
+    color: "text-gray-400",
+    bgGradient: "from-gray-500/10 to-white/5",
+    badgeColor: "bg-gray-500/30 text-gray-300",
+  },
+}
+```
+
+### Server Actions
+
+```typescript
+// Buscar posts para o calendário
+getCalendarPostsAction(dateRange, filters): Promise<CalendarPost[]>
+
+// Criar novo post
+createPostAction(data: PostFormData): Promise<ActionResult>
+
+// Atualizar post existente
+updatePostAction(id: number, data: Partial<PostFormData>): Promise<ActionResult>
+
+// Soft delete
+deletePostAction(id: number): Promise<ActionResult>
+
+// Reagendar via drag & drop
+reschedulePostAction(id: number, newDate: Date): Promise<ActionResult>
+
+// Duplicar post
+duplicatePostAction(id: number, newScheduledFor?: Date): Promise<ActionResult>
+```
+
+### Hooks Customizados
+
+```typescript
+// Navegação (sem URL sync para evitar loops)
+const { currentDate, view, goToPrevious, goToNext, goToToday, updateView }
+  = useCalendarNavigation()
+
+// Filtros (state local, sem URL sync)
+const { filters, updateFilters, togglePlatform, toggleStatus }
+  = useCalendarFilters()
+
+// Posts com cache inteligente (useRef para evitar loops)
+const { posts, isLoading, error, refetch }
+  = useCalendarPosts(dateRange, filters)
+```
+
+### Importante: Evitar Infinite Loops
+
+**Problema:** `useCallback` com dependências de objeto (`dateRange`, `filters`) causa re-render infinito.
+
+**Solução:** Usar `useRef` para trackear dependencies via `JSON.stringify`:
+
+```typescript
+// ✅ CORRETO - usa useRef para comparar
+const prevDepsRef = useRef<string>("")
+
+useEffect(() => {
+  const deps = JSON.stringify({ dateRange, filters })
+  if (deps !== prevDepsRef.current) {
+    prevDepsRef.current = deps
+    fetchPosts()
+  }
+}, [dateRange, filters])
+
+// ❌ ERRADO - useCallback com object deps
+const fetchPosts = useCallback(async () => {
+  // ...
+}, [dateRange, filters])  // Cria nova referência a cada render
+```
+
+### Visual Improvements (Janeiro 2026)
+
+**Datas mais visíveis:**
+- Números em `text-base font-bold` (antes `text-sm`)
+- Círculo "hoje" aumentado (w-7 h-7)
+- Bordas nas células (`border-white/5`)
+- Background sutil (`bg-white/[0.02]`)
+
+**Badges de plataforma:**
+- Ícone da rede social (Instagram, Twitter, LinkedIn, Video)
+- Background colorido por plataforma
+- Label visível em telas maiores
+
+---
