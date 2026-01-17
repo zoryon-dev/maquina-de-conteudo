@@ -17,6 +17,7 @@
     "@ai-sdk/openai": "^3.0.12",
     "@ai-sdk/react": "^3.0.41",
     "@clerk/nextjs": "^6.36.7",
+    "@getzep/zep-cloud": "^3.15.0",
     "@neondatabase/serverless": "^1.0.2",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",

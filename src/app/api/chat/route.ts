@@ -1,15 +1,18 @@
 /**
- * Chat API Route (Vercel AI SDK)
+ * Chat API Route (Vercel AI SDK + Zep Multi-Agent)
  *
- * Handles streaming chat requests with optional RAG context.
- * Uses Vercel AI SDK's streamText for real-time token streaming.
+ * Handles streaming chat requests with:
+ * - Multi-agent support via Zep Cloud
+ * - Optional RAG context from indexed documents
+ * - Agent-specific system prompts and context templates
  *
  * Flow:
- * 1. Receive message + RAG categories
- * 2. Fetch relevant context from indexed documents
- * 3. Augment prompt with RAG context
- * 4. Stream response using Vercel AI SDK streamText
- * 5. Return SSE stream with optional sources metadata
+ * 1. Receive message + agent + RAG categories
+ * 2. Fetch agent context from Zep (if configured)
+ * 3. Fetch relevant RAG context from documents
+ * 4. Build agent-specific system prompt
+ * 5. Stream response using Vercel AI SDK
+ * 6. Save messages to Zep thread (async, non-blocking)
  */
 
 import { NextRequest } from "next/server"
@@ -18,21 +21,48 @@ import { streamText } from "ai"
 import { openrouter, DEFAULT_TEXT_MODEL } from "@/lib/ai"
 import { assembleRagContext } from "@/lib/rag/assembler"
 import { RAG_CATEGORIES, type RagCategory, type RagSource } from "@/lib/rag"
+import {
+  buildAgentSystemPrompt,
+  addMessageToThread,
+  isZepConfigured,
+} from "@/lib/zep"
+import type { AgentType } from "@/lib/agents"
+
+/**
+ * Message part from Vercel AI SDK v3
+ */
+interface MessagePart {
+  type: string
+  text?: string
+}
+
+/**
+ * Chat message (compatible with Vercel AI SDK v3)
+ */
+interface ChatMessage {
+  role: "user" | "assistant" | "system"
+  content?: string
+  parts?: MessagePart[]
+}
 
 /**
  * Chat request body
  */
 interface ChatRequestBody {
-  /** User message */
-  message: string
+  /** Messages array (Vercel AI SDK v3 format) */
+  messages?: ChatMessage[]
+  /** User message (legacy format for compatibility) */
+  message?: string
   /** Model to use (default: from config) */
   model?: string
+  /** Agent to use (default: "zory") */
+  agent?: AgentType
+  /** Zep thread ID for context persistence */
+  zepThreadId?: string | null
   /** RAG categories to search */
   categories?: RagCategory[]
   /** Whether to include RAG context */
   useRag?: boolean
-  /** Conversation history for context */
-  messages?: Array<{ role: "user" | "assistant" | "system"; content: string }>
 }
 
 /**
@@ -85,7 +115,7 @@ Ajude o usuário a criar textos envolventes, planejar calendários editorial, e 
 /**
  * POST /api/chat
  *
- * Streaming chat endpoint with RAG support.
+ * Streaming chat endpoint with multi-agent and RAG support.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -108,14 +138,42 @@ export async function POST(request: NextRequest) {
 
     const body: ChatRequestBody = await request.json()
     const {
-      message,
+      messages: sdkMessages,
+      message: legacyMessage,
       model = DEFAULT_TEXT_MODEL,
+      agent = "zory",
+      zepThreadId = null,
       categories = [...RAG_CATEGORIES] as RagCategory[],
       useRag = true,
-      messages: history = [],
     } = body
 
-    if (!message || !message.trim()) {
+    // Extract user message from either SDK format or legacy format
+    let userMessage = ""
+    let history: ChatMessage[] = []
+
+    if (sdkMessages && sdkMessages.length > 0) {
+      // Vercel AI SDK v3 format: messages array with parts
+      const lastMessage = sdkMessages[sdkMessages.length - 1]
+      if (lastMessage.role === "user") {
+        // Extract text from parts
+        if (lastMessage.parts) {
+          userMessage = lastMessage.parts
+            .filter((p: MessagePart) => p.type === "text" && p.text)
+            .map((p: MessagePart) => p.text)
+            .join("")
+        } else if (lastMessage.content) {
+          userMessage = lastMessage.content
+        }
+      }
+      // Exclude the last user message from history (we'll add it back)
+      history = sdkMessages.slice(0, -1)
+    } else if (legacyMessage) {
+      // Legacy format for backward compatibility
+      userMessage = legacyMessage
+      history = []
+    }
+
+    if (!userMessage || !userMessage.trim()) {
       return new Response("Message is required", { status: 400 })
     }
 
@@ -127,7 +185,7 @@ export async function POST(request: NextRequest) {
 
     if (useRag && categories.length > 0) {
       try {
-        const ragResult = await assembleRagContext(userId, message, {
+        const ragResult = await assembleRagContext(userId, userMessage, {
           categories,
           threshold: RAG_THRESHOLD,
           maxChunks: MAX_CHUNKS,
@@ -153,49 +211,83 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Build system prompt
-    const systemPrompt = ragUsed
-      ? RAG_SYSTEM_PROMPT
-          .replace("{RAG_CONTEXT}", ragContext)
-          .replace("{RAG_SOURCES_SUMMARY}", sources.map((s) => `- ${s.documentTitle} (${s.category})`).join("\n"))
-      : STANDARD_SYSTEM_PROMPT
+    // Build agent-specific system prompt with Zep context
+    let systemPrompt: string
 
-    // Build messages array with system prompt
-    const messages = [
+    if (isZepConfigured() && zepThreadId) {
+      // Use agent-specific system prompt with Zep context
+      systemPrompt = await buildAgentSystemPrompt(zepThreadId, agent)
+
+      // Append RAG context if used
+      if (ragUsed) {
+        systemPrompt += `
+
+# CONTEXTO DE DOCUMENTOS
+${ragContext}
+
+Fontes usadas:
+${sources.map((s) => `- ${s.documentTitle} (${s.category})`).join("\n")}`
+      }
+    } else {
+      // Fall back to standard prompts without Zep
+      systemPrompt = ragUsed
+        ? RAG_SYSTEM_PROMPT
+            .replace("{RAG_CONTEXT}", ragContext)
+            .replace(
+              "{RAG_SOURCES_SUMMARY}",
+              sources.map((s) => `- ${s.documentTitle} (${s.category})`).join("\n")
+            )
+        : STANDARD_SYSTEM_PROMPT
+    }
+
+    // Build messages array for the model (without system messages from history)
+    const modelMessages = [
       { role: "system" as const, content: systemPrompt },
-      ...history.filter(m => m.role !== "system"),
-      { role: "user" as const, content: message },
+      ...history.filter((m) => m.role !== "system"),
+      { role: "user" as const, content: userMessage },
     ]
 
     // Stream response using Vercel AI SDK
     const result = streamText({
       model: openrouter(model),
-      messages,
+      messages: modelMessages as any, // Type assertion for SDK compatibility
       temperature: 0.7,
-      // Add metadata for RAG sources in response headers
     })
 
-    // Return streaming response with custom headers for RAG info
+    // Save user message to Zep thread (async, non-blocking)
+    if (zepThreadId && isZepConfigured()) {
+      // Don't await - let this happen in the background
+      addMessageToThread(zepThreadId, "user", userMessage, {
+        agent,
+        model,
+      }).catch((err) => console.error("Failed to save user message to Zep:", err))
+    }
+
+    // Return streaming response with custom headers
     return result.toTextStreamResponse({
-      headers: ragUsed ? {
-        "X-RAG-Used": "true",
-        "X-RAG-Chunks": chunksIncluded.toString(),
-        "X-RAG-Sources": JSON.stringify(sources),
-      } : undefined,
+      headers: {
+        ...(ragUsed
+          ? {
+              "X-RAG-Used": "true",
+              "X-RAG-Chunks": chunksIncluded.toString(),
+              "X-RAG-Sources": JSON.stringify(sources),
+            }
+          : {}),
+        "X-Agent": agent,
+        "X-Zep-Configured": isZepConfigured() ? "true" : "false",
+      } as Record<string, string>,
     })
   } catch (error) {
     console.error("Chat API error:", error)
 
-    const errorMessage = error instanceof Error ? error.message : "Failed to process chat request"
+    const errorMessage =
+      error instanceof Error ? error.message : "Failed to process chat request"
 
     // Return error as plain text (streaming errors are tricky)
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
-    )
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    })
   }
 }
 

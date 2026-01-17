@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
 // Rotas protegidas - requerem autenticação
 const isProtectedRoute = createRouteMatcher([
@@ -14,12 +15,14 @@ export default clerkMiddleware(async (auth, request) => {
   if (request.nextUrl.pathname === "/" && (await auth()).userId) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
-    return Response.redirect(url);
+    return NextResponse.redirect(url);
   }
 
   if (isProtectedRoute(request)) {
     await auth.protect();
   }
+
+  return NextResponse.next();
 });
 
 export const config = {

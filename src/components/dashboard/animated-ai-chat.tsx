@@ -20,7 +20,9 @@ import { motion, AnimatePresence } from "framer-motion"
 import { ModelSelector, useModelSelector } from "@/components/chat/model-selector"
 import { RagContextSelector, useRagCategories } from "@/components/chat/rag-context-selector"
 import { ChatMessageSources, type ChatSource } from "@/components/chat"
-import { DEFAULT_TEXT_MODEL } from "@/lib/models"
+import { AgentPalette } from "@/components/chat/agent-palette"
+import { AgentSelector } from "@/components/chat/agent-selector"
+import { AGENTS, type AgentType } from "@/lib/agents"
 
 interface UseAutoResizeTextareaProps {
   minHeight: number
@@ -81,13 +83,17 @@ interface CommandSuggestion {
 }
 
 interface AnimatedAIChatProps {
-  onSendMessage?: (message: string, model?: string) => void
+  onSendMessage?: (message: string, model?: string, agent?: AgentType) => void
   /** External typing state (controlled by parent) */
   isTyping?: boolean
   /** Response text to display */
   response?: string | null
   /** RAG sources from the response */
   sources?: ChatSource[] | null
+  /** Initial agent to use (default: "zory") */
+  initialAgent?: AgentType
+  /** Callback when agent changes */
+  onAgentChange?: (agent: AgentType) => void
 }
 
 /**
@@ -103,6 +109,8 @@ export function AnimatedAIChat({
   isTyping: externalIsTyping,
   response,
   sources,
+  initialAgent = "zory",
+  onAgentChange,
 }: AnimatedAIChatProps) {
   const [value, setValue] = useState("")
   const [attachments, setAttachments] = useState<string[]>([])
@@ -117,6 +125,11 @@ export function AnimatedAIChat({
   })
   const [inputFocused, setInputFocused] = useState(false)
   const commandPaletteRef = useRef<HTMLDivElement>(null)
+
+  // Agent selection state
+  const [currentAgent, setCurrentAgent] = useState<AgentType>(initialAgent)
+  const [showAgentPalette, setShowAgentPalette] = useState(false)
+  const [agentQuery, setAgentQuery] = useState("")
 
   // Use external typing state if provided, otherwise use internal
   const isTyping = externalIsTyping !== undefined ? externalIsTyping : internalIsTyping
@@ -168,8 +181,10 @@ export function AnimatedAIChat({
   ]
 
   useEffect(() => {
+    // Detect /command trigger
     if (value.startsWith("/") && !value.includes(" ")) {
       setShowCommandPalette(true)
+      setShowAgentPalette(false) // Close agent palette when command palette opens
 
       const matchingSuggestionIndex = commandSuggestions.findIndex((cmd) =>
         cmd.prefix.startsWith(value)
@@ -180,8 +195,15 @@ export function AnimatedAIChat({
       } else {
         setActiveSuggestion(-1)
       }
+    } else if (value.startsWith("@") && !value.includes(" ")) {
+      // Detect @agent trigger
+      setShowAgentPalette(true)
+      setShowCommandPalette(false) // Close command palette when agent palette opens
+      setAgentQuery(value.slice(1)) // Query is text after @
     } else {
       setShowCommandPalette(false)
+      setShowAgentPalette(false)
+      setAgentQuery("")
     }
   }, [value])
 
@@ -207,6 +229,7 @@ export function AnimatedAIChat({
         !commandButton?.contains(target)
       ) {
         setShowCommandPalette(false)
+        setShowAgentPalette(false)
       }
     }
 
@@ -239,6 +262,25 @@ export function AnimatedAIChat({
         e.preventDefault()
         setShowCommandPalette(false)
       }
+    } else if (showAgentPalette) {
+      if (e.key === "Escape") {
+        e.preventDefault()
+        setShowAgentPalette(false)
+      } else if (e.key === "Tab" || e.key === "Enter") {
+        e.preventDefault()
+        // Select first matching agent
+        const matchedAgent = Object.values(AGENTS).find(
+          (agent) =>
+            agent.handle.toLowerCase() === `@${agentQuery.toLowerCase()}` ||
+            agent.id.toLowerCase() === agentQuery.toLowerCase()
+        )
+        if (matchedAgent) {
+          setValue(`${matchedAgent.handle} `)
+          setCurrentAgent(matchedAgent.id)
+          onAgentChange?.(matchedAgent.id)
+          setShowAgentPalette(false)
+        }
+      }
     } else if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       if (value.trim()) {
@@ -249,19 +291,48 @@ export function AnimatedAIChat({
 
   const handleSendMessage = () => {
     if (value.trim()) {
-      startTransition(() => {
-        onSendMessage?.(value, selectedModel)
-        // Only set internal typing state if external is not controlled
-        if (externalIsTyping === undefined) {
-          setInternalIsTyping(true)
-          // Simular resposta da IA quando não controlado externamente
-          setTimeout(() => {
-            setInternalIsTyping(false)
-          }, 2000)
+      // Check if message starts with @agent and handle agent switching
+      let messageToSend = value
+      let agentToSend = currentAgent
+
+      if (value.startsWith("@")) {
+        const parts = value.slice(1).split(/\s+/)
+        const potentialHandle = `@${parts[0].toLowerCase()}`
+
+        // Find agent by handle
+        const matchedAgent = Object.values(AGENTS).find(
+          (agent) => agent.handle.toLowerCase() === potentialHandle
+        )
+
+        if (matchedAgent) {
+          agentToSend = matchedAgent.id
+          setCurrentAgent(matchedAgent.id)
+          onAgentChange?.(matchedAgent.id)
+
+          // Remove the @handle from the message
+          messageToSend = value.slice(potentialHandle.length).trim()
         }
+      }
+
+      if (messageToSend) {
+        startTransition(() => {
+          onSendMessage?.(messageToSend, selectedModel, agentToSend)
+          // Only set internal typing state if external is not controlled
+          if (externalIsTyping === undefined) {
+            setInternalIsTyping(true)
+            // Simular resposta da IA quando não controlado externamente
+            setTimeout(() => {
+              setInternalIsTyping(false)
+            }, 2000)
+          }
+          setValue("")
+          adjustHeight(true)
+        })
+      } else {
+        // Just switch agent without sending message
         setValue("")
         adjustHeight(true)
-      })
+      }
     }
   }
 
@@ -278,6 +349,15 @@ export function AnimatedAIChat({
     const selectedCommand = commandSuggestions[index]
     setValue(selectedCommand.prefix + " ")
     setShowCommandPalette(false)
+    textareaRef.current?.focus()
+  }
+
+  const handleAgentSelect = (agentId: AgentType) => {
+    const agent = AGENTS[agentId]
+    setValue(`${agent.handle} `)
+    setCurrentAgent(agentId)
+    onAgentChange?.(agentId)
+    setShowAgentPalette(false)
     textareaRef.current?.focus()
   }
 
@@ -367,6 +447,80 @@ export function AnimatedAIChat({
                         </div>
                       </motion.div>
                     ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Agent Palette */}
+            <AnimatePresence>
+              {showAgentPalette && (
+                <motion.div
+                  ref={commandPaletteRef}
+                  className="absolute left-4 right-4 bottom-full mb-2 backdrop-blur-xl bg-black/90 rounded-lg z-50 shadow-lg border border-white/10 overflow-hidden"
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 5 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <div className="py-1 bg-black/95">
+                    <div className="px-3 py-2 border-b border-white/[0.05]">
+                      <p className="text-xs text-white/50 font-medium">
+                        {agentQuery ? `Agente: "@${agentQuery}"` : "Selecione um agente"}
+                      </p>
+                    </div>
+                    {Object.values(AGENTS)
+                      .filter(
+                        (agent) =>
+                          !agentQuery ||
+                          agent.handle.toLowerCase().includes(`@${agentQuery.toLowerCase()}`) ||
+                          agent.id.toLowerCase().includes(agentQuery.toLowerCase()) ||
+                          agent.name.toLowerCase().includes(agentQuery.toLowerCase())
+                      )
+                      .map((agent, index) => {
+                        const AgentIcon = agent.icon === "Bot" ? Bot :
+                          agent.icon === "Target" ? Command :
+                          agent.icon === "Sparkles" ? Sparkles :
+                          agent.icon === "Calendar" ? Calendar : Bot
+
+                        return (
+                          <motion.div
+                            key={agent.id}
+                            className={cn(
+                              "flex items-center gap-3 px-3 py-2.5 text-xs transition-colors cursor-pointer",
+                              "hover:bg-white/5 text-white/70"
+                            )}
+                            onClick={() => handleAgentSelect(agent.id)}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: index * 0.03 }}
+                          >
+                            {/* Color indicator */}
+                            <span
+                              className="w-1 h-8 rounded-full"
+                              style={{ backgroundColor: agent.color }}
+                            />
+                            {/* Agent icon */}
+                            <span
+                              className="flex items-center justify-center rounded-full w-8 h-8 bg-white/5"
+                            >
+                              <span
+                                className="w-4 h-4 flex items-center justify-center"
+                                style={{ color: agent.color }}
+                              >
+                                <AgentIcon className="w-full h-full" />
+                              </span>
+                            </span>
+                            {/* Agent info */}
+                            <div className="flex-1 text-left">
+                              <div className="font-medium text-white/90">{agent.name}</div>
+                              <div className="text-white/40 text-xs">
+                                {agent.handle} · {agent.shortDescription}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )
+                      })}
                   </div>
                 </motion.div>
               )}
@@ -469,6 +623,15 @@ export function AnimatedAIChat({
                 <ModelSelector
                   value={selectedModel}
                   onValueChange={setSelectedModel}
+                />
+                {/* Agent Selector */}
+                <AgentSelector
+                  value={currentAgent}
+                  onValueChange={(agent) => {
+                    setCurrentAgent(agent)
+                    onAgentChange?.(agent)
+                  }}
+                  size="sm"
                 />
                 {/* RAG Context Selector */}
                 <RagContextSelector compact />

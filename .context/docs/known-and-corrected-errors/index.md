@@ -573,9 +573,89 @@ const isLoading = status === "streaming"
 ```
 
 **Arquivos:**
-- `.context/docs/known-and-corrected-errors/007-vercel-ai-sdk-migration.md`
-- `src/components/chat/ai-chat-sdk.tsx`
-- `src/lib/ai/config.ts`
+- `.context/docs/known-and-corrected-errors/023-clerk-middleware-immutable.md`
+- `src/proxy.ts`
+
+---
+
+### 23. TypeError: immutable - Clerk Middleware
+
+**Erro:** Runtime `TypeError: immutable` no middleware do Clerk ao acessar qualquer rota.
+
+**Causa:** O `clerkMiddleware` não estava retornando nada no caso base, fazendo o Clerk tentar manipular headers de `undefined`.
+
+**Solução:** Sempre retornar `NextResponse.next()` no final do middleware:
+```typescript
+// ❌ ERRADO
+export default clerkMiddleware(async (auth, request) => {
+  if (isProtectedRoute(request)) {
+    await auth.protect();
+  }
+  // Sem return - causa erro "immutable"
+});
+
+// ✅ CORRETO
+import { NextResponse } from "next/server"
+export default clerkMiddleware(async (auth, request) => {
+  if (isProtectedRoute(request)) {
+    await auth.protect();
+  }
+  return NextResponse.next(); // ← SEMPRE retornar algo
+});
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/023-clerk-middleware-immutable.md`
+
+---
+
+### 24. JSON Parsing Error - Vercel AI SDK v3 Chat Streaming
+
+**Erro:**
+```
+⨯ SyntaxError: Unexpected token 'O', "Oi! Para e"... is not valid JSON
+    at JSON.parse (<anonymous>)
+```
+
+**Causa:** O componente `ai-chat-sdk.tsx` tinha uma implementação customizada de streaming que não era compatível com o formato do Vercel AI SDK v3. O código esperava um formato de SSE específico com `data: ` prefixo, mas o SDK retorna um formato diferente.
+
+**Solução:** Usar o hook oficial `useChat` do pacote `@ai-sdk/react`:
+```typescript
+// ❌ ERRADO - Implementação manual com parse customizado
+const reader = response.body?.getReader()
+const decoder = new TextDecoder()
+while (true) {
+  const { done, value } = await reader.read()
+  if (done) break
+  const chunk = decoder.decode(value, { stream: true })
+  const lines = chunk.split("\n")
+  for (const line of lines) {
+    if (line.startsWith("data: ")) {
+      const parsed = JSON.parse(line.slice(6).trim()) // ❌ Falhava aqui
+    }
+  }
+}
+
+// ✅ CORRETO - Usar hook useChat do SDK
+import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport } from "ai"
+
+const { messages, status, error, sendMessage, stop } = useChat({
+  transport: new DefaultChatTransport({
+    api: "/api/chat",
+    body: { agent: currentAgent, zepThreadId },
+  }),
+})
+
+const handleSend = () => {
+  sendMessage({ text: content }, { body: { agent: currentAgent } })
+}
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/024-ai-sdk-streaming-json-parse.md`
+
+**Arquivos modificados:**
+- `src/components/chat/ai-chat-sdk.tsx` - Reescrito para usar `useChat`
+- `src/app/api/chat/route.ts` - Atualizado para aceitar formato SDK v3
 
 ---
 

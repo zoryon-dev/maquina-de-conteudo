@@ -1,23 +1,24 @@
 /**
  * AI Chat SDK Component
  *
- * Chat component powered by Vercel AI SDK's useChat hook.
- * Provides streaming responses, automatic state management,
- * and RAG context integration.
+ * Chat component with multi-agent support via Zep Cloud.
+ * Provides streaming responses, agent selection, and RAG context.
+ * Uses Vercel AI SDK v3 useChat hook for automatic streaming management.
  *
- * This component can be used standalone or integrated into
- * the existing AnimatedAIChat UI.
+ * @component
  */
 
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { useChat } from "@ai-sdk/react"
-import type { UIMessage } from "ai"
+import { DefaultChatTransport } from "ai"
 import { cn } from "@/lib/utils"
 import { LoaderIcon, SendIcon, Bot, User, StopCircle } from "lucide-react"
 import { motion } from "framer-motion"
 import { RagCategory, RAG_CATEGORIES } from "@/lib/rag"
+import { type AgentType } from "@/lib/agents"
+import { AgentSelector } from "./agent-selector"
 
 /**
  * Props for AiChatSdk component
@@ -37,22 +38,34 @@ export interface AiChatSdkProps {
   onComplete?: (message: string) => void
   /** Custom header component */
   header?: React.ReactNode
+  /** Zep thread ID for context persistence */
+  zepThreadId?: string | null
+  /** Initial agent to use (default: "zory") */
+  initialAgent?: AgentType
+  /** Callback when agent changes */
+  onAgentChange?: (agent: AgentType) => void
+  /** Custom API endpoint (default: /api/chat) */
+  apiEndpoint?: string
+  /** Initial messages for the chat */
+  initialMessages?: Array<{ role: "user" | "assistant"; content: string }>
 }
 
 /**
  * Extract text content from a UIMessage
  */
-function getMessageText(message: UIMessage): string {
+function getMessageText(message: { parts?: Array<{ type: string; text?: string }> }): string {
+  if (!message.parts) return ""
   return message.parts
-    .filter((part) => part.type === "text")
-    .map((part) => (part as { type: "text"; text: string }).text)
+    .filter((part) => part.type === "text" && part.text)
+    .map((part) => part.text)
     .join("")
 }
 
 /**
  * AiChatSdk Component
  *
- * Full-featured chat component with streaming support.
+ * Full-featured chat component with multi-agent support.
+ * Uses Vercel AI SDK v3 useChat hook for automatic streaming.
  */
 export function AiChatSdk({
   placeholder = "Converse com nossos especialistas...",
@@ -62,30 +75,52 @@ export function AiChatSdk({
   defaultCategories = [...RAG_CATEGORIES] as RagCategory[],
   onComplete,
   header,
+  zepThreadId = null,
+  initialAgent = "zory",
+  onAgentChange,
+  apiEndpoint = "/api/chat",
+  initialMessages = [],
 }: AiChatSdkProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const [input, setInput] = useState("")
   const [ragEnabled, setRagEnabled] = useState(useRagByDefault)
   const [selectedCategories, setSelectedCategories] = useState<RagCategory[]>(defaultCategories)
+  const [currentAgent, setCurrentAgent] = useState<AgentType>(initialAgent)
 
-  // useChat hook from Vercel AI SDK
-  const {
-    messages,
-    status,
-    error,
-    sendMessage,
-    stop,
-    clearError,
-  } = useChat({
-    // API defaults to '/api/chat'
+  // Set up transport with custom body fields
+  const transport = useRef(
+    new DefaultChatTransport({
+      api: apiEndpoint,
+      body: {
+        agent: initialAgent,
+        zepThreadId,
+        categories: defaultCategories,
+        useRag: useRagByDefault,
+      },
+    })
+  )
+
+  // Convert initial messages to UIMessage format
+  const convertedInitialMessages = initialMessages.map((msg) => ({
+    id: crypto.randomUUID(),
+    role: msg.role,
+    parts: [{ type: "text" as const, text: msg.content }],
+  }))
+
+  // Use Vercel AI SDK v3 useChat hook
+  const { messages, status, error, sendMessage, stop } = useChat({
+    transport: transport.current,
+    messages: convertedInitialMessages,
     onFinish: ({ message }) => {
       const text = getMessageText(message)
       onComplete?.(text)
     },
   })
 
-  // Auto-scroll to bottom when new messages arrive
+  const isLoading = status === "streaming"
+
+  // Auto-scroll to bottom when messages change
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
@@ -113,43 +148,100 @@ export function AiChatSdk({
     }
   }, [])
 
-  const isLoading = status === "streaming"
+  // Handle agent change
+  const handleAgentChange = useCallback((agent: AgentType) => {
+    setCurrentAgent(agent)
+    onAgentChange?.(agent)
 
+    // Update transport with new agent
+    transport.current = new DefaultChatTransport({
+      api: apiEndpoint,
+      body: {
+        agent,
+        zepThreadId,
+        categories: selectedCategories,
+        useRag: ragEnabled,
+      },
+    })
+  }, [apiEndpoint, onAgentChange, zepThreadId, selectedCategories, ragEnabled])
+
+  // Handle RAG toggle
+  const handleRagToggle = useCallback(() => {
+    const newValue = !ragEnabled
+    setRagEnabled(newValue)
+
+    // Update transport with new RAG setting
+    transport.current = new DefaultChatTransport({
+      api: apiEndpoint,
+      body: {
+        agent: currentAgent,
+        zepThreadId,
+        categories: selectedCategories,
+        useRag: newValue,
+      },
+    })
+  }, [ragEnabled, apiEndpoint, currentAgent, zepThreadId, selectedCategories])
+
+  // Handle category change
+  const handleCategoryChange = useCallback((categories: RagCategory[]) => {
+    setSelectedCategories(categories)
+
+    // Update transport with new categories
+    transport.current = new DefaultChatTransport({
+      api: apiEndpoint,
+      body: {
+        agent: currentAgent,
+        zepThreadId,
+        categories,
+        useRag: ragEnabled,
+      },
+    })
+  }, [apiEndpoint, currentAgent, zepThreadId, ragEnabled])
+
+  // Send message
+  const handleSend = useCallback(() => {
+    const content = input.trim()
+    if (!content || isLoading) return
+
+    // Send via SDK with custom body
+    sendMessage(
+      { text: content },
+      {
+        body: {
+          agent: currentAgent,
+          zepThreadId,
+          categories: selectedCategories,
+          useRag: ragEnabled,
+        },
+      }
+    )
+
+    setInput("")
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "60px"
+    }
+  }, [input, isLoading, sendMessage, currentAgent, zepThreadId, selectedCategories, ragEnabled])
+
+  // Handle keyboard
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
-      if (input.trim() && !isLoading) {
-        handleSend()
-      }
+      handleSend()
     }
   }
 
-  const handleSend = () => {
-    if (input.trim() && !isLoading) {
-      // Pass RAG settings via message metadata
-      sendMessage({
-        role: "user",
-        parts: [{ type: "text", text: input }],
-        metadata: {
-          useRag: ragEnabled,
-          categories: selectedCategories,
-        },
-      })
-      setInput("")
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "60px"
-      }
-    }
-  }
-
+  // Toggle RAG category
   const toggleCategory = (category: RagCategory) => {
-    setSelectedCategories((prev) => {
-      if (prev.includes(category)) {
-        return prev.filter((c) => c !== category)
-      } else {
-        return [...prev, category]
-      }
-    })
+    const newCategories = selectedCategories.includes(category)
+      ? selectedCategories.filter((c) => c !== category)
+      : [...selectedCategories, category]
+    handleCategoryChange(newCategories)
+  }
+
+  // Clear error
+  const clearError = () => {
+    // useChat doesn't have a clearError method, but we can handle it via UI state
+    // The error will be cleared on the next successful request
   }
 
   return (
@@ -158,15 +250,12 @@ export function AiChatSdk({
       {header || (
         <div className="flex items-center justify-between p-4 border-b border-white/[0.05]">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <Bot className="w-4 h-4 text-primary" />
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-white/90">Chat AI</h3>
-              <p className="text-xs text-white/40">
-                {ragEnabled ? "RAG ativo" : "Chat geral"}
-              </p>
-            </div>
+            <AgentSelector
+              value={currentAgent}
+              onValueChange={handleAgentChange}
+              showLabel
+              size="md"
+            />
           </div>
 
           {/* RAG Toggle */}
@@ -174,7 +263,7 @@ export function AiChatSdk({
             <div className="flex items-center gap-2">
               <span className="text-xs text-white/40">RAG</span>
               <button
-                onClick={() => setRagEnabled((prev) => !prev)}
+                onClick={handleRagToggle}
                 className={cn(
                   "w-10 h-5 rounded-full transition-colors relative",
                   ragEnabled ? "bg-primary" : "bg-white/10"
@@ -198,15 +287,14 @@ export function AiChatSdk({
             <div className="text-center space-y-2">
               <Bot className="w-8 h-8 text-primary/50 mx-auto" />
               <p className="text-sm text-white/40">
-                Comece uma conversa...
+                Comece uma conversa com {currentAgent === "zory" ? "a Zory" : currentAgent}...
               </p>
             </div>
           </div>
         )}
 
         {messages.map((message) => {
-          const text = getMessageText(message)
-
+          const messageText = getMessageText(message)
           return (
             <motion.div
               key={message.id}
@@ -235,7 +323,9 @@ export function AiChatSdk({
                   "text-sm whitespace-pre-wrap",
                   message.role === "user" ? "text-[#0A0A0B]" : "text-white/80"
                 )}>
-                  {text}
+                  {messageText || (
+                    <span className="text-white/40 italic">Digitando...</span>
+                  )}
                 </p>
               </div>
 
@@ -274,17 +364,13 @@ export function AiChatSdk({
             animate={{ opacity: 1 }}
             className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3"
           >
-            <p className="text-sm text-red-400">
-              Erro: {error.message || "Falha ao processar mensagem"}
-            </p>
-            <div className="flex gap-2 mt-2">
-              <button
-                onClick={() => clearError()}
-                className="text-xs text-red-300 hover:text-red-200 underline"
-              >
-                Fechar
-              </button>
-            </div>
+            <p className="text-sm text-red-400">{error.message}</p>
+            <button
+              onClick={clearError}
+              className="text-xs text-red-300 hover:text-red-200 underline mt-2"
+            >
+              Fechar
+            </button>
           </motion.div>
         )}
 
@@ -372,7 +458,26 @@ export function AiChatSdk({
 }
 
 /**
- * Re-export for convenience
+ * Export hook for agent management
  */
-export { useChat } from "@ai-sdk/react"
-export type { UIMessage } from "ai"
+export function useAgentChat(defaultAgent: AgentType = "zory") {
+  const [currentAgent, setCurrentAgent] = useState<AgentType>(defaultAgent)
+  const [zepThreadId, setZepThreadId] = useState<string | null>(null)
+
+  const switchAgent = useCallback((agent: AgentType) => {
+    setCurrentAgent(agent)
+  }, [])
+
+  const startNewSession = useCallback((threadId: string) => {
+    setZepThreadId(threadId)
+  }, [])
+
+  return {
+    currentAgent,
+    setCurrentAgent,
+    switchAgent,
+    zepThreadId,
+    setZepThreadId,
+    startNewSession,
+  }
+}

@@ -74,6 +74,8 @@ export const chats = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     model: text("model").notNull(), // OpenRouter model usado
+    zepThreadId: text("zep_thread_id"), // Zep Cloud thread ID para contexto multi-agent
+    currentAgent: text("current_agent").default("zory"), // Agente atual da conversa
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at"),
@@ -81,6 +83,7 @@ export const chats = pgTable(
   (table) => [
     index("chats_user_id_idx").on(table.userId),
     index("chats_created_at_idx").on(table.createdAt),
+    index("chats_zep_thread_id_idx").on(table.zepThreadId),
   ]
 );
 
@@ -99,6 +102,27 @@ export const messages = pgTable(
   (table) => [
     index("messages_chat_id_idx").on(table.chatId),
     index("messages_created_at_idx").on(table.createdAt),
+  ]
+);
+
+// 3.1. ZEP_THREADS - Sessões Zep Cloud para contexto multi-agent
+export const zepThreads = pgTable(
+  "zep_threads",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    zepThreadId: text("zep_thread_id").notNull().unique(), // Zep Cloud thread ID
+    currentAgent: text("current_agent").notNull().default("zory"), // Agente atual
+    agentSessionId: text("agent_session_id").notNull(), // ID único da sessão do agente
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("zep_threads_user_id_idx").on(table.userId),
+    index("zep_threads_zep_id_idx").on(table.zepThreadId),
+    unique("zep_threads_user_zep_unique").on(table.userId, table.zepThreadId),
   ]
 );
 
@@ -367,6 +391,13 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   chat: one(chats, {
     fields: [messages.chatId],
     references: [chats.id],
+  }),
+}));
+
+export const zepThreadsRelations = relations(zepThreads, ({ one }) => ({
+  user: one(users, {
+    fields: [zepThreads.userId],
+    references: [users.id],
   }),
 }));
 
@@ -662,6 +693,7 @@ export const documentCollectionItemsRelations = relations(documentCollectionItem
 // Update users relations to include settings tables and collections
 export const usersRelations = relations(users, ({ many }) => ({
   chats: many(chats),
+  zepThreads: many(zepThreads),
   libraryItems: many(libraryItems),
   documents: many(documents),
   documentCollections: many(documentCollections),
@@ -721,6 +753,8 @@ export type ScheduledPost = typeof scheduledPosts.$inferSelect;
 export type NewScheduledPost = typeof scheduledPosts.$inferInsert;
 export type Job = typeof jobs.$inferSelect;
 export type NewJob = typeof jobs.$inferInsert;
+export type ZepThread = typeof zepThreads.$inferSelect;
+export type NewZepThread = typeof zepThreads.$inferInsert;
 export type JobType = typeof jobTypeEnum.enumValues[number];
 export type JobStatus = typeof jobStatusEnum.enumValues[number];
 export type PostType = typeof postTypeEnum.enumValues[number];
