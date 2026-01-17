@@ -30,6 +30,14 @@ graph TD
         App --> Workers[/api/workers Processor]
     end
 
+    subgraph Storage Layer
+        App --> Storage[Storage Abstraction]
+        Storage --> Local[LocalStorageProvider]
+        Storage --> R2[R2StorageProvider]
+        R2 --> CloudR2[Cloudflare R2]
+        R2 --> CustomDomain[storage-mc.zoryon.org]
+    end
+
     subgraph External Integrations
         Workers --> APIs[OpenRouter / Firecrawl / Social APIs]
     end
@@ -47,6 +55,8 @@ graph TD
 | **Database** | Neon PostgreSQL | 17 | Serverless PostgreSQL |
 | **ORM** | Drizzle ORM | 0.45.x | Type-safe database queries |
 | **Queue** | Upstash Redis | 1.36.x | Background job processing |
+| **Storage** | Cloudflare R2 | - | S3-compatible object storage |
+| **Storage SDK** | AWS SDK v3 | 3.x | S3 client for R2 operations |
 | **AI SDK** | Vercel AI SDK | 1.x | LLM streaming + hooks |
 | **LLM Provider** | OpenRouter | - | Multi-model aggregation |
 | **Embeddings** | Voyage AI | - | RAG embeddings (1024-dim) |
@@ -63,8 +73,11 @@ graph TD
 │   │   ├── /jobs/[id]      # Job status endpoint
 │   │   ├── /workers        # Queue processor
 │   │   ├── /webhooks       # Clerk webhook sync
-│   │   └── /documents      # Document upload (FormData + PDF parse) ⭐
-│   │       └── /upload      # PDF/TXT/MD upload with text extraction
+│   │   ├── /documents      # Document management
+│   │   │   ├── /upload      # PDF/TXT/MD upload with text extraction
+│   │   │   └── /[id]        # Download document from storage
+│   │   └── /admin          # Admin operations
+│   │       └── /clear-documents # Bulk delete all user documents
 │   ├── /sign-in            # Clerk sign-in page
 │   ├── /sign-up            # Clerk sign-up page
 │   ├── /styleguide         # Design system documentation
@@ -89,6 +102,14 @@ graph TD
 │   │   ├── index.ts        # types, constants (client-safe)
 │   │   ├── assembler.ts    # assembleRagContext() (server-only)
 │   │   └── filters.ts      # relevance filters
+│   ├── /storage            # Storage abstraction layer ⭐
+│   │   ├── types.ts        # StorageProvider enum, interfaces
+│   │   ├── config.ts       # R2 credentials, getR2PublicUrl()
+│   │   ├── /providers      # Storage implementations
+│   │   │   ├── local.ts    # LocalStorageProvider (filesystem)
+│   │   │   └── r2.ts       # R2StorageProvider (S3 client)
+│   │   └── /utils          # Storage helpers
+│   │       └── file-url.ts # getDocumentUrl(), hasStorageLocation()
 │   └── /queue              # Queue system
 │       ├── types.ts        # JobType, JobStatus enums
 │       ├── client.ts       # Upstash Redis client
@@ -159,7 +180,9 @@ erDiagram
         integer embeddingProgress
         integer chunksCount
         timestamp lastEmbeddedAt
-        text filePath "optional file path"
+        text filePath "local file path (legacy)"
+        text storageProvider "local | r2"
+        text storageKey "R2 object key or local filename"
         timestamp deletedAt "soft delete"
         timestamp createdAt
         timestamp updatedAt
@@ -197,13 +220,172 @@ erDiagram
 | `chats` | AI conversations | userId, title, model |
 | `messages` | Chat messages | chatId, role, content |
 | `library_items` | Content library | type, status, content (JSONB) |
-| `documents` | Knowledge base | title, content, fileType, category |
+| `documents` | Knowledge base | title, content, fileType, category, storageProvider, storageKey |
 | `document_collections` | Document folders | name, description, userId |
 | `document_collection_items` | Many-to-many junction | collectionId, documentId |
 | `document_embeddings` | RAG embeddings | documentId, embedding (JSONB), chunkIndex |
 | `sources` | Scraping sources | url, type, config (JSONB) |
 | `scheduled_posts` | Publishing queue | platform, scheduledFor, status |
 | `jobs` | Background jobs | type, status, payload, attempts |
+
+## Storage Architecture
+
+### Overview
+
+The application uses a **storage abstraction layer** that supports multiple providers:
+- **LocalStorageProvider**: Filesystem-based storage for development
+- **R2StorageProvider**: Cloudflare R2 for production (S3-compatible)
+
+This design allows seamless switching between providers via environment variable configuration.
+
+### Storage Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as /api/documents
+    participant Storage as Storage Abstraction
+    participant Local as LocalStorageProvider
+    participant R2 as R2StorageProvider
+    participant Cloudflare as Cloudflare R2
+
+    Client->>API: POST /upload (FormData)
+    API->>API: Extract text from PDF
+    API->>Storage: uploadFile(file, userId)
+
+    alt STORAGE_PROVIDER=local
+        Storage->>Local: saveFile(buffer, key)
+        Local->>Local: Write to public/uploads/
+        Local-->>Storage: { provider: "local", filePath: "/uploads/..." }
+    else STORAGE_PROVIDER=r2
+        Storage->>R2: uploadFile(buffer, key)
+        R2->>Cloudflare: PutObject (S3 protocol)
+        Cloudflare-->>R2: { key, etag }
+        R2-->>Storage: { provider: "r2", storageKey: "docs/user/timestamp-filename" }
+    end
+
+    Storage-->>API: { storageProvider, storageKey, url }
+    API->>API: Save to DB (documents table)
+    API-->>Client: { documentId, downloadUrl }
+```
+
+### Provider Configuration
+
+**Environment Variables:**
+```env
+STORAGE_PROVIDER=local|r2
+
+# R2 Configuration (required when STORAGE_PROVIDER=r2)
+R2_ACCOUNT_ID=11feaa2d9e21cd5a972bccfcb8d1e3d7
+R2_ACCESS_KEY_ID=xxx
+R2_SECRET_ACCESS_KEY=xxx
+R2_BUCKET_NAME=maquina-de-conteudo
+R2_CUSTOM_DOMAIN=storage-mc.zoryon.org
+R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+```
+
+### Storage Key Pattern
+
+**R2 Storage Keys:** `documents/{userId}/{timestamp}-{sanitizedFilename}`
+
+Example: `documents/user_abc123/1234567890-my-document.pdf`
+
+**Local File Paths:** `/uploads/documents/{userId}/{timestamp}-{sanitizedFilename}`
+
+### Public URL Generation
+
+```typescript
+// R2 with custom domain
+https://storage-mc.zoryon.org/documents/user_abc123/1234567890-my-document.pdf
+
+// R2 with public URL (fallback)
+https://pub-xxx.r2.dev/maquina-conteudo/documents/user_abc123/...
+
+// Local (development)
+http://localhost:3000/uploads/documents/user_abc123/...
+```
+
+### Storage Interface
+
+```typescript
+interface StorageProvider {
+  uploadFile(buffer: Buffer, key: string): Promise<StorageResult>
+  deleteFile(key: string): Promise<void>
+  getFileUrl(key: string): string
+  batchDelete(keys: string[]): Promise<BatchResult>
+}
+
+interface StorageResult {
+  provider: "local" | "r2"
+  storageKey: string
+  url: string
+}
+```
+
+### CORS Configuration
+
+R2 bucket CORS allows public read access from:
+
+| Origin | Purpose |
+|--------|---------|
+| `http://localhost:3000` | Local development |
+| `https://maquina-de-conteudo.vercel.app` | Production app |
+| `https://storage-mc.zoryon.org` | Custom domain |
+| `https://*.zoryon.org` | Wildcard subdomains |
+
+**Allowed Methods:** `GET`, `HEAD`
+
+### Document Deletion Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as DELETE /api/documents/[id]
+    participant DB as Database
+    participant Storage as StorageProvider
+    participant R2 as Cloudflare R2
+
+    Client->>API: Delete document
+    API->>DB: SELECT document (id, storageProvider, storageKey)
+
+    alt storageProvider = "r2"
+        API->>Storage: new R2StorageProvider()
+        Storage->>R2: DeleteObject(storageKey)
+        R2-->>Storage: Success
+    else storageProvider = "local"
+        API->>Storage: new LocalStorageProvider()
+        Storage->>Storage: unlink(filePath)
+    end
+
+    API->>DB: DELETE FROM document_embeddings
+    API->>DB: DELETE FROM document_collection_items
+    API->>DB: DELETE FROM documents
+    API-->>Client: { success: true }
+```
+
+### Admin Operations
+
+**Bulk Delete Endpoint:** `DELETE /api/admin/clear-documents`
+
+Deletes ALL user documents including:
+1. Storage files (R2 + local)
+2. Embeddings
+3. Collection associations
+4. Document records
+
+**Response:**
+```json
+{
+  "success": true,
+  "deleted": {
+    "documents": 42,
+    "files": 42,
+    "embeddings": 42,
+    "collectionItems": 15
+  },
+  "steps": ["Fetching documents...", "✓ Deleted 42 R2 files", "..."]
+}
+```
 
 ## Queue System Architecture
 
@@ -518,4 +700,4 @@ Clerk webhooks keep database in sync rather than fetching user data on each requ
 
 ---
 
-*Updated based on codebase analysis as of Jan 16, 2026 (Fase 8 - Vercel AI SDK Migration).*
+*Updated based on codebase analysis as of Jan 17, 2026 (Fase 8 - Vercel AI SDK Migration + R2 Storage Migration).*

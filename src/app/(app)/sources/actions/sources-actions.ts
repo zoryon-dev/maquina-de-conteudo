@@ -13,6 +13,7 @@ import { documents, documentEmbeddings, documentCollectionItems } from "@/db/sch
 import { eq, and, desc, count, sql, isNull, or } from "drizzle-orm"
 import { createJob } from "@/lib/queue/jobs"
 import { JobType, type DocumentEmbeddingPayload } from "@/lib/queue/types"
+import { getStorageProviderForDocument } from "@/lib/storage"
 
 /**
  * Result of a source operation
@@ -261,6 +262,7 @@ export async function updateDocumentAction(
 
 /**
  * Deletes a document and its embeddings
+ * Also removes the file from storage (local or R2)
  */
 export async function deleteDocumentWithEmbeddingsAction(
   documentId: number
@@ -272,6 +274,28 @@ export async function deleteDocumentWithEmbeddingsAction(
   }
 
   try {
+    // Fetch document first to get storage information
+    const [doc] = await db
+      .select()
+      .from(documents)
+      .where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
+      .limit(1)
+
+    if (!doc) {
+      return { success: false, error: "Document not found" }
+    }
+
+    // Delete file from storage if it has a storage key
+    if (doc.storageKey) {
+      try {
+        const storage = getStorageProviderForDocument(doc)
+        await storage.deleteFile(doc.storageKey)
+      } catch (storageError) {
+        // Log storage error but don't fail the delete operation
+        console.error("Failed to delete file from storage:", storageError)
+      }
+    }
+
     // Delete embeddings first (foreign key constraint)
     await db
       .delete(documentEmbeddings)
@@ -449,6 +473,7 @@ export async function reembedDocumentAction(
 
 /**
  * Batch delete documents with their embeddings
+ * Also removes files from storage (local or R2)
  */
 export async function batchDeleteDocumentsAction(
   documentIds: number[]
@@ -464,6 +489,72 @@ export async function batchDeleteDocumentsAction(
   }
 
   try {
+    // Fetch documents first to get storage information
+    const docsToDelete = await db
+      .select({
+        id: documents.id,
+        storageKey: documents.storageKey,
+        storageProvider: documents.storageProvider,
+      })
+      .from(documents)
+      .where(
+        and(
+          sql`${documents.id} = ANY(${documentIds})`,
+          eq(documents.userId, userId)
+        )
+      )
+
+    // Group storage keys by provider for batch deletion
+    const localKeys: string[] = []
+    const r2Keys: string[] = []
+
+    for (const doc of docsToDelete) {
+      if (doc.storageKey) {
+        if (doc.storageProvider === "r2") {
+          r2Keys.push(doc.storageKey)
+        } else {
+          localKeys.push(doc.storageKey)
+        }
+      }
+    }
+
+    // Delete files from storage providers
+    const { LocalStorageProvider, R2StorageProvider } = await import("@/lib/storage")
+
+    // Delete from local storage if any
+    if (localKeys.length > 0) {
+      try {
+        const localStorage = new LocalStorageProvider()
+        if (typeof localStorage.deleteFiles === "function") {
+          await localStorage.deleteFiles(localKeys)
+        } else {
+          // Fallback to individual deletes
+          await Promise.all(
+            localKeys.map((key) => localStorage.deleteFile(key))
+          )
+        }
+      } catch (storageError) {
+        console.error("Failed to delete files from local storage:", storageError)
+      }
+    }
+
+    // Delete from R2 if any
+    if (r2Keys.length > 0) {
+      try {
+        const r2Storage = new R2StorageProvider()
+        if (typeof r2Storage.deleteFiles === "function") {
+          await r2Storage.deleteFiles(r2Keys)
+        } else {
+          // Fallback to individual deletes
+          await Promise.all(
+            r2Keys.map((key) => r2Storage.deleteFile(key))
+          )
+        }
+      } catch (storageError) {
+        console.error("Failed to delete files from R2 storage:", storageError)
+      }
+    }
+
     // Delete embeddings first (foreign key constraint)
     await db
       .delete(documentEmbeddings)

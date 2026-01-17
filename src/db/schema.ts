@@ -219,6 +219,9 @@ export const libraryItemTags = pgTable(
   ]
 );
 
+// Storage provider enum
+export const storageProviderEnum = pgEnum("storage_provider", ["local", "r2"]);
+
 // 5. DOCUMENTS - Base de conhecimento
 export const documents = pgTable(
   "documents",
@@ -230,10 +233,14 @@ export const documents = pgTable(
     title: text("title").notNull(),
     content: text("content").notNull(),
     sourceUrl: text("source_url"),
-    filePath: text("file_path"), // Caminho do arquivo uploadado (pdf, txt, etc)
+    filePath: text("file_path"), // Caminho do arquivo uploadado (pdf, txt, etc) - LEGACY, mantido para compatibilidade
     fileType: text("file_type"), // pdf, txt, md, etc.
     category: text("category").default("general"), // Para seleção em massa no RAG
     metadata: text("metadata"), // JSON
+    // Storage fields (Cloudflare R2 migration)
+    storageProvider: storageProviderEnum("storage_provider"), // "local" | "r2" | null
+    storageKey: text("storage_key"), // Chave única no storage (ex: "documents/user/123-file.pdf")
+    storageMetadata: jsonb("storage_metadata"), // Metadados do storage (ETag, versão, etc.)
     embedded: boolean("embedded").default(false).notNull(), // Se possui embeddings gerados
     embeddingModel: text("embedding_model").default("voyage-4-large"), // Modelo usado
     embeddingStatus: text("embedding_status"), // pending, processing, completed, failed
@@ -251,6 +258,9 @@ export const documents = pgTable(
     index("documents_embedded_idx").on(table.embedded),
     index("documents_embedding_status_idx").on(table.embeddingStatus),
     index("documents_embedded_category_idx").on(table.userId, table.category, table.embedded),
+    // Storage indexes for R2 migration
+    index("documents_storage_provider_idx").on(table.storageProvider),
+    index("documents_storage_key_idx").on(table.storageKey),
   ]
 );
 

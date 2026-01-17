@@ -9,6 +9,7 @@ Este é um estúdio de conteúdo alimentado por IA que permite criar, editar e g
 - **Estilização**: Tailwind CSS v4
 - **Autenticação**: Clerk
 - **Banco de Dados**: Neon (PostgreSQL) + Drizzle ORM
+- **Storage**: Cloudflare R2 (S3-compatible)
 - **State Management**: Zustand
 - **LLM**: Vercel AI SDK + OpenRouter
 - **Embeddings**: Voyage AI
@@ -56,6 +57,7 @@ maquina-de-conteudo/
 │   │   ├── ai/              # Vercel AI SDK config
 │   │   ├── voyage/          # Voyage AI embeddings
 │   │   ├── rag/             # RAG utilities
+│   │   ├── storage/         # Storage abstraction layer (R2 + Local)
 │   │   └── queue/           # Queue system
 │   └── stores/              # Zustand stores
 ├── drizzle/                 # Migrations
@@ -147,6 +149,23 @@ OPENROUTER_API_KEY=sk-or-...
 TAVILY_API_KEY=tvly-...
 FIRECRAWL_API_KEY=fc-...
 APIFY_API_KEY=apify-...
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 📦 CLOUDFLARE R2 STORAGE (Opcional - para armazenamento de arquivos)
+# ─────────────────────────────────────────────────────────────────────────────
+# Provider: "local" | "r2" (default: local)
+STORAGE_PROVIDER=local
+#
+# R2 Credentials (necessário apenas se STORAGE_PROVIDER=r2)
+R2_ACCOUNT_ID=your-account-id
+R2_ACCESS_KEY_ID=your-access-key-id
+R2_SECRET_ACCESS_KEY=your-secret-access-key
+R2_BUCKET_NAME=maquina-de-conteudo
+R2_PUBLIC_URL=https://pub-xxx.r2.dev
+# Domínio personalizado para arquivos públicos (opcional)
+R2_CUSTOM_DOMAIN=storage-mc.zoryon.org
+# Endpoint S3 da Cloudflare R2 (geralmente não precisa alterar)
+R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 ```
 
 ## Comandos Úteis
@@ -333,6 +352,194 @@ import { drizzle } from 'drizzle-orm/neon-http'
 
 const sql = neon(process.env.DATABASE_URL!)
 export const db = drizzle(sql)
+```
+
+---
+
+## Cloudflare R2 Storage Integration
+
+### Visão Geral
+
+Este projeto usa **Cloudflare R2** para armazenamento de arquivos (PDF, TXT, MD) da base de conhecimento. O sistema possui uma camada de abstração que permite alternar entre armazenamento local e R2 via variável de ambiente.
+
+A migração para R2 foi completada em Janeiro 2026.
+
+### Estrutura
+
+```
+src/lib/storage/
+├── types.ts           # StorageProvider enum, interfaces
+├── config.ts          # R2 credentials, getR2PublicUrl()
+├── providers/
+│   ├── index.ts       # Factory function getStorageProvider()
+│   ├── local.ts       # LocalStorageProvider (filesystem)
+│   └── r2.ts          # R2StorageProvider (S3 client)
+└── utils/
+    └── file-url.ts    # getDocumentUrl(), hasStorageLocation()
+
+src/app/api/documents/
+├── upload/
+│   └── route.ts       # Usa storage abstraction para upload
+└── [id]/
+    └── route.ts       # Download endpoint
+```
+
+### Configuração
+
+**Variável de ambiente:**
+```env
+STORAGE_PROVIDER=local|r2
+```
+
+**R2 Credentials (quando STORAGE_PROVIDER=r2):**
+```env
+R2_ACCOUNT_ID=11feaa2d9e21cd5a972bccfcb8d1e3d7
+R2_ACCESS_KEY_ID=xxx
+R2_SECRET_ACCESS_KEY=xxx
+R2_BUCKET_NAME=maquina-de-conteudo
+R2_CUSTOM_DOMAIN=storage-mc.zoryon.org
+```
+
+### Storage Provider Interface
+
+```typescript
+// src/lib/storage/types.ts
+export enum StorageProvider {
+  LOCAL = "local",
+  R2 = "r2",
+}
+
+export interface IStorageProvider {
+  uploadFile(buffer: Buffer, key: string): Promise<StorageResult>
+  deleteFile(key: string): Promise<void>
+  batchDelete(keys: string[]): Promise<BatchResult>
+  getFileUrl(key: string): string
+}
+
+export interface StorageResult {
+  provider: StorageProvider
+  storageKey: string
+  url: string
+}
+```
+
+### Factory Pattern
+
+```typescript
+// src/lib/storage/providers/index.ts
+import { LocalStorageProvider } from "./local"
+import { R2StorageProvider } from "./r2"
+import { STORAGE_PROVIDER_ENV, isR2Configured } from "../config"
+
+export function getStorageProvider(): IStorageProvider {
+  if (STORAGE_PROVIDER_ENV === "r2" && isR2Configured()) {
+    return new R2StorageProvider()
+  }
+  return new LocalStorageProvider()
+}
+```
+
+### Padrões de Uso
+
+**Upload de arquivo:**
+```typescript
+// src/app/api/documents/upload/route.ts
+import { getStorageProvider } from "@/lib/storage/providers"
+
+const storage = getStorageProvider()
+const storageKey = `documents/${userId}/${Date.now()}-${sanitizedFilename}`
+
+const result = await storage.uploadFile(buffer, storageKey)
+
+// Salvar no banco
+await db.insert(documents).values({
+  title,
+  content: text,
+  fileType,
+  storageProvider: result.provider,
+  storageKey: result.storageKey,
+  userId,
+})
+```
+
+**Gerar URL pública:**
+```typescript
+// src/lib/storage/utils/file-url.ts
+import { getDocumentUrl } from "@/lib/storage/utils/file-url"
+
+const url = getDocumentUrl(document)
+// R2: https://storage-mc.zoryon.org/documents/user/1234567890-doc.pdf
+// Local: http://localhost:3000/uploads/documents/user/1234567890-doc.pdf
+```
+
+**Deletar arquivo:**
+```typescript
+// src/app/api/documents/[id]/route.ts
+import { getStorageProvider } from "@/lib/storage/providers"
+
+const storage = getStorageProvider()
+await storage.deleteFile(doc.storageKey)
+```
+
+### Custom Domain
+
+O sistema suporta domínio personalizado para arquivos R2:
+
+```typescript
+// src/lib/storage/config.ts
+export const getR2PublicUrl = (): string | null => {
+  return R2_CUSTOM_DOMAIN
+    ? `https://${R2_CUSTOM_DOMAIN}`
+    : R2_PUBLIC_URL || null
+}
+```
+
+**Exemplo:** `https://storage-mc.zoryon.org/documents/user/1234567890-doc.pdf`
+
+### CORS Configuration
+
+Configure CORS no bucket R2 para permitir acesso público:
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://maquina-de-conteudo.vercel.app",
+      "https://storage-mc.zoryon.org",
+      "https://*.zoryon.org"
+    ],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+**IMPORTANTE:** R2 NÃO suporta o método `OPTIONS` nem `ExposeHeaders`. Use apenas `GET` e `HEAD`.
+
+### Schema do Banco
+
+```typescript
+// src/db/schema.ts
+export const documents = pgTable("documents", {
+  // ... outros campos
+  storageProvider: text("storage_provider"), // "local" | "r2"
+  storageKey: text("storage_key"),          // R2 key ou local filename
+  filePath: text("file_path"),              // Legacy local path
+})
+```
+
+### Admin Operations
+
+**Endpoint de limpeza total:** `DELETE /api/admin/clear-documents`
+
+```typescript
+// Deleta TODOS os documentos do usuário:
+// 1. Arquivos do storage (R2 e local)
+// 2. Embeddings (document_embeddings)
+// 3. Associações de coleção (document_collection_items)
+// 4. Registros de documentos (documents)
 ```
 
 ---

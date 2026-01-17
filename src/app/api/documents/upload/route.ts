@@ -1,28 +1,37 @@
 /**
  * Document Upload API Route
  *
- * Handles file uploads (PDF, TXT) with automatic text extraction.
+ * Handles file uploads (PDF, TXT, MD) with automatic text extraction.
+ * Uses storage abstraction layer for both local and R2 storage.
  * Stores the original file and extracts text for embedding/processing.
+ *
+ * Storage Providers:
+ * - Local: Files saved to public/uploads/documents/
+ * - R2: Files uploaded to Cloudflare R2 bucket
+ *
+ * @see src/lib/storage/ for storage abstraction layer
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
-import { writeFile, mkdir } from "fs/promises"
-import { join } from "path"
-import { existsSync } from "fs"
 import { db } from "@/db"
 import { documents, users } from "@/db/schema"
 import { eq, and, isNull } from "drizzle-orm"
 import { createJob } from "@/lib/queue/jobs"
 import { JobType } from "@/lib/queue/types"
+import {
+  getStorageProvider,
+  generateStorageKey,
+  getDocumentUrl,
+  type UploadResult,
+} from "@/lib/storage"
 
 // Maximum file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 // Allowed file types
 const ALLOWED_TYPES = ["application/pdf", "text/plain", "text/markdown"]
-
-// Upload directory
-const UPLOAD_DIR = join(process.cwd(), "public", "uploads", "documents")
+// Allowed extensions
+const ALLOWED_EXTENSIONS = [".pdf", ".txt", ".md"]
 
 /**
  * Ensure user exists in database (auto-create if missing)
@@ -81,30 +90,61 @@ async function extractTextFromTXT(buffer: Buffer, encoding: BufferEncoding = "ut
 }
 
 /**
- * Generate a safe filename
+ * Validate file type using magic bytes (more reliable than MIME type)
+ *
+ * @param buffer - File buffer
+ * @returns Detected file extension or null
  */
-function generateSafeFilename(originalName: string): string {
-  const timestamp = Date.now()
-  const safeName = originalName
-    .replace(/[^a-zA-Z0-9._-]/g, "_")
-    .replace(/_{2,}/g, "_")
-    .toLowerCase()
-  return `${timestamp}-${safeName}`
+function detectFileTypeFromBytes(buffer: Buffer): "pdf" | "txt" | "md" | null {
+  const header = buffer.subarray(0, 8).toString("hex")
+
+  // PDF: %PDF (25 50 44 46)
+  if (header.startsWith("25504446")) {
+    return "pdf"
+  }
+
+  // For text files, check if content is printable ASCII/UTF-8
+  const sample = buffer.subarray(0, 1024).toString("utf-8")
+  // Check if sample contains mostly printable characters
+  const printableChars = sample.replace(/[\x20-\x7E\r\n\t]/g, "").length
+  const ratio = printableChars / sample.length
+
+  if (ratio < 0.1) {
+    // Likely a text file
+    return "md"
+  }
+
+  return null
 }
 
 /**
- * Ensure upload directory exists
+ * Validate file extension from filename
+ *
+ * @param filename - Original filename
+ * @returns Detected file type or null
  */
-async function ensureUploadDir() {
-  if (!existsSync(UPLOAD_DIR)) {
-    await mkdir(UPLOAD_DIR, { recursive: true })
+function detectFileTypeFromExtension(filename: string): "pdf" | "txt" | "md" | null {
+  const ext = filename.toLowerCase().slice(filename.lastIndexOf("."))
+  if (ALLOWED_EXTENSIONS.includes(ext)) {
+    return ext.slice(1) as "pdf" | "txt" | "md"
   }
+  return null
 }
 
 /**
  * POST /api/documents/upload
  *
- * Uploads a document file (PDF/TXT), extracts text, and creates a document record.
+ * Uploads a document file (PDF, TXT, MD) with automatic text extraction.
+ * Uses storage abstraction layer for flexible storage backends.
+ *
+ * Flow:
+ * 1. Authenticate user
+ * 2. Validate file (type, size)
+ * 3. Extract text from file
+ * 4. Upload to storage (local or R2 based on env config)
+ * 5. Create document record in database
+ * 6. Add to collection if specified
+ * 7. Create embedding job for async processing
  */
 export async function POST(request: NextRequest) {
   try {
@@ -133,15 +173,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate file type
+    // Validate file type by MIME type
     if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        {
-          error: "Invalid file type",
-          allowedTypes: ALLOWED_TYPES,
-        },
-        { status: 400 }
-      )
+      // Also check extension as fallback
+      const extType = detectFileTypeFromExtension(file.name)
+      if (!extType) {
+        return NextResponse.json(
+          {
+            error: "Invalid file type",
+            allowedTypes: ALLOWED_TYPES,
+            allowedExtensions: ALLOWED_EXTENSIONS,
+          },
+          { status: 400 }
+        )
+      }
     }
 
     // Validate file size
@@ -156,39 +201,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Ensure upload directory exists
-    await ensureUploadDir()
-
-    // Generate safe filename
-    const safeFilename = generateSafeFilename(file.name)
-    const filePath = join(UPLOAD_DIR, safeFilename)
-
-    // Save file to disk
+    // Convert file to buffer
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    await writeFile(filePath, buffer)
+
+    // Detect file type from bytes for validation
+    const detectedType = detectFileTypeFromBytes(buffer)
+    if (!detectedType) {
+      return NextResponse.json(
+        { error: "Could not detect valid file type" },
+        { status: 400 }
+      )
+    }
 
     // Extract text based on file type
     let content = ""
-    let fileType = "unknown"
+    let fileType: "pdf" | "txt" | "md" = detectedType
 
-    switch (file.type) {
-      case "application/pdf":
+    switch (fileType) {
+      case "pdf":
         content = await extractTextFromPDF(buffer)
-        fileType = "pdf"
         break
-      case "text/plain":
+      case "txt":
+      case "md":
         content = await extractTextFromTXT(buffer, "utf-8")
-        fileType = "txt"
         break
-      case "text/markdown":
-        content = await extractTextFromTXT(buffer, "utf-8")
-        fileType = "md"
-        break
-      default:
-        // Try to extract as text anyway
-        content = await extractTextFromTXT(buffer, "utf-8")
-        fileType = "txt"
     }
 
     // Clean up extracted text
@@ -207,16 +244,57 @@ export async function POST(request: NextRequest) {
     // Use provided title or fallback to filename
     const documentTitle = title?.trim() || file.name.replace(/\.[^/.]+$/, "")
 
-    // Create document record
+    // Get storage provider and generate storage key
+    const storage = getStorageProvider()
+    const storageKey = generateStorageKey(userId, file.name, "documents")
+
+    // Upload file to storage (local or R2)
+    let uploadResult: UploadResult
+    try {
+      uploadResult = await storage.uploadFile(buffer, storageKey, {
+        contentType: file.type,
+        metadata: {
+          originalFilename: file.name,
+          userId,
+          uploadedAt: new Date().toISOString(),
+        },
+      })
+    } catch (uploadError) {
+      console.error("Storage upload error:", uploadError)
+      return NextResponse.json(
+        {
+          error: "Failed to upload file to storage",
+          details: uploadError instanceof Error ? uploadError.message : String(uploadError),
+        },
+        { status: 500 }
+      )
+    }
+
+    // Prepare storage metadata
+    const storageMetadata = {
+      originalFilename: file.name,
+      fileSize: file.size,
+      mimeType: file.type,
+      uploadedAt: new Date().toISOString(),
+      storageProvider: uploadResult.provider,
+    }
+
+    // Create document record with storage information
     const [newDocument] = await db
       .insert(documents)
       .values({
         userId,
         title: documentTitle,
         content,
-        filePath: `/uploads/documents/${safeFilename}`,
         fileType,
         category: category || "general",
+        storageProvider: uploadResult.provider,
+        storageKey: uploadResult.key,
+        storageMetadata: JSON.stringify(storageMetadata),
+        // Keep filePath for backward compatibility (local storage)
+        filePath: uploadResult.provider === "local"
+          ? uploadResult.url
+          : null,
         metadata: JSON.stringify({
           originalFilename: file.name,
           fileSize: file.size,
@@ -266,6 +344,9 @@ export async function POST(request: NextRequest) {
       }
     )
 
+    // Get document URL for response
+    const documentUrl = getDocumentUrl(newDocument)
+
     return NextResponse.json({
       success: true,
       document: {
@@ -273,8 +354,15 @@ export async function POST(request: NextRequest) {
         title: newDocument.title,
         fileType: newDocument.fileType,
         contentLength: content.length,
-        filePath: newDocument.filePath,
         category: newDocument.category,
+        storageProvider: newDocument.storageProvider,
+        storageKey: newDocument.storageKey,
+        url: documentUrl,
+      },
+      storage: {
+        provider: uploadResult.provider,
+        key: uploadResult.key,
+        url: uploadResult.url,
       },
     })
   } catch (error) {

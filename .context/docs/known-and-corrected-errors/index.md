@@ -818,6 +818,52 @@ function getMessageText(message: { parts?: Array<{ type: string; text?: string }
 
 ---
 
+### 29. Cloudflare R2 CORS Configuration Invalid
+
+**Erro:**
+```
+Policy not valid - Cloudflare R2
+```
+
+**Causa:** Usar formato AWS S3 com objeto wrapper que R2 não suporta, e incluir métodos/cabeçalhos não suportados.
+
+**Solução:** R2 requer formato de array e não suporta `OPTIONS` ou `ExposeHeaders`:
+```json
+// ❌ ERRADO - formato AWS S3 com wrapper
+{
+  "CORSConfiguration": {
+    "AllowedOrigins": [...],
+    "AllowedMethods": ["GET", "HEAD", "OPTIONS"],
+    "ExposeHeaders": ["Content-Length"],
+    ...
+  }
+}
+
+// ✅ CORRETO - formato R2 (array)
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://maquina-de-conteudo.vercel.app",
+      "https://storage-mc.zoryon.org",
+      "https://*.zoryon.org"
+    ],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/029-r2-cors-configuration.md`
+
+**Importante:**
+- R2 não suporta método `OPTIONS`
+- R2 não suporta `ExposeHeaders`
+- Formato deve ser array `[...]`, não objeto `{ ... }`
+
+---
+
 ## Padrões de Solução
 
 ### 1. Sempre validar tipos de DB
