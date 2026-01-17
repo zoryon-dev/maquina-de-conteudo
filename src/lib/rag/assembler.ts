@@ -25,13 +25,18 @@ import { filterByRelevance, diversifyChunks } from "./filters"
 
 /**
  * Default RAG options
+ *
+ * Optimized for smaller chunks (800-1300 tokens):
+ * - Lower threshold for better recall
+ * - More chunks can be retrieved (10 -> 15)
+ * - Token budget adjusted for social media content
  */
 const DEFAULT_RAG_OPTIONS: Required<
   Omit<RagContextOptions, "categories" | "hybrid" | "semanticWeight" | "keywordWeight">
 > = {
-  threshold: 0.6,
-  maxChunks: 10,
-  maxTokens: 4000,
+  threshold: 0.5, // Lowered from 0.6 for better recall
+  maxChunks: 15, // Increased since chunks are smaller
+  maxTokens: 3000, // Reduced - enough for ~3 chunks + overhead
   includeSources: true,
 }
 
@@ -266,7 +271,7 @@ export async function getRelevantDocuments(
 ): Promise<Array<{ id: number; title: string; category: string; score: number }>> {
   const results = await semanticSearch(userId, query, {
     categories: options.categories,
-    threshold: options.threshold ?? 0.6,
+    threshold: options.threshold ?? 0.5,
     limit: options.maxChunks ?? 10,
   })
 

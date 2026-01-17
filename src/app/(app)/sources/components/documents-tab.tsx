@@ -15,6 +15,10 @@ import {
   Filter,
   Upload,
   Play,
+  Check,
+  X,
+  FolderOpen,
+  Trash2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -24,9 +28,11 @@ import {
   type DocumentWithEmbeddings as DocumentCardProps,
 } from "./document-card"
 import { UploadDialog } from "./upload-dialog"
+import { MoveToCollectionDialog } from "./move-to-collection-dialog"
 import {
   getDocumentsByCollectionAction,
   getDocumentStatsAction,
+  batchDeleteDocumentsAction,
   type DocumentStats,
 } from "../actions/sources-actions"
 
@@ -74,6 +80,67 @@ export interface DocumentsTabProps {
 }
 
 /**
+ * Bulk Action Bar Component
+ */
+interface BulkActionBarProps {
+  selectedCount: number
+  onClearSelection: () => void
+  onMoveToCollection: () => void
+  onDelete: () => void
+}
+
+function BulkActionBar({
+  selectedCount,
+  onClearSelection,
+  onMoveToCollection,
+  onDelete,
+}: BulkActionBarProps) {
+  return (
+    <div className="flex items-center justify-between p-3 rounded-xl bg-primary/10 border border-primary/30 animate-in slide-in-from-top-2">
+      <div className="flex items-center gap-2">
+        <div className="w-5 h-5 rounded bg-primary flex items-center justify-center">
+          <Check className="h-3.5 w-3.5 text-black" />
+        </div>
+        <span className="text-sm text-white/90">
+          {selectedCount} {selectedCount === 1 ? "selecionado" : "selecionados"}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onMoveToCollection}
+          className="text-white/70 hover:text-white hover:bg-white/5"
+        >
+          <FolderOpen className="h-4 w-4 mr-1" />
+          Mover para coleção
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+        >
+          <Trash2 className="h-4 w-4 mr-1" />
+          Excluir
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onClearSelection}
+          className="text-white/60 hover:text-white hover:bg-white/5"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/**
  * Main Documents Tab Component
  */
 export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabProps) {
@@ -84,6 +151,10 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
   const [searchQuery, setSearchQuery] = React.useState("")
   const [uploadDialogOpen, setUploadDialogOpen] = React.useState(false)
   const [isProcessing, setIsProcessing] = React.useState(false)
+  const [selectedIds, setSelectedIds] = React.useState<Set<number>>(new Set())
+  const [isSelectionActive, setIsSelectionActive] = React.useState(false)
+  const [moveDialogOpen, setMoveDialogOpen] = React.useState(false)
+  const [isDeleting, setIsDeleting] = React.useState(false)
 
   // Fetch documents and stats
   const fetchData = React.useCallback(async () => {
@@ -155,6 +226,64 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
     })
   }, [documents, selectedCategory, searchQuery])
 
+  // Selection handlers
+  const handleToggleSelection = () => {
+    setIsSelectionActive((prev) => !prev)
+    if (isSelectionActive) {
+      setSelectedIds(new Set())
+    }
+  }
+
+  const handleSelectAll = () => {
+    const allIds = new Set(filteredDocuments.map((doc) => doc.id))
+    setSelectedIds(allIds)
+  }
+
+  const handleClearSelection = () => {
+    setSelectedIds(new Set())
+    setIsSelectionActive(false)
+  }
+
+  const handleSelectDocument = (docId: number, selected: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (selected) {
+        next.add(docId)
+      } else {
+        next.delete(docId)
+      }
+      return next
+    })
+  }
+
+  const handleMoveToCollection = () => {
+    setMoveDialogOpen(true)
+  }
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return
+
+    setIsDeleting(true)
+    try {
+      const result = await batchDeleteDocumentsAction(Array.from(selectedIds))
+      if (result.success) {
+        toast.success(`${selectedIds.size} documento(s) excluído(s)`)
+        handleClearSelection()
+        await fetchData()
+      } else {
+        toast.error(result.error || "Falha ao excluir documentos")
+      }
+    } catch (error) {
+      toast.error("Erro ao excluir documentos")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const allSelected =
+    filteredDocuments.length > 0 && selectedIds.size === filteredDocuments.length
+  const someSelected = selectedIds.size > 0
+
   return (
     <div className="space-y-6">
       {/* Statistics Cards */}
@@ -188,9 +317,9 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
       )}
 
       {/* Filters and Search with Upload Button */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+      <div className="space-y-3">
         {/* Category Filter */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 flex-1">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <Filter className="h-4 w-4 text-white/40 shrink-0" />
           <button
             type="button"
@@ -222,35 +351,74 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
         </div>
 
         {/* Search Input and Action Buttons */}
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-auto">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          <div className="relative w-full sm:w-72">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar documentos..."
-              className="w-full sm:w-56 px-4 py-2 pl-10 pr-4 rounded-lg bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full px-4 py-2 pl-10 pr-4 rounded-lg bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
             <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
           </div>
-          <Button
-            type="button"
-            onClick={handleProcessEmbeddings}
-            disabled={isProcessing}
-            variant="outline"
-            className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 whitespace-nowrap"
-          >
-            <Play className="h-4 w-4 mr-1" />
-            {isProcessing ? "Processando..." : "Processar"}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => setUploadDialogOpen(true)}
-            className="bg-primary text-black hover:bg-primary/90 whitespace-nowrap"
-          >
-            <Upload className="h-4 w-4 mr-1" />
-            Upload
-          </Button>
+
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <Button
+              type="button"
+              onClick={handleToggleSelection}
+              variant={isSelectionActive ? "outline" : "ghost"}
+              className={cn(
+                "border whitespace-nowrap",
+                isSelectionActive
+                  ? "border-primary text-primary bg-primary/10"
+                  : "border-white/10 text-white/60 hover:text-white hover:bg-white/5"
+              )}
+              title={isSelectionActive ? "Desativar seleção" : "Ativar seleção múltipla"}
+            >
+              <Check className="h-4 w-4 mr-1" />
+              {isSelectionActive ? someSelected ? `${selectedIds.size}` : "Seleção" : "Seleção"}
+            </Button>
+            {isSelectionActive && (
+              <Button
+                type="button"
+                onClick={handleSelectAll}
+                variant="ghost"
+                className="text-white/60 hover:text-white hover:bg-white/5 whitespace-nowrap"
+                disabled={filteredDocuments.length === 0}
+              >
+                {allSelected ? (
+                  <>
+                    <X className="h-4 w-4 mr-1" />
+                    Desmarcar
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4 mr-1" />
+                    Todos
+                  </>
+                )}
+              </Button>
+            )}
+            <Button
+              type="button"
+              onClick={handleProcessEmbeddings}
+              disabled={isProcessing}
+              variant="outline"
+              className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 whitespace-nowrap"
+            >
+              <Play className="h-4 w-4 mr-1" />
+              {isProcessing ? "Processando..." : "Processar"}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setUploadDialogOpen(true)}
+              className="bg-primary text-black hover:bg-primary/90 whitespace-nowrap"
+            >
+              <Upload className="h-4 w-4 mr-1" />
+              Upload
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -263,15 +431,30 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
           </div>
         </div>
       ) : filteredDocuments.length > 0 ? (
-        <div className="grid gap-3">
-          {filteredDocuments.map((doc) => (
-            <DocumentCard
-              key={doc.id}
-              document={doc}
-              onUpdate={fetchData}
+        <>
+          {/* Bulk Action Bar */}
+          {someSelected && (
+            <BulkActionBar
+              selectedCount={selectedIds.size}
+              onClearSelection={handleClearSelection}
+              onMoveToCollection={handleMoveToCollection}
+              onDelete={handleDeleteSelected}
             />
-          ))}
-        </div>
+          )}
+
+          <div className="grid gap-3">
+            {filteredDocuments.map((doc) => (
+              <DocumentCard
+                key={doc.id}
+                document={doc}
+                onUpdate={fetchData}
+                showSelection={isSelectionActive}
+                selected={selectedIds.has(doc.id)}
+                onSelectChange={(selected) => handleSelectDocument(doc.id, selected)}
+              />
+            ))}
+          </div>
+        </>
       ) : (
         <div className="text-center py-12">
           <div className="inline-flex flex-col items-center gap-3">
@@ -311,6 +494,17 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
         onOpenChange={setUploadDialogOpen}
         onSuccess={fetchData}
         collectionId={selectedCollectionId}
+      />
+
+      {/* Move to Collection Dialog */}
+      <MoveToCollectionDialog
+        open={moveDialogOpen}
+        onOpenChange={setMoveDialogOpen}
+        documentIds={Array.from(selectedIds)}
+        onSuccess={() => {
+          handleClearSelection()
+          fetchData()
+        }}
       />
     </div>
   )

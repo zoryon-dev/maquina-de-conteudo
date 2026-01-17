@@ -17,7 +17,7 @@
 
 import { NextRequest } from "next/server"
 import { auth } from "@clerk/nextjs/server"
-import { streamText } from "ai"
+import { streamText, convertToModelMessages, type UIMessage } from "ai"
 import { openrouter, DEFAULT_TEXT_MODEL } from "@/lib/ai"
 import { assembleRagContext } from "@/lib/rag/assembler"
 import { RAG_CATEGORIES, type RagCategory, type RagSource } from "@/lib/rag"
@@ -29,28 +29,11 @@ import {
 import type { AgentType } from "@/lib/agents"
 
 /**
- * Message part from Vercel AI SDK v3
- */
-interface MessagePart {
-  type: string
-  text?: string
-}
-
-/**
- * Chat message (compatible with Vercel AI SDK v3)
- */
-interface ChatMessage {
-  role: "user" | "assistant" | "system"
-  content?: string
-  parts?: MessagePart[]
-}
-
-/**
  * Chat request body
  */
 interface ChatRequestBody {
   /** Messages array (Vercel AI SDK v3 format) */
-  messages?: ChatMessage[]
+  messages?: UIMessage[]
   /** User message (legacy format for compatibility) */
   message?: string
   /** Model to use (default: from config) */
@@ -82,8 +65,9 @@ const MAX_RAG_TOKENS = 8000
 
 /**
  * Similarity threshold for RAG
+ * Lowered from 0.6 to 0.5 for better recall
  */
-const RAG_THRESHOLD = 0.6
+const RAG_THRESHOLD = 0.5
 
 /**
  * Maximum chunks to retrieve
@@ -137,6 +121,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body: ChatRequestBody = await request.json()
+
+    // Debug: log request body
+    console.log("Chat API request:", JSON.stringify(body, null, 2))
     const {
       messages: sdkMessages,
       message: legacyMessage,
@@ -147,9 +134,8 @@ export async function POST(request: NextRequest) {
       useRag = true,
     } = body
 
-    // Extract user message from either SDK format or legacy format
+    // Extract user message for RAG from either SDK format or legacy format
     let userMessage = ""
-    let history: ChatMessage[] = []
 
     if (sdkMessages && sdkMessages.length > 0) {
       // Vercel AI SDK v3 format: messages array with parts
@@ -158,23 +144,29 @@ export async function POST(request: NextRequest) {
         // Extract text from parts
         if (lastMessage.parts) {
           userMessage = lastMessage.parts
-            .filter((p: MessagePart) => p.type === "text" && p.text)
-            .map((p: MessagePart) => p.text)
+            .filter((p) => p.type === "text" && "text" in p && p.text)
+            .map((p) => (p as { type: "text"; text: string }).text)
             .join("")
-        } else if (lastMessage.content) {
-          userMessage = lastMessage.content
         }
       }
-      // Exclude the last user message from history (we'll add it back)
-      history = sdkMessages.slice(0, -1)
     } else if (legacyMessage) {
       // Legacy format for backward compatibility
       userMessage = legacyMessage
-      history = []
     }
 
     if (!userMessage || !userMessage.trim()) {
       return new Response("Message is required", { status: 400 })
+    }
+
+    // Prepare messages for streamText
+    // Use SDK messages directly, or create a simple user message for legacy format
+    let messagesForStream = sdkMessages
+    if (!messagesForStream && legacyMessage) {
+      messagesForStream = [{
+        role: "user",
+        parts: [{ type: "text", text: legacyMessage }],
+        id: crypto.randomUUID(),
+      }] satisfies UIMessage[]
     }
 
     // Prepare RAG context if enabled
@@ -240,19 +232,25 @@ ${sources.map((s) => `- ${s.documentTitle} (${s.category})`).join("\n")}`
         : STANDARD_SYSTEM_PROMPT
     }
 
-    // Build messages array for the model (without system messages from history)
-    const modelMessages = [
-      { role: "system" as const, content: systemPrompt },
-      ...history.filter((m) => m.role !== "system"),
-      { role: "user" as const, content: userMessage },
-    ]
+    // Build system prompt with RAG context
+    // The SDK will handle message conversion via convertToModelMessages
+    const systemPromptWithRag = systemPrompt
+
+    // Convert UI messages to model format using SDK utility
+    // This handles the conversion from parts format to model format automatically
+    const modelMessages = await convertToModelMessages(messagesForStream || [])
 
     // Stream response using Vercel AI SDK
+    // Pass system prompt separately to ensure it's applied correctly
+    console.log("[DEBUG] Calling streamText with model:", model)
     const result = streamText({
       model: openrouter(model),
-      messages: modelMessages as any, // Type assertion for SDK compatibility
+      system: systemPromptWithRag,
+      messages: modelMessages,
       temperature: 0.7,
     })
+
+    console.log("[DEBUG] streamText result received")
 
     // Save user message to Zep thread (async, non-blocking)
     if (zepThreadId && isZepConfigured()) {
@@ -263,8 +261,9 @@ ${sources.map((s) => `- ${s.documentTitle} (${s.category})`).join("\n")}`
       }).catch((err) => console.error("Failed to save user message to Zep:", err))
     }
 
-    // Return streaming response with custom headers
-    return result.toTextStreamResponse({
+    // Return streaming response with UI message stream format
+    // This is required for useChat hook compatibility
+    const response = result.toUIMessageStreamResponse({
       headers: {
         ...(ragUsed
           ? {
@@ -277,6 +276,10 @@ ${sources.map((s) => `- ${s.documentTitle} (${s.category})`).join("\n")}`
         "X-Zep-Configured": isZepConfigured() ? "true" : "false",
       } as Record<string, string>,
     })
+
+    console.log("[DEBUG] Returning streaming response")
+
+    return response
   } catch (error) {
     console.error("Chat API error:", error)
 

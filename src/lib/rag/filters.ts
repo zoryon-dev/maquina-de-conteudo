@@ -55,9 +55,10 @@ export interface FilterOptions {
 
 /**
  * Default filter options
+ * Lowered minScore from 0.6 to 0.5 for better recall
  */
 const DEFAULT_FILTERS: Required<Omit<FilterOptions, "categories" | "categoryBoosts">> = {
-  minScore: 0.6,
+  minScore: 0.5,
   maxChunksPerDocument: 3,
   minChunkLength: 50,
   deduplicate: true,

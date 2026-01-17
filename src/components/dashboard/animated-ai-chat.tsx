@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useCallback, useTransition, useState } from "react"
+import { useEffect, useRef, useCallback, useState, useMemo } from "react"
+import { useChat } from "@ai-sdk/react"
 import { cn } from "@/lib/utils"
 import {
   ImageIcon,
@@ -15,6 +16,7 @@ import {
   LoaderIcon,
   MessageSquare,
   Bot,
+  StopCircle,
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ModelSelector, useModelSelector } from "@/components/chat/model-selector"
@@ -23,6 +25,7 @@ import { ChatMessageSources, type ChatSource } from "@/components/chat"
 import { AgentPalette } from "@/components/chat/agent-palette"
 import { AgentSelector } from "@/components/chat/agent-selector"
 import { AGENTS, type AgentType } from "@/lib/agents"
+import type { RagCategory } from "@/lib/rag"
 
 interface UseAutoResizeTextareaProps {
   minHeight: number
@@ -83,17 +86,14 @@ interface CommandSuggestion {
 }
 
 interface AnimatedAIChatProps {
-  onSendMessage?: (message: string, model?: string, agent?: AgentType) => void
-  /** External typing state (controlled by parent) */
-  isTyping?: boolean
-  /** Response text to display */
-  response?: string | null
-  /** RAG sources from the response */
-  sources?: ChatSource[] | null
   /** Initial agent to use (default: "zory") */
   initialAgent?: AgentType
   /** Callback when agent changes */
   onAgentChange?: (agent: AgentType) => void
+  /** Initial RAG categories */
+  initialCategories?: RagCategory[]
+  /** Whether to use RAG by default */
+  useRagByDefault?: boolean
 }
 
 /**
@@ -105,17 +105,13 @@ interface AnimatedAIChatProps {
  * Cores adaptadas para Lime Green do sistema.
  */
 export function AnimatedAIChat({
-  onSendMessage,
-  isTyping: externalIsTyping,
-  response,
-  sources,
   initialAgent = "zory",
   onAgentChange,
+  initialCategories,
+  useRagByDefault = true,
 }: AnimatedAIChatProps) {
   const [value, setValue] = useState("")
   const [attachments, setAttachments] = useState<string[]>([])
-  const [internalIsTyping, setInternalIsTyping] = useState(false)
-  const [, startTransition] = useTransition()
   const [activeSuggestion, setActiveSuggestion] = useState<number>(-1)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
@@ -131,14 +127,41 @@ export function AnimatedAIChat({
   const [showAgentPalette, setShowAgentPalette] = useState(false)
   const [agentQuery, setAgentQuery] = useState("")
 
-  // Use external typing state if provided, otherwise use internal
-  const isTyping = externalIsTyping !== undefined ? externalIsTyping : internalIsTyping
-
   // Model selection state
   const { selectedModel, setSelectedModel } = useModelSelector()
 
   // RAG context selection state
   const { selected: ragCategories } = useRagCategories()
+
+  // Use Vercel AI SDK v3 useChat hook for streaming
+  const { messages, status, error, sendMessage, stop } = useChat()
+
+  const isTyping = status === "streaming"
+
+  // Log errors for debugging
+  useEffect(() => {
+    if (error) {
+      console.error("Chat error:", error)
+    }
+  }, [error])
+
+  // Extract text from message
+  const getMessageText = useCallback((message: { parts?: Array<{ type: string; text?: string }> }): string => {
+    if (!message.parts) return ""
+    return message.parts
+      .filter((part) => part.type === "text" && part.text)
+      .map((part) => part.text)
+      .join("")
+  }, [])
+
+  // Get last assistant message for display (memoized to prevent re-renders)
+  const lastResponseText = useMemo(() => {
+    const lastAssistantMessage = messages.filter((m) => m.role === "assistant").pop()
+    return lastAssistantMessage ? getMessageText(lastAssistantMessage) : null
+  }, [messages, getMessageText])
+
+  // Extract RAG sources from response headers (if available)
+  const [sources, setSources] = useState<ChatSource[] | null>(null)
 
   // Comandos específicos para Máquina de Conteúdo
   const commandSuggestions: CommandSuggestion[] = [
@@ -315,19 +338,21 @@ export function AnimatedAIChat({
       }
 
       if (messageToSend) {
-        startTransition(() => {
-          onSendMessage?.(messageToSend, selectedModel, agentToSend)
-          // Only set internal typing state if external is not controlled
-          if (externalIsTyping === undefined) {
-            setInternalIsTyping(true)
-            // Simular resposta da IA quando não controlado externamente
-            setTimeout(() => {
-              setInternalIsTyping(false)
-            }, 2000)
+        // Send via Vercel AI SDK
+        // Use parts format which is the correct SDK message format
+        sendMessage(
+          { parts: [{ type: "text", text: messageToSend }] },
+          {
+            body: {
+              agent: agentToSend,
+              model: selectedModel,
+              categories: ragCategories,
+              useRag: useRagByDefault,
+            },
           }
-          setValue("")
-          adjustHeight(true)
-        })
+        )
+        setValue("")
+        adjustHeight(true)
       } else {
         // Just switch agent without sending message
         setValue("")
@@ -716,7 +741,7 @@ export function AnimatedAIChat({
 
       {/* Response Display */}
       <AnimatePresence>
-        {response && !isTyping && (
+        {(lastResponseText || isTyping) && (
           <motion.div
             className="fixed bottom-8 left-1/2 right-4 sm:right-auto -translate-x-1/2 sm:w-full sm:max-w-2xl backdrop-blur-2xl bg-white/[0.02] rounded-xl border border-white/[0.05] shadow-lg overflow-hidden"
             initial={{ opacity: 0, y: 20, scale: 0.98 }}
@@ -734,7 +759,7 @@ export function AnimatedAIChat({
 
               {/* Response text */}
               <div className="text-sm text-white/80 whitespace-pre-wrap mb-4">
-                {response}
+                {lastResponseText}
               </div>
 
               {/* RAG Sources */}
@@ -745,6 +770,31 @@ export function AnimatedAIChat({
                   className="border-t border-white/10 pt-3"
                 />
               )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Error Display */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            className="fixed bottom-8 left-1/2 right-4 sm:right-auto -translate-x-1/2 sm:w-full sm:max-w-2xl backdrop-blur-2xl bg-red-500/10 rounded-xl border border-red-500/20 shadow-lg overflow-hidden"
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.98 }}
+          >
+            <div className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm font-medium text-red-400">Erro no chat</span>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="text-xs text-red-300 hover:text-red-200 underline"
+                >
+                  Recarregar
+                </button>
+              </div>
+              <p className="text-sm text-red-300/80">{error.message || "Erro desconhecido"}</p>
             </div>
           </motion.div>
         )}

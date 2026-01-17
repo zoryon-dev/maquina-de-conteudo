@@ -10,10 +10,15 @@ import { estimateTokens } from "./embeddings"
 
 /**
  * Default chunking options
+ *
+ * Chunks sized for social media content RAG:
+ * - Smaller chunks (800-1300) for better retrieval precision
+ * - Moderate overlap (150-200) for context continuity
+ * - Optimized for short-form content generation
  */
 const DEFAULT_OPTIONS: Required<ChunkOptions> = {
-  maxChunkSize: 4000, // tokens
-  overlap: 200, // tokens
+  maxChunkSize: 1000, // tokens (reduced from 4000 for better precision)
+  overlap: 150, // tokens (maintain context between chunks)
   preserveParagraphs: true,
   preserveSentences: true,
 }
@@ -329,28 +334,35 @@ export function reconstructFromChunks(
  *
  * @param category - Document category
  * @returns Chunking options
+ *
+ * Chunk sizes optimized for social media RAG (800-1300 tokens):
+ * - products: Smallest (products need precise details)
+ * - brand: Larger (guidelines need context)
+ * - audience: Medium (personas benefit from context)
+ * - content: Medium (examples vary in length)
+ * - competitors: Medium (analysis needs context)
  */
 export function getChunkingOptionsForCategory(category: string): ChunkOptions {
   switch (category) {
     case "products":
-      // Shorter chunks for product descriptions
-      return { maxChunkSize: 2000, overlap: 100, preserveParagraphs: true }
+      // Shorter chunks for product descriptions - need precise retrieval
+      return { maxChunkSize: 800, overlap: 100, preserveParagraphs: true }
 
     case "brand":
-      // Larger chunks for brand guidelines
-      return { maxChunkSize: 6000, overlap: 300, preserveParagraphs: true }
+      // Larger chunks for brand guidelines - context matters
+      return { maxChunkSize: 1300, overlap: 200, preserveParagraphs: true }
 
     case "audience":
       // Medium chunks for personas
-      return { maxChunkSize: 4000, overlap: 200, preserveParagraphs: true }
+      return { maxChunkSize: 1000, overlap: 150, preserveParagraphs: true }
 
     case "content":
-      // Larger chunks for content examples
-      return { maxChunkSize: 5000, overlap: 250, preserveParagraphs: false }
+      // Medium chunks for content examples
+      return { maxChunkSize: 1200, overlap: 150, preserveParagraphs: false }
 
     case "competitors":
       // Medium chunks for competitive analysis
-      return { maxChunkSize: 4000, overlap: 200, preserveParagraphs: true }
+      return { maxChunkSize: 1000, overlap: 150, preserveParagraphs: true }
 
     default:
       // Default chunking

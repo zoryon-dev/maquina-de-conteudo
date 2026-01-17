@@ -172,6 +172,7 @@ export async function validateVoyageApiKey(apiKey: string): Promise<boolean> {
       body: JSON.stringify({
         input: "test",
         model: "voyage-4-large",
+        output_dtype: "float",
       }),
     })
 

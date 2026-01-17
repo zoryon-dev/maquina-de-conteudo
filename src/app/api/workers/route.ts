@@ -64,14 +64,17 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
    *
    * Processes a document by:
    * 1. Fetching the document from database
-   * 2. Splitting content into chunks
-   * 3. Generating embeddings using Voyage AI
+   * 2. Splitting content into chunks (category-specific)
+   * 3. Generating embeddings using Voyage AI voyage-4-large
    * 4. Storing embeddings in database
    * 5. Updating document status
    */
   document_embedding: async (payload: unknown) => {
-    const { documentId, userId, force = false, model = "voyage-4-large" } =
+    const { documentId, userId, force = false } =
       payload as DocumentEmbeddingPayload;
+
+    // Always use voyage-4-large for embeddings
+    const model = "voyage-4-large";
 
     // 1. Get document
     const [doc] = await db
@@ -93,8 +96,13 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       };
     }
 
-    // 2. Split into chunks
-    const chunks = await splitDocumentIntoChunks(doc.content || "");
+    // 2. Get category-specific chunking options
+    const { getChunkingOptionsForCategory } = await import("@/lib/voyage/chunking")
+    const category = doc.category ?? "general"
+    const chunkingOptions = getChunkingOptionsForCategory(category)
+
+    // 3. Split into chunks with category-specific options
+    const chunks = await splitDocumentIntoChunks(doc.content || "", chunkingOptions);
 
     if (chunks.length === 0) {
       throw new Error("Document content is empty or could not be chunked");

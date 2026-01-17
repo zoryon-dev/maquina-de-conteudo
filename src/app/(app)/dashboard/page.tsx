@@ -1,15 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AnimatedAIChat } from "@/components/dashboard/animated-ai-chat"
 import { useAuth } from "@clerk/nextjs"
-import { toast } from "sonner"
-import { useRagCategories } from "@/components/chat"
+import { useRouter } from "next/navigation"
+import { type AgentType } from "@/lib/agents"
 
 /**
  * Dashboard - Chat com IA
  *
  * Interface conversacional para criar conteúdo com especialistas AI.
+ * Usa Vercel AI SDK v3 para streaming responses com interface animada.
+ *
  * Comandos disponíveis: /texto, /imagem, /carrossel, /agendar, /fontes, /especialistas
  *
  * RAG Integration:
@@ -18,15 +20,17 @@ import { useRagCategories } from "@/components/chat"
  * - Displays sources in response when available
  */
 export default function DashboardPage() {
-  const { isLoaded } = useAuth()
-  const [isTyping, setIsTyping] = useState(false)
-  const [lastResponse, setLastResponse] = useState<string | null>(null)
-  const [lastSources, setLastSources] = useState<any[] | null>(null)
+  const { isLoaded, userId } = useAuth()
+  const router = useRouter()
+  const [currentAgent, setCurrentAgent] = useState<AgentType>("zory")
 
-  // Get selected RAG categories from the context selector
-  const { selected: ragCategories } = useRagCategories()
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (isLoaded && !userId) {
+      router.push("/sign-in")
+    }
+  }, [isLoaded, userId, router])
 
-  // Redirect if not authenticated (handled by middleware, but double-check)
   if (!isLoaded) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -35,55 +39,16 @@ export default function DashboardPage() {
     )
   }
 
-  const handleSendMessage = async (message: string, model?: string) => {
-    setIsTyping(true)
-    setLastResponse(null)
-    setLastSources(null)
-
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message,
-          model,
-          categories: ragCategories,
-          useRag: true,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to send message")
-      }
-
-      const data = await response.json()
-
-      setLastResponse(data.response)
-      if (data.sources && data.sources.length > 0) {
-        setLastSources(data.sources)
-      }
-
-      if (data.ragUsed) {
-        toast.success(`Contexto RAG usado: ${data.chunksIncluded} chunks`)
-      }
-    } catch (error) {
-      console.error("Chat error:", error)
-      toast.error(error instanceof Error ? error.message : "Erro ao enviar mensagem")
-      // Fallback for demo purposes
-      setLastResponse("Mensagem enviada (modo demo - configure a API key do OpenRouter)")
-    } finally {
-      setIsTyping(false)
-    }
+  if (!userId) {
+    return null
   }
 
   return (
     <div className="relative min-h-screen">
       <AnimatedAIChat
-        onSendMessage={handleSendMessage}
-        isTyping={isTyping}
-        response={lastResponse}
-        sources={lastSources}
+        initialAgent={currentAgent}
+        onAgentChange={setCurrentAgent}
+        useRagByDefault={true}
       />
     </div>
   )

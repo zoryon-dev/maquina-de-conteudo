@@ -69,9 +69,17 @@ function ChunkCard({ chunk, isSearchResult, defaultExpanded = false }: ChunkProp
   return (
     <div className="rounded-lg border border-white/10 bg-white/[0.02] overflow-hidden">
       {/* Header */}
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between p-3 hover:bg-white/[0.03] transition-colors"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault()
+            setExpanded(!expanded)
+          }
+        }}
+        className="w-full flex items-center justify-between p-3 hover:bg-white/[0.03] transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-3">
           {expanded ? (
@@ -111,7 +119,7 @@ function ChunkCard({ chunk, isSearchResult, defaultExpanded = false }: ChunkProp
             )}
           </button>
         </div>
-      </button>
+      </div>
 
       {/* Content */}
       {expanded && (

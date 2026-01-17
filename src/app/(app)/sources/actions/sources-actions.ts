@@ -448,6 +448,51 @@ export async function reembedDocumentAction(
 }
 
 /**
+ * Batch delete documents with their embeddings
+ */
+export async function batchDeleteDocumentsAction(
+  documentIds: number[]
+): Promise<SourceResult> {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return { success: false, error: "Unauthorized" }
+  }
+
+  if (documentIds.length === 0) {
+    return { success: false, error: "No documents to delete" }
+  }
+
+  try {
+    // Delete embeddings first (foreign key constraint)
+    await db
+      .delete(documentEmbeddings)
+      .where(sql`${documentEmbeddings.documentId} = ANY(${documentIds})`)
+
+    // Delete document collection items
+    await db
+      .delete(documentCollectionItems)
+      .where(sql`${documentCollectionItems.documentId} = ANY(${documentIds})`)
+
+    // Delete documents
+    await db
+      .delete(documents)
+      .where(
+        and(
+          sql`${documents.id} = ANY(${documentIds})`,
+          eq(documents.userId, userId)
+        )
+      )
+
+    revalidatePath("/sources")
+    return { success: true }
+  } catch (error) {
+    console.error("Batch delete documents error:", error)
+    return { success: false, error: "Failed to delete documents" }
+  }
+}
+
+/**
  * Get embedding status for a document
  */
 export async function getEmbeddingStatusAction(documentId: number) {

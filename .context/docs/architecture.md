@@ -359,8 +359,80 @@ graph LR
 **Voyage AI Config:**
 - Model: `voyage-4-large`
 - Dimensions: 1024
-- Chunk Size: ~4000 tokens
-- Overlap: 200 tokens
+- Chunk Size: **Category-specific** (800-1300 tokens)
+- Overlap: 100-200 tokens (varies by category)
+- Similarity Threshold: 0.5 (unified)
+
+**Category-Specific Chunking:**
+| Category | Chunk Size | Overlap | Use Case |
+|----------|------------|---------|----------|
+| `products` | 800 | 100 | Product catalog |
+| `offers` | 900 | 150 | Promotions, discounts |
+| `brand` | 1300 | 200 | Voice, values, mission |
+| `audience` | 1000 | 150 | Personas, demographics |
+| `competitors` | 900 | 150 | Competitive analysis |
+| `content` | 1200 | 180 | Posts, calendars |
+| `general` | 1000 | 150 | Default balanced |
+
+### useChat Streaming Patterns
+
+**Client Component Pattern:**
+```typescript
+import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport } from "ai"
+
+const { messages, status, error, sendMessage, stop } = useChat({
+  transport: new DefaultChatTransport({
+    api: "/api/chat",
+    body: {
+      agent: "zory",
+      model: "gpt-5-mini",
+      categories: ["brand", "products"],
+      useRag: true,
+    },
+  }),
+  onFinish: ({ message }) => {
+    const text = getMessageText(message)
+    onComplete?.(text)
+  },
+})
+
+// Send message with SDK v3 format
+sendMessage(
+  { parts: [{ type: "text", text: messageToSend }] },
+  { body: { agent, model, categories, useRag } }
+)
+```
+
+**Message Format (SDK v3 UIMessage):**
+```typescript
+interface UIMessage {
+  id: string
+  role: "user" | "assistant" | "system"
+  parts: Array<{
+    type: string
+    text?: string
+  }>
+}
+```
+
+**Memoization for Performance:**
+```typescript
+// Helper function with useCallback
+const getMessageText = useCallback((message: UIMessage): string => {
+  if (!message.parts) return ""
+  return message.parts
+    .filter((part) => part.type === "text" && part.text)
+    .map((part) => part.text)
+    .join("")
+}, [])
+
+// Derived values with useMemo to prevent infinite loops
+const lastResponseText = useMemo(() => {
+  const lastAssistantMessage = messages.filter((m) => m.role === "assistant").pop()
+  return lastAssistantMessage ? getMessageText(lastAssistantMessage) : null
+}, [messages, getMessageText])
+```
 
 ### System Status Monitoring
 

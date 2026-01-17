@@ -457,6 +457,47 @@ function getMessageText(message: UIMessage): string {
 - ❌ `isLoading` (use `status === "streaming"`)
 - ❌ `CoreMessage` (use `UIMessage`)
 
+### Formato de Mensagens SDK v3
+
+**IMPORTANTE:** `sendMessage` requer o formato `{ parts: [...] }`:
+
+```typescript
+// ✅ CORRETO
+sendMessage(
+  { parts: [{ type: "text", text: messageToSend }] },
+  { body: { agent, model, categories, useRag } }
+)
+
+// ❌ ERRADO - não funciona
+sendMessage({ text: messageToSend })
+```
+
+### Memoização para Performance
+
+**Sempre memoizar valores derivados de `messages`:**
+
+```typescript
+// Helper function com useCallback
+const getMessageText = useCallback((message: { parts?: Array<{ type: string; text?: string }> }): string => {
+  if (!message.parts) return ""
+  return message.parts
+    .filter((part) => part.type === "text" && part.text)
+    .map((part) => part.text)
+    .join("")
+}, [])
+
+// Valor derivado com useMemo (evita infinite loops)
+const lastResponseText = useMemo(() => {
+  const lastAssistantMessage = messages.filter((m) => m.role === "assistant").pop()
+  return lastAssistantMessage ? getMessageText(lastAssistantMessage) : null
+}, [messages, getMessageText])
+```
+
+**Por que isso é importante:**
+- Valores computados sem `useMemo` criam nova referência a cada render
+- Se usado em `useEffect` dependencies, causa infinite loop
+- `useCallback` é necessário para funções usadas em `useMemo`
+
 ### Environment Variables
 
 ```env
@@ -502,6 +543,132 @@ O componente `AnimatedAIChat` possui command palette activada por `/`:
 | `/agendar` | Agendar publicação |
 | `/fontes` | Adicionar fonte de conteúdo |
 | `/especialistas` | Ver especialistas disponíveis |
+
+---
+
+## RAG & Embeddings (Voyage AI)
+
+### Visão Geral
+
+Sistema RAG (Retrieval-Augmented Generation) com embeddings da **Voyage AI** para busca semântica em documentos do usuário.
+
+### Configuração
+
+**Modelo:** `voyage-4-large`
+- Dimensões: 1024
+- Contexto: 32k tokens
+- Custo: $0.07/1M tokens
+
+### Chunking por Categoria
+
+| Categoria | Chunk Size | Overlap | Uso |
+|-----------|-----------|---------|-----|
+| `products` | 800 | 100 | Catálogo de produtos |
+| `offers` | 900 | 150 | Promoções e descontos |
+| `brand` | 1300 | 200 | Tom de voz, valores |
+| `audience` | 1000 | 150 | Personas e público-alvo |
+| `competitors` | 900 | 150 | Análise competitiva |
+| `content` | 1200 | 180 | Posts e calendários |
+| `general` | 1000 | 150 | Padrão balanceado |
+
+### Threshold de Similaridade
+
+**Valor padrão:** `0.5` (unificado em toda a pipeline)
+- Range efetivo: 0-1 (cosine similarity)
+- Trade-off: 0.5 = melhor balanceamento recall/precision
+
+### Módulos RAG
+
+```
+src/lib/voyage/
+├── embeddings.ts    → generateEmbedding(), generateEmbeddingsBatch()
+├── chunking.ts      → splitDocumentIntoChunks(), getChunkingOptionsForCategory()
+├── search.ts        → semanticSearch(), hybridSearch(), getRagContext()
+└── types.ts         → VoyageModel, SemanticSearchOptions
+
+src/lib/rag/
+├── assembler.ts     → assembleRagContext(), getRelevantDocuments()
+├── filters.ts       → filterByRelevance(), diversifyChunks()
+├── token-budget.ts  → estimateTokens(), selectChunksWithinBudget()
+└── index.ts         → Client-safe exports (tipos, constantes)
+```
+
+### APIs de Integração
+
+**Chat com RAG:**
+```typescript
+// src/app/api/chat/route.ts
+const ragResult = await assembleRagContext(userId, query, {
+  categories,
+  threshold: 0.5,
+  maxChunks: 15,
+  maxTokens: 3000,
+  includeSources: true,
+})
+```
+
+**Busca Semântica:**
+```typescript
+// src/lib/voyage/search.ts
+const results = await semanticSearch(userId, query, {
+  categories: ["brand", "products"],
+  threshold: 0.5,
+  limit: 10,
+})
+```
+
+**Worker de Embeddings:**
+```typescript
+// src/app/api/workers/route.ts (job: document_embedding)
+const chunkingOptions = getChunkingOptionsForCategory(doc.category ?? "general")
+const chunks = await splitDocumentIntoChunks(doc.content, chunkingOptions)
+const embeddings = await generateEmbeddingsBatch(texts, "voyage-4-large")
+```
+
+### Padrões de Uso
+
+1. **Sempre usar `voyage-4-large`:**
+```typescript
+const model = "voyage-4-large"  // ✅
+```
+
+2. **Category-specific chunking:**
+```typescript
+const options = getChunkingOptionsForCategory(category)
+const chunks = await splitDocumentIntoChunks(content, options)
+```
+
+3. **Threshold consistente:** `0.5` em toda a pipeline
+
+4. **Client-safe imports:**
+```typescript
+// ✅ CORRETO - importar tipos do index
+import { RAG_CATEGORIES, type RagCategory } from "@/lib/rag"
+
+// ❌ ERRADO - importar assembler em client component
+import { assembleRagContext } from "@/lib/rag/assembler"  // usa db!
+```
+
+### Componentes UI
+
+**RAG Context Selector:**
+```typescript
+// src/components/chat/rag-context-selector.tsx
+<RagContextSelector />  // Seletor de categorias para RAG
+```
+
+**Semantic Search Tab:**
+```typescript
+// src/app/(app)/sources/components/semantic-search-tab.tsx
+<SemanticSearchTab />  // Interface para testar buscas semânticas
+```
+
+### Environment Variables
+
+```env
+# OBRIGATÓRIO para Embeddings
+VOYAGE_API_KEY=voyage-...
+```
 
 ---
 

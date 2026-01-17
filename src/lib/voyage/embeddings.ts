@@ -39,7 +39,7 @@ export async function generateEmbedding(
     body: JSON.stringify({
       input: text,
       model,
-      encoding_format: "float",
+      output_dtype: "float",
     }),
   })
 
@@ -106,7 +106,7 @@ export async function generateEmbeddingsBatch(
       body: JSON.stringify({
         input: batch,
         model,
-        encoding_format: "float",
+        output_dtype: "float",
       }),
     })
 

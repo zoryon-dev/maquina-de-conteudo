@@ -20,6 +20,7 @@
 ### Backend & Features
 - **[prompt-system](serena:read?memory=prompt-system.md)** - Sistema de prompts em 4 camadas ⭐
 - **[vercel-ai-sdk-patterns](serena:read?memory=vercel-ai-sdk-patterns.md)** - Vercel AI SDK + OpenRouter ⭐
+- **[rag-embedding-patterns](serena:read?memory=rag-embedding-patterns.md)** - RAG com Voyage AI embeddings ⭐
 
 ### Padrões de Código
 - **[component-patterns](serena:read?memory=component-patterns.md)** - Padrões de componentes React e Radix UI

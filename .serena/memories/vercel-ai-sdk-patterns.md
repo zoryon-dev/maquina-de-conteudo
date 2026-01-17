@@ -186,6 +186,59 @@ function getMessageText(message: UIMessage): string {
 }
 ```
 
+### Formato `sendMessage` - IMPORTANTE
+
+**ATENÇÃO:** `sendMessage` requer o formato `{ parts: [...] }`:
+
+```typescript
+// ✅ CORRETO - Formato SDK v3
+sendMessage(
+  { parts: [{ type: "text", text: messageToSend }] },
+  {
+    body: {
+      agent: currentAgent,
+      model: selectedModel,
+      categories: ragCategories,
+      useRag: useRagByDefault,
+    },
+  }
+)
+
+// ❌ ERRADO - Não funciona
+sendMessage({ text: messageToSend })  // TypeError
+sendMessage({ content: messageToSend })  // TypeError
+```
+
+### Memoização para Performance (EVITA INFINITE LOOPS)
+
+**Sempre memoizar valores derivados de `messages`:**
+
+```typescript
+// 1. Helper com useCallback (dependências vazias = função estável)
+const getMessageText = useCallback((message: { parts?: Array<{ type: string; text?: string }> }): string => {
+  if (!message.parts) return ""
+  return message.parts
+    .filter((part) => part.type === "text" && part.text)
+    .map((part) => part.text)
+    .join("")
+}, [])
+
+// 2. Valor derivado com useMemo
+const lastResponseText = useMemo(() => {
+  const lastAssistantMessage = messages.filter((m) => m.role === "assistant").pop()
+  return lastAssistantMessage ? getMessageText(lastAssistantMessage) : null
+}, [messages, getMessageText])
+
+// 3. ❌ NÃO fazer isso (causa infinite loop em useEffect)
+// const lastAssistantMessage = messages.filter((m) => m.role === "assistant").pop()
+// const lastResponseText = lastAssistantMessage ? getMessageText(lastAssistantMessage) : null
+```
+
+**Por que memoização é importante:**
+- Valores computados sem `useMemo` criam nova referência a cada render
+- Se usado em `useEffect` dependencies, causa infinite loop
+- `useCallback` é necessário para funções usadas em `useMemo`
+
 ---
 
 ## Erros Comuns

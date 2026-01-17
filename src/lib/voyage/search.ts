@@ -68,7 +68,7 @@ export function cosineSimilarity(a: number[], b: number[]): number {
  * ```ts
  * const results = await semanticSearch(userId, "marketing strategy", {
  *   categories: ["brand", "content"],
- *   threshold: 0.75,
+ *   threshold: 0.5,
  *   limit: 5
  * })
  * ```
@@ -80,7 +80,7 @@ export async function semanticSearch(
 ): Promise<SemanticSearchResult[]> {
   const {
     categories = DOCUMENT_CATEGORIES,
-    threshold = 0.7,
+    threshold = 0.5, // Lowered from 0.7 for better recall
     limit = 10,
     includeText = true,
   } = options
@@ -190,18 +190,18 @@ export async function hybridSearch(
  *
  * @example
  * ```ts
- * const { context, sources } = await getRagContext(userId, query, ["brand", "products"], 4000)
+ * const { context, sources } = await getRagContext(userId, query, ["brand", "products"], 3000)
  * ```
  */
 export async function getRagContext(
   userId: string,
   query: string,
   categories: string[] = [...DOCUMENT_CATEGORIES],
-  maxTokens = 4000
+  maxTokens = 3000
 ): Promise<{ context: string; sources: Array<{ id: number; title: string; score: number }> }> {
   const results = await semanticSearch(userId, query, {
     categories,
-    threshold: 0.6, // Lower threshold for RAG
+    threshold: 0.5, // Lowered threshold for RAG (same as default)
     limit: 20, // Get more candidates
     includeText: true,
   })
@@ -261,12 +261,19 @@ export async function reembedDocument(
       return { success: false, chunksProcessed: 0, error: "Document not found" }
     }
 
-    // Import chunking function
-    const { splitDocumentIntoChunks } = await import("./chunking")
+    // Import chunking functions
+    const { splitDocumentIntoChunks, getChunkingOptionsForCategory } = await import("./chunking")
     const { generateEmbeddingsBatch } = await import("./embeddings")
 
-    // Split into chunks
-    const chunks = await splitDocumentIntoChunks(doc.content || "")
+    // Always use voyage-4-large
+    const model = "voyage-4-large"
+
+    // Get category-specific chunking options
+    const category = doc.category ?? "general"
+    const chunkingOptions = getChunkingOptionsForCategory(category)
+
+    // Split into chunks with category-specific options
+    const chunks = await splitDocumentIntoChunks(doc.content || "", chunkingOptions)
 
     // Update total chunks
     await db
@@ -280,7 +287,7 @@ export async function reembedDocument(
 
     // Generate embeddings
     const texts = chunks.map((c) => c.text)
-    const embeddings = await generateEmbeddingsBatch(texts)
+    const embeddings = await generateEmbeddingsBatch(texts, model)
 
     // Delete old embeddings
     await db
@@ -292,7 +299,7 @@ export async function reembedDocument(
       await db.insert(documentEmbeddings).values({
         documentId,
         embedding: JSON.stringify(embeddings[i]),
-        model: "voyage-4-large",
+        model,
         chunkIndex: chunks[i].index,
         chunkText: chunks[i].text,
         startPos: chunks[i].startPosition,
@@ -313,7 +320,7 @@ export async function reembedDocument(
         embedded: true,
         embeddingStatus: "completed",
         lastEmbeddedAt: new Date(),
-        embeddingModel: "voyage-4-large",
+        embeddingModel: model,
       })
       .where(eq(documents.id, documentId))
 

@@ -659,6 +659,165 @@ const handleSend = () => {
 
 ---
 
+### 25. Parâmetro `encoding_format` depreciado na API da Voyage AI
+
+**Erro:** Erro ao processar embeddings na aba Fontes, mesmo com a API key da Voyage configurada corretamente.
+
+**Causa:** A API da Voyage AI atualizou seus parâmetros, e `encoding_format` foi renomeado para `output_dtype`.
+
+**Solução:** Substituir `encoding_format` por `output_dtype`:
+```typescript
+// ❌ ERRADO - depreciado
+body: JSON.stringify({
+  input: text,
+  model,
+  encoding_format: "float",
+})
+
+// ✅ CORRETO
+body: JSON.stringify({
+  input: text,
+  model,
+  output_dtype: "float",
+})
+```
+
+**Valores aceitos para `output_dtype`:**
+- `float` - 32-bit floating point (padrão)
+- `int8` - 8-bit inteiros (-128 a 127)
+- `uint8` - 8-bit unsigned (0 a 255)
+- `binary` / `ubinary` - bit-packed quantized single-bit
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/025-voyage-api-parameter-deprecated.md`
+
+**Arquivos modificados:**
+- `src/lib/voyage/embeddings.ts` - 2 ocorrências (funções `generateEmbedding` e `generateEmbeddingsBatch`)
+- `src/lib/voyage/index.ts` - 1 ocorrência (função `validateVoyageApiKey`)
+
+---
+
+### 26. Otimização de Chunk Size e Threshold para RAG
+
+**Problema:** Busca semântica retornando poucos resultados, contexto RAG muito longo com chunks grandes (4000 tokens), precisão baixa na recuperação.
+
+**Causa:** Configuração original de chunking (4000 tokens) era muito grande para conteúdo de redes sociais, e threshold de similaridade (0.6-0.7) era muito alto.
+
+**Solução:**
+1. **Category-specific chunking:** 800-1300 tokens ao invés de 4000 fixo
+2. **Threshold unificado:** 0.5 em toda a pipeline (antes 0.6-0.7)
+3. **RAG options ajustadas:** maxChunks: 15 (↑), maxTokens: 3000 (↓)
+
+```typescript
+// ❌ ANTES - chunks muito grandes
+const DEFAULT_OPTIONS = {
+  maxChunkSize: 4000,  // muito grande
+  overlap: 200,
+}
+
+// ✅ DEPOIS - category-specific
+const DEFAULT_OPTIONS = {
+  maxChunkSize: 1000,  // padrão reduzido
+  overlap: 150,
+}
+
+// Com categoria específica
+getChunkingOptionsForCategory("products")  // { maxChunkSize: 800, overlap: 100 }
+getChunkingOptionsForCategory("brand")     // { maxChunkSize: 1300, overlap: 200 }
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/026-rag-chunk-size-optimization.md`
+
+**Arquivos modificados:**
+- `src/lib/voyage/chunking.ts` - Category-specific options
+- `src/lib/voyage/search.ts` - Threshold 0.5
+- `src/lib/rag/assembler.ts` - Threshold 0.5, maxChunks 15
+- `src/lib/rag/filters.ts` - minScore 0.5
+- `src/app/api/chat/route.ts` - RAG_THRESHOLD 0.5
+- `src/app/api/workers/route.ts` - Category-specific chunking
+
+---
+
+### 27. Infinite Loop Pattern - useEffect com Computed Values
+
+**Erro:** Console mostra logs repetidos infinitamente:
+```
+Messages updated: 3
+Last response: Olá! Para eu te ajudar...
+Is typing: true
+... (repeating infinitely)
+```
+
+**Causa:** Usar um valor computado (`lastResponseText`) diretamente nas dependências de `useEffect` sem memoização:
+```typescript
+// ❌ ERRADO
+const lastAssistantMessage = messages.filter((m) => m.role === "assistant").pop()
+const lastResponseText = lastAssistantMessage ? getMessageText(lastAssistantMessage) : null
+
+useEffect(() => {
+  console.log("Last response:", lastResponseText?.slice(0, 100))
+}, [messages, lastResponseText, isTyping])  // lastResponseText causa loop!
+```
+
+**Solução:** Mover a computação para `useMemo` com dependências estáveis:
+```typescript
+// ✅ CORRETO
+const lastResponseText = useMemo(() => {
+  const lastAssistantMessage = messages.filter((m) => m.role === "assistant").pop()
+  return lastAssistantMessage ? getMessageText(lastAssistantMessage) : null
+}, [messages, getMessageText])
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/027-infinite-loop-useeffect-usememo.md`
+
+**Arquivo modificado:**
+- `src/components/dashboard/animated-ai-chat.tsx` - Linhas 157-161
+
+---
+
+### 28. TypeError - sendMessage Format Error (Vercel AI SDK v3)
+
+**Erro:**
+```
+TypeError: Cannot read properties of undefined (reading 'state')
+    at Chat.makeRequest (chat.ts:688:41)
+```
+
+**Causa:** Usar formato de mensagem incorreto no `sendMessage` do Vercel AI SDK v3:
+```typescript
+// ❌ ERRADO - formato { text } não é suportado
+sendMessage(
+  { text: messageToSend },
+  { body: { agent, model, categories, useRag } }
+)
+```
+
+**Solução:** Usar o formato `parts` array:
+```typescript
+// ✅ CORRETO - formato { parts: [{ type: "text", text }] }
+sendMessage(
+  { parts: [{ type: "text", text: messageToSend }] },
+  { body: { agent, model, categories, useRag } }
+)
+```
+
+**Helper para extrair texto:**
+```typescript
+function getMessageText(message: { parts?: Array<{ type: string; text?: string }> }): string {
+  if (!message.parts) return ""
+  return message.parts
+    .filter((part) => part.type === "text" && part.text)
+    .map((part) => part.text)
+    .join("")
+}
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/028-usechat-sendmessage-format.md`
+
+**Arquivo modificado:**
+- `src/components/dashboard/animated-ai-chat.tsx` - Linhas 341-353
+
+---
+
 ## Padrões de Solução
 
 ### 1. Sempre validar tipos de DB
