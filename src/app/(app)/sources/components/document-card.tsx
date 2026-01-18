@@ -36,11 +36,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
-import {
-  deleteDocumentWithEmbeddingsAction,
-  updateDocumentAction,
-  reembedDocumentAction,
-} from "../actions/sources-actions"
+import type {
+  DocumentWithEmbeddings,
+  UpdateDocumentResult,
+  ReembedResult,
+  ActionResult,
+} from "../types/sources-types"
 import {
   EmbeddingStatusBadge,
   EmbeddingProgressMini,
@@ -59,29 +60,11 @@ const CATEGORIES: Record<string, { label: string; color: string }> = {
   brand: { label: "Marca", color: "bg-purple-500/10 text-purple-400" },
   audience: { label: "Público", color: "bg-green-500/10 text-green-400" },
   competitors: { label: "Concorrentes", color: "bg-red-500/10 text-red-400" },
-  content: { label: "Conteúdo", color: "bg-amber-500/10 text-amber-400" },
+  content: { label: "Conteúdo", color: "bg-amber-500/10 text-amber-400" }
 }
 
-/**
- * Document with embedding count - exported for use in documents-tab
- */
-export interface DocumentWithEmbeddings {
-  id: number
-  title: string
-  content: string
-  fileType: string | null
-  category: string | null
-  embedded: boolean
-  embeddingModel: string | null
-  createdAt: Date
-  updatedAt: Date
-  embeddingCount?: number
-  // New RAG fields
-  embeddingStatus?: "pending" | "processing" | "completed" | "failed" | null
-  embeddingProgress?: number | null
-  chunksCount?: number | null
-  lastEmbeddedAt?: Date | null
-}
+// Re-export DocumentWithEmbeddings for use in documents-tab
+export type { DocumentWithEmbeddings } from "../types/sources-types"
 
 /**
  * Document Card Props
@@ -142,11 +125,17 @@ function EditDocumentDialog({
 
     setIsSaving(true)
     try {
-      const result = await updateDocumentAction(document.id, {
-        title: title.trim(),
-        content: content.trim(),
-        category,
+      const response = await fetch(`/api/sources/documents/${document.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          content: content.trim(),
+          category,
+        }),
       })
+
+      const result: UpdateDocumentResult = await response.json()
 
       if (result.success) {
         toast.success("Documento atualizado com sucesso")
@@ -286,7 +275,11 @@ function DeleteDocumentDialog({
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
-      const result = await deleteDocumentWithEmbeddingsAction(document.id)
+      const response = await fetch(`/api/sources/documents/${document.id}`, {
+        method: "DELETE",
+      })
+
+      const result: ActionResult = await response.json()
 
       if (result.success) {
         toast.success("Documento excluído com sucesso")
@@ -378,7 +371,12 @@ export function DocumentCard({
   const handleReembed = async () => {
     setIsReembedding(true)
     try {
-      const result = await reembedDocumentAction(document.id)
+      const response = await fetch(`/api/sources/documents/${document.id}/reembed`, {
+        method: "POST",
+      })
+
+      const result: ReembedResult = await response.json()
+
       if (result.success) {
         toast.success("Documento enviado para reindexação")
         onUpdate?.()

@@ -11,24 +11,8 @@ import { FileText, Upload, Trash2, FileJson, Loader2, Folder, Package, Tag, Pale
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import {
-  getDocumentsAction,
-  uploadDocumentAction,
-  deleteDocumentAction,
-} from "../../actions/save-settings"
+import type { DbDocument, ActionResult } from "../../types/settings-types"
 import { DOCUMENT_CATEGORIES } from "@/lib/system-prompts"
-
-/**
- * Document type from database
- */
-interface DbDocument {
-  id: number
-  title: string
-  fileType: string | null
-  category: string | null
-  createdAt: Date
-  embedded: boolean
-}
 
 /**
  * Documents Section Props
@@ -264,8 +248,11 @@ export function DocumentsSection({ onChange, className }: DocumentsSectionProps)
   const fetchDocuments = async () => {
     setIsLoading(true)
     try {
-      const result = await getDocumentsAction()
-      setDocuments(result)
+      const response = await fetch("/api/settings/documents")
+      if (response.ok) {
+        const data: DbDocument[] = await response.json()
+        setDocuments(data)
+      }
     } catch (error) {
       console.error("Failed to fetch documents:", error)
       toast.error("Falha ao carregar documentos")
@@ -285,12 +272,18 @@ export function DocumentsSection({ onChange, className }: DocumentsSectionProps)
       const fileType = file.name.split(".").pop()?.toLowerCase() || "txt"
 
       // Upload to server
-      const result = await uploadDocumentAction({
-        title: file.name,
-        type: fileType,
-        category,
-        content,
+      const response = await fetch("/api/settings/documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: file.name,
+          type: fileType,
+          category,
+          content,
+        }),
       })
+
+      const result: ActionResult = await response.json()
 
       if (result.success) {
         toast.success("Documento enviado com sucesso!")
@@ -309,7 +302,12 @@ export function DocumentsSection({ onChange, className }: DocumentsSectionProps)
 
   const handleDelete = async (docId: number) => {
     try {
-      const result = await deleteDocumentAction(docId)
+      const response = await fetch(`/api/settings/documents/${docId}`, {
+        method: "DELETE",
+      })
+
+      const result: ActionResult = await response.json()
+
       if (result.success) {
         toast.success("Documento removido")
         onChange?.()

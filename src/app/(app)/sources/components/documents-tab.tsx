@@ -29,12 +29,10 @@ import {
 } from "./document-card"
 import { UploadDialog } from "./upload-dialog"
 import { MoveToCollectionDialog } from "./move-to-collection-dialog"
-import {
-  getDocumentsByCollectionAction,
-  getDocumentStatsAction,
-  batchDeleteDocumentsAction,
-  type DocumentStats,
-} from "../actions/sources-actions"
+import type {
+  DocumentStats,
+  ActionResult,
+} from "../types/sources-types"
 
 /**
  * Category configuration - matches DOCUMENT_CATEGORIES from system-prompts.ts
@@ -160,12 +158,20 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
   const fetchData = React.useCallback(async () => {
     setIsLoading(true)
     try {
-      const [docsData, statsData] = await Promise.all([
-        getDocumentsByCollectionAction(selectedCollectionId ?? null),
-        getDocumentStatsAction(),
+      const collectionParam = selectedCollectionId
+        ? `?collectionId=${selectedCollectionId}`
+        : ""
+      const [docsResponse, statsResponse] = await Promise.all([
+        fetch(`/api/sources/documents${collectionParam}`),
+        fetch("/api/sources/stats"),
       ])
-      setDocuments(docsData)
-      setStats(statsData)
+
+      if (docsResponse.ok && statsResponse.ok) {
+        const docsData = await docsResponse.json()
+        const statsData: DocumentStats = await statsResponse.json()
+        setDocuments(docsData)
+        setStats(statsData)
+      }
     } catch (error) {
       console.error("Failed to fetch data:", error)
     } finally {
@@ -265,7 +271,14 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
 
     setIsDeleting(true)
     try {
-      const result = await batchDeleteDocumentsAction(Array.from(selectedIds))
+      const response = await fetch("/api/sources/documents", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+      })
+
+      const result: ActionResult = await response.json()
+
       if (result.success) {
         toast.success(`${selectedIds.size} documento(s) excluído(s)`)
         handleClearSelection()

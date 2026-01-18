@@ -126,6 +126,56 @@ export const zepThreads = pgTable(
   ]
 );
 
+// 3.2. CONVERSATION_COLLECTIONS - Pastas para organizar conversas
+export const conversationCollections = pgTable(
+  "conversation_collections",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    color: text("color"), // hex color para badge (ex: "#a3e635")
+    icon: text("icon"), // nome do ícone Lucide (ex: "folder", "folder-archive")
+    parentId: integer("parent_id"), // null = coleção raiz
+    orderIdx: integer("order_idx").default(0).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    deletedAt: timestamp("deleted_at"), // Soft delete
+  },
+  (table) => [
+    index("conversation_collections_user_id_idx").on(table.userId),
+    index("conversation_collections_parent_id_idx").on(table.parentId),
+    index("conversation_collections_deleted_at_idx").on(table.deletedAt),
+    unique("conversation_collections_user_parent_name_unique").on(
+      table.userId,
+      table.parentId,
+      table.name
+    ),
+  ]
+);
+
+// 3.3. CONVERSATION_COLLECTION_ITEMS - Relação many-to-many entre conversas e coleções
+export const conversationCollectionItems = pgTable(
+  "conversation_collection_items",
+  {
+    id: serial("id").primaryKey(),
+    collectionId: integer("collection_id")
+      .notNull()
+      .references(() => conversationCollections.id, { onDelete: "cascade" }),
+    conversationId: integer("conversation_id")
+      .notNull()
+      .references(() => chats.id, { onDelete: "cascade" }),
+    addedAt: timestamp("added_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("conversation_collection_items_collection_id_idx").on(table.collectionId),
+    index("conversation_collection_items_conversation_id_idx").on(table.conversationId),
+    unique("conversation_collection_items_conv_coll_unique").on(table.conversationId, table.collectionId),
+  ]
+);
+
 // 4. LIBRARY_ITEMS - Biblioteca de conteúdo
 export const libraryItems = pgTable(
   "library_items",
@@ -389,14 +439,6 @@ export const jobs = pgTable(
 
 // Relations - usersRelations movido para SETTINGS RELATIONS para incluir settings tables
 
-export const chatsRelations = relations(chats, ({ one, many }) => ({
-  user: one(users, {
-    fields: [chats.userId],
-    references: [users.id],
-  }),
-  messages: many(messages),
-}));
-
 export const messagesRelations = relations(messages, ({ one }) => ({
   chat: one(chats, {
     fields: [messages.chatId],
@@ -409,6 +451,45 @@ export const zepThreadsRelations = relations(zepThreads, ({ one }) => ({
     fields: [zepThreads.userId],
     references: [users.id],
   }),
+}));
+
+// Conversation collections relations
+export const conversationCollectionsRelations = relations(conversationCollections, ({ one, many }) => ({
+  user: one(users, {
+    fields: [conversationCollections.userId],
+    references: [users.id],
+  }),
+  parent: one(conversationCollections, {
+    fields: [conversationCollections.parentId],
+    references: [conversationCollections.id],
+    relationName: "conversation_collection_hierarchy",
+  }),
+  children: many(conversationCollections, {
+    relationName: "conversation_collection_hierarchy",
+  }),
+  items: many(conversationCollectionItems),
+}));
+
+// Conversation collection items relations (junction table)
+export const conversationCollectionItemsRelations = relations(conversationCollectionItems, ({ one }) => ({
+  collection: one(conversationCollections, {
+    fields: [conversationCollectionItems.collectionId],
+    references: [conversationCollections.id],
+  }),
+  conversation: one(chats, {
+    fields: [conversationCollectionItems.conversationId],
+    references: [chats.id],
+  }),
+}));
+
+// Update chats relations to include collections
+export const chatsRelations = relations(chats, ({ one, many }) => ({
+  user: one(users, {
+    fields: [chats.userId],
+    references: [users.id],
+  }),
+  messages: many(messages),
+  collectionItems: many(conversationCollectionItems),
 }));
 
 export const libraryItemsRelations = relations(libraryItems, ({ one, many }) => ({
@@ -707,6 +788,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   libraryItems: many(libraryItems),
   documents: many(documents),
   documentCollections: many(documentCollections),
+  conversationCollections: many(conversationCollections),
   sources: many(sources),
   jobs: many(jobs),
   settings: many(userSettings),
@@ -765,6 +847,10 @@ export type Job = typeof jobs.$inferSelect;
 export type NewJob = typeof jobs.$inferInsert;
 export type ZepThread = typeof zepThreads.$inferSelect;
 export type NewZepThread = typeof zepThreads.$inferInsert;
+export type ConversationCollection = typeof conversationCollections.$inferSelect;
+export type NewConversationCollection = typeof conversationCollections.$inferInsert;
+export type ConversationCollectionItem = typeof conversationCollectionItems.$inferSelect;
+export type NewConversationCollectionItem = typeof conversationCollectionItems.$inferInsert;
 export type JobType = typeof jobTypeEnum.enumValues[number];
 export type JobStatus = typeof jobStatusEnum.enumValues[number];
 export type PostType = typeof postTypeEnum.enumValues[number];

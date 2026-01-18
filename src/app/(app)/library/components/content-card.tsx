@@ -24,7 +24,6 @@ import { Badge } from "@/components/ui/badge"
 import type { LibraryItemWithRelations } from "@/types/library"
 import { CONTENT_TYPE_CONFIGS, STATUS_CONFIGS } from "@/types/calendar"
 import { formatDate } from "@/lib/format"
-import { inlineUpdateLibraryItemAction } from "../actions/library-actions"
 import { toast } from "sonner"
 
 interface ContentCardProps {
@@ -88,7 +87,15 @@ export function ContentCard({
 
     setIsSaving(true)
     try {
-      const result = await inlineUpdateLibraryItemAction(item.id, "title", editedTitle.trim() || "Sem título")
+      const response = await fetch(`/api/library/${item.id}/inline`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          field: "title",
+          value: editedTitle.trim() || "Sem título",
+        }),
+      })
+      const result = await response.json()
       if (result.success) {
         toast.success("Título atualizado")
         // Update local item title for immediate feedback

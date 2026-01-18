@@ -21,6 +21,7 @@ export interface AgentConfig {
   description: string
   shortDescription: string // For UI tooltips
   expertise: string[] // Key areas of expertise
+  active: boolean // Whether agent is available in UI
 }
 
 /**
@@ -42,6 +43,7 @@ export const AGENTS: Record<AgentType, AgentConfig> = {
     description: "Assistente generalista com visão completa do seu negócio",
     shortDescription: "Assistente generalista",
     expertise: ["roteamento", "visão geral", "conversas gerais"],
+    active: true,
   },
   estrategista: {
     id: "estrategista",
@@ -52,6 +54,7 @@ export const AGENTS: Record<AgentType, AgentConfig> = {
     description: "Especialista em posicionamento de marca, tom de voz e análise de desempenho",
     shortDescription: "Posicionamento e estratégia",
     expertise: ["posicionamento", "tom de voz", "análise de desempenho"],
+    active: false,
   },
   criador: {
     id: "criador",
@@ -62,6 +65,7 @@ export const AGENTS: Record<AgentType, AgentConfig> = {
     description: "Especialista em criar conteúdo consistente com a marca e estratégias ativas",
     shortDescription: "Criação de conteúdo",
     expertise: ["posts", "carrosséis", "consistência de marca"],
+    active: false,
   },
   calendario: {
     id: "calendario",
@@ -72,6 +76,7 @@ export const AGENTS: Record<AgentType, AgentConfig> = {
     description: "Especialista em agendamento editorial e gerenciamento de frequência de posts",
     shortDescription: "Agendamento editorial",
     expertise: ["agendamento", "frequência", "calendário"],
+    active: false,
   },
 }
 

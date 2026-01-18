@@ -28,11 +28,6 @@ import { LibraryGrid } from "./library-grid"
 import { LibraryList } from "./library-list"
 import { EmptyLibraryState } from "./empty-library-state"
 import { ContentDialog } from "./content-dialog"
-import {
-  deleteLibraryItemAction,
-  batchDeleteAction,
-  batchUpdateStatusAction,
-} from "../actions/library-actions"
 import type { LibraryItemWithRelations } from "@/types/library"
 import type { ContentStatus } from "@/db/schema"
 
@@ -120,7 +115,11 @@ export function LibraryPage() {
   const confirmDelete = async () => {
     if (!itemToDelete) return
 
-    const result = await deleteLibraryItemAction(itemToDelete)
+    const response = await fetch(`/api/library/${itemToDelete}`, {
+      method: "DELETE",
+    })
+
+    const result = await response.json()
 
     if (result.success) {
       toast.success("Conteúdo excluído com sucesso")
@@ -137,7 +136,13 @@ export function LibraryPage() {
     const ids = Array.from(selectedIds)
     if (ids.length === 0) return
 
-    const result = await batchDeleteAction(ids)
+    const response = await fetch("/api/library", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    })
+
+    const result = await response.json()
 
     if (result.success) {
       toast.success(`${ids.length} ${ids.length === 1 ? "conteúdo excluído" : "conteúdos excluídos"} com sucesso`)
@@ -152,7 +157,13 @@ export function LibraryPage() {
     const ids = Array.from(selectedIds)
     if (ids.length === 0) return
 
-    const result = await batchUpdateStatusAction(ids, status as ContentStatus)
+    const response = await fetch("/api/library/batch-status", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, status: status as ContentStatus }),
+    })
+
+    const result = await response.json()
 
     if (result.success) {
       const statusLabels: Record<ContentStatus, string> = {

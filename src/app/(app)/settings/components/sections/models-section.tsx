@@ -67,7 +67,7 @@ function ModelOptionCard({
 
         <ModelSelector
           value={selectedModel}
-          onValueChange={(modelId) => {
+          onChange={(modelId) => {
             onModelChange(modelId)
           }}
           modelType={modelType}

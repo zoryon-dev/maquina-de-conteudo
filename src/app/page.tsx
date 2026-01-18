@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { MessageSquare, Sparkles, Calendar, Globe, ArrowRight } from "lucide-react"
+import { QuickChatInput } from "@/components/home/quick-chat-input"
 
 /**
  * Landing Page - Máquina de Conteúdo
@@ -78,6 +79,11 @@ export default function HomePage() {
               >
                 Já tenho conta
               </Link>
+            </div>
+
+            {/* Quick Chat Input */}
+            <div className="mt-12">
+              <QuickChatInput />
             </div>
           </div>
 

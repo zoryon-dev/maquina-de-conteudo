@@ -247,7 +247,7 @@ export async function createCollectionAction(
         and(
           eq(documentCollections.userId, userId),
           eq(documentCollections.name, data.name.trim()),
-          data.parentId
+          data.parentId !== null && data.parentId !== undefined
             ? eq(documentCollections.parentId, data.parentId)
             : isNull(documentCollections.parentId),
           isNull(documentCollections.deletedAt)
@@ -266,7 +266,7 @@ export async function createCollectionAction(
       .where(
         and(
           eq(documentCollections.userId, userId),
-          data.parentId
+          data.parentId !== null && data.parentId !== undefined
             ? eq(documentCollections.parentId, data.parentId)
             : isNull(documentCollections.parentId)
         )
@@ -285,16 +285,21 @@ export async function createCollectionAction(
       orderIdx: nextOrderIdx,
     }
 
+    console.log("[createCollectionAction] Inserting collection:", newCollection)
+
     const [inserted] = await db
       .insert(documentCollections)
       .values(newCollection)
       .returning()
 
+    console.log("[createCollectionAction] Inserted successfully with ID:", inserted.id)
+
     revalidatePath("/sources")
     return { success: true, collectionId: inserted.id }
   } catch (error) {
-    console.error("Create collection error:", error)
-    return { success: false, error: "Failed to create collection" }
+    console.error("[createCollectionAction] Error creating collection:", error)
+    const errorMessage = error instanceof Error ? error.message : "Failed to create collection"
+    return { success: false, error: errorMessage }
   }
 }
 

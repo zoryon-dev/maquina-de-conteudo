@@ -2,7 +2,7 @@
  * useCalendarPosts Hook
  *
  * Custom hook for fetching calendar posts with caching.
- * Uses server actions to fetch posts for a given date range.
+ * Uses API routes to fetch posts for a given date range.
  */
 
 "use client"
@@ -10,7 +10,6 @@
 import { useState, useEffect, useRef } from "react"
 import type { CalendarPost, CalendarFilters } from "@/types/calendar"
 import type { CalendarDateRange } from "@/types/calendar"
-import { getCalendarPostsAction } from "../actions/calendar-actions"
 
 interface UseCalendarPostsReturn {
   posts: CalendarPost[]
@@ -35,7 +34,23 @@ export function useCalendarPosts(
     setError(null)
 
     try {
-      const result = await getCalendarPostsAction(dateRange, filters)
+      // Build query params
+      const params = new URLSearchParams()
+      params.set("start", dateRange.start.toISOString())
+      params.set("end", dateRange.end.toISOString())
+
+      if (filters.platforms && filters.platforms.length > 0) {
+        params.set("platforms", filters.platforms.join(","))
+      }
+      if (filters.statuses && filters.statuses.length > 0) {
+        params.set("statuses", filters.statuses.join(","))
+      }
+      if (filters.types && filters.types.length > 0) {
+        params.set("types", filters.types.join(","))
+      }
+
+      const response = await fetch(`/api/calendar/posts?${params.toString()}`)
+      const result = await response.json()
       setPosts(result)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erro ao carregar posts"

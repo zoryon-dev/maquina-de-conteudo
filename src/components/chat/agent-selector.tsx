@@ -135,7 +135,7 @@ export function AgentSelector({
           <p className="text-xs text-white/50 font-medium">AGENTES DISPONÍVEIS</p>
         </div>
 
-        {Object.values(AGENTS).map((agent) => {
+        {Object.values(AGENTS).filter((agent) => agent.active).map((agent) => {
           const AgentIcon = AGENT_ICONS[agent.id]
           const isSelected = agent.id === value
 

@@ -37,14 +37,10 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
-import {
-  getRootCollectionsAction,
-  getChildCollectionsAction,
-  createCollectionAction,
-  updateCollectionAction,
-  deleteCollectionAction,
-  type DocumentCollectionWithCount,
-} from "../actions/collections-actions"
+import type {
+  DocumentCollectionWithCount,
+  ActionResult,
+} from "../types/sources-types"
 
 // Available colors for collections
 const COLLECTION_COLORS = [
@@ -90,8 +86,11 @@ export function CollectionsSidebar({
   const fetchCollections = React.useCallback(async () => {
     setIsLoading(true)
     try {
-      const data = await getRootCollectionsAction()
-      setCollections(data)
+      const response = await fetch("/api/sources/collections/root")
+      if (response.ok) {
+        const data = await response.json()
+        setCollections(data)
+      }
     } catch (error) {
       console.error("Failed to fetch collections:", error)
     } finally {
@@ -102,33 +101,36 @@ export function CollectionsSidebar({
   // Fetch child collections when expanding
   const fetchChildCollections = React.useCallback(async (parentId: number) => {
     try {
-      const children = await getChildCollectionsAction(parentId)
-      setCollections((prev) => {
-        const updateChildren = (
-          items: CollectionWithExpanded[]
-        ): CollectionWithExpanded[] => {
-          return items.map((item) => {
-            if (item.id === parentId) {
-              return {
-                ...item,
-                expanded: true,
-                children: children.map((child) => ({
-                  ...child,
-                  expanded: false,
-                })),
+      const response = await fetch(`/api/sources/collections/${parentId}/children`)
+      if (response.ok) {
+        const children: DocumentCollectionWithCount[] = await response.json()
+        setCollections((prev) => {
+          const updateChildren = (
+            items: CollectionWithExpanded[]
+          ): CollectionWithExpanded[] => {
+            return items.map((item) => {
+              if (item.id === parentId) {
+                return {
+                  ...item,
+                  expanded: true,
+                  children: children.map((child) => ({
+                    ...child,
+                    expanded: false,
+                  })),
+                }
               }
-            }
-            if (item.children) {
-              return {
-                ...item,
-                children: updateChildren(item.children),
+              if (item.children) {
+                return {
+                  ...item,
+                  children: updateChildren(item.children),
+                }
               }
-            }
-            return item
-          })
-        }
-        return updateChildren(prev)
-      })
+              return item
+            })
+          }
+          return updateChildren(prev)
+        })
+      }
     } catch (error) {
       console.error("Failed to fetch child collections:", error)
     }
@@ -183,11 +185,17 @@ export function CollectionsSidebar({
 
     setIsCreating(true)
     try {
-      const result = await createCollectionAction({
-        name: newCollectionName.trim(),
-        color: selectedColor,
-        icon: "folder",
+      const response = await fetch("/api/sources/collections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newCollectionName.trim(),
+          color: selectedColor,
+          icon: "folder",
+        }),
       })
+
+      const result: ActionResult = await response.json()
 
       if (result.success) {
         toast.success("Coleção criada com sucesso!")
@@ -216,10 +224,16 @@ export function CollectionsSidebar({
 
     setIsEditing(true)
     try {
-      const result = await updateCollectionAction(editingCollection.id, {
-        name: editName.trim(),
-        color: selectedColor,
+      const response = await fetch(`/api/sources/collections/${editingCollection.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editName.trim(),
+          color: selectedColor,
+        }),
       })
+
+      const result: ActionResult = await response.json()
 
       if (result.success) {
         toast.success("Coleção atualizada com sucesso!")
@@ -246,7 +260,12 @@ export function CollectionsSidebar({
     }
 
     try {
-      const result = await deleteCollectionAction(collection.id)
+      const response = await fetch(`/api/sources/collections/${collection.id}`, {
+        method: "DELETE",
+      })
+
+      const result: ActionResult = await response.json()
+
       if (result.success) {
         toast.success("Coleção excluída com sucesso!")
         if (selectedCollectionId === collection.id) {

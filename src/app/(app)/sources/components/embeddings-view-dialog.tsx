@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { ChunkViewer } from "@/components/embeddings"
-import { getDocumentEmbeddingsAction } from "../actions/sources-actions"
 
 interface EmbeddingsViewDialogProps {
   open: boolean
@@ -56,7 +55,8 @@ export function EmbeddingsViewDialog({
     setIsLoading(true)
     setError(null)
     try {
-      const data = await getDocumentEmbeddingsAction(document.id)
+      const response = await fetch(`/api/documents/${document.id}/embeddings`)
+      const data = await response.json()
       setEmbeddings(data)
     } catch (err) {
       setError("Falha ao carregar embeddings")

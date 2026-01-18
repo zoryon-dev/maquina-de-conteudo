@@ -6,8 +6,7 @@
 
 "use client"
 
-import { useState, useCallback, useEffect, useRef } from "react"
-import { getLibraryItemsAction } from "../actions/library-actions"
+import { useState, useEffect, useRef } from "react"
 import type { LibraryItemWithRelations, LibraryFilters, ViewMode } from "@/types/library"
 
 export interface UseLibraryDataReturn {
@@ -28,12 +27,31 @@ export function useLibraryData(
   // Ref para evitar infinite loops com dependências de objeto
   const prevDepsRef = useRef<string>("")
 
-  const fetchData = useCallback(async () => {
+  const fetchData = async () => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const result = await getLibraryItemsAction(filters, viewMode)
+      // Build query params
+      const params = new URLSearchParams()
+      if (filters.types && filters.types.length > 0) {
+        params.set("types", filters.types.join(","))
+      }
+      if (filters.statuses && filters.statuses.length > 0) {
+        params.set("statuses", filters.statuses.join(","))
+      }
+      if (filters.categories && filters.categories.length > 0) {
+        params.set("categories", filters.categories.join(","))
+      }
+      if (filters.search) {
+        params.set("search", filters.search)
+      }
+      params.set("viewMode", viewMode.mode)
+      params.set("sortBy", viewMode.sortBy)
+      params.set("sortOrder", viewMode.sortOrder)
+
+      const response = await fetch(`/api/library?${params.toString()}`)
+      const result = await response.json()
       setItems(result)
     } catch (err) {
       const errorMessage =
@@ -43,7 +61,7 @@ export function useLibraryData(
     } finally {
       setIsLoading(false)
     }
-  }, [filters, viewMode])
+  }
 
   useEffect(() => {
     // Comparar_deps via JSON.stringify para evitar re-renders infinitos
@@ -52,7 +70,7 @@ export function useLibraryData(
       prevDepsRef.current = deps
       fetchData()
     }
-  }, [fetchData, filters, viewMode])
+  }, [filters, viewMode])
 
   return { items, isLoading, error, refetch: fetchData }
 }

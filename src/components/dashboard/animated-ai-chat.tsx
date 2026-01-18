@@ -647,7 +647,7 @@ export function AnimatedAIChat({
                 {/* Model Selector */}
                 <ModelSelector
                   value={selectedModel}
-                  onValueChange={setSelectedModel}
+                  onChange={setSelectedModel}
                 />
                 {/* Agent Selector */}
                 <AgentSelector

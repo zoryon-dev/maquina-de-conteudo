@@ -1,143 +1,174 @@
+/**
+ * Model Selector Component
+ *
+ * Dropdown for selecting AI models with provider grouping.
+ */
+
 "use client"
 
 import * as React from "react"
-import { Cpu, Image as ImageIcon } from "lucide-react"
+import { Cpu, ChevronDown, Check } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import {
-  TEXT_MODELS,
-  IMAGE_MODELS,
-  DEFAULT_TEXT_MODEL,
-  formatModelId,
-  type AIModel,
-} from "@/lib/models"
+import { TEXT_MODELS, IMAGE_MODELS, DEFAULT_TEXT_MODEL, type AIModel } from "@/lib/models"
 
-interface ModelSelectorProps {
-  /** Modelo selecionado */
+export interface ModelSelectorProps {
   value?: string
-  /** Callback quando modelo é alterado */
-  onValueChange?: (modelId: string) => void
-  /** Tipo de modelo para filtrar */
-  modelType?: "text" | "image" | "both"
-  /** ClassName adicional */
+  onChange: (model: string) => void
   className?: string
+  disabled?: boolean
+  showModelName?: boolean
+  modelType?: "text" | "image" | "both"
 }
 
 /**
  * ModelSelector - Seletor de modelos de IA
  *
- * Usa DropdownMenu do shadcn em sua composição original.
- * Sem ícones dentro do dropdown, mantendo o padrão visual da aplicação.
+ * Dropdown para escolher entre diferentes modelos de IA,
+ * agrupados por provider (OpenAI, Anthropic, Google, etc.)
  */
 export function ModelSelector({
   value = DEFAULT_TEXT_MODEL.id,
-  onValueChange,
-  modelType = "text",
+  onChange,
   className,
+  disabled = false,
+  showModelName = true,
+  modelType = "text",
 }: ModelSelectorProps) {
-  const [selectedModel, setSelectedModel] = React.useState<AIModel>(() => {
-    const allModels = modelType === "image" ? IMAGE_MODELS : TEXT_MODELS
-    return (
-      allModels.find((m) => m.id === value) ||
-      (modelType === "image" ? IMAGE_MODELS[0] : TEXT_MODELS[0])
-    )
-  })
+  const [open, setOpen] = React.useState(false)
 
-  const handleSelectModel = (model: AIModel) => {
-    setSelectedModel(model)
-    onValueChange?.(model.id)
+  // Get models to show based on type
+  const getTextModels = () => TEXT_MODELS
+  const getImageModels = () => IMAGE_MODELS
+
+  const textModels = modelType === "image" ? [] : getTextModels()
+  const imageModels = modelType === "text" ? [] : getImageModels()
+
+  // Find current model
+  const allModels = [...textModels, ...imageModels]
+  const currentModel = allModels.find((m) => m.id === value) || textModels[0] || allModels[0]
+
+  // Group by provider
+  const groupModels = (models: AIModel[]) => {
+    return models.reduce((acc, model) => {
+      if (!acc[model.provider]) {
+        acc[model.provider] = []
+      }
+      acc[model.provider].push(model)
+      return acc
+    }, {} as Record<string, AIModel[]>)
   }
 
-  const modelsToShow =
-    modelType === "both"
-      ? { text: TEXT_MODELS, image: IMAGE_MODELS }
-      : modelType === "image"
-        ? { text: [], image: IMAGE_MODELS }
-        : { text: TEXT_MODELS, image: [] }
+  const textByProvider = groupModels(textModels)
+  const imageByProvider = groupModels(imageModels)
+
+  const handleSelect = (modelId: string) => {
+    onChange(modelId)
+    setOpen(false)
+  }
+
+  const providerNames: Record<string, string> = {
+    openai: "OpenAI",
+    anthropic: "Anthropic",
+    google: "Google",
+    "x-ai": "xAI",
+    "black-forest-labs": "Black Forest",
+    bytedance: "ByteDance",
+    sourceful: "Sourceful",
+  }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "p-2 text-white/40 hover:text-white/90 rounded-lg transition-colors relative group",
-            "data-[state=open]:bg-primary/20 data-[state=open]:text-white/90",
-            className
-          )}
-        >
-          {selectedModel.type === "image" ? (
-            <ImageIcon className="w-4 h-4" />
-          ) : (
-            <Cpu className="w-4 h-4" />
-          )}
-        </button>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger
+        disabled={disabled}
+        className={cn(
+          "flex items-center gap-2 px-2 py-1.5 rounded-lg",
+          "bg-white/5 border border-white/10",
+          "text-xs text-white/70 hover:text-white/90",
+          "hover:bg-white/10 hover:border-white/20",
+          "transition-colors",
+          "disabled:opacity-50 disabled:cursor-not-allowed",
+          "data-[state=open]:bg-white/10 data-[state=open]:border-white/20",
+          className
+        )}
+      >
+        <Cpu className="w-3.5 h-3.5 text-primary shrink-0" />
+        {showModelName && (
+          <span className="truncate max-w-[120px]">{currentModel.name}</span>
+        )}
+        <ChevronDown className="w-3 h-3 text-white/40 shrink-0" />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
-        align="end"
-        className="w-56 bg-[#1a1a2e] border-white/10 text-white"
+        align="start"
+        className={cn(
+          "w-72 bg-[#1a1a2e] border-white/10",
+          "max-h-[400px] overflow-y-auto"
+        )}
       >
-        {/* Modelos de Texto */}
-        {modelsToShow.text.length > 0 && (
-          <DropdownMenuGroup>
-            <DropdownMenuLabel className="text-white/50 text-xs font-normal py-2">
-              Modelos de Texto
+        {/* Text Models */}
+        {Object.entries(textByProvider).map(([provider, models]) => (
+          <div key={provider}>
+            <DropdownMenuLabel className="text-white/40 text-xs uppercase tracking-wider py-2">
+              {providerNames[provider] || provider}
             </DropdownMenuLabel>
-            {TEXT_MODELS.map((model) => (
+            {models.map((model) => (
               <DropdownMenuItem
                 key={model.id}
+                onClick={() => handleSelect(model.id)}
                 className={cn(
-                  "cursor-pointer",
-                  selectedModel.id === model.id && "bg-primary/20"
+                  "flex items-center justify-between gap-2 py-2 px-3",
+                  "text-white/70 hover:text-white hover:bg-white/5",
+                  "cursor-pointer text-xs",
+                  value === model.id && "bg-white/5 text-white"
                 )}
-                onClick={() => handleSelectModel(model)}
               >
-                <span className="flex-1">{formatModelId(model.id)}</span>
-                {selectedModel.id === model.id && (
-                  <span className="text-primary ml-2">✓</span>
+                <span>{model.name}</span>
+                {value === model.id && (
+                  <Check className="w-4 h-4 text-primary shrink-0" />
                 )}
               </DropdownMenuItem>
             ))}
-          </DropdownMenuGroup>
-        )}
+          </div>
+        ))}
 
-        {/* Separator se tem ambos */}
-        {modelsToShow.text.length > 0 && modelsToShow.image.length > 0 && (
+        {/* Separator */}
+        {textModels.length > 0 && imageModels.length > 0 && (
           <DropdownMenuSeparator className="bg-white/10" />
         )}
 
-        {/* Modelos de Imagem */}
-        {modelsToShow.image.length > 0 && (
-          <DropdownMenuGroup>
-            <DropdownMenuLabel className="text-white/50 text-xs font-normal py-2">
-              Modelos de Imagem
+        {/* Image Models */}
+        {Object.entries(imageByProvider).map(([provider, models]) => (
+          <div key={provider}>
+            <DropdownMenuLabel className="text-white/40 text-xs uppercase tracking-wider py-2">
+              {providerNames[provider] || provider}
             </DropdownMenuLabel>
-            {IMAGE_MODELS.map((model) => (
+            {models.map((model) => (
               <DropdownMenuItem
                 key={model.id}
+                onClick={() => handleSelect(model.id)}
                 className={cn(
-                  "cursor-pointer",
-                  selectedModel.id === model.id && "bg-primary/20"
+                  "flex items-center justify-between gap-2 py-2 px-3",
+                  "text-white/70 hover:text-white hover:bg-white/5",
+                  "cursor-pointer text-xs",
+                  value === model.id && "bg-white/5 text-white"
                 )}
-                onClick={() => handleSelectModel(model)}
               >
-                <span className="flex-1">{formatModelId(model.id)}</span>
-                {selectedModel.id === model.id && (
-                  <span className="text-primary ml-2">✓</span>
+                <span>{model.name}</span>
+                {value === model.id && (
+                  <Check className="w-4 h-4 text-primary shrink-0" />
                 )}
               </DropdownMenuItem>
             ))}
-          </DropdownMenuGroup>
-        )}
+          </div>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   )

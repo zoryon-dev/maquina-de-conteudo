@@ -20,7 +20,7 @@ interface AppLayoutProps {
 export function AppLayout({ children, className }: AppLayoutProps) {
   const navItems = React.useMemo(
     () => [
-      { name: "Chat", url: "/dashboard", icon: MessageSquare },
+      { name: "Conversas", url: "/chat", icon: MessageSquare },
       { name: "Biblioteca", url: "/library", icon: Library },
       { name: "Calendário", url: "/calendar", icon: Calendar },
       { name: "Fontes", url: "/sources", icon: Globe },
@@ -40,7 +40,7 @@ export function AppLayout({ children, className }: AppLayoutProps) {
             <div className="grid grid-cols-[1fr_auto_1fr] items-center h-16 gap-4">
               {/* Logo - alinhado à esquerda */}
               <Link
-                href="/dashboard"
+                href="/chat"
                 className="flex items-center gap-2.5 group justify-start"
               >
                 <div className="relative">
@@ -57,7 +57,7 @@ export function AppLayout({ children, className }: AppLayoutProps) {
 
               {/* Menu central - sempre no centro */}
               <div className="flex justify-center">
-                <NavBar items={navItems} defaultActive="Chat" />
+                <NavBar items={navItems} defaultActive="Conversas" />
               </div>
 
               {/* Espaçador vazio à direita para equilibrar o grid */}

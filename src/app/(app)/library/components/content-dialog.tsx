@@ -19,14 +19,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import {
-  updateLibraryItemAction,
-  createLibraryItemAction,
-  getCategoriesAction,
-  getTagsAction,
-} from "../actions/library-actions"
 import { CategoryPicker } from "./category-picker"
 import { TagPicker } from "./tag-picker"
 import type { LibraryItemWithRelations, Category, Tag } from "@/types/library"
@@ -79,7 +72,10 @@ export function ContentDialog({ open, item, onClose, onSave }: ContentDialogProp
   useEffect(() => {
     if (open) {
       setIsLoadingMetadata(true)
-      Promise.all([getCategoriesAction(), getTagsAction()])
+      Promise.all([
+        fetch("/api/library/categories").then((r) => r.json()),
+        fetch("/api/library/tags").then((r) => r.json()),
+      ])
         .then(([cats, tagsData]) => {
           setCategories(cats)
           setTags(tagsData)
@@ -147,9 +143,19 @@ export function ContentDialog({ open, item, onClose, onSave }: ContentDialogProp
       let result
 
       if (isEditing && item) {
-        result = await updateLibraryItemAction(item.id, formData)
+        const response = await fetch(`/api/library/${item.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        })
+        result = await response.json()
       } else {
-        result = await createLibraryItemAction(formData)
+        const response = await fetch("/api/library", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        })
+        result = await response.json()
       }
 
       if (result.success) {

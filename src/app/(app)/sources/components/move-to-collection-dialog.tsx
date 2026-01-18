@@ -18,13 +18,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import {
-  getRootCollectionsAction,
-  addDocumentToCollectionAction,
-  getDocumentCollectionsAction,
-  removeDocumentFromCollectionAction,
-  type DocumentCollectionWithCount,
-} from "../actions/collections-actions"
+import type {
+  DocumentCollectionWithCount,
+  ActionResult,
+} from "../types/sources-types"
 
 interface MoveToCollectionDialogProps {
   open: boolean
@@ -62,8 +59,11 @@ export function MoveToCollectionDialog({
   const fetchCollections = async () => {
     setIsLoading(true)
     try {
-      const data = await getRootCollectionsAction()
-      setCollections(data)
+      const response = await fetch("/api/sources/collections/root")
+      if (response.ok) {
+        const data: DocumentCollectionWithCount[] = await response.json()
+        setCollections(data)
+      }
     } catch (error) {
       console.error("Failed to fetch collections:", error)
     } finally {
@@ -74,8 +74,11 @@ export function MoveToCollectionDialog({
   const fetchDocumentCollections = async () => {
     if (documentIds.length === 1) {
       try {
-        const docCollections = await getDocumentCollectionsAction(documentIds[0])
-        setSelectedCollections(new Set(docCollections.map((c) => c.id)))
+        const response = await fetch(`/api/sources/documents/${documentIds[0]}/collections`)
+        if (response.ok) {
+          const docCollections: DocumentCollectionWithCount[] = await response.json()
+          setSelectedCollections(new Set(docCollections.map((c) => c.id)))
+        }
       } catch (error) {
         console.error("Failed to fetch document collections:", error)
       }
@@ -100,20 +103,27 @@ export function MoveToCollectionDialog({
       // For each document, update its collections
       for (const documentId of documentIds) {
         // Get current collections for this document
-        const currentCollections = await getDocumentCollectionsAction(documentId)
+        const response = await fetch(`/api/sources/documents/${documentId}/collections`)
+        if (!response.ok) continue
+
+        const currentCollections: DocumentCollectionWithCount[] = await response.json()
         const currentIds = new Set(currentCollections.map((c) => c.id))
 
         // Add to new collections
         for (const collectionId of selectedCollections) {
           if (!currentIds.has(collectionId)) {
-            await addDocumentToCollectionAction(documentId, collectionId)
+            await fetch(`/api/sources/collections/${collectionId}/documents/${documentId}`, {
+              method: "POST",
+            })
           }
         }
 
         // Remove from unselected collections
         for (const collection of currentCollections) {
           if (!selectedCollections.has(collection.id)) {
-            await removeDocumentFromCollectionAction(documentId, collection.id)
+            await fetch(`/api/sources/collections/${collection.id}/documents/${documentId}`, {
+              method: "DELETE",
+            })
           }
         }
       }

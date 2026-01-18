@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 // Rotas protegidas - requerem autenticação
 const isProtectedRoute = createRouteMatcher([
-  "/dashboard(.*)",
+  "/chat(.*)",
   "/library(.*)",
   "/calendar(.*)",
   "/sources(.*)",
@@ -11,10 +11,10 @@ const isProtectedRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
-  // Redirecionar usuário autenticado da home para dashboard
+  // Redirecionar usuário autenticado da home para chat
   if (request.nextUrl.pathname === "/" && (await auth()).userId) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = "/chat";
     return NextResponse.redirect(url);
   }
 

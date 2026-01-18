@@ -20,11 +20,10 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
-import {
-  getSystemStatusAction,
-  type SystemStatusResult,
-  type ServiceStatus,
-} from "../../actions/system-status"
+import type {
+  SystemStatusResult,
+  ServiceStatus,
+} from "../../types/settings-types"
 
 /**
  * Source badge component
@@ -178,8 +177,11 @@ export function SystemStatusSection({
 
   const loadStatus = async () => {
     try {
-      const status = await getSystemStatusAction()
-      setSystemStatus(status)
+      const response = await fetch("/api/settings/system-status")
+      if (response.ok) {
+        const status: SystemStatusResult = await response.json()
+        setSystemStatus(status)
+      }
     } catch (error) {
       console.error("Failed to load system status:", error)
       toast.error("Erro ao carregar status do sistema")
