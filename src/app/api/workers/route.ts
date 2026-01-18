@@ -16,11 +16,24 @@ import { auth } from "@clerk/nextjs/server";
 import { dequeueJob, markAsProcessing, removeFromProcessing, enqueueJob } from "@/lib/queue/client";
 import { getJob, incrementJobAttempts, updateJobStatus } from "@/lib/queue/jobs";
 import { db } from "@/db";
-import { jobs, documents, documentEmbeddings } from "@/db/schema";
+import { jobs, documents, documentEmbeddings, contentWizards } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { splitDocumentIntoChunks } from "@/lib/voyage/chunking";
 import { generateEmbeddingsBatch } from "@/lib/voyage/embeddings";
-import type { DocumentEmbeddingPayload } from "@/lib/queue/types";
+import type { DocumentEmbeddingPayload, WizardNarrativesPayload, WizardGenerationPayload } from "@/lib/queue/types";
+
+// Wizard services - background job processing
+import {
+  generateNarratives,
+  generateContent,
+  generateWizardRagContext,
+  formatRagForPrompt,
+  formatRagSourcesForMetadata,
+  extractFromUrl,
+  transcribeYouTube,
+  contextualSearch,
+  formatSearchForPrompt,
+} from "@/lib/wizard-services";
 
 /**
  * Secret para validar chamadas internas do worker
@@ -165,6 +178,206 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       chunksProcessed: chunks.length,
       model,
       documentId,
+    };
+  },
+
+  /**
+   * Wizard Narratives Handler
+   *
+   * Processes wizard_narratives job by:
+   * 1. Fetching the wizard from database
+   * 2. Extracting content from reference URLs (Firecrawl)
+   * 3. Transcribing YouTube videos (Apify)
+   * 4. Searching for context (Tavily)
+   * 5. Generating RAG context if configured
+   * 6. Generating 4 narrative options using AI
+   * 7. Updating wizard with narratives
+   */
+  wizard_narratives: async (payload: unknown) => {
+    const { wizardId, userId, contentType, referenceUrl, referenceVideoUrl, theme, context, objective, targetAudience, cta, ragConfig } =
+      payload as WizardNarrativesPayload;
+
+    // 1. Get wizard
+    const [wizard] = await db
+      .select()
+      .from(contentWizards)
+      .where(and(eq(contentWizards.id, wizardId), eq(contentWizards.userId, userId)))
+      .limit(1);
+
+    if (!wizard) {
+      throw new Error(`Wizard ${wizardId} not found for user ${userId}`);
+    }
+
+    let extractedContent = "";
+    let researchData = "";
+    let ragContext: string | null = null;
+
+    // 2. Extract content from reference URL (Firecrawl)
+    if (referenceUrl) {
+      const firecrawlResult = await extractFromUrl(referenceUrl);
+      if (firecrawlResult.success && firecrawlResult.data) {
+        extractedContent = firecrawlResult.data.content;
+      }
+    }
+
+    // 3. Transcribe video (Apify)
+    if (referenceVideoUrl) {
+      const transcriptionResult = await transcribeYouTube(referenceVideoUrl);
+      if (transcriptionResult.success && transcriptionResult.data) {
+        if (extractedContent) {
+          extractedContent += `\n\n`;
+        }
+        extractedContent += `Video Transcription:\n${transcriptionResult.data.transcription}`;
+      }
+    }
+
+    // 4. Search for context (Tavily)
+    if (theme) {
+      const searchQuery = objective
+        ? `${theme} ${objective} ${contentType === "video" ? "video content" : contentType}`
+        : `${theme} ${contentType === "video" ? "video content" : contentType}`;
+
+      const searchResult = await contextualSearch(searchQuery, {
+        maxResults: 5,
+        searchDepth: "basic",
+      });
+
+      if (searchResult.success && searchResult.data) {
+        researchData = formatSearchForPrompt(searchResult.data);
+      }
+    }
+
+    // 5. Generate RAG context if configured
+    if (ragConfig && (ragConfig.documents || ragConfig.collections)) {
+      const ragQuery = `Context for ${contentType} content: ${theme || context || objective || "general content"}`;
+      const ragResult = await generateWizardRagContext(userId, ragQuery, ragConfig);
+
+      if (ragResult.success && ragResult.data) {
+        ragContext = formatRagForPrompt(ragResult.data);
+        // Store RAG source info in researchResults for reference
+        const ragSourceInfo = formatRagSourcesForMetadata(ragResult.data);
+        if (ragSourceInfo.length > 0) {
+          researchData += (researchData ? "\n\n" : "") + `RAG Sources: ${ragSourceInfo.map(s => s.title).join(", ")}`;
+        }
+      }
+    }
+
+    // 6. Generate narratives using AI
+    const narrativesResult = await generateNarratives({
+      contentType: contentType as any,
+      theme,
+      context,
+      objective,
+      targetAudience,
+      cta,
+      extractedContent: extractedContent || undefined,
+      researchData: researchData || undefined,
+    });
+
+    if (!narrativesResult.success) {
+      throw new Error(`Failed to generate narratives: ${narrativesResult.error}`);
+    }
+
+    const narratives = narrativesResult.data!;
+
+    // 7. Update wizard with narratives
+    await db
+      .update(contentWizards)
+      .set({
+        narratives: narratives as any, // JSONB column
+        extractedContent: extractedContent || null,
+        researchQueries: researchData ? [researchData] : [],
+        currentStep: "narratives",
+        updatedAt: new Date(),
+      })
+      .where(eq(contentWizards.id, wizardId));
+
+    return {
+      success: true,
+      narratives,
+      wizardId,
+    };
+  },
+
+  /**
+   * Wizard Generation Handler
+   *
+   * Processes wizard_generation job by:
+   * 1. Fetching the wizard with selected narrative
+   * 2. Generating RAG context if configured
+   * 3. Generating the actual content (slides, caption, etc.)
+   * 4. Saving the generated content
+   * 5. Updating wizard status
+   */
+  wizard_generation: async (payload: unknown) => {
+    const { wizardId, userId, selectedNarrativeId, contentType, numberOfSlides, model, ragConfig } =
+      payload as WizardGenerationPayload;
+
+    // 1. Get wizard
+    const [wizard] = await db
+      .select()
+      .from(contentWizards)
+      .where(and(eq(contentWizards.id, wizardId), eq(contentWizards.userId, userId)))
+      .limit(1);
+
+    if (!wizard) {
+      throw new Error(`Wizard ${wizardId} not found for user ${userId}`);
+    }
+
+    if (!wizard.narratives) {
+      throw new Error(`Wizard ${wizardId} has no narratives`);
+    }
+
+    // Parse narratives
+    const narratives = wizard.narratives as any[];
+    const selectedNarrative = narratives.find((n: any) => n.id === selectedNarrativeId);
+
+    if (!selectedNarrative) {
+      throw new Error(`Narrative ${selectedNarrativeId} not found`);
+    }
+
+    // 2. Generate RAG context if configured
+    let ragContextForPrompt: string | undefined;
+    if (ragConfig && (ragConfig.documents || ragConfig.collections)) {
+      const ragQuery = `Context for ${contentType} generation: ${wizard.theme || wizard.objective || "general content"}`;
+      const ragResult = await generateWizardRagContext(userId, ragQuery, ragConfig);
+
+      if (ragResult.success && ragResult.data) {
+        ragContextForPrompt = formatRagForPrompt(ragResult.data);
+      }
+    }
+
+    // 3. Generate content using AI
+    const contentResult = await generateContent({
+      contentType: contentType as any,
+      selectedNarrative: selectedNarrative as any,
+      numberOfSlides,
+      cta: wizard.cta || undefined,
+      negativeTerms: wizard.negativeTerms as string[] | undefined,
+      ragContext: ragContextForPrompt,
+    }, model);
+
+    if (!contentResult.success) {
+      throw new Error(`Failed to generate content: ${contentResult.error}`);
+    }
+
+    const generatedContent = contentResult.data!;
+
+    // 4. Update wizard with generated content
+    await db
+      .update(contentWizards)
+      .set({
+        generatedContent: JSON.stringify(generatedContent),
+        currentStep: "generation",
+        updatedAt: new Date(),
+        completedAt: new Date(),
+      })
+      .where(eq(contentWizards.id, wizardId));
+
+    return {
+      success: true,
+      generatedContent,
+      wizardId,
     };
   },
 };

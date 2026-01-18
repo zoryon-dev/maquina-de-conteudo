@@ -1,0 +1,151 @@
+/**
+ * Wizard Submit API Route
+ *
+ * POST /api/wizard/[id]/submit
+ *
+ * Triggers the wizard processing by enqueuing background jobs.
+ * This endpoint is called when:
+ * - User clicks "Generate Narratives" (enqueues wizard_narratives job)
+ * - User selects a narrative (enqueues wizard_generation job)
+ */
+
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { db } from "@/db";
+import { contentWizards, jobs } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import { createJob } from "@/lib/queue/jobs";
+import { JobType } from "@/lib/queue/types";
+import type { PostType } from "@/db/schema";
+
+interface SubmitRequestBody {
+  /** Submit type: "narratives" to generate narratives, "generation" to generate final content */
+  submitType: "narratives" | "generation";
+}
+
+/**
+ * POST /api/wizard/[id]/submit
+ *
+ * Triggers wizard processing by enqueuing appropriate background jobs.
+ */
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const { id } = await params;
+    const wizardId = parseInt(id, 10);
+
+    if (isNaN(wizardId)) {
+      return NextResponse.json({ error: "Invalid wizard ID" }, { status: 400 });
+    }
+
+    // Get wizard
+    const [wizard] = await db
+      .select()
+      .from(contentWizards)
+      .where(and(eq(contentWizards.id, wizardId), eq(contentWizards.userId, userId)))
+      .limit(1);
+
+    if (!wizard) {
+      return NextResponse.json({ error: "Wizard not found" }, { status: 404 });
+    }
+
+    const body = await request.json() as SubmitRequestBody;
+    const { submitType } = body;
+
+    if (submitType === "narratives") {
+      // Enqueue wizard_narratives job
+      const jobId = await createJob(
+        userId,
+        JobType.WIZARD_NARRATIVES,
+        {
+          wizardId: wizard.id,
+          userId,
+          contentType: wizard.contentType ?? "text",
+          referenceUrl: wizard.referenceUrl ?? undefined,
+          referenceVideoUrl: wizard.referenceVideoUrl ?? undefined,
+          theme: wizard.theme ?? undefined,
+          context: wizard.context ?? undefined,
+          objective: wizard.objective ?? undefined,
+          cta: wizard.cta ?? undefined,
+          targetAudience: wizard.targetAudience ?? undefined,
+          ragConfig: wizard.ragConfig as any,
+        }
+      );
+
+      // Update wizard with job ID and step
+      await db
+        .update(contentWizards)
+        .set({
+          jobId,
+          currentStep: "processing",
+          updatedAt: new Date(),
+        })
+        .where(eq(contentWizards.id, wizardId));
+
+      return NextResponse.json({
+        success: true,
+        jobId,
+        message: "Narratives generation started",
+      });
+
+    } else if (submitType === "generation") {
+      // Validate that narratives exist and one is selected
+      if (!wizard.narratives || !wizard.selectedNarrativeId) {
+        return NextResponse.json(
+          { error: "No narratives available or no narrative selected" },
+          { status: 400 }
+        );
+      }
+
+      // Enqueue wizard_generation job
+      const jobId = await createJob(
+        userId,
+        JobType.WIZARD_GENERATION,
+        {
+          wizardId: wizard.id,
+          userId,
+          selectedNarrativeId: wizard.selectedNarrativeId!,
+          contentType: wizard.contentType ?? "text",
+          numberOfSlides: wizard.numberOfSlides ?? 10,
+          model: wizard.model ?? undefined,
+          ragConfig: wizard.ragConfig as any,
+        }
+      );
+
+      // Update wizard with job ID and step
+      await db
+        .update(contentWizards)
+        .set({
+          jobId,
+          currentStep: "generation",
+          updatedAt: new Date(),
+        })
+        .where(eq(contentWizards.id, wizardId));
+
+      return NextResponse.json({
+        success: true,
+        jobId,
+        message: "Content generation started",
+      });
+
+    } else {
+      return NextResponse.json(
+        { error: "Invalid submit type. Use 'narratives' or 'generation'" },
+        { status: 400 }
+      );
+    }
+  } catch (error) {
+    console.error("Error submitting wizard:", error);
+    return NextResponse.json(
+      { error: "Failed to submit wizard" },
+      { status: 500 }
+    );
+  }
+}

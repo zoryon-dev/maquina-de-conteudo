@@ -864,6 +864,37 @@ Policy not valid - Cloudflare R2
 
 ---
 
+### 30. Vercel AI SDK - maxTokens Parameter Error
+
+**Erro:**
+```
+Object literal may only specify known properties, and 'maxTokens' does not exist in type...
+```
+
+**Causa:** A função `generateText()` do Vercel AI SDK v3+ não suporta o parâmetro `maxTokens`.
+
+**Solução:** Remover o parâmetro `maxTokens` das opções de `generateText()`:
+```typescript
+// ❌ ERRADO
+const result = await generateText({
+  model: openrouter(model),
+  prompt,
+  temperature: 0.7,
+  maxTokens: 4000, // Error!
+});
+
+// ✅ CORRETO
+const result = await generateText({
+  model: openrouter(model),
+  prompt,
+  temperature: 0.7,
+});
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/031-vercel-ai-sdk-maxtokens-param.md`
+
+---
+
 ## Padrões de Solução
 
 ### 1. Sempre validar tipos de DB

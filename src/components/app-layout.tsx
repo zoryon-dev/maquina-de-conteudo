@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { MessageSquare, Library, Calendar, Globe, Settings } from "lucide-react"
+import { MessageSquare, Library, Calendar, Globe, Settings, Sparkles } from "lucide-react"
 import { NavBar } from "@/components/ui/tubelight-navbar"
 import { UserMenu } from "@/components/auth/user-menu"
 import { cn } from "@/lib/utils"
@@ -21,6 +21,7 @@ export function AppLayout({ children, className }: AppLayoutProps) {
   const navItems = React.useMemo(
     () => [
       { name: "Conversas", url: "/chat", icon: MessageSquare },
+      { name: "Wizard", url: "/wizard", icon: Sparkles },
       { name: "Biblioteca", url: "/library", icon: Library },
       { name: "Calendário", url: "/calendar", icon: Calendar },
       { name: "Fontes", url: "/sources", icon: Globe },

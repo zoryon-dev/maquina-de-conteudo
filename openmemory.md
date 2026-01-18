@@ -14,13 +14,11 @@
 - `src/components/app-layout.tsx`: layout principal com header e navegação
 - `src/components/auth/user-menu.tsx`: menu de usuário com `UserButton`
 - `src/components/ui/tubelight-navbar.tsx`: navbar animada do header
-- `src/app/(app)/sources/components/documents-tab.tsx`: filtros de documentos com categorias em uma linha e ações (busca/seleção/processar/upload) em outra
 
 ## Patterns
 - Componentes client apenas quando necessário (ex.: menu usuário, navbar)
 - Layouts com `max-w-6xl` e padding consistente
 - Header do `AppLayout` usa padding vertical (`pt-5 pb-5`) no container glassmorphism
-- Elementos do overlay de dev do Next.js (ex.: `nextjs-portal`) são injetados em runtime e não vivem no código-fonte
 
 ## User Defined Namespaces
 - [Leave blank - user populates]

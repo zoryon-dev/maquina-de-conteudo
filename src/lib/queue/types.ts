@@ -12,6 +12,8 @@ export enum JobType {
   SCHEDULED_PUBLISH = "scheduled_publish",
   WEB_SCRAPING = "web_scraping",
   DOCUMENT_EMBEDDING = "document_embedding",
+  WIZARD_NARRATIVES = "wizard_narratives",
+  WIZARD_GENERATION = "wizard_generation",
 }
 
 // Status dos jobs
@@ -69,6 +71,64 @@ export interface DocumentEmbeddingPayload {
   model?: "voyage-4-large" | "voyage-4";
 }
 
+/**
+ * Payload for wizard narratives job
+ * Generates 3 narrative options based on user input
+ */
+export interface WizardNarrativesPayload {
+  /** Wizard ID */
+  wizardId: number;
+  /** User ID for authorization */
+  userId: string;
+  /** Content type (carousel, text, etc.) */
+  contentType: string;
+  /** Reference URL for Firecrawl extraction */
+  referenceUrl?: string;
+  /** Reference video URL for Apify transcription */
+  referenceVideoUrl?: string;
+  /** Theme/context from user input */
+  theme?: string;
+  context?: string;
+  objective?: string;
+  cta?: string;
+  targetAudience?: string;
+  /** RAG configuration */
+  ragConfig?: {
+    mode?: "auto" | "manual";
+    threshold?: number;
+    maxChunks?: number;
+    documents?: number[];
+    collections?: number[];
+  };
+}
+
+/**
+ * Payload for wizard generation job
+ * Generates final content based on selected narrative
+ */
+export interface WizardGenerationPayload {
+  /** Wizard ID */
+  wizardId: number;
+  /** User ID for authorization */
+  userId: string;
+  /** Selected narrative ID */
+  selectedNarrativeId: string;
+  /** Content type (carousel, text, etc.) */
+  contentType: string;
+  /** Number of slides (for carousels) */
+  numberOfSlides?: number;
+  /** AI model to use */
+  model?: string;
+  /** RAG configuration */
+  ragConfig?: {
+    mode?: "auto" | "manual";
+    threshold?: number;
+    maxChunks?: number;
+    documents?: number[];
+    collections?: number[];
+  };
+}
+
 // Tipo union de todos os payloads
 export type JobPayload =
   | AiTextGenerationPayload
@@ -76,7 +136,9 @@ export type JobPayload =
   | CarouselCreationPayload
   | ScheduledPublishPayload
   | WebScrapingPayload
-  | DocumentEmbeddingPayload;
+  | DocumentEmbeddingPayload
+  | WizardNarrativesPayload
+  | WizardGenerationPayload;
 
 // Estrutura de um job
 export interface QueueJob {

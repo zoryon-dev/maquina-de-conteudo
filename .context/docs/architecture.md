@@ -73,6 +73,9 @@ graph TD
 │   │   ├── /jobs/[id]      # Job status endpoint
 │   │   ├── /workers        # Queue processor
 │   │   ├── /webhooks       # Clerk webhook sync
+│   │   ├── /wizard         # Wizard de Criação (CRUD + submit)
+│   │   │   ├── route.ts    # GET (list), POST (create)
+│   │   │   └── /[id]       # GET, PATCH, DELETE, /submit
 │   │   ├── /documents      # Document management
 │   │   │   ├── /upload      # PDF/TXT/MD upload with text extraction
 │   │   │   └── /[id]        # Download document from storage
@@ -220,6 +223,7 @@ erDiagram
 | `chats` | AI conversations | userId, title, model |
 | `messages` | Chat messages | chatId, role, content |
 | `library_items` | Content library | type, status, content (JSONB) |
+| `content_wizards` | Wizard de Criação state | currentStep, narratives (JSONB), generatedContent (JSONB) |
 | `documents` | Knowledge base | title, content, fileType, category, storageProvider, storageKey |
 | `document_collections` | Document folders | name, description, userId |
 | `document_collection_items` | Many-to-many junction | collectionId, documentId |
@@ -443,6 +447,8 @@ sequenceDiagram
 | `scheduled_publish` | Publish to social media | 🔄 Mock |
 | `web_scraping` | Scrape web content | 🔄 Mock |
 | `document_embedding` | Generate embeddings for RAG | ⭐ Ready |
+| `wizard_narratives` | Generate narrative options for Wizard | ⭐ Implemented (Jan 2026) |
+| `wizard_generation` | Generate final content from Wizard | ⭐ Implemented (Jan 2026) |
 
 ## Authentication Flow
 
@@ -634,6 +640,193 @@ const status = await getSystemStatusAction()
 
 ---
 
+## Wizard de Criação Architecture
+
+### Overview
+
+The **Wizard de Criação** (Creation Wizard) is a multi-step form that guides users through AI-powered content creation. It implements a state machine pattern with auto-save and background job processing.
+
+### Wizard Flow
+
+```mermaid
+stateDiagram-v2
+    [*] --> input: Start Wizard
+    input --> processing: Submit form
+    processing --> narratives: Job complete
+    processing --> failed: Job error
+    narratives --> generation: Select + Submit
+    generation --> completed: Job complete
+    generation --> failed: Job error
+    failed --> input: Retry
+    completed --> [*]
+    input --> abandoned: User leaves
+    narratives --> abandoned: User leaves
+```
+
+### Component Structure
+
+```
+src/app/(app)/wizard/
+├── page.tsx                          # Route entry (redirects to new or existing)
+├── components/
+│   ├── wizard-page.tsx               # Main orchestrator (Client Component)
+│   ├── wizard-dialog.tsx             # Modal wrapper + useWizardDialog() hook
+│   ├── steps/
+│   │   ├── step-1-inputs.tsx         # Form: content type, references, details
+│   │   ├── step-2-processing.tsx     # Polling: narratives generation
+│   │   ├── step-3-narratives.tsx     # Selection: 4 narrative cards
+│   │   └── step-4-generation.tsx     # Preview: final content + actions
+│   └── shared/
+│       ├── narrative-card.tsx        # Individual narrative card component
+│       ├── document-config-form.tsx  # RAG configuration (documents/collections)
+│       └── wizard-steps-indicator.tsx # Progress indicator (1-4)
+```
+
+### Database Schema (content_wizards)
+
+```typescript
+// src/db/schema.ts
+export const contentWizards = pgTable("content_wizards", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+
+  // Step 1: Inputs
+  contentType: text("content_type"), // "text" | "image" | "carousel" | "video"
+  numberOfSlides: integer("number_of_slides"),
+  model: text("model"),
+  referenceUrl: text("reference_url"),
+  referenceVideoUrl: text("reference_video_url"),
+  theme: text("theme"),
+  context: text("context"),
+  objective: text("objective"),
+  cta: text("cta"), // Call to Action
+  targetAudience: text("target_audience"),
+  negativeTerms: text("negative_terms").array(),
+
+  // Step 2: Processing
+  extractedContent: jsonb("extracted_content"), // From Firecrawl/Apify
+  researchQueries: jsonb("research_queries"), // From Tavily
+
+  // Step 3: Narratives (4 options with different angles)
+  narratives: jsonb("narratives"), // [{id, angle, title, description, content}]
+  selectedNarrativeId: text("selected_narrative_id"),
+  customInstructions: text("custom_instructions"),
+
+  // RAG Configuration
+  ragConfig: jsonb("rag_config"), // {mode, threshold, maxChunks, documents[], collections[]}
+
+  // Step 4: Generation
+  generatedContent: jsonb("generated_content"), // {slides, caption, hashtags}
+  libraryItemId: integer("library_item_id").references(() => libraryItems.id),
+
+  // State
+  currentStep: text("current_step").notNull(), // "input" | "processing" | "narratives" | "generation" | "completed" | "abandoned"
+  jobStatus: text("job_status"), // "pending" | "processing" | "completed" | "failed"
+  jobError: text("job_error"),
+  processingProgress: jsonb("processing_progress"), // {stage, percent}
+
+  timestamps,
+})
+```
+
+### API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/wizard` | GET | List user's wizards (paginated) |
+| `/api/wizard` | POST | Create new wizard (step: "input") |
+| `/api/wizard/[id]` | GET | Fetch wizard data |
+| `/api/wizard/[id]` | PATCH | Update wizard (auto-save, step transitions) |
+| `/api/wizard/[id]` | DELETE | Soft delete (currentStep: "abandoned") |
+| `/api/wizard/[id]/submit` | POST | Trigger background job (narratives or generation) |
+
+### Narrative Angles
+
+The Wizard generates 4 narrative options, each with a different angle:
+
+| Angle | Label | Description |
+|-------|-------|-------------|
+| `criativo` | Criativo | Abordagem inovadora e original |
+| `estrategico` | Estratégico | Focado em objetivos e resultados |
+| `dinamico` | Dinâmico | Energético e envolvente |
+| `inspirador` | Inspirador | Motivacional e aspiracional |
+
+### Background Jobs
+
+**wizard_narratives Job:**
+1. Extract content from `referenceUrl` (Firecrawl REST API)
+2. Transcribe `referenceVideoUrl` (Apify YouTube Transcript Actor)
+3. Search context with Tavily Search API
+4. Generate RAG context if configured
+5. Generate 4 narratives with LLM (OpenRouter via Vercel AI SDK)
+6. Update wizard with narratives
+
+**wizard_generation Job:**
+1. Fetch wizard with selected narrative
+2. Generate RAG context if configured
+3. Generate final content (slides, caption, hashtags) with LLM
+4. Update wizard with generatedContent
+
+### Wizard Services Module
+
+**Localização**: `src/lib/wizard-services/`
+
+Módulo de serviços para processamento de jobs do Wizard:
+
+```
+src/lib/wizard-services/
+├── types.ts                    # Shared types (NarrativeAngle, ContentType, ServiceResult)
+├── prompts.ts                  # Isolated prompts per content type
+├── llm.service.ts              # LLM generation with retry logic
+├── rag.service.ts              # RAG wrapper with graceful degradation
+├── firecrawl.service.ts        # Web scraping (optional)
+├── tavily.service.ts           # Contextual search (optional)
+├── apify.service.ts            # YouTube transcription (optional)
+└── index.ts                    # Barrel exports
+```
+
+**Key Features**:
+- **Graceful Degradation**: Optional services return null if not configured
+- **Prompts Isolados**: Each content type has its own prompt function
+- **Retry Logic**: Exponential backoff for LLM calls
+- **Type-Safe**: Full TypeScript interfaces
+
+### State Management
+
+The `WizardPage` component manages all state locally with debounced auto-save:
+
+```typescript
+// Auto-save to database every 1s of inactivity
+useEffect(() => {
+  const handler = setTimeout(() => {
+    if (wizardId) {
+      fetch(`/api/wizard/${wizardId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ currentStep, formData }),
+      })
+    }
+  }, 1000)
+  return () => clearTimeout(handler)
+}, [formData])
+```
+
+### Visual Patterns
+
+**Important:** The Wizard uses a gradient background `from-[#0a0a0f] to-[#1a1a2e]` WITHOUT the `.dark` class. All form inputs must use explicit color overrides:
+
+```tsx
+// Pattern for visible inputs in gradient backgrounds
+className="!border-white/10 !bg-white/[0.02] !text-white !placeholder:text-white/40 focus-visible:!border-primary/50"
+```
+
+**CollapsibleSection Component:**
+- Radix UI Collapsible + Framer Motion animations
+- Header with icon, title, description
+- Expandable content area
+- Used in Step 1 for organizing form sections
+
+---
+
 ## Design Patterns
 
 ### 1. Serverless Queue Pattern
@@ -692,7 +885,7 @@ Clerk webhooks keep database in sync rather than fetching user data on each requ
 
 ## Future Considerations
 
-- [ ] Implement real AI handlers (OpenRouter, Firecrawl)
+- [x] Implement real AI handlers (OpenRouter, Firecrawl) ✅ Janeiro 2026
 - [ ] Add dead letter queue for permanently failed jobs
 - [ ] Create job monitoring dashboard
 - [ ] Implement job scheduling (cron within queue)
@@ -700,4 +893,4 @@ Clerk webhooks keep database in sync rather than fetching user data on each requ
 
 ---
 
-*Updated based on codebase analysis as of Jan 17, 2026 (Fase 8 - Vercel AI SDK Migration + R2 Storage Migration).*
+*Updated based on codebase analysis as of Jan 18, 2026 (Fase 9 - Wizard de Criação + Database-backed Chat + Wizard Services).*

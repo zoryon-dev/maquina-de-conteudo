@@ -37,6 +37,8 @@ export const jobTypeEnum = pgEnum("job_type", [
   "scheduled_publish",
   "web_scraping",
   "document_embedding",
+  "wizard_narratives",
+  "wizard_generation",
 ]);
 
 export const jobStatusEnum = pgEnum("job_status", [
@@ -44,6 +46,16 @@ export const jobStatusEnum = pgEnum("job_status", [
   "processing",
   "completed",
   "failed",
+]);
+
+// Wizard step enum
+export const wizardStepEnum = pgEnum("wizard_step", [
+  "input",
+  "processing",
+  "narratives",
+  "generation",
+  "completed",
+  "abandoned",
 ]);
 
 // 1. USERS - Sincronizado com Clerk
@@ -406,7 +418,76 @@ export const scheduledPosts = pgTable(
   ]
 );
 
-// 8. JOBS - Background jobs processing
+// 8. CONTENT_WIZARDS - Wizard de criação de conteúdo
+export const contentWizards = pgTable(
+  "content_wizards",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    currentStep: wizardStepEnum("current_step").notNull().default("input"),
+
+    // Inputs do usuário
+    contentType: postTypeEnum("content_type"), // carousel, text, image, video, story
+    numberOfSlides: integer("number_of_slides").default(10),
+    model: text("model"), // OpenRouter model ID
+    referenceUrl: text("reference_url"), // Firecrawl URL
+    referenceVideoUrl: text("reference_video_url"), // Apify transcription URL
+    theme: text("theme"), // Tema do conteúdo
+    context: text("context"), // Contexto adicional
+    objective: text("objective"), // Objetivo do conteúdo
+    cta: text("cta"), // Call to action
+    targetAudience: text("target_audience"), // Público-alvo
+
+    // RAG config
+    ragConfig: jsonb("rag_config").$type<{
+      mode?: "auto" | "manual"
+      threshold?: number
+      maxChunks?: number
+      documents?: number[]
+      collections?: number[]
+    }>(),
+    negativeTerms: jsonb("negative_terms").$type<string[]>(),
+
+    // Processing results
+    extractedContent: jsonb("extracted_content"), // Content from Firecrawl/Apify
+    researchQueries: jsonb("research_queries").$type<string[]>(), // Queries Tavily
+    researchResults: jsonb("research_results"), // Tavily search results
+    narratives: jsonb("narratives").$type<Array<{
+      id: string
+      title: string
+      description: string
+      angle: string
+    }>>(),
+    selectedNarrativeId: text("selected_narrative_id"),
+
+    // Output
+    generatedContent: jsonb("generated_content"), // Final content as JSON
+    libraryItemId: integer("library_item_id").references(
+      () => libraryItems.id,
+      { onDelete: "set null" }
+    ),
+
+    // Job tracking
+    jobId: integer("job_id").references(() => jobs.id, { onDelete: "set null" }),
+
+    // Timestamps
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    completedAt: timestamp("completed_at"),
+    abandonedAt: timestamp("abandoned_at"),
+  },
+  (table) => [
+    index("content_wizards_user_id_idx").on(table.userId),
+    index("content_wizards_current_step_idx").on(table.currentStep),
+    index("content_wizards_created_at_idx").on(table.createdAt),
+    index("content_wizards_library_item_id_idx").on(table.libraryItemId),
+    index("content_wizards_job_id_idx").on(table.jobId),
+  ]
+);
+
+// 9. JOBS - Background jobs processing
 export const jobs = pgTable(
   "jobs",
   {
@@ -563,6 +644,21 @@ export const jobsRelations = relations(jobs, ({ one }) => ({
   user: one(users, {
     fields: [jobs.userId],
     references: [users.id],
+  }),
+}));
+
+export const contentWizardsRelations = relations(contentWizards, ({ one }) => ({
+  user: one(users, {
+    fields: [contentWizards.userId],
+    references: [users.id],
+  }),
+  libraryItem: one(libraryItems, {
+    fields: [contentWizards.libraryItemId],
+    references: [libraryItems.id],
+  }),
+  job: one(jobs, {
+    fields: [contentWizards.jobId],
+    references: [jobs.id],
   }),
 }));
 
@@ -791,6 +887,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   conversationCollections: many(conversationCollections),
   sources: many(sources),
   jobs: many(jobs),
+  contentWizards: many(contentWizards),
   settings: many(userSettings),
   apiKeys: many(userApiKeys),
   prompts: many(userPrompts),
@@ -843,6 +940,9 @@ export type Source = typeof sources.$inferSelect;
 export type NewSource = typeof sources.$inferInsert;
 export type ScheduledPost = typeof scheduledPosts.$inferSelect;
 export type NewScheduledPost = typeof scheduledPosts.$inferInsert;
+export type ContentWizard = typeof contentWizards.$inferSelect;
+export type NewContentWizard = typeof contentWizards.$inferInsert;
+export type WizardStep = typeof wizardStepEnum.enumValues[number];
 export type Job = typeof jobs.$inferSelect;
 export type NewJob = typeof jobs.$inferInsert;
 export type ZepThread = typeof zepThreads.$inferSelect;
