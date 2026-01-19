@@ -2,7 +2,11 @@
  * Image Generation Types
  *
  * Types for image generation via OpenRouter and ScreenshotOne.
- * Supports both AI-generated images and HTML templates.
+ * Simplified to 4 HTML templates + AI generation.
+ *
+ * Flow:
+ * - Cover (CAPA): First image - user chooses AI or one of 4 templates
+ * - Posts (COMUNS): Remaining images - user chooses AI or one of 4 templates
  */
 
 // ============================================================================
@@ -111,37 +115,14 @@ export interface AiImageOptions {
 // ============================================================================
 
 /**
- * ScreenshotOne template options
+ * Available HTML templates - simplified to 4 options
+ * Each template follows the pattern from .context/wizard-prompts/
  */
 export const HTML_TEMPLATES = {
-  // Gradient-based templates
-  GRADIENT_SOLID: "gradiente-solid",
-  GRADIENT_LINEAR: "gradiente-linear",
-  GRADIENT_RADIAL: "gradiente-radial",
-  GRADIENT_MESH: "gradiente-mesh",
-
-  // Text-focused templates
-  TYPOGRAPHY_BOLD: "tipografia-bold",
-  TYPOGRAPHY_CLEAN: "tipografia-clean",
-  TYPOGRAPHY_OVERLAY: "tipografia-overlay",
-
-  // Pattern-based templates
-  PATTERN_GEOMETRIC: "padrão-geométrico",
-  PATTERN_DOTS: "padrão-círculos",
-  PATTERN_LINES: "padrão-linhas",
-  PATTERN_WAVES: "padrão-ondas",
-
-  // Style-specific templates
-  GLASSMORPHISM: "glassmorphism",
-  NEOMORPHISM: "neomorphism",
-  BRUTALIST: "brutalista",
-  NEUMORPHISM: "neumorphism",
-
-  // Theme-based templates
   DARK_MODE: "dark-mode",
-  LIGHT_MODE: "light-mode",
-  NEON_GLOW: "neon-glow",
-  SUNSET_VIBES: "sunset-vibes",
+  WHITE_MODE: "white-mode",
+  TWITTER: "twitter",
+  SUPER_HEADLINE: "super-headline",
 } as const;
 
 export type HtmlTemplate = (typeof HTML_TEMPLATES)[keyof typeof HTML_TEMPLATES];
@@ -159,17 +140,60 @@ export interface HtmlTemplateOptions {
   opacity?: number; // 0-1
 }
 
+/**
+ * Template data structure - matches the expected fields from .context files
+ */
+export interface TemplateData {
+  // Common fields
+  title?: string;
+  content: string;
+
+  // Dark/White mode fields
+  headline?: string;
+  descricao?: string;
+  subtitulo?: string;
+  legenda?: string;
+
+  // Twitter mode fields
+  paragrafo1?: string;
+  paragrafo2?: string;
+  destaque?: string;
+}
+
 // ============================================================================
 // IMAGE GENERATION CONFIG
 // ============================================================================
 
 /**
- * Complete image generation configuration
+ * Cover and Posts configuration
+ * Allows different templates for cover (first image) and posts (remaining images)
+ */
+export interface CoverPostsConfig {
+  // Cover (CAPA) - primeira imagem
+  coverMethod: ImageGenerationMethod;
+  coverTemplate?: HtmlTemplate; // Required if coverMethod is "html-template"
+  coverHtmlOptions?: HtmlTemplateOptions; // Color options for HTML template
+  coverAiOptions?: AiImageOptions; // Required if coverMethod is "ai"
+
+  // Posts (COMUNS) - demais imagens
+  postsMethod: ImageGenerationMethod;
+  postsTemplate?: HtmlTemplate; // Required if postsMethod is "html-template"
+  postsHtmlOptions?: HtmlTemplateOptions; // Color options for HTML template
+  postsAiOptions?: AiImageOptions; // Required if postsMethod is "ai"
+}
+
+/**
+ * Image generation configuration
+ * Supports both legacy single-method and new cover/posts configuration
  */
 export interface ImageGenerationConfig {
-  method: ImageGenerationMethod;
+  // Legacy: Single method for all images
+  method?: ImageGenerationMethod;
   aiOptions?: AiImageOptions;
   htmlOptions?: HtmlTemplateOptions;
+
+  // New: Separate configuration for cover (first) and posts (remaining) images
+  coverPosts?: CoverPostsConfig;
 }
 
 /**
@@ -267,7 +291,6 @@ export interface ScreenshotOneRenderOptions {
   width: number;
   height: number;
   format?: "png" | "jpeg" | "webp";
-  quality?: number; // 1-100
   deviceScaleFactor?: number;
   fullPage?: boolean;
 }
@@ -284,3 +307,42 @@ export const INSTAGRAM_DIMENSIONS = {
  * Supported output formats
  */
 export type ImageFormat = "png" | "jpeg" | "webp";
+
+/**
+ * Helper to get template label
+ */
+export function getTemplateLabel(template: HtmlTemplate): string {
+  const labels: Record<HtmlTemplate, string> = {
+    "dark-mode": "Dark Mode",
+    "white-mode": "White Mode",
+    "twitter": "Twitter",
+    "super-headline": "Super Headline",
+  };
+  return labels[template] || template;
+}
+
+/**
+ * Helper to get template description
+ */
+export function getTemplateDescription(template: HtmlTemplate): string {
+  const descriptions: Record<HtmlTemplate, string> = {
+    "dark-mode": "Fundo escuro com gradiente verde e tipografia elegante",
+    "white-mode": "Fundo claro com estilo minimalista e moderno",
+    "twitter": "Estilo de post do Twitter com avatar e verificado",
+    "super-headline": "Headline gigante com grid de fundo e CTA",
+  };
+  return descriptions[template] || "";
+}
+
+/**
+ * Helper to get required fields for each template
+ */
+export function getTemplateRequiredFields(template: HtmlTemplate): string[] {
+  const fields: Record<HtmlTemplate, string[]> = {
+    "dark-mode": ["headline", "descricao", "subtitulo"],
+    "white-mode": ["headline", "descricao", "subtitulo"],
+    "twitter": ["headline", "paragrafo1", "paragrafo2", "destaque"],
+    "super-headline": ["headline"],
+  };
+  return fields[template] || ["headline"];
+}

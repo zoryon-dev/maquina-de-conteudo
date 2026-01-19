@@ -350,6 +350,9 @@ export function WizardPage({
     setError(null);
 
     try {
+      // Log the config being sent for debugging
+      console.log("[WIZARD] Image generation config:", JSON.stringify(config, null, 2));
+
       // Save config to wizard
       await fetch(`/api/wizard/${wizardId}`, {
         method: "PATCH",
@@ -367,7 +370,18 @@ export function WizardPage({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to generate image");
+        // Try to get detailed error from response
+        let errorMessage = "Failed to generate image";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+          console.error("[WIZARD] API Error Response:", errorData);
+        } catch {
+          const errorText = await response.text();
+          errorMessage = errorText || errorMessage;
+          console.error("[WIZARD] API Error Text:", errorText);
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -585,7 +599,6 @@ export function WizardPage({
             transition={{ duration: 0.3 }}
           >
             <Step5ImageGeneration
-              slideTitle={wizard?.theme}
               slideContent={formData.generatedContent}
               slideNumber={1}
               totalSlides={formData.numberOfSlides}

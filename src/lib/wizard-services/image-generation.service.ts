@@ -300,25 +300,23 @@ export async function generateAiImage(
 
 /**
  * Calls a specific image model via OpenRouter
+ *
+ * IMPORTANT: OpenRouter now requires the `modalities` parameter to be set
+ * to ["image", "text"] for image generation models to work correctly.
+ *
+ * Reference: https://openrouter.ai/docs/guides/overview/multimodal/image-generation
  */
 async function callImageModel(
   model: AiImageModel,
   prompt: string,
   negativePrompt?: string
 ): Promise<{ url: string; thumbnailUrl?: string } | null> {
-  // Different models may have different APIs
-  // For now, we'll use a standard approach that works with OpenRouter's image endpoints
+  // Build the prompt with negative prompt if provided
+  const fullPrompt = negativePrompt
+    ? `${prompt}\n\nAvoid: ${negativePrompt}`
+    : prompt;
 
-  const requestBody: Record<string, unknown> = {
-    model,
-    prompt,
-    size: "1080x1350", // Instagram dimensions
-    n: 1,
-  };
-
-  if (negativePrompt) {
-    requestBody.negative_prompt = negativePrompt;
-  }
+  console.log(`[IMAGE-GEN] Calling model ${model} with modalities: ["image", "text"]`);
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -329,14 +327,13 @@ async function callImageModel(
       "X-Title": process.env.OPENROUTER_APP_NAME || "Máquina de Conteúdo",
     },
     body: JSON.stringify({
-      ...requestBody,
-      // Some models use chat completions format for images
+      model,
+      // REQUIRED: Tell OpenRouter we want both image and text output
+      modalities: ["image", "text"],
       messages: [
         {
           role: "user",
-          content: [
-            { type: "text", text: prompt },
-          ],
+          content: fullPrompt,
         },
       ],
       max_tokens: 1000,
@@ -366,65 +363,138 @@ async function callImageModel(
 
 /**
  * Extracts the image URL from various model response formats
+ *
+ * OpenRouter image models can return the image URL in different formats:
+ * 1. Direct URL in choices[0].message.content
+ * 2. JSON in content with url/image field
+ * 3. Array in data field with url
+ * 4. Direct url field at root
+ *
+ * When modalities: ["image", "text"] is used, the response typically includes:
+ * - content: string (text description) OR
+ * - content: array with image data OR
+ * - url field directly in the message
  */
 function extractImageUrl(response: unknown, model: AiImageModel): string | null {
   const data = response as Record<string, unknown>;
 
-  // Format 1: Direct URL in data field
-  if (typeof data.data === "string") {
-    return data.data as string;
-  }
+  console.log(`[IMAGE-GEN] Extracting URL from response, keys:`, Object.keys(data));
 
-  // Format 2: Array with url field
-  if (Array.isArray(data.data)) {
-    const firstItem = data.data[0] as Record<string, unknown> | undefined;
-    if (firstItem?.url && typeof firstItem.url === "string") {
-      return firstItem.url;
-    }
-    if (firstItem?.image && typeof firstItem.image === "string") {
-      return firstItem.image;
-    }
-  }
-
-  // Format 3: Nested in choices
+  // Format 1: OpenRouter 2025 format - nested in choices.message.content
+  // When modalities: ["image", "text"] is used, images may be in content array
   if (Array.isArray(data.choices)) {
     const firstChoice = data.choices[0] as Record<string, unknown> | undefined;
     const message = firstChoice?.message as Record<string, unknown> | undefined;
     const content = message?.content;
 
+    // Handle array content format (new multimodal format)
+    if (Array.isArray(content)) {
+      for (const item of content) {
+        if (typeof item === "object" && item !== null) {
+          const itemObj = item as Record<string, unknown>;
+          // Check for image_url field (OpenAI-style format)
+          if (itemObj.image_url && typeof itemObj.image_url === "object") {
+            const imageUrl = (itemObj.image_url as Record<string, unknown>).url;
+            if (typeof imageUrl === "string") {
+              console.log(`[IMAGE-GEN] Found URL in content[].image_url.url`);
+              return imageUrl;
+            }
+          }
+          // Check for direct url field
+          if (itemObj.url && typeof itemObj.url === "string") {
+            console.log(`[IMAGE-GEN] Found URL in content[].url`);
+            return itemObj.url;
+          }
+          // Check for type: "image" with url
+          if (itemObj.type === "image" && itemObj.url && typeof itemObj.url === "string") {
+            console.log(`[IMAGE-GEN] Found URL in content[] (type:image)`);
+            return itemObj.url;
+          }
+        }
+      }
+    }
+
+    // Handle string content format
     if (typeof content === "string") {
-      // Check if content is a URL
+      // Direct URL
       if (content.startsWith("http://") || content.startsWith("https://")) {
+        console.log(`[IMAGE-GEN] Found direct URL in content`);
         return content;
       }
-      // Check if content is a JSON with URL
+      // Try parsing as JSON
       try {
         const parsed = JSON.parse(content);
-        if (parsed.url) return parsed.url;
-        if (parsed.image) return parsed.image;
+        if (parsed.url && typeof parsed.url === "string") {
+          console.log(`[IMAGE-GEN] Found URL in JSON content`);
+          return parsed.url;
+        }
+        if (parsed.image && typeof parsed.image === "string") {
+          console.log(`[IMAGE-GEN] Found image in JSON content`);
+          return parsed.image;
+        }
+        // Check for images array in parsed content
+        if (parsed.images && Array.isArray(parsed.images) && parsed.images[0]?.url) {
+          console.log(`[IMAGE-GEN] Found URL in JSON images array`);
+          return parsed.images[0].url;
+        }
       } catch {
         // Not JSON, continue
       }
     }
 
-    // Check for tool_calls with image generation
+    // Check for tool_calls (some models use this)
     if (Array.isArray(message?.tool_calls)) {
-      const toolCall = message.tool_calls[0] as Record<string, unknown> | undefined;
-      const toolOutput = toolCall?.output as Record<string, unknown> | undefined;
-      if (toolOutput?.url) return toolOutput.url as string;
+      for (const toolCall of message.tool_calls) {
+        const tc = toolCall as Record<string, unknown>;
+        if (tc.output && typeof tc.output === "object") {
+          const output = tc.output as Record<string, unknown>;
+          if (output.url && typeof output.url === "string") {
+            console.log(`[IMAGE-GEN] Found URL in tool_calls.output`);
+            return output.url;
+          }
+        }
+      }
+    }
+  }
+
+  // Format 2: Direct URL in data field (legacy format)
+  if (typeof data.data === "string") {
+    console.log(`[IMAGE-GEN] Found URL in data field (string)`);
+    return data.data as string;
+  }
+
+  // Format 3: Array with url field in data
+  if (Array.isArray(data.data)) {
+    const firstItem = data.data[0] as Record<string, unknown> | undefined;
+    if (firstItem?.url && typeof firstItem.url === "string") {
+      console.log(`[IMAGE-GEN] Found URL in data[0].url`);
+      return firstItem.url;
+    }
+    if (firstItem?.image && typeof firstItem.image === "string") {
+      console.log(`[IMAGE-GEN] Found URL in data[0].image`);
+      return firstItem.image;
+    }
+    // Check for b64_json base64 encoded image
+    if (firstItem?.b64_json && typeof firstItem.b64_json === "string") {
+      console.log(`[IMAGE-GEN] Found base64 image in data[0].b64_json`);
+      // Convert base64 to data URL
+      return `data:image/png;base64,${firstItem.b64_json}`;
     }
   }
 
   // Format 4: Direct url field at root
   if (data.url && typeof data.url === "string") {
+    console.log(`[IMAGE-GEN] Found URL in root url field`);
     return data.url;
   }
 
   // Format 5: image field at root
   if (data.image && typeof data.image === "string") {
+    console.log(`[IMAGE-GEN] Found URL in root image field`);
     return data.image;
   }
 
+  console.log(`[IMAGE-GEN] No image URL found in response`);
   return null;
 }
 

@@ -64,9 +64,32 @@ export async function POST(
       return NextResponse.json({ error: "Configuration is required" }, { status: 400 });
     }
 
+    // Determine number of slides to generate
+    let numberOfSlides = 1;
+    if (wizard.generatedContent && typeof wizard.generatedContent === "object") {
+      const content = wizard.generatedContent as Record<string, unknown>;
+      if (content.slides && Array.isArray(content.slides)) {
+        numberOfSlides = content.slides.length;
+      }
+    }
+
+    // Validate configuration - support both legacy and coverPosts format
+    let effectiveConfig: ImageGenerationConfig = config;
+
+    // If using new coverPosts format, convert to legacy format for first slide (cover)
+    if (config.coverPosts && !config.method) {
+      const cp = config.coverPosts;
+      effectiveConfig = {
+        method: cp.coverMethod,
+        aiOptions: cp.coverAiOptions,
+        htmlOptions: cp.coverHtmlOptions,
+        coverPosts: cp,
+      };
+    }
+
     // Validate configuration
-    const hasValidAiConfig = config.method === "ai" && config.aiOptions;
-    const hasValidHtmlConfig = config.method === "html-template" && config.htmlOptions;
+    const hasValidAiConfig = effectiveConfig.method === "ai" && effectiveConfig.aiOptions;
+    const hasValidHtmlConfig = effectiveConfig.method === "html-template" && effectiveConfig.htmlOptions;
 
     if (!hasValidAiConfig && !hasValidHtmlConfig) {
       return NextResponse.json(
@@ -76,82 +99,118 @@ export async function POST(
     }
 
     // Check service availability
-    if (config.method === "ai" && !isImageGenerationAvailable()) {
+    if (effectiveConfig.method === "ai" && !isImageGenerationAvailable()) {
       return NextResponse.json(
         { error: "OpenRouter API key not configured" },
         { status: 503 }
       );
     }
 
-    if (config.method === "html-template" && !isScreenshotOneAvailable()) {
+    if (effectiveConfig.method === "html-template" && !isScreenshotOneAvailable()) {
       return NextResponse.json(
         { error: "ScreenshotOne access key not configured" },
         { status: 503 }
       );
     }
 
-    // Prepare input for image generation
-    // Handle generatedContent which may be a JSON object or string
-    let slideContent = wizard.theme || "Conteúdo gerado";
+    // Prepare slides for generation
+    let slides: Array<{ content: string; title?: string }> = [];
     if (wizard.generatedContent) {
       if (typeof wizard.generatedContent === "string") {
-        slideContent = wizard.generatedContent;
+        slides = [{ content: wizard.generatedContent }];
       } else if (typeof wizard.generatedContent === "object") {
-        // Extract text from GeneratedContent structure
         const content = wizard.generatedContent as Record<string, unknown>;
         if (content.slides && Array.isArray(content.slides)) {
-          slideContent = (content.slides[0] as Record<string, unknown>).content as string || slideContent;
+          slides = content.slides.map((s: unknown) => {
+            const slide = s as Record<string, unknown>;
+            return {
+              content: String(slide.content || ""),
+              title: slide.title ? String(slide.title) : undefined,
+            };
+          });
         } else if (content.content) {
-          slideContent = String(content.content);
-        } else {
-          slideContent = JSON.stringify(content);
+          slides = [{ content: String(content.content) }];
         }
       }
     }
-    const generationInput: ImageGenerationInput = {
-      slideTitle: wizard.theme || undefined,
-      slideContent,
-      slideNumber: 1,
-      config,
-    };
 
-    // Generate image based on method
-    let result: ServiceGeneratedImage | null = null;
-
-    if (config.method === "ai") {
-      const aiResult = await generateAiImage(generationInput);
-      if (!aiResult.success || !aiResult.data) {
-        return NextResponse.json(
-          { error: aiResult.error || "Failed to generate AI image" },
-          { status: 500 }
-        );
-      }
-      result = aiResult.data;
-    } else {
-      const htmlResult = await generateHtmlTemplateImage(generationInput);
-      if (!htmlResult.success || !htmlResult.data) {
-        return NextResponse.json(
-          { error: htmlResult.error || "Failed to generate template image" },
-          { status: 500 }
-        );
-      }
-      result = htmlResult.data;
+    // Fallback to theme if no slides found
+    if (slides.length === 0) {
+      slides = [{ content: wizard.theme || "Conteúdo gerado" }];
     }
 
-    if (!result) {
-      return NextResponse.json(
-        { error: "Failed to generate image" },
-        { status: 500 }
-      );
+    // Generate images for each slide
+    const newImages: ServiceGeneratedImage[] = [];
+    const cp = config.coverPosts;
+
+    for (let i = 0; i < slides.length; i++) {
+      const slide = slides[i];
+      const slideNumber = i + 1;
+      const isCover = slideNumber === 1;
+
+      // Determine configuration for this slide
+      let slideConfig: ImageGenerationConfig = effectiveConfig;
+      if (cp) {
+        // Use cover config for first slide, posts config for rest
+        const method = isCover ? cp.coverMethod : cp.postsMethod;
+        const aiOptions = isCover ? cp.coverAiOptions : cp.postsAiOptions;
+        const htmlOptions = isCover ? cp.coverHtmlOptions : cp.postsHtmlOptions;
+        slideConfig = { method, aiOptions, htmlOptions, coverPosts: cp };
+      }
+
+      // Prepare generation input
+      const generationInput: ImageGenerationInput = {
+        slideTitle: (slide.title || wizard.theme || undefined) as string | undefined,
+        slideContent: slide.content,
+        slideNumber,
+        config: slideConfig,
+        wizardContext: {
+          theme: wizard.theme || undefined,
+          objective: wizard.objective || undefined,
+          targetAudience: wizard.targetAudience || undefined,
+        },
+      };
+
+      // Generate image based on method
+      let result: ServiceGeneratedImage | null = null;
+
+      if (slideConfig.method === "ai") {
+        const aiResult = await generateAiImage(generationInput);
+        if (!aiResult.success || !aiResult.data) {
+          return NextResponse.json(
+            { error: aiResult.error || "Failed to generate AI image" },
+            { status: 500 }
+          );
+        }
+        result = aiResult.data;
+      } else {
+        const htmlResult = await generateHtmlTemplateImage(generationInput);
+        if (!htmlResult.success || !htmlResult.data) {
+          return NextResponse.json(
+            { error: htmlResult.error || "Failed to generate template image" },
+            { status: 500 }
+          );
+        }
+        result = htmlResult.data;
+      }
+
+      if (!result) {
+        return NextResponse.json(
+          { error: "Failed to generate image" },
+          { status: 500 }
+        );
+      }
+
+      newImages.push(result);
     }
 
     // Get existing images or initialize empty array
     const existingImages = (wizard.generatedImages as unknown as ServiceGeneratedImage[]) || [];
 
-    // Add new image
-    const updatedImages = [...existingImages, result];
+    // Add new images
+    const updatedImages = [...existingImages, ...newImages];
 
-    // Update wizard with new image
+    // Update wizard with new images
     await db
       .update(contentWizards)
       .set({
@@ -163,13 +222,22 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      image: result,
-      images: updatedImages,
+      images: newImages,
+      allImages: updatedImages,
     });
   } catch (error) {
-    console.error("Error generating image:", error);
+    // Log detailed error for debugging
+    console.error("[IMAGE-API] Error generating image:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+      error,
+    });
+
     return NextResponse.json(
-      { error: "Failed to generate image" },
+      {
+        error: error instanceof Error ? error.message : "Failed to generate image",
+        details: error instanceof Error ? error.stack : undefined,
+      },
       { status: 500 }
     );
   }

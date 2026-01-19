@@ -1,0 +1,272 @@
+// ═══════════════════════════════════════════════════════════════
+// HTML GENERATOR — TWITTER MODE v2.1
+// Canvas: 1080x1350 | Área útil: 1080x1080 (centralizada)
+// Header/Footer ficam FORA da área útil
+// ═══════════════════════════════════════════════════════════════
+
+const prev = $('Switch Tipo Capa').first().json;
+const writerRaw = $json;
+
+let content;
+try {
+  const responseContent = writerRaw?.choices?.[0]?.message?.content;
+  content = typeof responseContent === 'string' ? JSON.parse(responseContent) : responseContent;
+} catch (e) {
+  throw new Error('Erro ao parsear Writer Twitter: ' + e.message);
+}
+
+const headline = content.headline || '';
+const paragrafo1 = content.paragrafo1 || '';
+const paragrafo2 = content.paragrafo2 || '';
+const destaque = content.destaque || '';
+const legenda = content.legenda || '';
+
+// ═══════════════════════════════════════════════════════════════
+// GERAR HTML
+// ═══════════════════════════════════════════════════════════════
+
+const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1080, height=1350">
+  <title>Post Twitter Mode</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { 
+      width: 1080px; 
+      height: 1350px; 
+      overflow: hidden;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #ffffff;
+      color: #000000;
+    }
+    
+    /* Container principal */
+    .container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+    
+    /* Header - FORA da área útil (topo) */
+    .header {
+      position: absolute;
+      top: 40px;
+      left: 64px;
+      right: 64px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header-brand {
+      font-size: 18px;
+      font-weight: 700;
+      color: #000000;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .header-tag {
+      font-size: 18px;
+      font-weight: 600;
+      color: #000000;
+      letter-spacing: 1px;
+    }
+    
+    /* Área útil - 1080x1080 centralizada */
+    .safe-area {
+      position: absolute;
+      top: 135px;
+      left: 0;
+      width: 1080px;
+      height: 1080px;
+      padding: 40px 64px;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* Autor */
+    .author {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 36px;
+      margin-top: 20px;
+    }
+    .avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      overflow: hidden;
+      background: #1a1a1a;
+      flex-shrink: 0;
+    }
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .author-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .author-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 22px;
+      font-weight: 700;
+      color: #000000;
+    }
+    .verified {
+      width: 22px;
+      height: 22px;
+      fill: #1d9bf0;
+    }
+    .author-handle {
+      font-size: 17px;
+      font-weight: 500;
+      color: #666666;
+    }
+    
+    /* Conteúdo */
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* Headline */
+    .headline {
+      font-size: 58px;
+      font-weight: 800;
+      line-height: 1.1;
+      color: #000000;
+      margin-bottom: 32px;
+      letter-spacing: -2px;
+    }
+    
+    /* Corpo */
+    .body {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .body p {
+      font-size: 26px;
+      font-weight: 400;
+      line-height: 1.4;
+      color: #1a1a1a;
+    }
+    .body p.destaque {
+      font-weight: 700;
+      color: #000000;
+    }
+    
+    /* CTA Button - DENTRO da área útil */
+    .cta-container {
+      margin-top: auto;
+      padding-bottom: 20px;
+    }
+    .cta-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .cta-text {
+      padding: 18px 56px;
+      background: #8b7cf7;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .cta-arrow {
+      width: 52px;
+      height: 52px;
+      background: #f0f0f0;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cta-arrow svg {
+      width: 24px;
+      height: 24px;
+      stroke: #666666;
+      stroke-width: 2.5;
+      fill: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header - FORA da área útil -->
+    <header class="header">
+      <span class="header-brand">Zoryon</span>
+      <span class="header-tag">IA First</span>
+    </header>
+    
+    <!-- Área útil 1080x1080 -->
+    <main class="safe-area">
+      <div class="author">
+        <div class="avatar">
+          <img src="https://res.cloudinary.com/dbgwlovic/image/upload/v1752350264/foto_jonas_silva_-_mobile_e05zam.webp" alt="Jonas Silva">
+        </div>
+        <div class="author-info">
+          <span class="author-name">
+            Jonas Silva
+            <svg class="verified" viewBox="0 0 24 24">
+              <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .47 0 .92-.086 1.335-.25.62 1.334 1.926 2.25 3.437 2.25 1.512 0 2.818-.916 3.437-2.25.415.163.865.248 1.336.248 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.513 1.158-.687 1.943-1.99 1.943-3.484zm-6.616-3.334l-4.334 6.5c-.145.217-.382.334-.625.334-.143 0-.288-.04-.416-.126l-.115-.094-2.415-2.415c-.293-.293-.293-.768 0-1.06s.768-.294 1.06 0l1.77 1.767 3.825-5.74c.23-.345.696-.436 1.04-.207.346.23.44.696.21 1.04z" fill="#1d9bf0"/>
+            </svg>
+          </span>
+          <span class="author-handle">@o.jonas.silva</span>
+        </div>
+      </div>
+      
+      <div class="content">
+        <h1 class="headline">${headline}</h1>
+        
+        <div class="body">
+          <p>${paragrafo1}</p>
+          <p>${paragrafo2}</p>
+          <p class="destaque">**${destaque}**</p>
+        </div>
+      </div>
+      
+      <div class="cta-container">
+        <div class="cta-button">
+          <span class="cta-text">Leia a Legenda</span>
+          <span class="cta-arrow">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 5v14M5 12l7 7 7-7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>`;
+
+return {
+  json: {
+    html: html,
+    tipo_capa: 'twitter_mode',
+    conteudo: {
+      headline: headline,
+      paragrafo1: paragrafo1,
+      paragrafo2: paragrafo2,
+      destaque: destaque,
+      legenda: legenda
+    },
+    metadata: prev.input,
+    sources: prev.research?.sources || []
+  }
+};

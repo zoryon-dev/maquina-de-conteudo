@@ -528,7 +528,7 @@ export function Step4Generation({
               </TabsContent>
 
               <TabsContent value="raw" className="mt-4">
-                <div className="p-4 rounded-xl bg-black/30 border border-white/10 overflow-auto max-h-96">
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/10 overflow-auto max-h-96">
                   <pre className="text-xs text-white/70 whitespace-pre-wrap font-mono">
                     {JSON.stringify(content, null, 2)}
                   </pre>

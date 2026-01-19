@@ -26,6 +26,7 @@ import {
   Hash,
   Type,
   AlignLeft,
+  Layout,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -61,7 +62,6 @@ export interface GeneratedContent {
 }
 
 export interface Step5ImageGenerationProps {
-  slideTitle?: string;
   slideContent?: string | GeneratedContent; // Can be JSON string or parsed object
   slideNumber: number;
   totalSlides?: number;
@@ -245,7 +245,7 @@ function SlideCard({ slide, slideNumber, totalSlides, onUpdate }: SlideCardProps
               value={slide.title || ""}
               onChange={(e) => updateSlide("title", e.target.value)}
               placeholder="Título do slide..."
-              className="w-full bg-transparent border-none text-white text-sm focus:outline-none resize-none p-0"
+              className="w-full bg-transparent border-none text-white placeholder:text-white/30 text-sm focus:outline-none resize-none p-0"
               rows={2}
             />
           </div>
@@ -268,17 +268,20 @@ function SlideCard({ slide, slideNumber, totalSlides, onUpdate }: SlideCardProps
               value={slide.content}
               onChange={(e) => updateSlide("content", e.target.value)}
               placeholder="Conteúdo do slide..."
-              className="w-full bg-transparent border-none text-white text-sm focus:outline-none resize-none p-0"
+              className="w-full bg-transparent border-none text-white placeholder:text-white/30 text-sm focus:outline-none resize-none p-0"
               rows={8}
             />
           </div>
         </div>
 
-        {/* Image Prompt (if exists) */}
+        {/* Image Prompt (if exists) - informational only */}
         {slide.imagePrompt && (
           <div className="pt-3 border-t border-white/5">
-            <p className="text-xs text-white/40 mb-1">📸 Prompt de Imagem:</p>
-            <p className="text-xs text-white/50 italic line-clamp-2">{slide.imagePrompt}</p>
+            <p className="text-xs text-primary/60 mb-1 flex items-center gap-1">
+              <ImageIcon className="w-3 h-3" />
+              Prompt enviado para IA (referência):
+            </p>
+            <p className="text-xs text-white/40 italic line-clamp-2">{slide.imagePrompt}</p>
           </div>
         )}
       </div>
@@ -489,7 +492,6 @@ function ImageCard({ image, isSelected, onSelect, onRegenerate, isRegenerating }
 // ============================================================================
 
 export function Step5ImageGeneration({
-  slideTitle,
   slideContent,
   slideNumber,
   totalSlides = 1,
@@ -505,11 +507,21 @@ export function Step5ImageGeneration({
 }: Step5ImageGenerationProps) {
   const [config, setConfig] = useState<ImageGenerationConfig>(
     initialConfig || {
-      method: "html-template",
-      htmlOptions: {
-        template: "gradiente-solid",
-        primaryColor: "#a3e635",
-        secondaryColor: "#6366f1",
+      coverPosts: {
+        coverMethod: "html-template",
+        coverTemplate: "dark-mode",
+        coverHtmlOptions: {
+          template: "dark-mode",
+          primaryColor: "#2dd4bf",
+          secondaryColor: "#f97316",
+        },
+        postsMethod: "html-template",
+        postsTemplate: "dark-mode",
+        postsHtmlOptions: {
+          template: "dark-mode",
+          primaryColor: "#2dd4bf",
+          secondaryColor: "#f97316",
+        },
       },
     }
   );
@@ -605,9 +617,25 @@ export function Step5ImageGeneration({
     onRegenerate?.(imageId);
   }, [onRegenerate]);
 
-  const isValid = config.method === "ai"
-    ? !!config.aiOptions?.model && !!config.aiOptions?.color && !!config.aiOptions?.style
-    : !!config.htmlOptions?.template && !!config.htmlOptions?.primaryColor;
+  // Validation for coverPosts config
+  const isValid = useMemo(() => {
+    const cp = config.coverPosts;
+    if (!cp) return false;
+
+    // Validate cover (first image)
+    const coverValid = cp.coverMethod === "ai"
+      ? !!cp.coverAiOptions?.model && !!cp.coverAiOptions?.color && !!cp.coverAiOptions?.style
+      : !!cp.coverTemplate && !!cp.coverHtmlOptions?.primaryColor;
+
+    // Validate posts (remaining images) - only if there are multiple slides
+    const postsValid = editableContent && editableContent.slides.length > 1
+      ? (cp.postsMethod === "ai"
+          ? !!cp.postsAiOptions?.model && !!cp.postsAiOptions?.color && !!cp.postsAiOptions?.style
+          : !!cp.postsTemplate && !!cp.postsHtmlOptions?.primaryColor)
+      : true; // Single slide doesn't need posts config
+
+    return coverValid && postsValid;
+  }, [config.coverPosts, editableContent]);
 
   const contentTypeLabel = {
     text: "Post de Texto",
@@ -756,6 +784,21 @@ export function Step5ImageGeneration({
 
       {/* Generate Button */}
       <div className="pt-4 border-t border-white/10 space-y-3">
+        {/* Generation Summary (if coverPosts is configured) */}
+        {config.coverPosts && editableContent && editableContent.slides.length > 1 && (
+          <div className="flex items-center justify-center gap-4 text-xs text-white/60 pb-2">
+            <span className="flex items-center gap-1">
+              <ImageIcon className="w-3 h-3 text-primary" />
+              CAPA: {config.coverPosts.coverMethod === "ai" ? "IA" : config.coverPosts.coverTemplate}
+            </span>
+            <span className="text-white/20">•</span>
+            <span className="flex items-center gap-1">
+              <Layout className="w-3 h-3 text-white/60" />
+              POSTS: {config.coverPosts.postsMethod === "ai" ? "IA" : config.coverPosts.postsTemplate}
+            </span>
+          </div>
+        )}
+
         <Button
           type="button"
           onClick={handleGenerate}
@@ -766,12 +809,16 @@ export function Step5ImageGeneration({
           {isGenerating ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Gerando imagem...
+              {editableContent && editableContent.slides.length > 1
+                ? "Gerando imagens..."
+                : "Gerando imagem..."}
             </>
           ) : (
             <>
               <Sparkles className="w-4 h-4 mr-2" />
-              Gerar Imagem
+              {editableContent && editableContent.slides.length > 1
+                ? `Gerar ${editableContent.slides.length} Imagens`
+                : "Gerar Imagem"}
             </>
           )}
         </Button>

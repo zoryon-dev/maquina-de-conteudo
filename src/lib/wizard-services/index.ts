@@ -213,6 +213,8 @@ export type {
   GeneratedImage,
   PromptGenerationInput,
   PromptGenerationResult,
+  CoverPostsConfig,
+  TemplateData,
 } from "./image-types";
 
 // HTML Template Generation (ScreenshotOne)

@@ -660,32 +660,64 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         const researchResultsForSynthesizer = researchPlan?.queries
           ?.map((q: ResearchQuery) => {
             const queryResult = (allSearchResults as any)?.find((r: any) => r.query === q.q);
-            return {
-              query: q.q,
-              answer: queryResult?.result?.answer || "",
-              sources: (queryResult?.sources || []).map((item: any) => ({
-                title: item.title,
-                url: item.url,
-                content: item.snippet || item.content || "",
-              })),
-            };
+            const answer = queryResult?.result?.answer || "";
+            const sources = (queryResult?.sources || []).map((item: any) => ({
+              title: item.title,
+              url: item.url,
+              content: item.snippet || item.content || "",
+            }));
+
+            // Include result if it has an answer OR has sources
+            // This ensures we don't lose data when Tavily returns only AI answers
+            if (answer || sources.length > 0) {
+              return {
+                query: q.q,
+                answer,
+                sources,
+              };
+            }
+            return null;
           })
-          .filter((r: any) => r.sources.length > 0) || [];
+          .filter((r): r is { query: string; answer: string; sources: any[] } => r !== null) || [];
 
         if (researchResultsForSynthesizer.length > 0) {
+          console.log(`[WIZARD] SYNTHESIZER - Processing ${researchResultsForSynthesizer.length} research results`);
+
+          // Build research results array for synthesizer
+          // Include both: results with sources AND results with only AI answers
+          const synthesizerResearchResults: any[] = [];
+
+          for (const r of researchResultsForSynthesizer) {
+            // Add each source as a separate result
+            if (r.sources.length > 0) {
+              for (const s of r.sources) {
+                synthesizerResearchResults.push({
+                  query: r.query,
+                  answer: r.answer,
+                  title: s.title,
+                  url: s.url,
+                  content: s.content,
+                });
+              }
+            } else if (r.answer) {
+              // If no sources but has AI answer, add it as a result
+              synthesizerResearchResults.push({
+                query: r.query,
+                answer: r.answer,
+                title: "AI Analysis",
+                url: "",
+                content: r.answer,
+              });
+            }
+          }
+
+          console.log(`[WIZARD] SYNTHESIZER - Total items to synthesize: ${synthesizerResearchResults.length}`);
+
           const synthesizerInput: SynthesizerInput = {
             topic: theme || "",
             niche: context || "geral",
             objective: objective || "engajamento",
-            researchResults: researchResultsForSynthesizer.flatMap((r: any) =>
-              r.sources.map((s: any) => ({
-                query: r.query,
-                answer: r.answer,
-                title: s.title,
-                url: s.url,
-                content: s.content,
-              }))
-            ),
+            researchResults: synthesizerResearchResults,
             extractedContent: extractedContent || undefined,
             targetAudience: targetAudience || undefined,
             tone: context || "profissional",

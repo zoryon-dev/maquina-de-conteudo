@@ -66,8 +66,17 @@ export type {
   PromptGenerationResult,
   HtmlTemplate,
   HtmlTemplateOptions,
+  CoverPostsConfig,
+  TemplateData,
   ScreenshotOneConfig,
   ScreenshotOneRenderOptions,
+} from "./image-types";
+
+// Re-export helper functions from image-types
+export {
+  getTemplateLabel,
+  getTemplateDescription,
+  getTemplateRequiredFields,
 } from "./image-types";
 
 export type {
@@ -149,26 +158,31 @@ export const MOOD_OPTIONS = [
   { value: "profissional", label: "Profissional" },
 ] as const;
 
-// Available HTML templates for UI
+// Available HTML templates for UI (simplified to 4)
 export const HTML_TEMPLATES = [
-  { value: "gradiente-solid", label: "Gradido Sólido", category: "Gradientes" },
-  { value: "gradiente-linear", label: "Gradiente Linear", category: "Gradientes" },
-  { value: "gradiente-radial", label: "Gradiente Radial", category: "Gradientes" },
-  { value: "gradiente-mesh", label: "Gradiente Mesh", category: "Gradientes" },
-  { value: "tipografia-bold", label: "Tipografia Bold", category: "Tipografia" },
-  { value: "tipografia-clean", label: "Tipografia Clean", category: "Tipografia" },
-  { value: "tipografia-overlay", label: "Tipografia Overlay", category: "Tipografia" },
-  { value: "padrão-geométrico", label: "Padrão Geométrico", category: "Padrões" },
-  { value: "padrão-círculos", label: "Padrão Círculos", category: "Padrões" },
-  { value: "padrão-linhas", label: "Padrão Linhas", category: "Padrões" },
-  { value: "padrão-ondas", label: "Padrão Ondas", category: "Padrões" },
-  { value: "glassmorphism", label: "Glassmorphism", category: "Estilos" },
-  { value: "neomorphism", label: "Neomorphism", category: "Estilos" },
-  { value: "brutalista", label: "Brutalista", category: "Estilos" },
-  { value: "neumorphism", label: "Neumorphism", category: "Estilos" },
-  { value: "dark-mode", label: "Dark Mode", category: "Temas" },
-  { value: "light-mode", label: "Light Mode", category: "Temas" },
-  { value: "neon-glow", label: "Neon Glow", category: "Temas" },
-  { value: "sunset-vibes", label: "Sunset Vibes", category: "Temas" },
+  {
+    value: "dark-mode",
+    label: "Dark Mode",
+    description: "Fundo escuro com gradiente verde e tipografia elegante",
+    category: "Temas",
+  },
+  {
+    value: "white-mode",
+    label: "White Mode",
+    description: "Fundo claro com estilo minimalista e moderno",
+    category: "Temas",
+  },
+  {
+    value: "twitter",
+    label: "Twitter",
+    description: "Estilo de post do Twitter com avatar e verificado",
+    category: "Social",
+  },
+  {
+    value: "super-headline",
+    label: "Super Headline",
+    description: "Headline gigante com grid de fundo e CTA",
+    category: "Tipografia",
+  },
 ] as const;
 

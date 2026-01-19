@@ -137,9 +137,19 @@ export function ContentCard({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Selection Checkbox */}
+      {/* Clickable overlay for opening dialog (excludes checkbox and menu) */}
       <button
-        onClick={onSelect}
+        onClick={onEdit}
+        className="absolute inset-0 z-0"
+        aria-label="Abrir detalhes"
+      />
+
+      {/* Selection Checkbox - higher z-index to catch clicks before overlay */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect();
+        }}
         className={cn(
           "absolute top-3 left-3 z-10 w-5 h-5 rounded border flex items-center justify-center transition-all",
           selected
@@ -152,7 +162,7 @@ export function ContentCard({
       </button>
 
       {/* Preview/Thumbnail */}
-      <div className="aspect-video bg-white/5 flex items-center justify-center overflow-hidden">
+      <div className="aspect-video bg-white/5 flex items-center justify-center overflow-hidden pointer-events-none">
         {previewUrl ? (
           <img
             src={previewUrl}
@@ -168,7 +178,7 @@ export function ContentCard({
       </div>
 
       {/* Content */}
-      <div className="p-3 space-y-2">
+      <div className="p-3 space-y-2 pointer-events-none">
         {/* Title */}
         {isEditing ? (
           <div className="flex items-center gap-1">
@@ -254,7 +264,7 @@ export function ContentCard({
       {/* Actions Menu */}
       <div
         className={cn(
-          "absolute top-3 right-3 z-10 transition-opacity",
+          "absolute top-3 right-3 z-10 transition-opacity pointer-events-auto",
           isHovered || selected ? "opacity-100" : "opacity-0"
         )}
       >
@@ -297,13 +307,6 @@ export function ContentCard({
         </DropdownMenu>
       </div>
 
-      {/* Overlay on hover for hint */}
-      <div
-        className={cn(
-          "absolute inset-0 bg-primary/5 pointer-events-none transition-opacity",
-          isHovered ? "opacity-100" : "opacity-0"
-        )}
-      />
     </div>
   )
 }
