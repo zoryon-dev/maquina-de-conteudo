@@ -424,8 +424,8 @@ export function Step4Generation({
                     Conteúdo gerado com sucesso!
                   </h3>
                   <p className="text-xs text-white/60">
-                    {CONTENT_TYPE_LABELS[contentType]} • {content.slides.length}{" "}
-                    slide{content.slides.length > 1 ? "s" : ""}
+                    {CONTENT_TYPE_LABELS[contentType]}
+                    {content.slides && ` • ${content.slides.length} slide${content.slides.length > 1 ? "s" : ""}`}
                   </p>
                 </div>
               </div>

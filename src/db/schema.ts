@@ -454,16 +454,43 @@ export const contentWizards = pgTable(
     extractedContent: jsonb("extracted_content"), // Content from Firecrawl/Apify
     researchQueries: jsonb("research_queries").$type<string[]>(), // Queries Tavily
     researchResults: jsonb("research_results"), // Tavily search results
+
+    // Synthesizer results (Condensar Queries step)
+    synthesizedResearch: jsonb("synthesized_research"), // Structured research from Synthesizer
+
     narratives: jsonb("narratives").$type<Array<{
       id: string
       title: string
       description: string
       angle: string
+      viewpoint?: string
+      whyUse?: string
+      impact?: string
+      tone?: string
+      keywords?: string[]
+      differentiation?: string
+      risks?: string
     }>>(),
     selectedNarrativeId: text("selected_narrative_id"),
 
     // Output
     generatedContent: jsonb("generated_content"), // Final content as JSON
+
+    // Image generation (Phase 2)
+    imageGenerationConfig: jsonb("image_generation_config"), // Config for image generation
+    generatedImages: jsonb("generated_images").$type<Array<{
+      id: string
+      slideNumber: number
+      method: "ai" | "html-template"
+      model?: string // AiImageModel for AI method
+      template?: string // HtmlTemplate for HTML method
+      imageUrl: string
+      thumbnailUrl?: string
+      config: Record<string, unknown> // ImageGenerationConfig
+      promptUsed?: string
+      createdAt: string // ISO date string
+    }>>(),
+
     libraryItemId: integer("library_item_id").references(
       () => libraryItems.id,
       { onDelete: "set null" }

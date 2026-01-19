@@ -2,7 +2,7 @@
  * Wizard Steps Indicator
  *
  * Visual indicator showing the current step in the wizard flow.
- * Displays progress through 4 steps: Input → Processing → Narratives → Generation
+ * Displays progress through 5 steps: Input → Processing → Narratives → Generation → Image Generation
  */
 
 "use client";
@@ -11,7 +11,7 @@ import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type WizardStepValue = "input" | "processing" | "narratives" | "generation" | "completed";
+export type WizardStepValue = "input" | "processing" | "narratives" | "generation" | "image-generation" | "completed";
 
 interface WizardStep {
   value: WizardStepValue;
@@ -39,6 +39,11 @@ const WIZARD_STEPS: WizardStep[] = [
     value: "generation",
     label: "Geração",
     description: "Criando seu conteúdo",
+  },
+  {
+    value: "image-generation",
+    label: "Imagem",
+    description: "Gere visual (opcional)",
   },
 ];
 

@@ -22,11 +22,18 @@ import {
   Step3Narratives,
   type Narrative,
   type RagConfig,
+  type SynthesizedResearch,
 } from "./steps/step-3-narratives";
 import {
   Step4Generation,
   type GeneratedContent,
 } from "./steps/step-4-generation";
+import {
+  Step5ImageGeneration,
+  type Step5ImageGenerationProps,
+  type GeneratedContent as Step5GeneratedContent,
+} from "./steps/step-5-image-generation";
+import type { ImageGenerationConfig, GeneratedImage } from "@/lib/wizard-services/client";
 
 // Combined form data type for the wizard
 export interface WizardFormData {
@@ -44,6 +51,9 @@ export interface WizardFormData {
   negativeTerms?: string[];
   selectedNarrativeId?: string;
   customInstructions?: string;
+  generatedContent?: string;
+  imageGenerationConfig?: ImageGenerationConfig;
+  generatedImages?: GeneratedImage[];
 }
 
 interface Wizard {
@@ -66,6 +76,9 @@ interface Wizard {
   customInstructions?: string;
   generatedContent?: string;
   jobStatus?: string;
+  synthesizedResearch?: SynthesizedResearch | null;
+  imageGenerationConfig?: ImageGenerationConfig | null;
+  generatedImages?: GeneratedImage[] | null;
 }
 
 interface WizardPageProps {
@@ -129,6 +142,9 @@ export function WizardPage({
             negativeTerms: data.negativeTerms,
             selectedNarrativeId: data.selectedNarrativeId,
             customInstructions: data.customInstructions,
+            generatedContent: data.generatedContent || undefined,
+            imageGenerationConfig: data.imageGenerationConfig || undefined,
+            generatedImages: data.generatedImages || undefined,
           });
         }
       } catch (err) {
@@ -189,7 +205,11 @@ export function WizardPage({
         body: JSON.stringify(formData),
       });
 
-      if (!response.ok) throw new Error("Failed to create wizard");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Unknown error", details: "No details" }));
+        console.error("API error:", errorData);
+        throw new Error(errorData.details || errorData.error || "Failed to create wizard");
+      }
 
       const newWizard: Wizard = await response.json();
 
@@ -209,7 +229,8 @@ export function WizardPage({
     } catch (err) {
       console.error("Error submitting inputs:", err);
       if (isMountedRef.current) {
-        setError("Failed to start processing. Please try again.");
+        const errorMessage = err instanceof Error ? err.message : "Failed to start processing. Please try again.";
+        setError(errorMessage);
       }
     } finally {
       if (isMountedRef.current) {
@@ -284,17 +305,24 @@ export function WizardPage({
     }
   };
 
-  // Step 4: Handle generation completion
+  // Step 4: Handle generation completion - transition to image generation
   const handleGenerationComplete = (content: GeneratedContent) => {
-    setCurrentStep("completed");
-    if (onComplete) {
-      onComplete(wizardId!, content);
-    } else {
-      // Navigate to library after short delay to show completed state
-      setTimeout(() => {
-        router.push("/library");
-      }, 1500);
-    }
+    // Store generated content in formData for use in Step 5
+    setFormData((prev) => ({
+      ...prev,
+      generatedContent: typeof content === 'string' ? content : JSON.stringify(content),
+    }));
+    // Transition to image generation step instead of completed
+    setCurrentStep("image-generation");
+  };
+
+  // Step 5: Handle content editing
+  const handleContentChange = (content: Step5GeneratedContent) => {
+    // Update formData with edited content
+    setFormData((prev) => ({
+      ...prev,
+      generatedContent: JSON.stringify(content),
+    }));
   };
 
   // Step 4: Save content to library
@@ -313,6 +341,79 @@ export function WizardPage({
   // Step 4: Regenerate content
   const handleRegenerate = () => {
     setCurrentStep("narratives");
+  };
+
+  // Step 5: Handle image generation
+  const handleGenerateImage = async (config: ImageGenerationConfig) => {
+    if (!wizardId) return;
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      // Save config to wizard
+      await fetch(`/api/wizard/${wizardId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageGenerationConfig: config,
+        }),
+      });
+
+      // Trigger image generation via API
+      const response = await fetch(`/api/wizard/${wizardId}/generate-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate image");
+      }
+
+      const data = await response.json();
+
+      // Update wizard with generated images
+      setWizard((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          generatedImages: data.images || [],
+        };
+      });
+
+      setFormData((prev) => ({
+        ...prev,
+        generatedImages: data.images || [],
+      }));
+    } catch (err) {
+      console.error("Error generating image:", err);
+      setError(err instanceof Error ? err.message : "Failed to generate image");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSelectImage = (image: GeneratedImage) => {
+    setFormData((prev) => ({
+      ...prev,
+      selectedImage: image,
+    }));
+  };
+
+  const handleImageGenerationComplete = () => {
+    setCurrentStep("completed");
+    // Call onComplete callback with the generated content
+    if (onComplete && formData.generatedContent) {
+      try {
+        const content = typeof formData.generatedContent === 'string'
+          ? JSON.parse(formData.generatedContent)
+          : formData.generatedContent;
+        onComplete(wizardId!, content);
+      } catch {
+        // If parse fails, pass as string
+        onComplete(wizardId!, formData.generatedContent as any);
+      }
+    }
   };
 
   // Handle step click on indicator (navigate back)
@@ -447,6 +548,7 @@ export function WizardPage({
           >
             <Step3Narratives
               narratives={narratives}
+              synthesizedResearch={wizard?.synthesizedResearch}
               initialData={formData}
               onChange={setFormData}
               onSubmit={handleSubmitNarratives}
@@ -470,6 +572,30 @@ export function WizardPage({
               onComplete={handleGenerationComplete}
               onSaveToLibrary={handleSaveToLibrary}
               onRegenerate={handleRegenerate}
+            />
+          </motion.div>
+        )}
+
+        {currentStep === "image-generation" && wizardId && (
+          <motion.div
+            key="image-generation"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Step5ImageGeneration
+              slideTitle={wizard?.theme}
+              slideContent={formData.generatedContent}
+              slideNumber={1}
+              totalSlides={formData.numberOfSlides}
+              initialConfig={formData.imageGenerationConfig}
+              generatedImages={formData.generatedImages}
+              isGenerating={isSubmitting}
+              onGenerate={handleGenerateImage}
+              onSelect={handleSelectImage}
+              onSubmit={handleImageGenerationComplete}
+              onContentChange={handleContentChange}
             />
           </motion.div>
         )}

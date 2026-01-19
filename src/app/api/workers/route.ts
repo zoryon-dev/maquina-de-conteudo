@@ -34,7 +34,13 @@ import {
   transcribeYouTube,
   contextualSearch,
   formatSearchForPrompt,
+  createLibraryItemFromWizard,
+  synthesizeResearch,
+  generateResearchQueries,
 } from "@/lib/wizard-services";
+
+import type { SynthesizerInput, SynthesizedResearch, ResearchPlannerOutput, ResearchQuery } from "@/lib/wizard-services";
+import type { SearchResult } from "@/lib/wizard-services/types";
 
 /**
  * Secret para validar chamadas internas do worker
@@ -101,6 +107,185 @@ async function updateWizardProgress(
   }
 
   await db.update(contentWizards).set(updateData).where(eq(contentWizards.id, wizardId));
+}
+
+/**
+ * Helper para formatar pesquisa sintetizada para o prompt de narrativas
+ * Transforma a estrutura JSON do Synthesizer em texto formatado
+ * v3.1: Updated for v4.1 carousel fields
+ */
+function formatSynthesizedResearchForPrompt(synthesized: SynthesizedResearch): string {
+  const sections: string[] = [];
+
+  // Summary (v3.1: prefer resumo_executivo, fallback to summary)
+  if (synthesized.resumo_executivo) {
+    sections.push(`## RESUMO DA PESQUISA\n${synthesized.resumo_executivo}\n`);
+  } else if (synthesized.summary) {
+    sections.push(`## RESUMO DA PESQUISA\n${synthesized.summary}\n`);
+  }
+
+  // Narrative suggestion
+  if (synthesized.narrative_suggestion) {
+    sections.push(`## SUGESTÃO DE NARRATIVA\n${synthesized.narrative_suggestion}\n`);
+  }
+
+  // v3.1: Throughlines potenciais
+  if (synthesized.throughlines_potenciais?.length > 0) {
+    sections.push("## THROUGHLINES SUGERIDOS");
+    synthesized.throughlines_potenciais.forEach((t, i) => {
+      sections.push(`${i + 1}. "${t.throughline}"`);
+      if (t.potencial_viral) sections.push(`   Potencial viral: ${t.potencial_viral}`);
+      if (t.justificativa) sections.push(`   Justificativa: ${t.justificativa}`);
+    });
+    sections.push("");
+  }
+
+  // v3.1: Tensões narrativas
+  if (synthesized.tensoes_narrativas?.length > 0) {
+    sections.push("## TENSÕES NARRATIVAS");
+    synthesized.tensoes_narrativas.forEach((t, i) => {
+      sections.push(`${i + 1}. ${t.tensao}`);
+      if (t.tipo) sections.push(`   Tipo: ${t.tipo}`);
+      if (t.uso_sugerido) sections.push(`   Uso: ${t.uso_sugerido}`);
+    });
+    sections.push("");
+  }
+
+  // Concrete data
+  if (synthesized.concrete_data?.length > 0) {
+    sections.push("## DADOS CONCRETOS");
+    synthesized.concrete_data.forEach((d, i) => {
+      sections.push(`${i + 1}. ${d.dado}`);
+      sections.push(`   Fonte: ${d.fonte}`);
+      sections.push(`   Uso sugerido: ${d.uso_sugerido}`);
+    });
+    sections.push("");
+  }
+
+  // v3.1: Dados contextualizados (ready phrases)
+  if (synthesized.dados_contextualizados?.length > 0) {
+    sections.push("## DADOS CONTEXTUALIZADOS");
+    synthesized.dados_contextualizados.forEach((d, i) => {
+      sections.push(`${i + 1}. ${d.frase_pronta}`);
+      sections.push(`   Fonte: ${d.fonte}`);
+      if (d.contraste) sections.push(`   Contraste: ${d.contraste}`);
+    });
+    sections.push("");
+  }
+
+  // v3.1: Exemplos narrativos (complete stories)
+  if (synthesized.exemplos_narrativos?.length > 0) {
+    sections.push("## EXEMPLOS NARRATIVOS");
+    synthesized.exemplos_narrativos.forEach((e, i) => {
+      sections.push(`${i + 1}. ${e.protagonista}`);
+      sections.push(`   Situação: ${e.situacao_inicial}`);
+      sections.push(`   Ação: ${e.acao}`);
+      sections.push(`   Resultado: ${e.resultado}`);
+      sections.push(`   Lição: ${e.aprendizado}`);
+    });
+    sections.push("");
+  }
+
+  // Legacy real examples (fallback)
+  const realExamples = synthesized.real_examples;
+  if (realExamples && realExamples.length > 0) {
+    sections.push("## EXEMPLOS REAIS");
+    realExamples.forEach((e, i) => {
+      sections.push(`${i + 1}. ${e.exemplo}`);
+      if (e.contexto) sections.push(`   Contexto: ${e.contexto}`);
+    });
+    sections.push("");
+  }
+
+  // v3.1: Erros e armadilhas (counter-intuitive mistakes)
+  const errosArmadilhas = synthesized.erros_armadilhas;
+  if (errosArmadilhas && errosArmadilhas.length > 0) {
+    sections.push("## ERROS E ARMADILHAS");
+    errosArmadilhas.forEach((e, i) => {
+      sections.push(`${i + 1}. ${e.erro}`);
+      if (e.por_que_parece_certo) sections.push(`   Por que parece certo: ${e.por_que_parece_certo}`);
+      if (e.consequencia_real) sections.push(`   Consequência: ${e.consequencia_real}`);
+      if (e.alternativa) sections.push(`   Alternativa: ${e.alternativa}`);
+    });
+    sections.push("");
+  }
+
+  // Legacy errors and risks (fallback)
+  const errorsRisks = synthesized.errors_risks;
+  if (errorsRisks && errorsRisks.length > 0) {
+    sections.push("## ERROS E RISCOS A EVITAR");
+    errorsRisks.forEach((e, i) => {
+      sections.push(`${i + 1}. ${e.erro}`);
+      if (e.consequencia) sections.push(`   Consequência: ${e.consequencia}`);
+      if (e.como_evitar) sections.push(`   Como evitar: ${e.como_evitar}`);
+    });
+    sections.push("");
+  }
+
+  // Frameworks and methods (v3.1: uses problema_que_resolve instead of descricao)
+  const frameworksMetodos = synthesized.frameworks_metodos;
+  if (frameworksMetodos && frameworksMetodos.length > 0) {
+    sections.push("## FRAMEWORKS E MÉTODOS");
+    frameworksMetodos.forEach((f, i) => {
+      sections.push(`${i + 1}. ${f.nome}`);
+      if (f.problema_que_resolve) sections.push(`   Resolve: ${f.problema_que_resolve}`);
+      if (f.passos?.length) sections.push(`   Passos: ${f.passos.join(" → ")}`);
+      if (f.exemplo_aplicacao) sections.push(`   Exemplo: ${f.exemplo_aplicacao}`);
+    });
+    sections.push("");
+  }
+
+  // Hooks
+  const hooks = synthesized.hooks;
+  if (hooks && hooks.length > 0) {
+    sections.push("## GANCHOS PARA ENGAJAMENTO");
+    hooks.forEach((h, i) => {
+      sections.push(`${i + 1}. ${h.gancho}`);
+      if (h.tipo) sections.push(`   Tipo: ${h.tipo}`);
+      if (h.potencial_viral) sections.push(`   Potencial: ${h.potencial_viral}`);
+    });
+    sections.push("");
+  }
+
+  // v3.1: Perguntas respondidas (for open loops)
+  if (synthesized.perguntas_respondidas?.length > 0) {
+    sections.push("## PERGUNTAS RESPONDIDAS");
+    synthesized.perguntas_respondidas.forEach((p, i) => {
+      sections.push(`${i + 1}. ${p}`);
+    });
+    sections.push("");
+  }
+
+  // v3.1: Progressão sugerida
+  if (synthesized.progressao_sugerida) {
+    const ps = synthesized.progressao_sugerida;
+    sections.push("## PROGRESSÃO SUGERIDA");
+    sections.push(`Ato 1 (Captura):`);
+    if (ps.ato1_captura.gancho_principal) sections.push(`  Gancho: ${ps.ato1_captura.gancho_principal}`);
+    if (ps.ato1_captura.tensao_inicial) sections.push(`  Tensão: ${ps.ato1_captura.tensao_inicial}`);
+    if (ps.ato1_captura.promessa) sections.push(`  Promessa: ${ps.ato1_captura.promessa}`);
+    sections.push(`Ato 2 (Desenvolvimento):`);
+    if (ps.ato2_desenvolvimento?.length > 0) {
+      ps.ato2_desenvolvimento.forEach((item, i) => {
+        sections.push(`  ${i + 1}. ${item}`);
+      });
+    }
+    sections.push(`Ato 3 (Resolução):`);
+    if (ps.ato3_resolucao.verdade_central) sections.push(`  Verdade: ${ps.ato3_resolucao.verdade_central}`);
+    if (ps.ato3_resolucao.call_to_action_natural) sections.push(`  CTA: ${ps.ato3_resolucao.call_to_action_natural}`);
+    sections.push("");
+  }
+
+  // Gaps and opportunities
+  if (synthesized.gaps_oportunidades?.length > 0) {
+    sections.push("## GAPS E OPORTUNIDADES");
+    synthesized.gaps_oportunidades.forEach((g, i) => {
+      sections.push(`${i + 1}. ${g}`);
+    });
+    sections.push("");
+  }
+
+  return sections.join("\n");
 }
 
 // Handlers para cada tipo de job
@@ -260,6 +445,11 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     const { wizardId, userId, contentType, referenceUrl, referenceVideoUrl, theme, context, objective, targetAudience, cta, ragConfig } =
       payload as WizardNarrativesPayload;
 
+    // ==============================================================================
+    // WIZARD DEBUG: WORKER RECEBEU JOB (NARRATIVAS)
+    // ==============================================================================
+    console.log(`[WIZARD] JOB wizard_narratives START - wizardId: ${wizardId}, userId: ${userId}, type: ${contentType}`);
+
     // 1. Get wizard
     const [wizard] = await db
       .select()
@@ -283,6 +473,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
 
     let extractedContent = "";
     let researchData = "";
+    let synthesizedResearchData: SynthesizedResearch | null = null;
 
     // 2. Extract content from reference URL (Firecrawl)
     if (referenceUrl) {
@@ -294,9 +485,14 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         },
       });
 
+      console.log(`[WIZARD-DEBUG] WORKER: Extraindo conteúdo de URL: ${referenceUrl}`);
       const firecrawlResult = await extractFromUrl(referenceUrl);
       if (firecrawlResult.success && firecrawlResult.data) {
         extractedContent = firecrawlResult.data.content;
+        console.log(`[WIZARD-DEBUG] WORKER: Conteúdo extraído (${extractedContent.length} chars)`);
+        console.log(extractedContent.substring(0, 500) + (extractedContent.length > 500 ? "..." : ""));
+      } else {
+        console.log(`[WIZARD-DEBUG] WORKER: Falha na extração: ${!firecrawlResult.success ? firecrawlResult.error : "no data"}`);
       }
     }
 
@@ -310,12 +506,16 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         },
       });
 
+      console.log(`[WIZARD-DEBUG] WORKER: Transcrevendo vídeo: ${referenceVideoUrl}`);
       const transcriptionResult = await transcribeYouTube(referenceVideoUrl);
       if (transcriptionResult.success && transcriptionResult.data) {
         if (extractedContent) {
           extractedContent += `\n\n`;
         }
         extractedContent += `Video Transcription:\n${transcriptionResult.data.transcription}`;
+        console.log(`[WIZARD-DEBUG] WORKER: Transcrição concluída (${transcriptionResult.data.transcription.length} chars)`);
+      } else {
+        console.log(`[WIZARD-DEBUG] WORKER: Falha na transcrição: ${!transcriptionResult.success ? transcriptionResult.error : "no data"}`);
       }
     }
 
@@ -329,17 +529,192 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         },
       });
 
-      const searchQuery = objective
-        ? `${theme} ${objective} ${contentType === "video" ? "video content" : contentType}`
-        : `${theme} ${contentType === "video" ? "video content" : contentType}`;
+      // ==============================================================================
+      // RESEARCH PLANNER v2.0: Gerar 7 queries estratégicas em 3 camadas
+      // ==============================================================================
+      console.log(`[WIZARD] RESEARCH-PLANNER v2.0 - theme: ${theme}, objective: ${objective || "(none)"}`);
 
-      const searchResult = await contextualSearch(searchQuery, {
-        maxResults: 5,
-        searchDepth: "basic",
+      // Declare variables in outer scope for synthesizer access
+      let researchPlan: ResearchPlannerOutput | undefined;
+      const allSearchResults: Array<{
+        query: string;
+        layer: string;
+        intent: string;
+        result?: any;
+        sources: any[];
+      }> = [];
+
+      const researchPlannerResult = await generateResearchQueries({
+        theme,
+        niche: context,
+        objective,
+        tone: context,
+        numberOfSlides: 10, // Will be read from wizard in future
+        cta,
+        targetAudience,
       });
 
-      if (searchResult.success && searchResult.data) {
-        researchData = formatSearchForPrompt(searchResult.data);
+      if (!researchPlannerResult.success || !researchPlannerResult.data) {
+        const errorMsg = !researchPlannerResult.success
+          ? (researchPlannerResult as any).error || "Unknown error"
+          : "No data returned";
+        console.log(`[WIZARD] RESEARCH-PLANNER failed: ${errorMsg}`);
+        // Fallback to simple query
+        const fallbackQuery = objective ? `${theme} ${objective}` : theme;
+        const fallbackResult = await contextualSearch(fallbackQuery, { maxResults: 5, searchDepth: "basic" });
+        if (fallbackResult.success && fallbackResult.data) {
+          researchData = formatSearchForPrompt(fallbackResult.data);
+        }
+      } else {
+        researchPlan = researchPlannerResult.data;
+        console.log(`[WIZARD] RESEARCH-PLANNER generated ${researchPlan.queries.length} queries`);
+
+        // ==============================================================================
+        // MULTI-QUERY EXECUTION: Executar 7 searches no Tavily
+        // ==============================================================================
+
+        for (let i = 0; i < researchPlan.queries.length; i++) {
+          const q = researchPlan.queries[i];
+          await updateWizardProgress(wizardId, {
+            processingProgress: {
+              stage: "research",
+              percent: 55 + (i * 3), // 55% to 76%
+              message: `Pesquisando: ${q.q.substring(0, 30)}... (${i + 1}/${researchPlan.queries.length})`,
+            },
+          });
+
+          console.log(`[WIZARD] QUERY ${i + 1}/${researchPlan.queries.length} [${q.layer}/${q.intent}]: "${q.q}"`);
+
+          const searchResult = await contextualSearch(q.q, {
+            maxResults: 3, // Fewer results per query to avoid too much data
+            searchDepth: "basic",
+          });
+
+          if (searchResult.success && searchResult.data) {
+            allSearchResults.push({
+              query: q.q,
+              layer: q.layer,
+              intent: q.intent,
+              result: searchResult.data,
+              sources: searchResult.data?.sources || [],
+            });
+            console.log(`[WIZARD] QUERY ${i + 1}: Found ${searchResult.data?.sources?.length || 0} sources`);
+          } else {
+            console.log(`[WIZARD] QUERY ${i + 1}: No results`);
+          }
+        }
+
+        // ==============================================================================
+        // AGGREGATION: Combinar todos os resultados
+        // ==============================================================================
+        console.log(`[WIZARD] AGGREGATING ${allSearchResults.length} query results`);
+
+        const aggregatedSources = allSearchResults.flatMap((r, idx) =>
+          r.sources.map((s: any) => ({
+            ...s,
+            queryContext: r.query,
+            layer: r.layer,
+            intent: r.intent,
+            queryIndex: idx,
+          }))
+        );
+
+        const totalSources = aggregatedSources.length;
+        console.log(`[WIZARD] TOTAL SOURCES: ${totalSources}`);
+
+        // Format aggregated research data for prompt
+        researchData = allSearchResults
+          .filter((r) => r.result?.answer)
+          .map((r) => `[${r.layer}/${r.intent}] ${r.result?.answer || ""}`)
+          .join("\n\n");
+
+        // Add all sources
+        if (aggregatedSources.length > 0) {
+          researchData += "\n\nFONTES:\n" + aggregatedSources
+            .slice(0, 20) // Limit to 20 sources max
+            .map((s: any, i: number) =>
+              `${i + 1}. ${s.title || "Untitled"}\n   URL: ${s.url}\n   Query: ${s.queryContext}`
+            )
+            .join("\n");
+        }
+
+        console.log(`[WIZARD] RESEARCH DATA SIZE: ${researchData.length} chars`);
+      }
+
+      // ==============================================================================
+      // SYNTHESIZER: Condensar Queries (Nova etapa crítica)
+      // Transforma resultados brutos do Tavily em campos estruturados
+      // ==============================================================================
+      if (researchData) {
+        await updateWizardProgress(wizardId, {
+          processingProgress: {
+            stage: "research",
+            percent: 78,
+            message: "Sintetizando pesquisa em insights acionáveis...",
+          },
+        });
+
+        console.log(`[WIZARD] SYNTHESIZER - Starting research synthesis...`);
+
+        // Prepare aggregated search results for synthesizer
+        const researchResultsForSynthesizer = researchPlan?.queries
+          ?.map((q: ResearchQuery) => {
+            const queryResult = (allSearchResults as any)?.find((r: any) => r.query === q.q);
+            return {
+              query: q.q,
+              answer: queryResult?.result?.answer || "",
+              sources: (queryResult?.sources || []).map((item: any) => ({
+                title: item.title,
+                url: item.url,
+                content: item.snippet || item.content || "",
+              })),
+            };
+          })
+          .filter((r: any) => r.sources.length > 0) || [];
+
+        if (researchResultsForSynthesizer.length > 0) {
+          const synthesizerInput: SynthesizerInput = {
+            topic: theme || "",
+            niche: context || "geral",
+            objective: objective || "engajamento",
+            researchResults: researchResultsForSynthesizer.flatMap((r: any) =>
+              r.sources.map((s: any) => ({
+                query: r.query,
+                answer: r.answer,
+                title: s.title,
+                url: s.url,
+                content: s.content,
+              }))
+            ),
+            extractedContent: extractedContent || undefined,
+            targetAudience: targetAudience || undefined,
+            tone: context || "profissional",
+          };
+
+          const synthesisResult = await synthesizeResearch(synthesizerInput);
+
+          if (synthesisResult.success) {
+            const synthesisData = synthesisResult.data;
+            const synthesizerEnhancedResearchData = formatSynthesizedResearchForPrompt(synthesisData);
+
+            // Add synthesized insights to research data
+            if (synthesizerEnhancedResearchData) {
+              researchData += "\n\n" + synthesizerEnhancedResearchData;
+            }
+
+            console.log(`[WIZARD] SYNTHESIZER SUCCESS`);
+            console.log(`  - Dados concretos: ${synthesisData.concrete_data.length}`);
+            console.log(`  - Exemplos reais: ${synthesisData.real_examples?.length ?? 0}`);
+            console.log(`  - Erros e riscos: ${synthesisData.errors_risks?.length ?? 0}`);
+            console.log(`  - Frameworks: ${synthesisData.frameworks_metodos.length}`);
+            console.log(`  - Ganchos: ${synthesisData.hooks.length}`);
+
+            // Store synthesized research in wizard (will be saved at the end)
+            synthesizedResearchData = synthesisData;
+          } else {
+            console.log(`[WIZARD] SYNTHESIZER failed, using raw data`);
+          }
+        }
       }
     }
 
@@ -397,6 +772,11 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
 
     const narratives = narrativesResult.data!;
 
+    // ==============================================================================
+    // WIZARD DEBUG: NARRATIVAS GERADAS COM SUCESSO
+    // ==============================================================================
+    console.log(`[WIZARD] Generated ${narratives.length} narratives for wizard ${wizardId}: ${narratives.map(n => `${n.angle}:${n.id}`).join(", ")}`);
+
     // 7. Update wizard with narratives and mark as completed
     await db
       .update(contentWizards)
@@ -404,6 +784,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         narratives: narratives as any, // JSONB column
         extractedContent: extractedContent || null,
         researchQueries: researchData ? [researchData] : [],
+        synthesizedResearch: synthesizedResearchData || null,
         currentStep: "narratives",
         jobStatus: "completed",
         processingProgress: {
@@ -437,6 +818,11 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     const { wizardId, userId, selectedNarrativeId, contentType, numberOfSlides, model, ragConfig } =
       payload as WizardGenerationPayload;
 
+    // ==============================================================================
+    // WIZARD DEBUG: WORKER RECEBEU JOB (GENERATION)
+    // ==============================================================================
+    console.log(`[WIZARD] JOB wizard_generation START - wizardId: ${wizardId}, narrative: ${selectedNarrativeId}, model: ${model}`);
+
     // 1. Get wizard
     const [wizard] = await db
       .select()
@@ -465,6 +851,18 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     // Parse narratives
     const narratives = wizard.narratives as any[];
     const selectedNarrative = narratives.find((n: any) => n.id === selectedNarrativeId);
+
+    // ==============================================================================
+    // WIZARD DEBUG: NARRATIVA SELECIONADA
+    // ==============================================================================
+    console.log(`\n${"=".repeat(80)}`);
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-DEBUG] WORKER: NARRATIVA SELECIONADA PELO USUÁRIO`);
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-DEBUG] selectedNarrativeId: ${selectedNarrativeId}`);
+    console.log(`[WIZARD-DEBUG] Narrativa encontrada:`, JSON.stringify(selectedNarrative, null, 2));
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`${"=".repeat(80)}\n`);
 
     if (!selectedNarrative) {
       await updateWizardProgress(wizardId, {
@@ -540,10 +938,79 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       })
       .where(eq(contentWizards.id, wizardId));
 
+    // 5. Sync to library (create library item from generated content)
+    console.log(`\n${"=".repeat(80)}`);
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-DEBUG] WORKER: INICIANDO SINCRONIZAÇÃO COM BIBLIOTECA`);
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-DEBUG] wizardId: ${wizardId}`);
+    console.log(`[WIZARD-DEBUG] userId: ${userId}`);
+    console.log(`[WIZARD-DEBUG] contentType: ${contentType}`);
+    console.log(`[WIZARD-DEBUG] wizardMetadata:`, JSON.stringify({
+      theme: wizard.theme,
+      objective: wizard.objective,
+      targetAudience: wizard.targetAudience,
+      context: wizard.context,
+    }, null, 2));
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`${"=".repeat(80)}\n`);
+
+    const libraryResult = await createLibraryItemFromWizard({
+      wizardId,
+      userId,
+      generatedContent,
+      contentType: contentType as any,
+      wizardMetadata: {
+        theme: wizard.theme,
+        objective: wizard.objective,
+        targetAudience: wizard.targetAudience,
+        context: wizard.context,
+      },
+    });
+
+    console.log(`\n${"=".repeat(80)}`);
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-DEBUG] WORKER: RESULTADO DA SINCRONIZAÇÃO`);
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-DEBUG] success: ${libraryResult.success}`);
+    console.log(`[WIZARD-DEBUG] libraryItemId: ${libraryResult.libraryItemId || "(não criado)"}`);
+    if (libraryResult.error) {
+      console.log(`[WIZARD-DEBUG] error: ${libraryResult.error}`);
+    }
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`${"=".repeat(80)}\n`);
+
+    if (libraryResult.success && libraryResult.libraryItemId) {
+      // Update wizard with the library item ID
+      await db
+        .update(contentWizards)
+        .set({ libraryItemId: libraryResult.libraryItemId })
+        .where(eq(contentWizards.id, wizardId));
+
+      console.log(`[WIZARD-DEBUG] WORKER: Library item ${libraryResult.libraryItemId} vinculado ao wizard ${wizardId}`);
+    } else {
+      // Log error but don't fail the wizard - content was successfully generated
+      console.error(`[WIZARD-DEBUG] WORKER: Library sync failed for wizard ${wizardId}:`, libraryResult.error);
+    }
+
+    // ==============================================================================
+    // WIZARD DEBUG: WORKER CONCLUIU JOB COM SUCESSO
+    // ==============================================================================
+    console.log(`\n${"=".repeat(80)}`);
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-DEBUG] WORKER: JOB wizard_generation CONCLUÍDO COM SUCESSO`);
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-DEBUG] wizardId: ${wizardId}`);
+    console.log(`[WIZARD-DEBUG] libraryItemId: ${libraryResult.libraryItemId || "(não criado)"}`);
+    console.log(`[WIZARD-DEBUG] contentType: ${generatedContent.type}`);
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`${"=".repeat(80)}\n`);
+
     return {
       success: true,
       generatedContent,
       wizardId,
+      libraryItemId: libraryResult.success ? libraryResult.libraryItemId : undefined,
     };
   },
 };

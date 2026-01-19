@@ -85,8 +85,16 @@ export async function POST(request: Request) {
     return NextResponse.json(wizard, { status: 201 });
   } catch (error) {
     console.error("Error creating wizard:", error);
+    // Log more details for debugging
+    if (error instanceof Error) {
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+    }
     return NextResponse.json(
-      { error: "Failed to create wizard" },
+      {
+        error: "Failed to create wizard",
+        details: error instanceof Error ? error.message : "Unknown error"
+      },
       { status: 500 }
     );
   }

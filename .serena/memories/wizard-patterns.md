@@ -1,10 +1,11 @@
 # Wizard de Criação - Patterns
 
-> **Status**: Implementação completa com refatoração visual (Janeiro 2026)
+> **Status**: Implementação completa com Synthesizer v3.1 e Image Generation (Janeiro 2026)
+> **Última atualização**: Promoções v4.1 (Carousel), v2.0 (Image/Video) integrados
 
 ## Visão Geral
 
-O Wizard de Criação é um fluxo multi-step para criação de conteúdo para redes sociais usando IA. Consiste em 4 etapas principais: Inputs → Processing → Narratives → Generation.
+O Wizard de Criação é um fluxo multi-step para criação de conteúdo para redes sociais usando IA. Consiste em 5 etapas principais: **Inputs → Processing → Synthesizer → Narratives → Generation → Image Generation**.
 
 ## Estrutura de Arquivos
 
@@ -17,11 +18,14 @@ src/app/(app)/wizard/
     ├── steps/
     │   ├── step-1-inputs.tsx        # Formulário de briefing
     │   ├── step-2-processing.tsx    # Polling de progresso
-    │   ├── step-3-narratives.tsx    # Seleção de narrativa
-    │   └── step-4-generation.tsx    # Preview e salvamento
+    │   ├── step-3-narratives.tsx    # Seleção de narrativa + síntese
+    │   ├── step-4-generation.tsx    # Preview e salvamento
+    │   └── step-5-image-generation.tsx # Geração de imagens (NOVO)
     └── shared/
         ├── document-config-form.tsx # Configuração RAG
         ├── narrative-card.tsx        # Card de narrativa
+        ├── synthesis-summary.tsx    # Resumo da pesquisa (NOVO)
+        ├── image-generation-options.tsx # Opções de imagem (NOVO)
         └── wizard-steps-indicator.tsx # Indicador de progresso
 ```
 
@@ -151,6 +155,212 @@ export interface GeneratedSlide {
 }
 ```
 
+## Synthesizer v3.1 - Pesquisa Estruturada
+
+**Localização**: `src/lib/wizard-services/synthesizer.service.ts`
+
+O Synthesizer é uma etapa intermediária crítica que transforma resultados brutos do Tavily em campos de pesquisa estruturados antes da geração de narrativas.
+
+### Fluxo do Synthesizer
+
+```
+Tavily Raw Results → SYNTHESIZER (LLM) → SynthesizedResearch → Narratives
+```
+
+### Tipos v3.1
+
+```typescript
+export interface SynthesizedResearch {
+  resumo_executivo: string;              // Executive summary
+  throughlines_potenciais: ThroughlinePotencial[];  // 3-5 throughlines
+  tensoes_narrativas: TensoesNarrativa[];          // Tensões para engagement
+  dados_contextualizados: DadoContextualizado[];   // Dados prontos para usar
+  exemplos_narrativos: ExemploNarrativo[];         // Histórias completas
+  erros_armadilhas: ErroArmadilha[];               // Contra-intuitivos
+  frameworks_metodos: FrameworkMetodoV3[];         // Frameworks validados
+  hooks: Hook[];                                     // Ganchos para slides
+  progressao_sugerida: ProgressaoSugeridaV3;       // Estrutura 3 atos
+  perguntas_respondidas: string[];                  // Para open loops
+  gaps_oportunidades: string[];                     // O que a pesquisa não cobriu
+  sources: string[];                                 // Fontes da pesquisa
+}
+
+export interface ThroughlinePotencial {
+  throughline: string;           // Frase central (10-25 palavras)
+  potencial_viral: string;        // Por que funciona (v3.1)
+  justificativa: string;          // Racional (v3.1)
+  slides_sugeridos?: number[];   // Onde usar
+}
+```
+
+### Campo Renomeados (v3.1)
+
+| v3.0 | v3.1 | Descrição |
+|------|------|-----------|
+| `por_que_funciona` | `potencial_viral` | Por que o throughline é viral |
+| `como_reforcar` | `justificativa` | Justificativa do throughline |
+| `por_que_engaja` | `tipo` | Tipo de tensão |
+| `como_explorar` | `uso_sugerido` | Como usar a tensão |
+| `dado` | `frase_pronta` | Frase pronta com dado |
+| `implicacao_pratica` | `contraste` | Elemento de contraste |
+
+### ProgressaoSugeridaV3 Structure
+
+```typescript
+export interface ProgressaoSugeridaV3 {
+  ato1_captura: {
+    gancho_principal: string;
+    tensao_inicial: string;
+    promessa: string;
+  };
+  ato2_desenvolvimento: string[];    // Array de beats narrativos
+  ato3_resolucao: {
+    verdade_central: string;
+    call_to_action_natural: string;
+  };
+}
+```
+
+## Image Generation - Geração de Imagens
+
+**Localização**: `src/lib/wizard-services/image-generation.service.ts` + `screenshotone.service.ts`
+
+Sistema de geração de imagens com dois métodos: AI Generation (OpenRouter) e HTML Templates (ScreenshotOne).
+
+### Métodos Disponíveis
+
+| Método | Descrição | Quando Usar |
+|--------|-----------|-------------|
+| **AI Generation** | Imagens via OpenRouter (Gemini, GPT-5 Image, etc.) | Qualidade máxima, criativo |
+| **HTML Template** | Templates renderizados via ScreenshotOne | Fallback, consistência visual |
+
+### Modelos de Imagem Disponíveis
+
+```typescript
+const AI_IMAGE_MODELS = {
+  GEMINI_IMAGE: "google/gemini-3-pro-image-preview",
+  OPENAI_IMAGE: "openai/gpt-5-image",
+  SEEDREAM: "bytedance-seed/seedream-4.5",
+  FLUX: "black-forest-labs/flux.2-max",
+}
+```
+
+### ScreenshotOne Configuration
+
+**Importante**: Use o **Access Key** (não o Secret Key) para autenticação padrão:
+
+```env
+SCREENSHOT_ONE_ACCESS_KEY=seu-access-key-aqui
+# SCREENSHOT_ONE_SECRET_KEY=opcional-apenas-para-urls-publicas-assinadas
+```
+
+**Por que Access Key?**
+- Uso server-side (nosso caso)
+- Imagens retornadas diretamente, não URLs públicas
+- Secret Key só é necessária para compartilhar URLs em `<img>` tags
+
+### HTML Templates (18 opções)
+
+```typescript
+const HTML_TEMPLATES = {
+  // Gradient-based
+  GRADIENT_SOLID: "gradiente-solid",
+  GRADIENT_LINEAR: "gradiente-linear",
+  GRADIENT_RADIAL: "gradiente-radial",
+  GRADIENT_MESH: "gradiente-mesh",
+
+  // Typography
+  TYPOGRAPHY_BOLD: "tipografia-bold",
+  TYPOGRAPHY_CLEAN: "tipografia-clean",
+  TYPOGRAPHY_OVERLAY: "tipografia-overlay",
+
+  // Patterns
+  PATTERN_GEOMETRIC: "padrão-geométrico",
+  PATTERN_DOTS: "padrão-círculos",
+  PATTERN_LINES: "padrão-linhas",
+  PATTERN_WAVES: "padrão-ondas",
+
+  // Styles
+  GLASSMORPHISM: "glassmorphism",
+  NEOMORPHISM: "neomorphism",
+  BRUTALIST: "brutalista",
+  NEUMORPHISM: "neumorphism",
+
+  // Themes
+  DARK_MODE: "dark-mode",
+  LIGHT_MODE: "light-mode",
+  NEON_GLOW: "neon-glow",
+  SUNSET_VIBES: "sunset-vibes",
+}
+```
+
+### Tipos de Geração de Imagem
+
+```typescript
+export interface ImageGenerationConfig {
+  method: "ai" | "html-template";
+  aiOptions?: AiImageOptions;      // Para AI generation
+  htmlOptions?: HtmlTemplateOptions; // Para HTML templates
+}
+
+export interface AiImageOptions {
+  model: AiImageModel;
+  color: ColorOption;              // vibrante, pastel, neon, etc.
+  customColor?: string;            // Hex quando color="personalizado"
+  style: VisualStyle;              // minimalista, moderno, etc.
+  composition?: CompositionOption;
+  mood?: MoodOption;
+  additionalContext?: string;
+}
+
+export interface HtmlTemplateOptions {
+  template: HtmlTemplate;
+  primaryColor: string;            // Hex obrigatório
+  secondaryColor?: string;         // Hex opcional
+  backgroundColor?: string;        // Hex opcional
+  textColor?: string;              // Hex opcional
+  overlay?: boolean;
+  opacity?: number;                // 0-1
+}
+```
+
+### Padrão de Fallback
+
+```typescript
+// Tenta AI primeiro, fallback para HTML template
+async function generateImageWithFallback(input) {
+  const aiResult = await generateAiImage(input);
+  if (aiResult.success) return aiResult;
+
+  // Fallback para ScreenshotOne HTML template
+  return await generateHtmlTemplateImage(input);
+}
+```
+
+## Prompts v4.1 / v2.0
+
+**Localização**: `src/lib/wizard-services/prompts.ts`
+
+Atualização dos prompts com tags XML e integração Synthesizer v3:
+
+### Carousel v4.1
+
+- Tags XML: `<identidade>`, `<filosofia_central>`, `<sistema_throughline>`, etc.
+- Integração com `throughlines_potenciais[]`, `tensoes_narrativas[]`, `dados_contextualizados[]`
+- ProgressaoSugeridaV3 structure
+
+### Image Post v2.0
+
+- Tags XML: `<identidade>`, `<filosofia>`, `<framework_imagem>`, `<framework_legenda>`
+- Estrutura HCCA: Hook → Contexto → Conteúdo → Ação
+- Técnicas de retenção: Pattern Interrupt, Curiosity Gap, Social Proof
+
+### Video Script v2.0
+
+- Tags XML: `<identidade>`, `<filosofia>`, `<framework_hooks>`, `<framework_estrutura>`
+- 5 estruturas: Problema-Solução, Lista/Dicas, Storytelling, Polêmica, Tutorial
+- Otimização para retenção nos primeiros 3 segundos
+
 ## API Routes
 
 ### POST /api/wizard
@@ -189,18 +399,26 @@ Todas as integrações foram implementadas em Janeiro 2026 via módulo `src/lib/
 | **Tavily** | ✅ | Contextual search | `tavily.service.ts` |
 | **OpenRouter** | ✅ | LLM generation | `llm.service.ts` |
 | **Voyage AI** | ✅ | RAG embeddings | `rag.service.ts` |
+| **Synthesizer** | ✅ | v3.1 pesquisa estruturada | `synthesizer.service.ts` |
+| **Image Gen** | ✅ | AI + HTML templates | `image-generation.service.ts` |
+| **ScreenshotOne** | ✅ | HTML rendering | `screenshotone.service.ts` |
 
 ### Estrutura dos Wizard Services
 
 ```
 src/lib/wizard-services/
 ├── types.ts                    # Interfaces: NarrativeAngle, ContentType, ServiceResult
-├── prompts.ts                  # Prompts isolados por tipo (carousel, text, image, video)
+├── synthesis-types.ts          # Synthesizer v3.1 types
+├── image-types.ts              # Image generation types
+├── prompts.ts                  # Prompts isolados por tipo (v4.1/v2.0)
 ├── llm.service.ts              # generateNarratives(), generateContent() com retry
 ├── rag.service.ts              # generateWizardRagContext(), formatRagForPrompt()
+├── synthesizer.service.ts      # synthesizeResearch() - Tavily → Estruturado
 ├── firecrawl.service.ts        # extractFromUrl(), extractFromMultipleUrls()
 ├── tavily.service.ts           # contextualSearch(), searchTrends()
 ├── apify.service.ts            # transcribeYouTube(), transcribeMultipleVideos()
+├── image-generation.service.ts # AI image generation via OpenRouter
+├── screenshotone.service.ts   # HTML template rendering (18 templates)
 └── index.ts                    # Barrel exports + getWizardServicesStatus()
 ```
 
@@ -222,14 +440,17 @@ Cada tipo de conteúdo tem sua própria função de prompt:
 
 ```typescript
 // src/lib/wizard-services/prompts.ts
-export function getCarouselPrompt(params: {
-  theme, context, objective, cta, targetAudience, ...
-}): string
-
-export function getTextPrompt(params: { ... }): string
-export function getImagePrompt(params: { ... }): string
-export function getVideoPrompt(params: { ... }): string
+export function getNarrativesSystemPrompt(): string         // v1.0
+export function getCarouselPrompt(params: { ... }): string   // v4.1
+export function getTextPrompt(params: { ... }): string       // v1.0
+export function getImagePrompt(params: { ... }): string      // v2.0
+export function getVideoPrompt(params: { ... }): string       // v2.0
 ```
+
+**Versões dos Prompts:**
+- **Carousel v4.1**: Tags XML, integração Synthesizer v3.1, ProgressaoSugeridaV3
+- **Image Post v2.0**: HCCA structure, técnicas de retenção
+- **Video Script v2.0**: 5 estruturas, otimização 3 segundos
 
 **IMPORTANTE**: Para alterar prompts de um tipo específico, edite apenas a função correspondente em `prompts.ts`.
 

@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Synthesizer v3.1**: Intermediate LLM processing for structured research (throughlines, tensions, frameworks)
+- **Image Generation System**: Dual-method image generation (AI via OpenRouter + HTML Templates via ScreenshotOne)
+- `wizard_image_gen` job type for generating images for wizard slides
+- Step 5 - Image Generation UI component with AI/HTML template options
+- SynthesisSummary component: displays structured research from Synthesizer
+- ImageGenerationOptions component: visual mode and template selection
+- 18 HTML templates for image generation (gradients, typography, patterns, styles, themes)
+- 4 AI image models support (Gemini 3 Pro Image, GPT-5 Image, Seedream 4.5, Flux 2 Max)
+- Prompts v4.1 for Carousel, v2.0 for Image Post, v2.0 for Video Script
 - `triggerWorker()` helper function in `src/lib/queue/client.ts` for manual worker triggering
 - Auto-trigger pattern for development environment (worker called after job creation)
 - Worker authentication bypass for `/api/workers` route (uses `WORKER_SECRET` instead of Clerk)
@@ -19,11 +28,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MoveToCollectionDialog: move documents between collections
 
 ### Changed
+- Wizard flow updated: Inputs → Processing → **Synthesizer** → Narratives → Generation → **Image Gen**
 - RAG chunking: changed from fixed 4000 tokens to category-specific (800-1300 tokens)
 - RAG threshold: unified to 0.5 across entire pipeline (was 0.6-0.7)
 - Voyage API: updated `encoding_format` parameter to `output_dtype`
 - Wizard submit route: auto-triggers worker in development mode after job creation
+- Wizard narratives job now includes Synthesizer v3.1 research synthesis step
 - `WORKER_SECRET` default value updated to `dev-secret-change-in-production`
+- `.env.example`: Added ScreenshotOne configuration section (Access Key vs Secret Key)
 
 ### Fixed
 - **Critical**: Wizard worker not processing jobs in development (Vercel Cron only works in production)
@@ -34,20 +46,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed TypeError: "Cannot read properties of undefined (reading 'state')" in chat streaming
 
 ### Documentation
+- Added insight: 014-wizard-phase2-synthesizer-image-gen-jan2026.md
+- Updated `wizard-patterns.md` with Synthesizer v3.1, Image Generation, and Prompt versions
+- Updated `dev-wizard.md` with Phase 2 complete documentation
+- Updated `architecture.md` with Phase 2 architecture and Image Generation flow
 - Added error documentation: 032-json-parse-object-error.md
 - Added insights: 013-wizard-worker-debugging-jan2026.md
 - Added error documentation: 027-infinite-loop-useeffect-usememo.md, 028-usechat-sendmessage-format.md
 - Added insights: 010-rag-optimization-jan-2026.md, 011-usechat-streaming-patterns.md
-- Updated `wizard-patterns.md` with Worker System (dev/prod) and JSONB Parsing Pattern sections
 - Updated `queue-patterns.md` with triggerWorker() helper and troubleshooting section
 - Updated `database-patterns.md` with JSONB Parsing Pattern
-- Updated `dev-wizard.md` with Worker System section and troubleshooting
-- Updated `architecture.md` with Worker Triggering: Development vs Production section
 - Updated vercel-ai-sdk-patterns.md with sendMessage format and memoization patterns
 - Updated react-hooks-patterns.md with useMemo + useCallback for streaming
-- Updated architecture.md with useChat streaming patterns
 
-**Commit**: `f310da7` - 2026-01-18
+**Commit**: `03f822b` - 2026-01-19
 
 ---
 

@@ -14,6 +14,10 @@
  * - firecrawl.service.ts: Web scraping (optional)
  * - tavily.service.ts: Contextual search (optional)
  * - apify.service.ts: YouTube transcription (optional)
+ * - research-planner.service.ts: Strategic query generation (7 queries in 3 layers)
+ * - synthesizer.service.ts: Research synthesis
+ * - image-generation.service.ts: AI image generation via OpenRouter
+ * - screenshotone.service.ts: HTML template rendering via ScreenshotOne
  */
 
 // ============================================================================
@@ -56,6 +60,7 @@ export {
   getAngleDescription,
   getContentTypeName,
   extractJSONFromResponse,
+  getResearchPlannerPrompt,
 } from "./prompts";
 
 // ============================================================================
@@ -68,6 +73,44 @@ export {
   isLlmServiceAvailable,
   getAvailableWizardModels,
 } from "./llm.service";
+
+// ============================================================================
+// RESEARCH PLANNER SERVICE
+// ============================================================================
+
+export {
+  generateResearchQueries,
+  isResearchPlannerAvailable,
+  getResearchPlannerModel,
+} from "./research-planner.service";
+
+export type {
+  ResearchPlannerInput,
+} from "./research-planner.service";
+
+// ============================================================================
+// SYNTHESIZER SERVICE
+// ============================================================================
+
+export {
+  synthesizeResearch,
+} from "./synthesizer.service";
+
+export type {
+  SynthesizedResearch,
+  SynthesizerInput,
+  ConcreteDataPoint,
+  RealExample,
+  ErrorRisk,
+  FrameworkMetodo,
+  Hook,
+  ResearchPlannerOutput,
+  ResearchQuery,
+  QueryIntent,
+  QueryLayer,
+  // Note: ImageGenerationConfig, GeneratedImage, ImageGenerationInput are now in image-types.ts
+  // Note: ContentDensityRules, ContentDensityValidation will be implemented in Phase 3
+} from "./synthesis-types";
 
 // ============================================================================
 // RAG SERVICE
@@ -120,10 +163,77 @@ export {
   getYouTubeThumbnail,
 } from "./apify.service";
 
+// ============================================================================
+// LIBRARY SYNC SERVICE
+// ============================================================================
+
+export {
+  createLibraryItemFromWizard,
+  resyncWizardToLibrary,
+  generateTitle,
+  mapGeneratedContentToLibraryItem,
+} from "./library-sync";
+
+export type {
+  WizardMetadata,
+  CreateLibraryItemFromWizardOptions,
+  CreateLibraryItemResult,
+} from "./library-sync";
+
 // Import configuration checkers for internal use
 import { isFirecrawlConfigured as checkFirecrawl } from "./firecrawl.service";
 import { isTavilyConfigured as checkTavily } from "./tavily.service";
 import { isApifyConfigured as checkApify } from "./apify.service";
+
+// ============================================================================
+// IMAGE GENERATION SERVICES
+// ============================================================================
+
+// AI Image Generation (OpenRouter)
+export {
+  generateAiImage,
+  generateImagePrompt,
+  isImageGenerationAvailable,
+  getAvailableImageModels,
+  getModelLabel,
+  validateImageOptions,
+} from "./image-generation.service";
+
+export type {
+  AiImageModel,
+  ImageGenerationMethod,
+  ColorOption,
+  VisualStyle,
+  CompositionOption,
+  MoodOption,
+  AiImageOptions,
+  ImageGenerationConfig,
+  ImageGenerationInput,
+  ImageGenerationResult,
+  GeneratedImage,
+  PromptGenerationInput,
+  PromptGenerationResult,
+} from "./image-types";
+
+// HTML Template Generation (ScreenshotOne)
+export {
+  generateHtmlTemplateImage,
+  getScreenshotOneUrl,
+  isScreenshotOneAvailable,
+  getAvailableTemplates,
+  getTemplateLabel,
+  validateHtmlOptions,
+} from "./screenshotone.service";
+
+export type {
+  HtmlTemplate,
+  HtmlTemplateOptions,
+  ScreenshotOneConfig,
+  ScreenshotOneRenderOptions,
+} from "./image-types";
+
+// Constants
+export { INSTAGRAM_DIMENSIONS } from "./image-types";
 
 // ============================================================================
 // SERVICE STATUS

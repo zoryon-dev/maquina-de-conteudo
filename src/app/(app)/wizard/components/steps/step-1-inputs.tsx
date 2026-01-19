@@ -23,13 +23,19 @@ import {
   Plus,
   Minus,
   Cpu,
-  ChevronDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
   CollapsibleSection,
@@ -127,7 +133,6 @@ export function Step1Inputs({
   className,
 }: Step1InputsProps) {
   const [negativeTermInput, setNegativeTermInput] = useState("");
-  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
 
   // Default model if not set
   const selectedModel = data.model ?? DEFAULT_TEXT_MODEL.id;
@@ -242,38 +247,36 @@ export function Step1Inputs({
           <div className="flex items-center justify-between p-4 rounded-xl border border-primary/30 bg-primary/5">
             <div>
               <Label className="text-sm font-medium text-white">Número de Slides</Label>
-              <p className="text-xs text-white/50 mt-1">Carrosséis de 5 a 10 slides têm melhor performance</p>
+              <p className="text-xs text-white/70 mt-1">Carrosséis de 5 a 10 slides têm melhor performance</p>
             </div>
-            <div className="flex items-center gap-3">
-              <Button
+            <div className="flex items-center gap-2">
+              <button
                 type="button"
-                variant="outline"
-                size="sm"
                 onClick={() =>
                   onChange({
                     ...data,
                     numberOfSlides: Math.max(3, (data.numberOfSlides ?? 10) - 1),
                   })
                 }
+                className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors border border-white/10"
               >
                 <Minus className="w-4 h-4" />
-              </Button>
+              </button>
               <span className="text-lg font-semibold text-white min-w-[40px] text-center">
                 {data.numberOfSlides ?? 10}
               </span>
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                size="sm"
                 onClick={() =>
                   onChange({
                     ...data,
                     numberOfSlides: Math.min(20, (data.numberOfSlides ?? 10) + 1),
                   })
                 }
+                className="w-10 h-10 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors border border-white/10"
               >
                 <Plus className="w-4 h-4" />
-              </Button>
+              </button>
             </div>
           </div>
         </motion.section>
@@ -296,7 +299,7 @@ export function Step1Inputs({
                 <Label className="text-sm text-white/70 flex items-center gap-2">
                   <LinkIcon className="w-4 h-4" />
                   URL de Referência
-                  <span className="text-white/40 font-normal">(Firecrawl)</span>
+                  <span className="text-white/70 font-normal">(Firecrawl)</span>
                 </Label>
                 <div className="flex gap-2">
                   <Input
@@ -327,7 +330,7 @@ export function Step1Inputs({
                 <Label className="text-sm text-white/70 flex items-center gap-2">
                   <PlayCircle className="w-4 h-4" />
                   URL de Vídeo
-                  <span className="text-white/40 font-normal">(Transcrição)</span>
+                  <span className="text-white/70 font-normal">(Transcrição)</span>
                 </Label>
                 <div className="flex gap-2">
                   <Input
@@ -370,7 +373,7 @@ export function Step1Inputs({
                 <Label className="text-sm text-white/70 flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-primary" />
                   Tema Principal
-                  <span className="text-white/40 font-normal">(opcional)</span>
+                  <span className="text-white/70 font-normal">(opcional)</span>
                 </Label>
                 <Input
                   placeholder="Ex: Lançamento de nova coleção de verão"
@@ -385,7 +388,7 @@ export function Step1Inputs({
                 <Label className="text-sm text-white/70 flex items-center gap-2">
                   <Target className="w-4 h-4 text-blue-400" />
                   Objetivo do Conteúdo
-                  <span className="text-white/40 font-normal">(opcional)</span>
+                  <span className="text-white/70 font-normal">(opcional)</span>
                 </Label>
                 <Input
                   placeholder="Ex: Aumentar engajamento, promover produto..."
@@ -400,7 +403,7 @@ export function Step1Inputs({
                 <Label className="text-sm text-white/70 flex items-center gap-2">
                   <Megaphone className="w-4 h-4 text-orange-400" />
                   Call to Action
-                  <span className="text-white/40 font-normal">(opcional)</span>
+                  <span className="text-white/70 font-normal">(opcional)</span>
                 </Label>
                 <Input
                   placeholder="Ex: Link na bio, Clique em saiba mais..."
@@ -428,7 +431,7 @@ export function Step1Inputs({
                 <Label className="text-sm text-white/70 flex items-center gap-2">
                   <Users className="w-4 h-4 text-green-400" />
                   Público-Alvo
-                  <span className="text-white/40 font-normal">(opcional)</span>
+                  <span className="text-white/70 font-normal">(opcional)</span>
                 </Label>
                 <Input
                   placeholder="Ex: Mulheres 25-40 interessadas em skincare"
@@ -443,7 +446,7 @@ export function Step1Inputs({
                 <Label className="text-sm text-white/70 flex items-center gap-2">
                   <FileText className="w-4 h-4 text-purple-400" />
                   Contexto Adicional
-                  <span className="text-white/40 font-normal">(opcional)</span>
+                  <span className="text-white/70 font-normal">(opcional)</span>
                 </Label>
                 <Textarea
                   placeholder="Informações adicionais que possam ajudar a criar um conteúdo mais direcionado...&#10;&#10;Ex: Tema deve ser leve e descontraído, usar emojis, evitar linguagem muito técnica."
@@ -513,7 +516,7 @@ export function Step1Inputs({
                   </AnimatePresence>
                 </div>
               ) : (
-                <p className="text-sm text-white/40 text-center py-4">
+                <p className="text-sm text-white/70 text-center py-4">
                   Nenhum termo adicionado
                 </p>
               )}
@@ -532,112 +535,94 @@ export function Step1Inputs({
                 <Label className="text-sm text-white/70 flex items-center gap-2">
                   <Cpu className="w-4 h-4 text-primary" />
                   Modelo de IA
-                  <span className="text-white/40 font-normal">(geração de narrativas e conteúdo)</span>
+                  <span className="text-white/70 font-normal">(geração de narrativas e conteúdo)</span>
                 </Label>
 
-                {/* Custom Model Selector Dropdown */}
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-                    className="w-full h-11 px-4 flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] text-white text-sm hover:border-white/20 hover:bg-white/[0.05] transition-all"
-                  >
-                    <span className="flex items-center gap-2">
-                      <Cpu className="w-4 h-4 text-primary/70" />
-                      {TEXT_MODELS.find(m => m.id === selectedModel)?.name || DEFAULT_TEXT_MODEL.name}
-                    </span>
-                    <ChevronDown className={cn(
-                      "w-4 h-4 text-white/50 transition-transform",
-                      modelDropdownOpen && "rotate-180"
-                    )} />
-                  </button>
+                {/* Model Selector Dialog */}
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button
+                      type="button"
+                      className="w-full h-11 px-4 flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] text-white text-sm hover:border-white/20 hover:bg-white/[0.05] transition-all"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Cpu className="w-4 h-4 text-primary/70" />
+                        {TEXT_MODELS.find(m => m.id === selectedModel)?.name || DEFAULT_TEXT_MODEL.name}
+                      </span>
+                      <span className="text-xs text-white/50">Trocar →</span>
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+                    <DialogHeader>
+                      <DialogTitle>Escolha o Modelo de IA</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex-1 overflow-y-auto -mx-2">
+                      {(() => {
+                        const providers: Array<ModelProvider> = ["openai", "anthropic", "google", "x-ai"];
+                        const providerNames: Record<ModelProvider, string> = {
+                          openai: "OpenAI",
+                          anthropic: "Anthropic",
+                          google: "Google",
+                          "x-ai": "xAI",
+                          "black-forest-labs": "Black Forest Labs",
+                          "sourceful": "Sourceful",
+                          "bytedance-seed": "ByteDance",
+                        };
 
-                  {/* Dropdown Menu */}
-                  <AnimatePresence>
-                    {modelDropdownOpen && (
-                      <>
-                        {/* Backdrop */}
-                        <div
-                          className="fixed inset-0 z-10"
-                          onClick={() => setModelDropdownOpen(false)}
-                        />
+                        return providers.map(provider => {
+                          const providerModels = TEXT_MODELS.filter(m => m.provider === provider);
+                          if (providerModels.length === 0) return null;
 
-                        {/* Dropdown Content */}
-                        <motion.div
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          transition={{ duration: 0.15 }}
-                          className="absolute z-20 mt-2 w-full rounded-xl border border-white/10 bg-[#0a0a0f] shadow-xl overflow-hidden"
-                        >
-                          <div className="max-h-64 overflow-y-auto">
-                            {/* Group by provider */}
-                            {(() => {
-                              const providers: Array<ModelProvider> = ["openai", "anthropic", "google", "x-ai"];
-                              const providerNames: Record<ModelProvider, string> = {
-                                openai: "OpenAI",
-                                anthropic: "Anthropic",
-                                google: "Google",
-                                "x-ai": "xAI",
-                                "black-forest-labs": "Black Forest Labs",
-                                "sourceful": "Sourceful",
-                                "bytedance-seed": "ByteDance",
-                              };
+                          return (
+                            <div key={provider} className="mb-4 last:mb-0">
+                              {/* Provider Header */}
+                              <div className="px-3 py-2 bg-white/[0.03] border border-white/10 rounded-t-lg">
+                                <span className="text-xs font-medium text-white/70 uppercase tracking-wider">
+                                  {providerNames[provider]}
+                                </span>
+                              </div>
 
-                              return providers.map(provider => {
-                                const providerModels = TEXT_MODELS.filter(m => m.provider === provider);
-                                if (providerModels.length === 0) return null;
-
-                                return (
-                                  <div key={provider}>
-                                    {/* Provider Header */}
-                                    <div className="px-3 py-2 bg-white/[0.03] border-b border-white/5">
-                                      <span className="text-xs font-medium text-white/50 uppercase tracking-wider">
-                                        {providerNames[provider]}
-                                      </span>
-                                    </div>
-
-                                    {/* Models */}
-                                    {providerModels.map(model => (
-                                      <button
-                                        key={model.id}
-                                        type="button"
-                                        onClick={() => {
-                                          onChange({ ...data, model: model.id });
-                                          setModelDropdownOpen(false);
-                                        }}
-                                        className={cn(
-                                          "w-full px-4 py-2.5 text-left text-sm flex items-center gap-3 transition-colors",
-                                          selectedModel === model.id
-                                            ? "bg-primary/20 text-primary"
-                                            : "text-white/80 hover:bg-white/[0.03] hover:text-white"
-                                        )}
-                                      >
-                                        <Cpu className="w-4 h-4 flex-shrink-0" />
-                                        <span>{model.name}</span>
-                                        {selectedModel === model.id && (
-                                          <span className="ml-auto text-primary text-xs">
-                                            ✓
-                                          </span>
-                                        )}
-                                      </button>
-                                    ))}
-                                  </div>
-                                );
-                              });
-                            })()}
-                          </div>
-                        </motion.div>
-                      </>
-                    )}
-                  </AnimatePresence>
-                </div>
+                              {/* Models */}
+                              <div className="border border-t-0 border-white/10 rounded-b-lg overflow-hidden">
+                                {providerModels.map(model => (
+                                  <button
+                                    key={model.id}
+                                    type="button"
+                                    onClick={() => {
+                                      onChange({ ...data, model: model.id });
+                                      // Close dialog by finding the close button
+                                      document.querySelector('[data-slot="dialog-close"]')?.dispatchEvent(
+                                        new MouseEvent('click', { bubbles: true })
+                                      );
+                                    }}
+                                    className={cn(
+                                      "w-full px-4 py-3 text-left text-sm flex items-center gap-3 transition-colors border-b border-white/5 last:border-b-0",
+                                      selectedModel === model.id
+                                        ? "bg-primary/20 text-primary"
+                                        : "text-white/80 hover:bg-white/[0.03] hover:text-white"
+                                    )}
+                                  >
+                                    <Cpu className="w-4 h-4 flex-shrink-0" />
+                                    <span className="flex-1">{model.name}</span>
+                                    {selectedModel === model.id && (
+                                      <span className="text-primary">✓</span>
+                                    )}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
 
               {/* Model info badge */}
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
                 <Cpu className="w-3.5 h-3.5 text-primary/70" />
-                <span className="text-xs text-white/60">
+                <span className="text-xs text-white/70">
                   Usando <span className="text-white font-medium">{TEXT_MODELS.find(m => m.id === selectedModel)?.name || DEFAULT_TEXT_MODEL.name}</span>
                 </span>
               </div>

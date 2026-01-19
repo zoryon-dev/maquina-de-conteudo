@@ -109,6 +109,8 @@ export async function PATCH(
       narratives,
       selectedNarrativeId,
       generatedContent,
+      imageGenerationConfig,
+      generatedImages,
       libraryItemId,
       jobId,
       // For auto-save: can update updatedAt timestamp automatically
@@ -138,6 +140,8 @@ export async function PATCH(
     if (narratives !== undefined) updateData.narratives = narratives as any;
     if (selectedNarrativeId !== undefined) updateData.selectedNarrativeId = selectedNarrativeId;
     if (generatedContent !== undefined) updateData.generatedContent = generatedContent as any;
+    if (imageGenerationConfig !== undefined) updateData.imageGenerationConfig = imageGenerationConfig as any;
+    if (generatedImages !== undefined) updateData.generatedImages = generatedImages as any;
     if (libraryItemId !== undefined) updateData.libraryItemId = libraryItemId;
     if (jobId !== undefined) updateData.jobId = jobId;
 

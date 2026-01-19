@@ -1,0 +1,1931 @@
+{
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "jonas-testessssteete",
+          "options": {}
+        },
+        "id": "d41b6274-49dc-49ba-bc84-b6938a155406",
+        "name": "Webhook (inputs)",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -6000,
+          304
+        ],
+        "webhookId": "1795a1c0-d1a2-4073-8998-22f7d5841081"
+      },
+      {
+        "parameters": {
+          "keepOnlySet": true,
+          "values": {
+            "string": [
+              {
+                "name": "job_id",
+                "value": "={{ $json.body.job_id || $json.job_id || '' }}"
+              },
+              {
+                "name": "tema",
+                "value": "={{ $json.body.tema || $json.tema || '' }}"
+              },
+              {
+                "name": "nicho",
+                "value": "={{ $json.body.nicho || $json.nicho || '' }}"
+              },
+              {
+                "name": "tom",
+                "value": "={{ $json.body.tom || $json.body.tom_de_voz || $json.tom || 'neutro' }}"
+              },
+              {
+                "name": "estilo",
+                "value": "={{ $json.body.estilo || $json.estilo || 'informativo' }}"
+              },
+              {
+                "name": "objetivo",
+                "value": "={{ $json.body.objetivo || $json.objetivo || 'autoridade' }}"
+              },
+              {
+                "name": "tipo_post",
+                "value": "={{ $json.body.tipo_post || $json.tipo_post || '' }}"
+              },
+              {
+                "name": "qtd_slides",
+                "value": "={{ $json.body.qtd_slides || $json.qtd_slides || 0 }}"
+              },
+              {
+                "name": "cta",
+                "value": "={{ $json.body.cta || $json.cta || '' }}"
+              },
+              {
+                "name": "estilo_imagem",
+                "value": "={{ $json.body.estilo_imagem || $json.estilo_imagem || '' }}"
+              },
+              {
+                "name": "descricao_capa",
+                "value": "={{ $json.body.descricao_capa || $json.descricao_capa || '' }}"
+              },
+              {
+                "name": "timestamp",
+                "value": "={{ $json.body.timestamp || $json.timestamp || '' }}"
+              },
+              {
+                "name": "user_id",
+                "value": "={{ $json.body.user_id || $json.user_id || '' }}"
+              },
+              {
+                "name": "user_email",
+                "value": "={{ $json.body.user_email || $json.user_email || '' }}"
+              },
+              {
+                "name": "user_name",
+                "value": "={{ $json.body.user_name || $json.user_name || '' }}"
+              },
+              {
+                "name": "model_planner",
+                "value": "=openai/gpt-4.1-mini"
+              },
+              {
+                "name": "model_synthesizer",
+                "value": "openai/gpt-4.1"
+              },
+              {
+                "name": "model_writer",
+                "value": "openai/gpt-4.1"
+              },
+              {
+                "name": "model_image_prompt",
+                "value": "openai/gpt-4.1-mini"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "68a6cbe5-210d-4da8-ae70-531a1bc31362",
+        "name": "Organizar / Preparar Dados",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 2,
+        "position": [
+          -5792,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://openrouter.ai/api/v1/chat/completions",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "Bearer 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"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "HTTP-Referer",
+                "value": "https://zoryon.org/"
+              },
+              {
+                "name": "X-Title",
+                "value": "={{ $env.OPENROUTER_APP_TITLE || 'n8n - Planner Structured Outputs' }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ \n  ({\n  \"model\": \"openai/gpt-4.1\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"# RESEARCH PLANNER — ZORYON v2.0\\n\\n## PAPEL\\nVocê é um Research Planner especializado em pesquisa web PROFUNDA para criação de carrosséis virais no Instagram Brasil.\\n\\n## OBJETIVO\\nGerar um JSON de pesquisa que maximize a DENSIDADE e QUALIDADE dos insumos para o copywriter.\\n\\n## FILOSOFIA DE PESQUISA\\nNão queremos resultados genéricos. Queremos:\\n- DADOS CONCRETOS (números, benchmarks, estatísticas reais)\\n- EXEMPLOS REAIS (empresas, pessoas, casos documentados)\\n- ERROS DOCUMENTADOS (o que não funciona e por quê)\\n- FRAMEWORKS EXISTENTES (métodos já validados)\\n- TENDÊNCIAS ATUAIS (o que mudou nos últimos 6 meses)\\n\\n## ESTRATÉGIA DE QUERIES\\n\\nGere queries em 3 CAMADAS:\\n\\n### CAMADA 1 — FUNDAÇÃO (2 queries)\\n- Uma query ampla sobre o tema (overview)\\n- Uma query sobre o estado atual/tendências\\n\\n### CAMADA 2 — PROFUNDIDADE (3 queries)\\n- Erros comuns / o que evitar\\n- Casos de sucesso / exemplos reais\\n- Métricas / benchmarks / dados\\n\\n### CAMADA 3 — DIFERENCIAÇÃO (2 queries)\\n- Ângulo contraintuitivo ou polêmico\\n- Ferramentas / recursos / implementação\\n\\n## REGRAS DE QUALIDADE\\n\\n1. Queries em PT-BR exceto quando termo técnico exige inglês\\n2. Incluir pelo menos 1 query em inglês para benchmarks internacionais\\n3. IMPORTANTE: Queries devem ser SIMPLES e CURTAS (max 10 palavras)\\n4. Evitar caracteres especiais nas queries\\n5. Evitar queries genéricas tipo 'o que é X'\\n6. Priorizar queries que retornam DADOS, não opiniões\\n7. Time window deve refletir velocidade de mudança do tema\\n\\n## DOMÍNIOS DE QUALIDADE\\n\\n### PREFERIR\\n- Sites de autoridade (.gov, .edu, .org)\\n- Publicações especializadas do nicho\\n- Blogs de empresas líderes\\n- Estudos e pesquisas\\n- Portais de notícias de negócios\\n\\n### EVITAR\\n- Agregadores de conteúdo genérico\\n- Sites com muito ad\\n- Fóruns não moderados\\n- Conteúdo muito antigo\\n\\n## OUTPUT\\nRetorne APENAS o JSON válido seguindo o schema.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"BRIEFING DO CARROSSEL:\\n\\nTema: \" + $json.tema + \"\\nNicho: \" + $json.nicho + \"\\nObjetivo: \" + $json.objetivo + \"\\nTom: \" + $json.tom + \"\\nEstilo: \" + $json.estilo + \"\\nQuantidade de slides: \" + $json.qtd_slides + \"\\nCTA desejado: \" + $json.cta + \"\\n\\nCONTEXTO ADICIONAL:\\n- Público: Brasileiros no Instagram\\n- Formato: Carrossel de \" + $json.qtd_slides + \" slides\\n- Objetivo de engajamento: saves, comentários, compartilhamentos\\n\\nDIRETRIZES:\\n1. Gere 7 queries estratégicas seguindo as 3 camadas\\n2. Pelo menos 1 query focada em DADOS/MÉTRICAS\\n3. Pelo menos 1 query focada em ERROS/RISCOS\\n4. Pelo menos 1 query em INGLÊS\\n5. Time window apropriado para o tema\\n6. QUERIES CURTAS E SIMPLES (max 10 palavras cada)\\n\\nGere o JSON de pesquisa agora.\"\n    }\n  ],\n  \"temperature\": 0.2,\n  \"max_tokens\": 1200,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"research_planner_schema_v2\",\n      \"strict\": true,\n      \"schema\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"schema_version\": {\n            \"type\": \"string\"\n          },\n          \"topic\": {\n            \"type\": \"string\"\n          },\n          \"niche\": {\n            \"type\": \"string\"\n          },\n          \"objective\": {\n            \"type\": \"string\"\n          },\n          \"tone\": {\n            \"type\": \"string\"\n          },\n          \"style\": {\n            \"type\": \"string\"\n          },\n          \"time_window_days\": {\n            \"type\": \"number\"\n          },\n          \"locale\": {\n            \"type\": \"string\",\n            \"enum\": [\"pt-BR\"]\n          },\n          \"queries\": {\n            \"type\": \"array\",\n            \"minItems\": 5,\n            \"maxItems\": 8,\n            \"items\": {\n              \"type\": \"object\",\n              \"additionalProperties\": false,\n              \"properties\": {\n                \"q\": {\n                  \"type\": \"string\"\n                },\n                \"lang\": {\n                  \"type\": \"string\",\n                  \"enum\": [\"pt\", \"en\"]\n                },\n                \"intent\": {\n                  \"type\": \"string\",\n                  \"enum\": [\n                    \"overview\",\n                    \"howto\",\n                    \"examples\",\n                    \"metrics\",\n                    \"risks\",\n                    \"tools\",\n                    \"compliance\",\n                    \"trends\",\n                    \"contrarian\"\n                  ]\n                },\n                \"layer\": {\n                  \"type\": \"string\",\n                  \"enum\": [\"foundation\", \"depth\", \"differentiation\"]\n                },\n                \"priority\": {\n                  \"type\": \"number\"\n                }\n              },\n              \"required\": [\"q\", \"lang\", \"intent\", \"layer\", \"priority\"]\n            }\n          },\n          \"prefer_domains\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"string\"\n            }\n          },\n          \"avoid_domains\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"string\"\n            }\n          },\n          \"must_include\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"string\"\n            }\n          },\n          \"must_avoid\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"string\"\n            }\n          },\n          \"research_focus\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"schema_version\",\n          \"topic\",\n          \"niche\",\n          \"objective\",\n          \"tone\",\n          \"style\",\n          \"time_window_days\",\n          \"locale\",\n          \"queries\",\n          \"prefer_domains\",\n          \"avoid_domains\",\n          \"must_include\",\n          \"must_avoid\",\n          \"research_focus\"\n        ]\n      }\n    }\n  }\n}) \n}}",
+          "options": {
+            "response": {}
+          }
+        },
+        "id": "2e3d01dd-cf04-419a-a632-1c51d9b55dfa",
+        "name": "OpenRouter (Planner + JSON Schema)",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4,
+        "position": [
+          -5136,
+          288
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const prepared = $node['Organizar / Preparar Dados'].json;\n\nconst content = $json?.choices?.[0]?.message?.content;\nlet planner;\n\ntry {\n  planner = typeof content === 'string' ? JSON.parse(content) : content;\n} catch (e) {\n  planner = { parse_error: true, raw_content: content };\n}\n\nreturn [\n  {\n    json: {\n      ok: true,\n      job_id: prepared.job_id,\n      model: prepared.model,\n      input: prepared,\n      planner,\n      openrouter_raw: $json\n    }\n  }\n];"
+        },
+        "id": "8e3857f4-a91a-484e-ae58-eafd2fbd39e9",
+        "name": "Parse JSON (content -> object)",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -4912,
+          288
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://vznhmeyhvlilgddgjjzs.supabase.co/functions/v1/update-job",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "x-token",
+                "value": "IU2uXKnFSBzXhK1uR2StrOKKDLSSTy5A"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"job_id\": \"{{ $('Organizar / Preparar Dados').first().json.job_id }}\",\n  \"status\": \"processing\",\n  \"progress\": 5,\n  \"current_step\": \"planning_research\"\n}",
+          "options": {}
+        },
+        "id": "5550f22a-40ae-4a69-b894-63f0451dc0ad",
+        "name": "CAR Status 5 Planning",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -4672,
+          176
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.tavily.com/search",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"api_key\": \"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\",\n  \"query\": \"{{ $('Organizar / Preparar Dados').item.json.tema }} {{ $('Organizar / Preparar Dados').item.json.nicho }}\",\n  \"search_depth\": \"advanced\",\n  \"include_answer\": true,\n  \"max_results\": 8\n}",
+          "options": {}
+        },
+        "id": "f7ee7c28-e713-473a-be29-b09f834f02a0",
+        "name": "CAR Tavily Search",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -4672,
+          416
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// --- 1) Pega o plano do node anterior ---\nconst src = $('Parse JSON (content -> object)').first().json;\n\n// DEBUG - veja no console o que está chegando\nconsole.log('SRC:', JSON.stringify(src, null, 2));\n\nlet plan = src.planner ?? src.output ?? src;\n\n// DEBUG\nconsole.log('PLAN:', JSON.stringify(plan, null, 2));\n\nif (typeof plan === 'string') {\n  try {\n    plan = JSON.parse(plan);\n  } catch (e) {\n    throw new Error('Plano de pesquisa veio como string inválida.');\n  }\n}\n\n// Verifica se queries existe\nif (!plan || !Array.isArray(plan.queries)) {\n  // DEBUG - mostra o que tem no plan\n  console.log('PLAN KEYS:', plan ? Object.keys(plan) : 'plan is null/undefined');\n  \n  // FALLBACK: Se não tem queries, cria queries básicas do tema\n  const org = $('Organizar / Preparar Dados').first().json;\n  const tema = org.tema || 'pesquisa geral';\n  const nicho = org.nicho || 'negócios';\n  \n  // Gera queries de fallback\n  const fallbackQueries = [\n    { q: tema, lang: 'pt', intent: 'overview', layer: 'foundation', priority: 1 },\n    { q: `${tema} erros comuns`, lang: 'pt', intent: 'risks', layer: 'depth', priority: 2 },\n    { q: `${tema} exemplos casos sucesso`, lang: 'pt', intent: 'examples', layer: 'depth', priority: 3 },\n    { q: `${tema} estatísticas dados`, lang: 'pt', intent: 'metrics', layer: 'depth', priority: 4 },\n    { q: `${tema} ${nicho} trends`, lang: 'en', intent: 'trends', layer: 'differentiation', priority: 5 }\n  ];\n  \n  console.log('⚠️ Usando queries de fallback');\n  \n  return fallbackQueries.map((query, index) => ({\n    json: {\n      query_index: index + 1,\n      query_text: query.q,\n      query_lang: query.lang,\n      query_intent: query.intent,\n      query_layer: query.layer,\n      query_priority: query.priority,\n      prefer_domains: [],\n      avoid_domains: [],\n      topic: tema,\n      niche: nicho,\n      time_window_days: 90,\n      research_focus: tema\n    }\n  }));\n}\n\n// --- 2) Prioridade por layer e priority ---\nconst layerOrder = { 'foundation': 1, 'depth': 2, 'differentiation': 3 };\n\nconst sortedQueries = [...plan.queries].sort((a, b) => {\n  const layerDiff = (layerOrder[a.layer] || 99) - (layerOrder[b.layer] || 99);\n  if (layerDiff !== 0) return layerDiff;\n  return (a.priority || 99) - (b.priority || 99);\n});\n\n// --- 3) Seleciona as 5 melhores ---\nconst selectedQueries = sortedQueries.slice(0, 5);\n\n// --- 4) SANITIZA as queries para evitar erro de JSON ---\nconst sanitizeQuery = (q) => {\n  if (!q || typeof q !== 'string') return 'pesquisa geral';\n  return q\n    .replace(/[\\\"\\\\]/g, ' ')\n    .replace(/[\\n\\r\\t]/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim()\n    .slice(0, 100);\n};\n\n// --- 5) Retorna no formato correto do n8n ---\nreturn selectedQueries.map((query, index) => ({\n  json: {\n    query_index: index + 1,\n    query_text: sanitizeQuery(query.q),\n    query_lang: query.lang || 'pt',\n    query_intent: query.intent || 'overview',\n    query_layer: query.layer || 'foundation',\n    query_priority: query.priority || 1,\n    prefer_domains: (plan.prefer_domains || []).slice(0, 5),\n    avoid_domains: (plan.avoid_domains || []).slice(0, 5),\n    topic: plan.topic || '',\n    niche: plan.niche || '',\n    time_window_days: plan.time_window_days || 90,\n    research_focus: plan.research_focus || ''\n  }\n}));"
+        },
+        "id": "aec2fbbd-5aa0-4b2e-8768-1ff75c75ec88",
+        "name": "CAR Extrair Queries",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -4464,
+          416
+        ]
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "id": "8ad1972e-c4b1-4347-9a23-088c3d529d70",
+        "name": "CAR Loop Queries",
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          -4240,
+          416
+        ]
+      },
+      {
+        "parameters": {
+          "amount": 3
+        },
+        "id": "12345436-4e81-4b6f-a89c-2d39da4fca4c",
+        "name": "Delay 3s",
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          -4032,
+          528
+        ],
+        "webhookId": "e6205b96-c790-43aa-8d8c-98f4a2741949"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Combina o resultado do Tavily com os metadados da query\nconst tavily = $input.first().json;\nconst queryMeta = $('CAR Loop Queries').first().json;\n\n// Extrai conteúdo mais rico de cada resultado\nconst enrichedResults = (tavily.results || []).map(r => ({\n  title: r.title || '',\n  url: r.url || '',\n  content: r.content || '',\n  raw_content: r.raw_content || r.content || '',\n  score: r.score || 0,\n  published_date: r.published_date || null\n}));\n\nreturn {\n  query_index: queryMeta.query_index,\n  query_text: queryMeta.query_text,\n  query_intent: queryMeta.query_intent,\n  query_layer: queryMeta.query_layer,\n  answer: tavily.answer || '',\n  results: enrichedResults,\n  result_count: enrichedResults.length\n};"
+        },
+        "id": "c4342e01-8513-4f6d-85a7-1d6fc4f5e696",
+        "name": "CAR Processar Resultado",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -3616,
+          704
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// Consolida todos os resultados de pesquisa em um único objeto RICO\nconst items = $input.all();\nconst orgData = $('Parse JSON (content -> object)').first().json;\n\nlet plan = orgData.planner ?? orgData.output ?? null;\n\nif (typeof plan === 'string') {\n  try {\n    plan = JSON.parse(plan);\n  } catch (e) {\n    throw new Error('research plan veio como string inválida.');\n  }\n}\n\nif (!plan) {\n  throw new Error('research plan não encontrado.');\n}\n\n// Organizar por intent E layer\nconst researchByIntent = {};\nconst researchByLayer = { foundation: [], depth: [], differentiation: [] };\nconst allSources = [];\nconst allAnswers = [];\nconst allContents = [];\n\nfor (const item of items) {\n  const data = item.json || {};\n  const intent = data.query_intent || 'unknown';\n  const layer = data.query_layer || 'unknown';\n\n  // Guardar answer\n  if (typeof data.answer === 'string' && data.answer.trim()) {\n    allAnswers.push({ \n      intent, \n      layer,\n      query: data.query_text,\n      answer: data.answer.trim() \n    });\n  }\n\n  const results = Array.isArray(data.results) ? data.results : [];\n\n  if (!researchByIntent[intent]) researchByIntent[intent] = [];\n\n  for (const r of results) {\n    const entry = {\n      ...r,\n      source_intent: intent,\n      source_layer: layer,\n      source_query: data.query_text\n    };\n    \n    researchByIntent[intent].push(entry);\n    \n    if (researchByLayer[layer]) {\n      researchByLayer[layer].push(entry);\n    }\n\n    if (r?.url && !allSources.includes(r.url)) {\n      allSources.push(r.url);\n    }\n    \n    // Guardar conteúdo completo\n    if (r?.content) {\n      allContents.push({\n        title: r.title,\n        content: r.content,\n        score: r.score,\n        intent,\n        layer\n      });\n    }\n  }\n}\n\n// Montar resumo consolidado POR LAYER\nconst summaryByLayer = {};\nfor (const layer of ['foundation', 'depth', 'differentiation']) {\n  const layerAnswers = allAnswers.filter(a => a.layer === layer);\n  if (layerAnswers.length > 0) {\n    summaryByLayer[layer] = layerAnswers.map(a => `[${a.intent.toUpperCase()}] ${a.answer}`).join('\\n\\n');\n  }\n}\n\n// Consolidar todas as answers\nconst consolidatedAnswers = allAnswers\n  .map(a => `[${a.layer.toUpperCase()} / ${a.intent.toUpperCase()}]:\\n${a.answer}`)\n  .join('\\n\\n---\\n\\n');\n\n// Extrair os melhores conteúdos (top 12 por score)\nconst topContents = allContents\n  .sort((a, b) => (b.score || 0) - (a.score || 0))\n  .slice(0, 12)\n  .map(r => {\n    const snippet = (r.content || '').slice(0, 500);\n    return `[${r.layer}/${r.intent}] ${r.title}:\\n${snippet}${snippet.length >= 500 ? '...' : ''}`;\n  })\n  .join('\\n\\n');\n\n// Extrair dados/números mencionados\nconst dataPoints = allContents\n  .filter(c => c.intent === 'metrics' || c.content.match(/\\d+%|\\d+\\s*(mil|milhões|bilhões|x|vezes)/gi))\n  .slice(0, 5)\n  .map(c => c.content.slice(0, 300));\n\n// Extrair erros/riscos\nconst risksContent = allContents\n  .filter(c => c.intent === 'risks')\n  .slice(0, 3)\n  .map(c => c.content.slice(0, 400));\n\nconst totalResults = items.reduce((acc, i) => acc + (i.json?.result_count || 0), 0);\n\nreturn [\n  {\n    json: {\n      ...orgData,\n      \n      research_plan: {\n        topic: plan.topic,\n        niche: plan.niche,\n        research_focus: plan.research_focus,\n        queries_planned: plan.queries?.length || 0,\n        queries_executed: items.length\n      },\n      \n      research_raw: {\n        summary: consolidatedAnswers,\n        summary_by_layer: summaryByLayer,\n        top_contents: topContents,\n        data_points: dataPoints,\n        risks_found: risksContent,\n        by_intent: researchByIntent,\n        by_layer: researchByLayer,\n        sources: allSources.slice(0, 15),\n        total_results: totalResults,\n        all_answers: allAnswers\n      }\n    }\n  }\n];"
+        },
+        "id": "f62f74a4-8c6a-4959-bb99-d78b254b0b3c",
+        "name": "CAR Consolidar Pesquisa",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -3792,
+          400
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.tavily.com/search",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ (function() {\n  const q = $json.query_text || 'pesquisa geral';\n  const timeWindow = $json.time_window_days || 90;\n  const preferDomains = $json.prefer_domains || [];\n  const avoidDomains = $json.avoid_domains || [];\n  \n  // Mapeamento de nomes para domínios válidos\n  const domainMap = {\n    'quora': 'quora.com',\n    'reddit': 'reddit.com',\n    'yahoo answers': 'answers.yahoo.com',\n    'forum': null, // Genérico demais, ignorar\n    'blogspot': 'blogspot.com',\n    'harvard business review': 'hbr.org',\n    'mckinsey': 'mckinsey.com',\n    'forbes': 'forbes.com',\n    'medium': 'medium.com'\n  };\n  \n  // Função para sanitizar domínios\n  function sanitizeDomains(domains) {\n    return domains\n      .map(d => {\n        const lower = d.toLowerCase().trim();\n        // Se já é um domínio válido (contém .)\n        if (lower.includes('.') && !lower.startsWith('.')) {\n          return lower;\n        }\n        // Se é um sufixo genérico (.gov, .edu), ignorar\n        if (lower.startsWith('.')) {\n          return null;\n        }\n        // Tentar mapear nome para domínio\n        return domainMap[lower] || null;\n      })\n      .filter(d => d !== null);\n  }\n  \n  const cleanInclude = sanitizeDomains(preferDomains);\n  const cleanExclude = sanitizeDomains(avoidDomains);\n  \n  return JSON.stringify({\n    \"api_key\": \"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\",\n    \"query\": q,\n    \"search_depth\": \"advanced\",\n    \"topic\": \"general\",\n    \"include_answer\": true,\n    \"include_images\": false,\n    \"include_raw_content\": false,\n    \"max_results\": 15,\n    \"days\": timeWindow,\n    \"include_domains\": cleanInclude.length > 0 ? cleanInclude : [],\n    \"exclude_domains\": cleanExclude.length > 0 ? cleanExclude : []\n  });\n})() }}",
+          "options": {
+            "timeout": 30000
+          }
+        },
+        "id": "29d8a913-58df-48f2-8c78-2925fd53b773",
+        "name": "CAR Tavily Search1",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -3840,
+          608
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://vznhmeyhvlilgddgjjzs.supabase.co/functions/v1/update-job",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "x-token",
+                "value": "IU2uXKnFSBzXhK1uR2StrOKKDLSSTy5A"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"job_id\": \"{{ $('Organizar / Preparar Dados').first().json.job_id }}\",\n  \"status\": \"processing\",\n  \"progress\": 15,\n  \"current_step\": \"researching\"\n}",
+          "options": {}
+        },
+        "id": "bc1c9419-7c3f-4c8d-b6c6-d1e647df2f61",
+        "name": "CAR Status 15 Researching",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -3568,
+          240
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://openrouter.ai/api/v1/chat/completions",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "Bearer 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"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "HTTP-Referer",
+                "value": "https://zoryon.org/"
+              },
+              {
+                "name": "X-Title",
+                "value": "={{ $env.OPENROUTER_APP_TITLE || 'n8n - Research Synthesizer' }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{(function () {\n  const data = $json;\n  const raw = data.research_raw || {};\n  const plan = data.research_plan || {};\n  const input = data.input || {};\n  return {\n    model: \"openai/gpt-4.1\",\n    temperature: 0.25,\n    max_tokens: 2500,\n    messages: [\n      {\n        role: \"system\",\n        content: \"# RESEARCH SYNTHESIZER — ZORYON v2.0\\n\\nVocê é um sintetizador de pesquisa especializado em extrair INSIGHTS ACIONÁVEIS para criação de carrosséis virais.\\n\\n## SUA MISSÃO\\nTransformar dados brutos de pesquisa em INSUMOS DENSOS E ORGANIZADOS que um copywriter possa usar diretamente.\\n\\n## O QUE EXTRAIR\\n\\n### 1. DADOS CONCRETOS\\n- Estatísticas, números, percentuais\\n- Benchmarks de mercado\\n- Comparações quantitativas\\n- SÓ inclua se estiver na pesquisa (não invente)\\n\\n### 2. EXEMPLOS REAIS\\n- Empresas mencionadas\\n- Casos de sucesso/fracasso\\n- Pessoas/autoridades citadas\\n- Situações específicas descritas\\n\\n### 3. ERROS E RISCOS\\n- O que NÃO funciona\\n- Armadilhas comuns\\n- Objeções frequentes\\n- Limitações do tema\\n\\n### 4. FRAMEWORKS E MÉTODOS\\n- Processos passo-a-passo encontrados\\n- Frameworks com nome\\n- Metodologias citadas\\n- Checklists mencionados\\n\\n### 5. GANCHOS E ÂNGULOS\\n- Frases de impacto encontradas\\n- Contradições interessantes\\n- Insights contraintuitivos\\n- Polêmicas construtivas\\n\\n### 6. GAPS (O QUE FALTA)\\n- O que a pesquisa NÃO cobriu\\n- Perguntas sem resposta\\n- Ângulos não explorados\\n\\n## REGRAS\\n- Seja ESPECÍFICO (nomes, números, contextos)\\n- Cite a FONTE quando relevante\\n- NÃO invente dados\\n- NÃO generalize sem fonte\\n- Se não encontrou algo, diga 'Não encontrado na pesquisa'\\n- Priorize o que é ÚTIL para criar conteúdo viral\\n\\n## OUTPUT\\nRetorne um JSON estruturado com cada categoria preenchida.\"\n      },\n      {\n        role: \"user\",\n        content: \"CONTEXTO DO CARROSSEL:\\nTema: \" + (plan.topic || input.tema || 'não especificado') + \"\\nNicho: \" + (plan.niche || input.nicho || 'geral') + \"\\nFoco da pesquisa: \" + (plan.research_focus || 'geral') + \"\\n\\n---\\n\\nRESUMOS DAS BUSCAS (por camada):\\n\\n### FUNDAÇÃO:\\n\" + (raw.summary_by_layer?.foundation || 'Não disponível') + \"\\n\\n### PROFUNDIDADE:\\n\" + (raw.summary_by_layer?.depth || 'Não disponível') + \"\\n\\n### DIFERENCIAÇÃO:\\n\" + (raw.summary_by_layer?.differentiation || 'Não disponível') + \"\\n\\n---\\n\\nTOP CONTEÚDOS ENCONTRADOS:\\n\" + (raw.top_contents || 'Não disponível') + \"\\n\\n---\\n\\nDADOS/MÉTRICAS IDENTIFICADOS:\\n\" + ((raw.data_points || []).join('\\n\\n') || 'Não disponível') + \"\\n\\n---\\n\\nRISCOS/ERROS ENCONTRADOS:\\n\" + ((raw.risks_found || []).join('\\n\\n') || 'Não disponível') + \"\\n\\n---\\n\\nFONTES CONSULTADAS:\\n\" + ((raw.sources || []).slice(0, 10).join('\\n') || 'Não disponível') + \"\\n\\n---\\n\\nAGORA: Sintetize tudo isso em insights acionáveis para o copywriter criar um carrossel viral de \" + (input.qtd_slides || 10) + \" slides.\"\n      }\n    ],\n    response_format: {\n      type: \"json_schema\",\n      json_schema: {\n        name: \"research_synthesis_v2\",\n        strict: true,\n        schema: {\n          type: \"object\",\n          additionalProperties: false,\n          properties: {\n            dados_concretos: {\n              type: \"array\",\n              items: {\n                type: \"object\",\n                additionalProperties: false,\n                properties: {\n                  dado: { type: \"string\" },\n                  fonte: { type: \"string\" },\n                  uso_sugerido: { type: \"string\" }\n                },\n                required: [\"dado\", \"fonte\", \"uso_sugerido\"]\n              }\n            },\n            exemplos_reais: {\n              type: \"array\",\n              items: {\n                type: \"object\",\n                additionalProperties: false,\n                properties: {\n                  exemplo: { type: \"string\" },\n                  contexto: { type: \"string\" },\n                  aprendizado: { type: \"string\" }\n                },\n                required: [\"exemplo\", \"contexto\", \"aprendizado\"]\n              }\n            },\n            erros_riscos: {\n              type: \"array\",\n              items: {\n                type: \"object\",\n                additionalProperties: false,\n                properties: {\n                  erro: { type: \"string\" },\n                  consequencia: { type: \"string\" },\n                  como_evitar: { type: \"string\" }\n                },\n                required: [\"erro\", \"consequencia\", \"como_evitar\"]\n              }\n            },\n            frameworks_metodos: {\n              type: \"array\",\n              items: {\n                type: \"object\",\n                additionalProperties: false,\n                properties: {\n                  nome: { type: \"string\" },\n                  descricao: { type: \"string\" },\n                  passos: {\n                    type: \"array\",\n                    items: { type: \"string\" }\n                  }\n                },\n                required: [\"nome\", \"descricao\", \"passos\"]\n              }\n            },\n            ganchos_angulos: {\n              type: \"array\",\n              items: {\n                type: \"object\",\n                additionalProperties: false,\n                properties: {\n                  gancho: { type: \"string\" },\n                  tipo: { type: \"string\" },\n                  potencial_viral: { type: \"string\" }\n                },\n                required: [\"gancho\", \"tipo\", \"potencial_viral\"]\n              }\n            },\n            gaps_oportunidades: {\n              type: \"array\",\n              items: { type: \"string\" }\n            },\n            resumo_executivo: {\n              type: \"string\"\n            },\n            sugestao_narrativa: {\n              type: \"string\"\n            }\n          },\n          required: [\n            \"dados_concretos\",\n            \"exemplos_reais\",\n            \"erros_riscos\",\n            \"frameworks_metodos\",\n            \"ganchos_angulos\",\n            \"gaps_oportunidades\",\n            \"resumo_executivo\",\n            \"sugestao_narrativa\"\n          ]\n        }\n      }\n    }\n  };\n})()}}",
+          "options": {
+            "response": {}
+          }
+        },
+        "id": "6b181fb6-ddc3-4aad-89fe-7b6b64723bb5",
+        "name": "Research Synthesizer",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4,
+        "position": [
+          -3344,
+          400
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// Parse do Research Synthesizer e prepara para Prod Conteúdo\nconst prev = $('CAR Consolidar Pesquisa').first().json;\nconst synthRaw = $json;\n\nlet synthesis;\ntry {\n  const content = synthRaw?.choices?.[0]?.message?.content;\n  synthesis = typeof content === 'string' ? JSON.parse(content) : content;\n} catch (e) {\n  synthesis = { parse_error: true, raw: synthRaw };\n}\n\n// Monta o objeto research formatado para o Prod Conteúdo\nconst research = {\n  // Resumo executivo (novo)\n  summary: synthesis.resumo_executivo || prev.research_raw?.summary || '',\n  \n  // Sugestão de narrativa (novo)\n  narrative_suggestion: synthesis.sugestao_narrativa || '',\n  \n  // Dados concretos formatados\n  concrete_data: (synthesis.dados_concretos || []).map(d => \n    `• ${d.dado} (Fonte: ${d.fonte}) — Uso: ${d.uso_sugerido}`\n  ).join('\\n'),\n  \n  // Exemplos reais formatados\n  real_examples: (synthesis.exemplos_reais || []).map(e => \n    `• ${e.exemplo}\\n  Contexto: ${e.contexto}\\n  Aprendizado: ${e.aprendizado}`\n  ).join('\\n\\n'),\n  \n  // Erros e riscos formatados\n  errors_risks: (synthesis.erros_riscos || []).map(e => \n    `• ERRO: ${e.erro}\\n  Consequência: ${e.consequencia}\\n  Como evitar: ${e.como_evitar}`\n  ).join('\\n\\n'),\n  \n  // Frameworks encontrados\n  frameworks: (synthesis.frameworks_metodos || []).map(f => \n    `• ${f.nome}: ${f.descricao}\\n  Passos: ${f.passos.join(' → ')}`\n  ).join('\\n\\n'),\n  \n  // Ganchos para usar\n  hooks: (synthesis.ganchos_angulos || []).map(g => \n    `• [${g.tipo}] ${g.gancho} (Potencial: ${g.potencial_viral})`\n  ).join('\\n'),\n  \n  // Gaps identificados\n  gaps: (synthesis.gaps_oportunidades || []).join('\\n• '),\n  \n  // Top contents do raw (backup)\n  top_contents: prev.research_raw?.top_contents || '',\n  \n  // Sources\n  sources: prev.research_raw?.sources || []\n};\n\nreturn [{\n  json: {\n    ...prev,\n    synthesis,\n    research\n  }\n}];"
+        },
+        "id": "3d2cd868-b905-445a-b099-6a0b81757af7",
+        "name": "Parse Synthesis",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -3120,
+          400
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://vznhmeyhvlilgddgjjzs.supabase.co/functions/v1/update-job",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "x-token",
+                "value": "IU2uXKnFSBzXhK1uR2StrOKKDLSSTy5A"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"job_id\": \"{{ $('Organizar / Preparar Dados').first().json.job_id }}\",\n  \"status\": \"processing\",\n  \"progress\": 35,\n  \"current_step\": \"synthesizing_research\"\n}",
+          "options": {}
+        },
+        "id": "efe6c9b7-4e8b-4baf-9927-82a9c1e3cee9",
+        "name": "CAR Status 35 Synthesizing",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -3120,
+          208
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://openrouter.ai/api/v1/chat/completions",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "Bearer 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"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "HTTP-Referer",
+                "value": "https://zoryon.org/"
+              },
+              {
+                "name": "X-Title",
+                "value": "={{ $env.OPENROUTER_APP_TITLE || 'n8n - Carousel Writer v2' }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{(function () {\n  const input = $json.input || $json;\n  const research = $json?.research || {};\n  const qtd = parseInt(input.qtd_slides) || 10;\n\n  // ═══════════════════════════════════════════════════════════════\n  // ZORYON CAROUSEL WRITER v3.0 — CONTEÚDO DENSO + ESTRUTURA CORRETA\n  // Foco: Transformação, Desejo, Dados Concretos\n  // ═══════════════════════════════════════════════════════════════\n\n  const systemPrompt = `# ZORYON — ARQUITETO DE CARROSSÉIS VIRAIS v3.0\n\nVocê cria carrosséis de Instagram que PARAM O SCROLL, PRENDEM ATENÇÃO e GERAM SAVES.\n\n## MISSÃO PRINCIPAL\n\nTransformar pesquisa em CONTEÚDO DENSO e TRANSFORMADOR.\n- Cada slide deve fazer o leitor SENTIR algo\n- Priorize HISTÓRIAS e EXEMPLOS REAIS sobre teoria\n- Use DADOS CONCRETOS da pesquisa (obrigatório)\n\n## ESTRUTURA NARRATIVA (3 ATOS)\n\n### ATO 1 — CAPTURA (Slides 1-2)\nObjetivo: Interromper o scroll e criar TENSÃO\n\n| Slide | Função | Campo \"acao\" | Palavras mínimas |\n|-------|--------|--------------|------------------|\n| 1 | CAPA/HOOK | \"\" (vazio) | - |\n| 2 | DOR/IMPACTO | \"\" (vazio) | 80+ palavras |\n\n### ATO 2 — DESENVOLVIMENTO (Slides 3-7/8)\nObjetivo: Entregar VALOR ACIONÁVEL com profundidade\n\n| Slide | Função | Campo \"acao\" | Palavras mínimas |\n|-------|--------|--------------|------------------|\n| 3-7 | CONTEÚDO | PREENCHIDO | 120+ palavras |\n| 8 | RESUMO/CHECKLIST | PREENCHIDO | 100+ palavras |\n\n### ATO 3 — FECHAMENTO (Slides 9-10)\nObjetivo: Criar CONEXÃO e DIREÇÃO\n\n| Slide | Função | Campo \"acao\" | Palavras mínimas |\n|-------|--------|--------------|------------------|\n| 9 | REFLEXÃO/PROVA | \"\" (vazio) | 60+ palavras |\n| 10 | CTA | \"\" (vazio) | 40+ palavras |\n\n## REGRA DE OURO DO CAMPO \"acao\"\n\n⚠️ O campo \"acao\" SEMPRE existe em todos os slides.\n⚠️ Use \"\" (string vazia) para slides 1, 2, 9, 10.\n⚠️ Use texto acionável para slides 3-8.\n\n## REQUISITOS DE CONTEÚDO DENSO\n\n### CADA SLIDE DE CONTEÚDO DEVE TER:\n\n1. **CONTEXTO** (por que isso importa agora)\n2. **INSIGHT** (a descoberta ou técnica)\n3. **EXEMPLO REAL** (caso, história, situação)\n4. **DADOS** (números da pesquisa)\n5. **CONSEQUÊNCIA** (o que acontece se ignorar)\n\n### ESTRUTURA DE PARÁGRAFO IDEAL:\n\n\\`\\`\\`\n[Situação relatable]\n\n[Dado concreto que choca]\n\n[Explicação do porquê]\n\n[Exemplo real ou caso]\n\n[Implicação/Consequência]\n\\`\\`\\`\n\n## TÉCNICAS DE COPYWRITING OBRIGATÓRIAS\n\n1. **PATTERN INTERRUPT**: Comece com algo inesperado\n2. **SPECIFICITY**: \"47% em 3 meses\" > \"aumento significativo\"\n3. **CONTRAST**: Antes vs Depois, Erro vs Acerto\n4. **OPEN LOOP**: Termine criando curiosidade pro próximo\n5. **SENSORY LANGUAGE**: Faça visualizar, não apenas entender\n\n## PROIBIÇÕES ABSOLUTAS\n\n❌ \"Vamos lá\", \"Bora\", \"Presta atenção\", \"Vem comigo\"\n❌ \"Mindset\", \"next level\", \"game changer\" (jargão de coach)\n❌ Estatísticas inventadas (use APENAS dados da pesquisa)\n❌ Frases motivacionais vazias\n❌ Listas genéricas sem contexto\n❌ Conteúdo superficial (menos de 80 palavras por slide)\n❌ Slides sem conexão narrativa com o anterior\n❌ Campo \"acao\" preenchido em slides 1, 2, 9, 10\n\n═══════════════════════════════════════════════════════════════\nEXEMPLO DE OUTPUT — CONTEÚDO DENSO (MODELO A SEGUIR)\n═══════════════════════════════════════════════════════════════\n\n\\`\\`\\`json\n{\n  \"capa\": {\n    \"titulo\": \"73% das vendas no WhatsApp morrem no primeiro contato\",\n    \"subtitulo\": \"E o erro não é o que você imagina\"\n  },\n  \"slides\": [\n    {\n      \"numero\": 2,\n      \"titulo\": \"O erro invisível que mata suas vendas\",\n      \"corpo\": \"Você abre o WhatsApp. Digita: 'Olá! Tudo bem? Vi que você se interessou pelo produto...'\\\\n\\\\nEnvia. E espera.\\\\n\\\\n5 minutos. Nada.\\\\n2 horas. Silêncio.\\\\n1 dia. Visualizado.\\\\n\\\\nO cliente leu. E ignorou. Por quê?\\\\n\\\\nPorque essa abertura é IDÊNTICA a de outros 47 vendedores que mandaram mensagem pra ele essa semana.\\\\n\\\\nNão é spam. Mas PARECE spam.\\\\n\\\\nE enquanto você espera uma resposta que nunca vem, seu concorrente — que entendeu a diferença — já fechou a venda.\",\n      \"acao\": \"\"\n    },\n    {\n      \"numero\": 3,\n      \"titulo\": \"A estrutura de mensagem que converte 3x mais\",\n      \"corpo\": \"Pesquisadores da Harvard Business School analisaram 2.400 primeiras mensagens de vendas.\\\\n\\\\nDescoberta: mensagens com CONTEXTO ESPECÍFICO têm 340% mais resposta.\\\\n\\\\nA fórmula:\\\\n\\\\nNOME + CONTEXTO + RESULTADO + PERGUNTA\\\\n\\\\nExemplo real que funcionou:\\\\n\\\\n'João, vi que você tem hamburgueria em Pinheiros. Tenho um cliente no Itaim — a @burgerda_vila — que aumentou 47% do ticket médio depois que colocou cardápio digital. Quer que eu te mostre como funciona?'\\\\n\\\\nPor que funciona:\\\\n→ Nome = captura atenção\\\\n→ Contexto = prova que você pesquisou\\\\n→ Resultado = mostra que funciona\\\\n→ Pergunta = abre diálogo\\\\n\\\\nA diferença entre 'interessado' e 'comprador' está nos primeiros 15 segundos.\",\n      \"acao\": \"Abra agora suas últimas 5 mensagens de prospecção. Reescreva UMA usando a estrutura NCRP.\"\n    },\n    {\n      \"numero\": 4,\n      \"titulo\": \"O horário que triplica suas respostas\",\n      \"corpo\": \"Dados de 12.000 mensagens comerciais no WhatsApp Business (Resultados Digitais, 2024):\\\\n\\\\nSegunda-feira às 9h: taxa de resposta 12%\\\\nQuarta-feira às 14h: taxa de resposta 34%\\\\nSexta-feira às 17h: taxa de resposta 8%\\\\n\\\\nO mesmo vendedor. A mesma mensagem. Resultados COMPLETAMENTE diferentes.\\\\n\\\\nO que explica isso?\\\\n\\\\nSegunda cedo: seu cliente está apagando incêndios da semana.\\\\nSexta tarde: já desligou mentalmente.\\\\nQuarta à tarde: resolveu o urgente, está no modo 'pensar no futuro'.\\\\n\\\\nSeu cliente não está 'ocupado'. Ele está ocupado em HORÁRIOS específicos.\\\\n\\\\nE o pior: se você manda no horário errado, ele não só ignora. Ele te classifica mentalmente como 'mais um'.\",\n      \"acao\": \"Programe suas próximas 10 mensagens de prospecção para quarta ou quinta, entre 14h-16h.\"\n    },\n    {\n      \"numero\": 5,\n      \"titulo\": \"O follow-up que ressuscita conversas mortas\",\n      \"corpo\": \"O erro clássico:\\\\n\\\\n'Oi João, conseguiu ver minha proposta?'\\\\n'Oi João, alguma dúvida?'\\\\n'Oi João, ainda tem interesse?'\\\\n\\\\nCada mensagem assim DIMINUI suas chances em 23% (dados: Gong.io).\\\\n\\\\nO modelo que ressuscita:\\\\n\\\\n'João, lembrei de você porque vi que a [nome do concorrente] abriu mais uma unidade ontem. Será que eles usam algo parecido com o que te mostrei?'\\\\n\\\\nPor que funciona?\\\\n\\\\n1. Você trouxe INFORMAÇÃO NOVA (não cobrança)\\\\n2. Você mostrou que ACOMPANHA o mercado dele\\\\n3. Você criou URGÊNCIA sem pressionar\\\\n\\\\nO segredo: follow-up bom parece conversa, não cobrança.\",\n      \"acao\": \"Liste 3 conversas paradas há mais de 7 dias. Aplique o modelo 'notícia do mercado' hoje.\"\n    },\n    {\n      \"numero\": 6,\n      \"titulo\": \"Por que seus áudios são ignorados\",\n      \"corpo\": \"Análise de 8.000 áudios comerciais (WhatsApp Business Insights, 2024):\\\\n\\\\nÁudios de até 30 segundos: 78% escutados\\\\nÁudios de 1-2 minutos: 34% escutados\\\\nÁudios de +3 minutos: 12% escutados\\\\n\\\\nSeu cliente vê '2:34' e pensa: 'depois eu ouço'.\\\\n\\\\nDepois nunca chega.\\\\n\\\\nMas tem mais: áudios longos não só são ignorados — eles MANCHAM sua imagem. O cliente associa você com 'aquele cara que manda áudio enorme'.\\\\n\\\\nRegra de ouro: máximo 40 segundos. Se precisar de mais, quebre em partes ou mande texto estruturado.\\\\n\\\\nExceção: se o cliente PEDIU explicação detalhada. Aí pode — mas avise: 'vou mandar um áudio de 2 minutos explicando direitinho'.\",\n      \"acao\": \"Revise seus últimos 10 áudios enviados. Quantos passaram de 1 minuto? Delete e reenvie resumido.\"\n    },\n    {\n      \"numero\": 7,\n      \"titulo\": \"A prova social que fecha vendas sozinha\",\n      \"corpo\": \"Frase fraca:\\\\n'Tenho vários clientes satisfeitos.'\\\\n\\\\nFrase forte:\\\\n'A Maria da @confeitariadamaria triplicou os pedidos de Natal usando exatamente isso. Ela mora aqui em SP também — posso te conectar com ela se quiser conferir.'\\\\n\\\\nA diferença?\\\\n\\\\n→ Nome real (verificável)\\\\n→ Resultado específico (triplicou)\\\\n→ Contexto (Natal, mesma cidade)\\\\n→ Oferta de conexão (pode verificar)\\\\n\\\\nUm estudo da Nielsen mostra que 92% das pessoas confiam em recomendações de pessoas reais mais do que qualquer propaganda.\\\\n\\\\nSeu melhor vendedor não é você. São seus clientes falando por você.\\\\n\\\\nMas atenção: funciona APENAS se for verdade verificável. Inventou? Perdeu pra sempre.\",\n      \"acao\": \"Liste 3 clientes que topam ser referência. Peça depoimento em vídeo ou texto. Organize um 'banco de provas'.\"\n    },\n    {\n      \"numero\": 8,\n      \"titulo\": \"Checklist: sua mensagem está pronta?\",\n      \"corpo\": \"Antes de clicar em enviar, confira:\\\\n\\\\n□ Tem o NOME da pessoa? (não 'Olá!')\\\\n□ Tem CONTEXTO específico sobre ela ou empresa?\\\\n□ Tem RESULTADO concreto com número?\\\\n□ Termina com PERGUNTA aberta?\\\\n□ Tem menos de 4 LINHAS visíveis?\\\\n□ Horário é entre 14h-16h de terça a quinta?\\\\n□ Áudio tem menos de 40 segundos? (se aplicável)\\\\n\\\\nMarcou 7 de 7? Pode enviar.\\\\nMarcou menos? Reescreva antes.\\\\n\\\\nEssa checklist simples separa o vendedor mediano do que fecha 3x mais. A diferença está nos detalhes que todo mundo ignora.\",\n      \"acao\": \"Screenshot essa checklist. Cole em algum lugar visível. Use nas próximas 30 mensagens.\"\n    },\n    {\n      \"numero\": 9,\n      \"titulo\": \"A verdade que ninguém te conta\",\n      \"corpo\": \"Não é sobre ter o script perfeito.\\\\nNão é sobre conhecer todas as técnicas.\\\\nNão é sobre automação ou IA.\\\\n\\\\nÉ sobre uma coisa só:\\\\n\\\\nFazer a outra pessoa SENTIR que você realmente entende o problema dela.\\\\n\\\\nQuando você entende de verdade, a venda acontece naturalmente. Quando você finge entender, ela sente — e some.\",\n      \"acao\": \"\"\n    },\n    {\n      \"numero\": 10,\n      \"titulo\": \"Quer o passo a passo completo?\",\n      \"corpo\": \"Tenho uma aula onde mostro essa metodologia aplicada em 5 nichos diferentes.\\\\n\\\\nComenta QUERO aqui embaixo que eu te mando o link no direct.\",\n      \"acao\": \"\"\n    }\n  ],\n  \"legenda\": \"73% das vendas morrem no primeiro contato.\\\\n\\\\nE a maioria dos vendedores nem sabe por quê.\\\\n\\\\nO problema não é o produto. É a ABERTURA.\\\\n\\\\nSalva esse carrossel e aplica a estrutura do slide 3 nas suas próximas 10 abordagens.\\\\n\\\\nQual desses erros você mais comete? Comenta aqui 👇\\\\n\\\\n#vendas #whatsappbusiness #prospecção #empreendedorismo\"\n}\n\\`\\`\\`\n\n═══════════════════════════════════════════════════════════════\nREGRAS CRÍTICAS DE OUTPUT\n═══════════════════════════════════════════════════════════════\n\n1. Campo \"acao\" SEMPRE presente em todos os slides\n2. Use \"\" (vazio) para slides 1, 2, 9, 10\n3. Use texto acionável para slides 3-8\n4. Corpo mínimo: 80 palavras (slides 2-8), 40 palavras (slides 9-10)\n5. OBRIGATÓRIO usar dados da pesquisa\n6. Cada slide deve criar curiosidade pro próximo\n\nRetorne APENAS o JSON, sem explicações.`;\n\n  // Calcula estrutura dinâmica baseada na quantidade\n  let estruturaGuide = '';\n  let slidesComAcao = '';\n  \n  if (qtd <= 4) {\n    estruturaGuide = `\nESTRUTURA PARA ${qtd} SLIDES:\n- Slide 1: Capa (acao: \"\")\n- Slide 2: Conteúdo principal (acao: PREENCHER)\n- Slide 3: Resumo/Valor (acao: PREENCHER)\n- Slide 4: CTA (acao: \"\")`;\n    slidesComAcao = '2 e 3';\n  } else if (qtd <= 6) {\n    estruturaGuide = `\nESTRUTURA PARA ${qtd} SLIDES:\n- Slide 1: Capa (acao: \"\")\n- Slide 2: Dor/Problema (acao: \"\")\n- Slides 3-${qtd-2}: Conteúdo (acao: PREENCHER)\n- Slide ${qtd-1}: Fechamento (acao: \"\")\n- Slide ${qtd}: CTA (acao: \"\")`;\n    slidesComAcao = `3 até ${qtd-2}`;\n  } else if (qtd <= 8) {\n    estruturaGuide = `\nESTRUTURA PARA ${qtd} SLIDES:\n- Slide 1: Capa (acao: \"\")\n- Slide 2: Dor/Problema (acao: \"\")\n- Slides 3-${qtd-2}: Conteúdo (acao: PREENCHER)\n- Slide ${qtd-1}: Fechamento (acao: \"\")\n- Slide ${qtd}: CTA (acao: \"\")`;\n    slidesComAcao = `3 até ${qtd-2}`;\n  } else {\n    estruturaGuide = `\nESTRUTURA PARA ${qtd} SLIDES (PADRÃO COMPLETO):\n- Slide 1: Capa/Hook (acao: \"\")\n- Slide 2: Dor/Impacto (acao: \"\")\n- Slides 3-7: Conteúdo acionável (acao: PREENCHER)\n- Slide 8: Resumo/Checklist (acao: PREENCHER)\n- Slide 9: Reflexão/Prova (acao: \"\")\n- Slide 10: CTA (acao: \"\")`;\n    slidesComAcao = '3 até 8';\n  }\n\n  const userPrompt = `BRIEFING DO CARROSSEL:\n\nTema: ${input.tema || '[não especificado]'}\nNicho: ${input.nicho || 'negócios digitais'}\nTom: ${input.tom || 'profissional'}\nCTA desejado: ${input.cta || 'Salvar + Comentar'}\nQuantidade de slides: ${qtd}\n\n${estruturaGuide}\n\nCAMPO \"acao\" DEVE SER PREENCHIDO APENAS NOS SLIDES: ${slidesComAcao}\nTODOS OS OUTROS SLIDES: acao deve ser \"\" (string vazia)\n\n═══════════════════════════════════════\nINTELIGÊNCIA DE PESQUISA (OBRIGATÓRIO USAR!)\n═══════════════════════════════════════\n\nRESUMO EXECUTIVO:\n${research.summary || '[sem pesquisa disponível - use conhecimento geral]'}\n\nSUGESTÃO DE NARRATIVA:\n${research.narrative_suggestion || '[não disponível]'}\n\nDADOS CONCRETOS ENCONTRADOS:\n${research.concrete_data || '[não disponível]'}\n\nEXEMPLOS REAIS:\n${research.real_examples || '[não disponível]'}\n\nERROS E RISCOS COMUNS:\n${research.errors_risks || '[não disponível]'}\n\nFRAMEWORKS E METODOLOGIAS:\n${research.frameworks || '[não disponível]'}\n\nGANCHOS POTENCIAIS PARA CAPA:\n${research.hooks || '[não disponível]'}\n\n═══════════════════════════════════════\n\nCHECKLIST ANTES DE GERAR:\n✓ Cada slide de conteúdo tem 120+ palavras?\n✓ Usei pelo menos 3 dados da pesquisa?\n✓ Cada slide termina criando curiosidade pro próximo?\n✓ Campo \"acao\" está \"\" nos slides corretos?\n✓ Campo \"acao\" está preenchido nos slides ${slidesComAcao}?\n\nRETORNE APENAS O JSON, SEM MARKDOWN, SEM EXPLICAÇÕES.`;\n\n  return {\n    model: input.model_writer || \"openai/gpt-4.1\",\n    temperature: 0.5,\n    max_tokens: 6000,\n    messages: [\n      { role: \"system\", content: systemPrompt },\n      { role: \"user\", content: userPrompt }\n    ],\n    response_format: {\n      type: \"json_schema\",\n      json_schema: {\n        name: \"carousel_v3\",\n        strict: true,\n        schema: {\n          type: \"object\",\n          additionalProperties: false,\n          properties: {\n            capa: {\n              type: \"object\",\n              additionalProperties: false,\n              properties: {\n                titulo: { type: \"string\", description: \"Hook principal (6-12 palavras) - deve PARAR o scroll\" },\n                subtitulo: { type: \"string\", description: \"Clarificador que cria curiosidade (12-20 palavras)\" }\n              },\n              required: [\"titulo\", \"subtitulo\"]\n            },\n            slides: {\n              type: \"array\",\n              items: {\n                type: \"object\",\n                additionalProperties: false,\n                properties: {\n                  numero: { type: \"number\", description: \"Número do slide (2 em diante)\" },\n                  titulo: { type: \"string\", description: \"Título impactante (10-16 palavras)\" },\n                  corpo: { type: \"string\", description: \"Conteúdo DENSO (mínimo 110 palavras, ideal 150+)\" },\n                  acao: { type: \"string\", description: \"Ação executável OU vazio. VAZIO para slides 1,2,9,10. PREENCHIDO para slides 3-8.\" }\n                },\n                required: [\"numero\", \"titulo\", \"corpo\", \"acao\"]\n              }\n            },\n            legenda: { type: \"string\", description: \"Legenda Instagram (400-700 chars) com hook + resumo + CTA + hashtags\" }\n          },\n          required: [\"capa\", \"slides\", \"legenda\"]\n        }\n      }\n    }\n  };\n})()}}",
+          "options": {
+            "response": {}
+          }
+        },
+        "id": "a67f72cf-e743-4dd6-868f-9b8913d5c2f4",
+        "name": "OpenRouter - Prod Conteudo",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4,
+        "position": [
+          -2896,
+          400
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://vznhmeyhvlilgddgjjzs.supabase.co/functions/v1/update-job",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "x-token",
+                "value": "IU2uXKnFSBzXhK1uR2StrOKKDLSSTy5A"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"job_id\": \"{{ $('Organizar / Preparar Dados').first().json.job_id }}\",\n  \"status\": \"processing\",\n  \"progress\": 50,\n  \"current_step\": \"writing_content\"\n}",
+          "options": {}
+        },
+        "id": "8bb9a6af-0c61-481a-9861-6f20e4b7eca7",
+        "name": "CAR Status 50 Writing",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -2896,
+          208
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// ═══════════════════════════════════════════════════════════════\n// PARSER CONTENT v2.0 — SIMPLIFICADO PARA NOVO SCHEMA\n// ═══════════════════════════════════════════════════════════════\n\nconst prepared = $node[\"Organizar / Preparar Dados\"].json;\nconst seeds = $node[\"Preparar Seeds\"] ? $node[\"Preparar Seeds\"].json : prepared;\nconst raw = $json;\n\nlet content = raw?.choices?.[0]?.message?.content;\n\n// 1) LIMPAR MARKDOWN CODE BLOCKS\nif (typeof content === 'string') {\n  content = content\n    .replace(/^```json\\s*/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/\\s*```$/i, '')\n    .trim();\n  \n  // Remove tudo após o JSON (análise, comentários, etc)\n  const jsonEndIndex = content.lastIndexOf('}');\n  if (jsonEndIndex !== -1) {\n    content = content.substring(0, jsonEndIndex + 1);\n  }\n}\n\nlet parsed;\ntry {\n  parsed = typeof content === 'string' ? JSON.parse(content) : content;\n} catch (e) {\n  console.error('❌ PARSE ERROR:', e.message);\n  console.log('Raw content:', content?.substring(0, 500));\n  throw new Error(`JSON inválido do modelo: ${e.message}`);\n}\n\n// 2) VALIDAR ESTRUTURA v2\nif (!parsed.capa || !parsed.slides || !Array.isArray(parsed.slides)) {\n  console.error('❌ Estrutura inválida:', Object.keys(parsed));\n  throw new Error('Estrutura inválida: faltam capa ou slides');\n}\n\n// 3) CONVERTER PARA FORMATO INTERNO\nconst qtd = parseInt(seeds.qtd_slides || prepared.qtd_slides) || 10;\nconst impactSlide = seeds.impact_slide || Math.floor(qtd / 2);\n\nconst slides = [];\n\n// Slide 1 = Capa\nslides.push({\n  number: 1,\n  type: 'capa',\n  formato: 'capa',\n  titulo: parsed.capa.titulo || '',\n  subtitulo: parsed.capa.subtitulo || '',\n  texto: '',\n  items: []\n});\n\n// Slides 2-N\nfor (const slide of parsed.slides) {\n  const num = slide.numero || slides.length + 1;\n  \n  let type = 'conteudo';\n  if (num === 2) type = 'amplificador';\n  else if (num === impactSlide) type = 'impacto';\n  else if (num === qtd - 1) type = 'prova';\n  else if (num === qtd) type = 'cta';\n  \n  slides.push({\n    number: num,\n    type,\n    formato: 'A',\n    titulo: slide.titulo || '',\n    texto: slide.corpo || '',\n    acao: slide.acao || '',\n    items: []\n  });\n}\n\n// 4) RETORNAR ESTRUTURA LIMPA\nreturn [{\n  json: {\n    ...prepared,\n    ...seeds,\n    carousel: {\n      capa_titulo: parsed.capa.titulo,\n      capa_subtitulo: parsed.capa.subtitulo,\n      _format: 'v2'\n    },\n    slides,\n    legenda: parsed.legenda || '',\n    totalSlides: slides.length,\n    writer_raw: raw\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -2448,
+          400
+        ],
+        "id": "35cc5c2f-2197-41a5-864b-07d3f6b1f86d",
+        "name": "Parser Content"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Validação + Fallback de imagem\nconst input = $input.first().json;\nconst parsed = $('Parser Content').first().json;\nconst org = $('Organizar / Preparar Dados').first().json;\n\n// IMPORTANTE: Pega o prompt original para passar ao Freepik\nconst originalPrompt = $('preparePrompt').first().json.prompt;\n\n// Verifica se houve erro (429, timeout, etc)\nconst hasError = input.error || input.code === 429 || !input.choices;\n\nif (hasError) {\n  console.log('⚠️ Gemini falhou (rate limit ou erro), tentando Freepik');\n  return [{\n    json: {\n      numero: 1,\n      type: 'capa',\n      formato: 'capa',\n      imagem_base64: null,\n      fallback_used: true,\n      prompt: originalPrompt,\n      titulo: parsed.carousel?.capa_titulo || '',\n      subtitulo: parsed.carousel?.capa_subtitulo || '',\n      estilo_imagem: org.estilo_imagem,\n      descricao_capa: org.descricao_capa\n    }\n  }];\n}\n\nconst dataUrl = input?.choices?.[0]?.message?.images?.[0]?.image_url?.url;\n\n// Se imagem foi gerada com sucesso\nif (dataUrl && dataUrl.startsWith('data:image/')) {\n  return [{\n    json: {\n      numero: 1,\n      type: 'capa',\n      formato: 'capa',\n      imagem_base64: dataUrl,\n      fallback_used: false\n    }\n  }];\n}\n\n// FALLBACK: Sinaliza que precisa usar Freepik\nconsole.log('⚠️ Gemini não retornou imagem válida, tentando Freepik');\n\nreturn [{\n  json: {\n    numero: 1,\n    type: 'capa',\n    formato: 'capa',\n    imagem_base64: null,\n    fallback_used: true,\n    prompt: originalPrompt,\n    titulo: parsed.carousel?.capa_titulo || '',\n    subtitulo: parsed.carousel?.capa_subtitulo || '',\n    estilo_imagem: org.estilo_imagem,\n    descricao_capa: org.descricao_capa\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -1312,
+          336
+        ],
+        "id": "f6749a0d-6bbe-4ee9-8f05-9a0bcf4342ba",
+        "name": "puxaDadosImagem"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "fallback-check",
+                "leftValue": "={{ $json.fallback_used }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "e3fa7b8f-2d58-4e5b-bf10-e9adf8db90ec",
+        "name": "Fallback Router",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          -1088,
+          336
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// Gera HTML da capa como fallback\nconst input = $input.first().json;\n\nconst titulo = input.titulo || 'Título';\nconst subtitulo = input.subtitulo || '';\n\nconst html = `<!DOCTYPE html>\n<html>\n<head>\n<link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap\" rel=\"stylesheet\">\n<style>\n* { margin: 0; padding: 0; box-sizing: border-box; }\nbody {\n  width: 1080px;\n  height: 1350px;\n  font-family: 'Inter', sans-serif;\n  background: linear-gradient(180deg, #1a1a2e 0%, #0d0d0f 100%);\n  display: flex;\n  flex-direction: column;\n  justify-content: flex-end;\n  color: #fff;\n  overflow: hidden;\n}\n.gradient-overlay {\n  position: absolute;\n  bottom: 0;\n  left: 0;\n  right: 0;\n  height: 60%;\n  background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 50%, transparent 100%);\n}\n.content {\n  position: relative;\n  z-index: 2;\n  padding: 60px;\n  padding-bottom: 80px;\n}\n.titulo {\n  font-size: 72px;\n  font-weight: 900;\n  line-height: 1.1;\n  text-transform: uppercase;\n  letter-spacing: -2px;\n  margin-bottom: 24px;\n  text-shadow: 0 4px 30px rgba(0,0,0,0.5);\n}\n.subtitulo {\n  font-size: 28px;\n  font-weight: 400;\n  line-height: 1.4;\n  opacity: 0.85;\n  max-width: 900px;\n}\n.badge {\n  position: absolute;\n  top: 48px;\n  left: 60px;\n  font-size: 14px;\n  font-weight: 600;\n  letter-spacing: 3px;\n  text-transform: uppercase;\n  color: #7C3AED;\n}\n</style>\n</head>\n<body>\n<div class=\"badge\">@O.JONAS.SILVA</div>\n<div class=\"gradient-overlay\"></div>\n<div class=\"content\">\n  <h1 class=\"titulo\">${titulo}</h1>\n  ${subtitulo ? '<p class=\"subtitulo\">' + subtitulo + '</p>' : ''}\n</div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...input,\n    html\n  }\n}];"
+        },
+        "id": "5ee4ba10-4629-4a7d-b89b-921ecdb1b91e",
+        "name": "Fallback HTML Capa",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -864,
+          416
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://hcti.io/v1/image",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "Basic MDFLQ0ZKWDJYUVIyM1E3Q0RCVjNESFZHVlo6MDE5YjFmMmUtOGJiNy03NGQyLWFkZDktZmZhODQ1NmNhMzRm"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "form-urlencoded",
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "html",
+                "value": "={{ $json.html }}"
+              },
+              {
+                "name": "google_fonts",
+                "value": "Inter"
+              },
+              {
+                "name": "viewport_width",
+                "value": "1080"
+              },
+              {
+                "name": "viewport_height",
+                "value": "1350"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "00c7c58d-f9d1-4a19-b932-511b64991a2d",
+        "name": "Fallback HCTI Capa",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -640,
+          416
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// Converte URL HCTI para o formato esperado\nconst hcti = $input.first().json;\nconst prevData = $('Fallback HTML Capa').first().json;\n\nreturn [{\n  json: {\n    numero: 1,\n    type: 'capa',\n    formato: 'capa',\n    imagem_base64: null,\n    image_url: hcti.url,\n    fallback_used: true\n  }\n}];"
+        },
+        "id": "d4631be4-c1cd-4a1d-a226-23dc0a14f245",
+        "name": "Fallback Parse Capa",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -416,
+          416
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://vznhmeyhvlilgddgjjzs.supabase.co/functions/v1/update-job",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "x-token",
+                "value": "IU2uXKnFSBzXhK1uR2StrOKKDLSSTy5A"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"job_id\": \"{{ $('Organizar / Preparar Dados').first().json.job_id }}\",\n  \"status\": \"processing\",\n  \"progress\": 65,\n  \"current_step\": \"generating_cover\"\n}",
+          "options": {}
+        },
+        "id": "5018f7d0-39ad-4b46-a23d-2f1596584ddc",
+        "name": "Status 65 Cover",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -2224,
+          208
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://openrouter.ai/api/v1/chat/completions",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "Bearer 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"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "HTTP-Referer",
+                "value": "https://zoryon.org/"
+              },
+              {
+                "name": "X-Title",
+                "value": "={{ $env.OPENROUTER_APP_TITLE || 'n8n - Image Prompt Generator' }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{(function () {\n  const org = $node[\"Organizar / Preparar Dados\"].json;\n  const parsed = $json;\n\n  const capaTitulo = parsed.carousel?.capa_titulo || parsed.capa_titulo || \"\";\n  const capaSubtitulo = parsed.carousel?.capa_subtitulo || parsed.capa_subtitulo || \"\";\n  \n  const visualStyle = org.estilo_imagem || \"fotografia ultrarrealista\";\n  const descricaoCapa = org.descricao_capa || \"profissional em ambiente de trabalho moderno\";\n  const nicho = org.nicho || \"negócios\";\n\n  const accentColors = {\n    'marketing': '#FF6B35',\n    'tecnologia': '#00D4FF',\n    'saude': '#00C853',\n    'financas': '#FFD700',\n    'educacao': '#9C27B0',\n    'rh': '#E91E63',\n    'vendas': '#FF5722',\n    'default': '#FF6B35'\n  };\n  const nichoLower = (nicho || '').toLowerCase();\n  const accentColor = accentColors[nichoLower] || accentColors['default'];\n\n  return {\n    model: org.model || \"openai/gpt-4.1\",\n    temperature: 0.3,\n    max_tokens: 1500,\n    messages: [\n      {\n        role: \"system\",\n        content: \"# IMAGE PROMPT GENERATOR — INSTAGRAM CAROUSEL COVER v2.0\\n\\nVocê gera prompts de imagem PRECISOS para capas de carrossel viral no Instagram.\\nA imagem será gerada pelo Gemini e DEVE conter texto renderizado.\\n\\n## ESPECIFICAÇÕES TÉCNICAS OBRIGATÓRIAS\\n\\n### DIMENSÕES\\n- Aspect ratio: 4:5 (vertical, 1080x1350px)\\n- Resolução: Alta definição\\n- Safe area para texto: região inferior (40% da altura)\\n\\n### ESTRUTURA DA IMAGEM (DE CIMA PARA BAIXO)\\n\\n1. REGIÃO SUPERIOR (60% da altura):\\n   - Fotografia/visual principal\\n   - Sujeito em destaque\\n   - Iluminação cinematográfica\\n   - Profundidade de campo\\n\\n2. GRADIENTE DE TRANSIÇÃO (obrigatório):\\n   - Início: 50% da altura (transparente)\\n   - Fim: 100% da altura (preto sólido #000000)\\n   - Transição suave e natural\\n   - Função: garantir legibilidade do texto\\n\\n3. REGIÃO INFERIOR (40% da altura):\\n   - Fundo: gradiente escuro\\n   - Texto principal em destaque\\n   - Hierarquia tipográfica clara\\n\\n### TIPOGRAFIA\\n\\nTÍTULO PRINCIPAL:\\n- Fonte: Sans-serif bold condensed (Bebas Neue, Impact, Oswald style)\\n- Tamanho: MUITO GRANDE (dominante)\\n- Cor: Branco puro (#FFFFFF)\\n- Caixa: MAIÚSCULAS\\n- Posição: Centro-inferior, sobre gradiente\\n- Sombra: Sutil para contraste\\n\\nSUBTÍTULO:\\n- Fonte: Sans-serif regular (Inter, Roboto style)\\n- Tamanho: ~40% do título\\n- Cor: Branco com 85% opacidade\\n- Posição: Logo abaixo do título\\n- Caixa: Normal (primeira maiúscula)\\n\\n### COR DE DESTAQUE\\n- Uma única palavra do título pode ter cor diferente\\n- Usar com moderação (máximo 1-2 palavras)\\n\\n## PROIBIÇÕES ABSOLUTAS\\n- Logos ou watermarks\\n- Texto além do especificado\\n- Bordas, frames ou elementos de UI\\n- Texto cortado ou ilegível\\n- Gradiente que não cobre área do texto\\n- Múltiplas fontes decorativas\\n- Emojis no texto\\n\\n## ESTILO DE REFERÊNCIA\\nCapas de @hormozi, @garyvee, @alexhormozi\\nEditorial, premium, scroll-stopping.\\n\\n## OUTPUT\\nRetorne APENAS o prompt de imagem em INGLÊS.\\nSem explicações, sem markdown, apenas o prompt.\"\n      },\n      {\n        role: \"user\",\n        content: \"GERE O PROMPT DE IMAGEM PARA ESTA CAPA:\\n\\n## TEXTO A RENDERIZAR (EXATAMENTE COMO ESTÁ)\\n\\nTÍTULO:\\n\" + capaTitulo + \"\\n\\nSUBTÍTULO:\\n\" + capaSubtitulo + \"\\n\\n## VISUAL\\n\\nEstilo: \" + visualStyle + \"\\nDescrição do visual: \" + descricaoCapa + \"\\nNicho: \" + nicho + \"\\nCor de accent: \" + accentColor + \"\\n\\n## INSTRUÇÕES\\n\\n1. O texto DEVE aparecer exatamente como fornecido\\n2. O título deve ser GRANDE e DOMINANTE\\n3. O subtítulo deve ser menor, abaixo do título\\n4. O gradiente DEVE garantir legibilidade\\n5. A foto/visual deve complementar, não competir com o texto\\n\\nGere o prompt agora.\"\n      }\n    ]\n  };\n})()}}",
+          "options": {
+            "response": {}
+          }
+        },
+        "id": "7a7b9db1-2149-4c7c-97d4-f2508bd74095",
+        "name": "OpenRouter - Prompt Capa",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4,
+        "position": [
+          -1984,
+          336
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "f6c3b2f7-135b-4915-8a24-a24409393ccb",
+                "name": "prompt",
+                "value": "={{ $json.choices[0].message.content }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -1760,
+          336
+        ],
+        "id": "ebcdbd1e-0bac-461c-917e-f66e2de2c0c0",
+        "name": "preparePrompt"
+      },
+      {
+        "parameters": {
+          "jsCode": "// ═══════════════════════════════════════════════════════════════\n// ZORYON CAROUSEL HTML v3.0 — VISUAL DINÂMICO + SLIDES DESTAQUE\n// Features: 2 slides invertidos, variação de fonte, CTA highlight\n// ═══════════════════════════════════════════════════════════════\n\nconst slide = $input.first().json;\nconst org = $('Organizar / Preparar Dados').first().json;\nconst parsed = $('Parser Content').first().json;\nconst seeds = $('Preparar Seeds').first().json;\n\nconst styleVariation = seeds.style_variation || 1;\nconst qtdSlides = parsed.totalSlides || 10;\n\n// ═══════════════════════════════════════════════════════════════\n// SISTEMA DE TEMAS COM CSS VARIABLES + VARIANTES\n// ═══════════════════════════════════════════════════════════════\n\nconst THEMES = {\n  1: {\n    name: 'dark',\n    vars: {\n      '--bg-primary': '#0a0a0a',\n      '--bg-secondary': '#141414',\n      '--bg-card': 'rgba(255, 255, 255, 0.05)',\n      '--text-primary': '#ffffff',\n      '--text-secondary': 'rgba(255, 255, 255, 0.75)',\n      '--text-muted': 'rgba(255, 255, 255, 0.5)',\n      '--accent': '#3b82f6',\n      '--accent-glow': 'rgba(59, 130, 246, 0.15)',\n      '--border': 'rgba(255, 255, 255, 0.1)',\n      '--shadow': '0 4px 24px rgba(0, 0, 0, 0.4)',\n      '--number-bg': 'rgba(59, 130, 246, 0.08)',\n      '--font-display': \"'Inter', sans-serif\",\n      '--font-accent': \"'Playfair Display', Georgia, serif\",\n      '--radius': '16px',\n      '--swipe-bg': 'rgba(255, 255, 255, 0.12)',\n      '--swipe-border': 'rgba(255, 255, 255, 0.25)',\n      '--swipe-text': 'rgba(255, 255, 255, 0.8)',\n      '--swipe-shadow': '0 2px 12px rgba(0, 0, 0, 0.3)',\n      // Invertido para slides destaque\n      '--inv-bg': '#ffffff',\n      '--inv-text': '#0a0a0a',\n      '--inv-text-secondary': '#333333',\n      '--inv-card': 'rgba(0, 0, 0, 0.05)',\n      '--inv-border': 'rgba(0, 0, 0, 0.1)',\n      // CTA highlight\n      '--cta-highlight': '#3b82f6',\n      '--cta-highlight-text': '#ffffff'\n    }\n  },\n  2: {\n    name: 'light',\n    vars: {\n      '--bg-primary': '#ffffff',\n      '--bg-secondary': '#f8f9fa',\n      '--bg-card': '#ffffff',\n      '--text-primary': '#1a1a1a',\n      '--text-secondary': '#4a4a4a',\n      '--text-muted': '#888888',\n      '--accent': '#2563eb',\n      '--accent-glow': 'rgba(37, 99, 235, 0.1)',\n      '--border': 'rgba(0, 0, 0, 0.08)',\n      '--shadow': '0 4px 24px rgba(0, 0, 0, 0.08)',\n      '--number-bg': 'rgba(37, 99, 235, 0.06)',\n      '--font-display': \"'Inter', sans-serif\",\n      '--font-accent': \"'Playfair Display', Georgia, serif\",\n      '--radius': '16px',\n      '--swipe-bg': 'rgba(0, 0, 0, 0.06)',\n      '--swipe-border': 'rgba(0, 0, 0, 0.15)',\n      '--swipe-text': '#333333',\n      '--swipe-shadow': '0 2px 12px rgba(0, 0, 0, 0.1)',\n      // Invertido\n      '--inv-bg': '#1a1a1a',\n      '--inv-text': '#ffffff',\n      '--inv-text-secondary': 'rgba(255, 255, 255, 0.8)',\n      '--inv-card': 'rgba(255, 255, 255, 0.08)',\n      '--inv-border': 'rgba(255, 255, 255, 0.15)',\n      // CTA highlight\n      '--cta-highlight': '#2563eb',\n      '--cta-highlight-text': '#ffffff'\n    }\n  },\n  3: {\n    name: 'neon',\n    vars: {\n      '--bg-primary': '#0f0f1a',\n      '--bg-secondary': '#1a1a2e',\n      '--bg-card': 'rgba(0, 255, 136, 0.08)',\n      '--text-primary': '#edf2f7',\n      '--text-secondary': '#a0aec0',\n      '--text-muted': '#718096',\n      '--accent': '#00ff88',\n      '--accent-glow': 'rgba(0, 255, 136, 0.2)',\n      '--border': 'rgba(0, 255, 136, 0.25)',\n      '--shadow': '0 4px 24px rgba(0, 255, 136, 0.15)',\n      '--number-bg': 'rgba(0, 255, 136, 0.06)',\n      '--font-display': \"'Space Grotesk', 'Inter', sans-serif\",\n      '--font-accent': \"'Space Grotesk', sans-serif\",\n      '--radius': '12px',\n      '--swipe-bg': 'rgba(0, 255, 136, 0.15)',\n      '--swipe-border': 'rgba(0, 255, 136, 0.5)',\n      '--swipe-text': '#00ff88',\n      '--swipe-shadow': '0 0 20px rgba(0, 255, 136, 0.3)',\n      // Invertido - usa magenta\n      '--inv-bg': 'linear-gradient(135deg, #ff0080 0%, #7928ca 100%)',\n      '--inv-text': '#ffffff',\n      '--inv-text-secondary': 'rgba(255, 255, 255, 0.9)',\n      '--inv-card': 'rgba(255, 255, 255, 0.15)',\n      '--inv-border': 'rgba(255, 255, 255, 0.3)',\n      // CTA highlight\n      '--cta-highlight': '#00ff88',\n      '--cta-highlight-text': '#0f0f1a'\n    }\n  },\n  4: {\n    name: 'brutalist',\n    vars: {\n      '--bg-primary': '#fffef5',\n      '--bg-secondary': '#fff9e6',\n      '--bg-card': '#ffffff',\n      '--text-primary': '#000000',\n      '--text-secondary': '#333333',\n      '--text-muted': '#666666',\n      '--accent': '#ff3333',\n      '--accent-glow': 'rgba(255, 51, 51, 0.1)',\n      '--border': '#000000',\n      '--shadow': '6px 6px 0 #000000',\n      '--number-bg': 'rgba(255, 51, 51, 0.06)',\n      '--font-display': \"'Space Mono', monospace\",\n      '--font-accent': \"'Space Mono', monospace\",\n      '--radius': '0px',\n      '--border-width': '3px',\n      '--swipe-bg': '#000000',\n      '--swipe-border': '#000000',\n      '--swipe-text': '#ffffff',\n      '--swipe-shadow': '4px 4px 0 #ff3333',\n      // Invertido\n      '--inv-bg': '#000000',\n      '--inv-text': '#fffef5',\n      '--inv-text-secondary': 'rgba(255, 254, 245, 0.85)',\n      '--inv-card': 'rgba(255, 255, 255, 0.1)',\n      '--inv-border': '#ffffff',\n      // CTA highlight\n      '--cta-highlight': '#ff3333',\n      '--cta-highlight-text': '#ffffff'\n    }\n  },\n  5: {\n    name: 'glass',\n    vars: {\n      '--bg-primary': '#1a1a2e',\n      '--bg-secondary': 'rgba(255, 255, 255, 0.08)',\n      '--bg-card': 'rgba(255, 255, 255, 0.06)',\n      '--text-primary': '#ffffff',\n      '--text-secondary': 'rgba(255, 255, 255, 0.8)',\n      '--text-muted': 'rgba(255, 255, 255, 0.5)',\n      '--accent': '#a855f7',\n      '--accent-glow': 'rgba(168, 85, 247, 0.25)',\n      '--border': 'rgba(255, 255, 255, 0.15)',\n      '--shadow': '0 8px 32px rgba(0, 0, 0, 0.3)',\n      '--number-bg': 'rgba(168, 85, 247, 0.08)',\n      '--font-display': \"'Inter', sans-serif\",\n      '--font-accent': \"'Playfair Display', Georgia, serif\",\n      '--radius': '20px',\n      '--backdrop-blur': '20px',\n      '--swipe-bg': 'rgba(168, 85, 247, 0.2)',\n      '--swipe-border': 'rgba(168, 85, 247, 0.5)',\n      '--swipe-text': '#ffffff',\n      '--swipe-shadow': '0 0 24px rgba(168, 85, 247, 0.4)',\n      // Invertido - gradiente claro\n      '--inv-bg': 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',\n      '--inv-text': '#1a1a2e',\n      '--inv-text-secondary': '#4a5568',\n      '--inv-card': 'rgba(168, 85, 247, 0.1)',\n      '--inv-border': 'rgba(168, 85, 247, 0.3)',\n      // CTA highlight\n      '--cta-highlight': '#a855f7',\n      '--cta-highlight-text': '#ffffff'\n    }\n  }\n};\n\nconst theme = THEMES[styleVariation] || THEMES[1];\nconst isBrutalist = theme.name === 'brutalist';\nconst isGlass = theme.name === 'glass';\nconst isNeon = theme.name === 'neon';\n\n// Gera CSS Variables\nconst cssVars = Object.entries(theme.vars)\n  .map(([k, v]) => `${k}: ${v};`)\n  .join('\\n      ');\n\n// ═══════════════════════════════════════════════════════════════\n// LÓGICA DE SLIDES DESTAQUE\n// Slides 4 e 7 (ou equivalentes) têm design invertido\n// ═══════════════════════════════════════════════════════════════\n\nconst numero = slide.numero || slide.number;\nconst tipo = slide.type;\n\n// Define quais slides são \"destaque\" (invertidos)\nfunction isHighlightSlide(num, total) {\n  if (total <= 4) return false;\n  if (total <= 6) return num === 3; // 1 slide destaque\n  if (total <= 8) return num === 4 || num === 6; // 2 slides destaque\n  return num === 4 || num === 7; // Padrão: slides 4 e 7\n}\n\n// Define quais slides usam fonte accent no título\nfunction useAccentFont(num, total) {\n  if (total <= 4) return num === 1;\n  if (total <= 6) return num === 1 || num === 4;\n  return num === 1 || num === 5 || num === 8;\n}\n\nconst isHighlight = isHighlightSlide(numero, qtdSlides);\nconst useSerif = useAccentFont(numero, qtdSlides);\nconst isCTA = numero === qtdSlides;\n\n// ═══════════════════════════════════════════════════════════════\n// PROCESSAR CONTEÚDO\n// ═══════════════════════════════════════════════════════════════\n\nconst titulo = slide.titulo || '';\nconst texto = slide.texto || '';\nconst acao = slide.acao || '';\n\nconst paragraphs = texto.split('\\n').filter(p => p.trim());\n\nfunction escapeHtml(str) {\n  return (str || '')\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;')\n    .replace(/\"/g, '&quot;');\n}\n\nfunction highlightNumbers(text) {\n  return text.replace(/(\\d+%|\\d+x|R\\$[\\d.,]+|\\d+\\+?)/g, \n    '<span class=\"highlight\">$1</span>');\n}\n\nfunction formatText(text) {\n  let formatted = escapeHtml(text);\n  formatted = highlightNumbers(formatted);\n  formatted = formatted.replace(/→/g, '<span class=\"arrow\">→</span>');\n  return formatted;\n}\n\n// Função para destacar palavra de ação no CTA\nfunction formatCTATitle(text) {\n  // Palavras que devem ser destacadas no CTA\n  const actionWords = ['QUERO', 'SIM', 'EU QUERO', 'COMEÇAR', 'ACESSAR', 'BAIXAR', 'ENVIAR', 'PARTICIPAR'];\n  let formatted = escapeHtml(text);\n  \n  actionWords.forEach(word => {\n    const regex = new RegExp(`(${word})`, 'gi');\n    formatted = formatted.replace(regex, '<span class=\"cta-action-word\">$1</span>');\n  });\n  \n  return formatted;\n}\n\n// ═══════════════════════════════════════════════════════════════\n// GERAR HTML\n// ═══════════════════════════════════════════════════════════════\n\nconst html = `<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=1080, height=1350\">\n  <link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Space+Mono:wght@400;700&family=Playfair+Display:wght@600;700;800&display=swap\" rel=\"stylesheet\">\n  <style>\n    :root {\n      ${cssVars}\n    }\n    \n    * { margin: 0; padding: 0; box-sizing: border-box; }\n    \n    body {\n      width: 1080px;\n      height: 1350px;\n      font-family: var(--font-display);\n      overflow: hidden;\n      position: relative;\n      \n      /* Estilo normal ou invertido */\n      ${isHighlight ? `\n        background: var(--inv-bg);\n        color: var(--inv-text);\n      ` : `\n        background: var(--bg-primary);\n        color: var(--text-primary);\n      `}\n      \n      ${isGlass && !isHighlight ? `\n        background: linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);\n      ` : ''}\n    }\n    \n    /* Glass/Neon Background Effects */\n    ${isGlass && !isHighlight ? `\n    body::before {\n      content: '';\n      position: absolute;\n      top: -50%;\n      left: -50%;\n      width: 200%;\n      height: 200%;\n      background: radial-gradient(circle at 30% 30%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),\n                  radial-gradient(circle at 70% 70%, rgba(236, 72, 153, 0.15) 0%, transparent 50%);\n      z-index: 0;\n    }\n    ` : ''}\n    \n    ${isNeon && isHighlight ? `\n    body::before {\n      content: '';\n      position: absolute;\n      top: 0;\n      left: 0;\n      right: 0;\n      bottom: 0;\n      background: linear-gradient(135deg, #ff0080 0%, #7928ca 100%);\n      z-index: 0;\n    }\n    ` : ''}\n    \n    .container {\n      width: 100%;\n      height: 100%;\n      padding: 56px;\n      display: flex;\n      flex-direction: column;\n      position: relative;\n      z-index: 1;\n    }\n    \n    /* Header */\n    .header {\n      display: flex;\n      justify-content: space-between;\n      align-items: center;\n      margin-bottom: 40px;\n    }\n    \n    .brand {\n      font-size: 13px;\n      font-weight: 700;\n      letter-spacing: 3px;\n      text-transform: uppercase;\n      color: var(--accent);\n      ${isHighlight ? 'color: var(--inv-text); opacity: 0.7;' : ''}\n    }\n    \n    .counter {\n      font-size: 13px;\n      font-weight: 600;\n      padding: 8px 16px;\n      border-radius: 20px;\n      border: 1px solid;\n      ${isHighlight ? `\n        color: var(--inv-text);\n        background: var(--inv-card);\n        border-color: var(--inv-border);\n      ` : `\n        color: var(--text-muted);\n        background: var(--bg-card);\n        border-color: var(--border);\n      `}\n      ${isGlass && !isHighlight ? 'backdrop-filter: blur(10px);' : ''}\n    }\n    \n    /* Slide Number Background */\n    .slide-number {\n      position: absolute;\n      top: 40px;\n      right: 56px;\n      font-size: 200px;\n      font-weight: 900;\n      line-height: 1;\n      z-index: 0;\n      user-select: none;\n      ${isHighlight ? `\n        color: rgba(0, 0, 0, 0.06);\n      ` : `\n        color: var(--number-bg);\n      `}\n    }\n    \n    /* Content */\n    .content {\n      flex: 1;\n      display: flex;\n      flex-direction: column;\n      justify-content: center;\n      position: relative;\n      z-index: 1;\n    }\n    \n    /* Título com variação de fonte */\n    .titulo {\n      font-size: 52px;\n      font-weight: 800;\n      line-height: 1.15;\n      margin-bottom: 32px;\n      max-width: 90%;\n      \n      ${useSerif ? `\n        font-family: var(--font-accent);\n        font-weight: 700;\n        font-style: italic;\n      ` : ''}\n      \n      ${isHighlight ? `\n        color: var(--inv-text);\n      ` : `\n        color: var(--text-primary);\n      `}\n      \n      ${isBrutalist ? 'text-transform: uppercase;' : ''}\n    }\n    \n    /* CTA Title com highlight na palavra de ação */\n    .titulo.cta-titulo {\n      font-size: 48px;\n      line-height: 1.2;\n    }\n    \n    .cta-action-word {\n      display: inline-block;\n      background: var(--cta-highlight);\n      color: var(--cta-highlight-text);\n      padding: 4px 20px;\n      border-radius: 8px;\n      ${isBrutalist ? `\n        border-radius: 0;\n        box-shadow: 4px 4px 0 var(--text-primary);\n      ` : ''}\n      ${isNeon ? `\n        box-shadow: 0 0 20px var(--accent);\n        text-shadow: 0 0 10px var(--cta-highlight-text);\n      ` : ''}\n    }\n    \n    .corpo {\n      border-radius: var(--radius);\n      padding: 32px;\n      ${isHighlight ? `\n        background: var(--inv-card);\n        border: 1px solid var(--inv-border);\n      ` : `\n        background: var(--bg-card);\n        border: 1px solid var(--border);\n      `}\n      ${isBrutalist ? `\n        border-width: var(--border-width);\n        box-shadow: var(--shadow);\n      ` : ''}\n      ${isGlass && !isHighlight ? 'backdrop-filter: blur(var(--backdrop-blur));' : ''}\n    }\n    \n    .corpo p {\n      font-size: 24px;\n      line-height: 1.6;\n      margin-bottom: 16px;\n      ${isHighlight ? `\n        color: var(--inv-text-secondary);\n      ` : `\n        color: var(--text-secondary);\n      `}\n    }\n    \n    .corpo p:last-child {\n      margin-bottom: 0;\n    }\n    \n    .highlight {\n      color: var(--accent);\n      font-weight: 700;\n      ${isHighlight && !isNeon ? 'color: var(--inv-text); text-decoration: underline;' : ''}\n    }\n    \n    .arrow {\n      color: var(--accent);\n      font-weight: 700;\n    }\n    \n    /* Action Box */\n    .acao-box {\n      margin-top: 24px;\n      padding: 24px 28px;\n      border-left: 4px solid var(--accent);\n      border-radius: 0 var(--radius) var(--radius) 0;\n      ${isHighlight ? `\n        background: rgba(0, 0, 0, 0.08);\n        border-left-color: var(--inv-text);\n      ` : `\n        background: var(--accent-glow);\n      `}\n    }\n    \n    .acao-label {\n      font-size: 12px;\n      font-weight: 700;\n      text-transform: uppercase;\n      letter-spacing: 2px;\n      margin-bottom: 8px;\n      ${isHighlight ? `\n        color: var(--inv-text);\n        opacity: 0.7;\n      ` : `\n        color: var(--accent);\n      `}\n    }\n    \n    .acao-text {\n      font-size: 20px;\n      line-height: 1.5;\n      ${isHighlight ? `\n        color: var(--inv-text);\n      ` : `\n        color: var(--text-primary);\n      `}\n    }\n    \n    /* Footer */\n    .footer {\n      display: flex;\n      justify-content: center;\n      padding-top: 32px;\n    }\n    \n    /* Swipe Indicator */\n    .swipe-indicator {\n      display: inline-flex;\n      align-items: center;\n      gap: 14px;\n      padding: 16px 32px;\n      border-radius: 50px;\n      border: 2px solid;\n      ${isHighlight ? `\n        background: rgba(0, 0, 0, 0.1);\n        border-color: var(--inv-text);\n        opacity: 0.6;\n      ` : `\n        background: var(--swipe-bg);\n        border-color: var(--swipe-border);\n        box-shadow: var(--swipe-shadow);\n      `}\n      ${isGlass && !isHighlight ? 'backdrop-filter: blur(12px);' : ''}\n      ${isNeon && !isHighlight ? 'text-shadow: 0 0 10px var(--accent);' : ''}\n    }\n    \n    .swipe-text {\n      font-size: 14px;\n      font-weight: 700;\n      letter-spacing: 3px;\n      text-transform: uppercase;\n      ${isHighlight ? `\n        color: var(--inv-text);\n      ` : `\n        color: var(--swipe-text);\n      `}\n    }\n    \n    .swipe-arrow {\n      font-size: 20px;\n      font-weight: 700;\n      animation: swipe 1.5s ease-in-out infinite;\n      ${isHighlight ? `\n        color: var(--inv-text);\n      ` : `\n        color: var(--accent);\n      `}\n      ${isNeon && !isHighlight ? 'text-shadow: 0 0 12px var(--accent);' : ''}\n    }\n    \n    @keyframes swipe {\n      0%, 100% { transform: translateX(0); opacity: 0.7; }\n      50% { transform: translateX(10px); opacity: 1; }\n    }\n    \n    /* Destaque visual extra para slide highlight */\n    ${isHighlight ? `\n    .slide-highlight-badge {\n      position: absolute;\n      top: 56px;\n      left: 50%;\n      transform: translateX(-50%);\n      background: var(--accent);\n      color: var(--cta-highlight-text);\n      padding: 8px 24px;\n      border-radius: 20px;\n      font-size: 11px;\n      font-weight: 700;\n      letter-spacing: 2px;\n      text-transform: uppercase;\n      z-index: 10;\n    }\n    ` : ''}\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"slide-number\">${String(numero).padStart(2, '0')}</div>\n    \n    <div class=\"header\">\n      <span class=\"brand\">@O.JONAS.SILVA</span>\n      <span class=\"counter\">${String(numero).padStart(2, '0')} / ${String(qtdSlides).padStart(2, '0')}</span>\n    </div>\n    \n    <div class=\"content\">\n      <h1 class=\"titulo ${isCTA ? 'cta-titulo' : ''}\">${isCTA ? formatCTATitle(titulo) : formatText(titulo)}</h1>\n      \n      ${paragraphs.length > 0 ? `\n      <div class=\"corpo\">\n        ${paragraphs.map(p => `<p>${formatText(p)}</p>`).join('')}\n      </div>\n      ` : ''}\n      \n      ${acao && acao.trim() !== '' ? `\n      <div class=\"acao-box\">\n        <div class=\"acao-label\">✓ Para você fazer hoje</div>\n        <div class=\"acao-text\">${formatText(acao)}</div>\n      </div>\n      ` : ''}\n    </div>\n    \n    ${numero < qtdSlides ? `\n    <div class=\"footer\">\n      <div class=\"swipe-indicator\">\n        <span class=\"swipe-text\">Arraste</span>\n        <span class=\"swipe-arrow\">→</span>\n      </div>\n    </div>\n    ` : ''}\n  </div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...slide,\n    html,\n    style_name: theme.name,\n    style_variation: styleVariation,\n    is_highlight_slide: isHighlight,\n    uses_serif_title: useSerif\n  }\n}];"
+        },
+        "id": "fe39eec9-755b-4e35-b555-48bf7e5f01e0",
+        "name": "CAR Gerar HTML",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -1760,
+          720
+        ]
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "id": "e8f5ba52-a7ac-49db-9719-2d2f19efce7b",
+        "name": "CAR Loop Slides",
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          -1984,
+          672
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const org = $('Organizar / Preparar Dados').first().json;\nconst parsed = $('Parser Content').first().json;\n\nreturn parsed.slides\n  .filter(slide => slide.number !== 1)\n  .map(slide => ({\n    json: {\n      job_id: org.job_id,\n      numero: slide.number,\n      type: slide.type,\n      formato: slide.formato,\n      titulo: slide.titulo,\n      texto: slide.texto || '',\n      acao: slide.acao || '',\n      items: slide.items || [],\n      estilo_imagem: org.estilo_imagem,\n      tom: org.tom,\n      nicho: org.nicho\n    }\n  }));\n"
+        },
+        "id": "3dadd23b-bb19-4600-9335-4e3486d43913",
+        "name": "CAR Preparar Slides",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -2240,
+          672
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://vznhmeyhvlilgddgjjzs.supabase.co/functions/v1/update-job",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "x-token",
+                "value": "IU2uXKnFSBzXhK1uR2StrOKKDLSSTy5A"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"job_id\": \"{{ $('Organizar / Preparar Dados').first().json.job_id }}\",\n  \"status\": \"processing\",\n  \"progress\": 90,\n  \"current_step\": \"finalizing\"\n}",
+          "options": {}
+        },
+        "id": "effdeeb2-11e5-4883-975f-b4214111d132",
+        "name": "CAR Status 90 Finalizing",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          32,
+          352
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $('CAR Merge Final').all();\nconst org = $('Organizar / Preparar Dados').first().json;\nconst parsed = $('Parser Content').first().json;\n\n// CAPA - busca item com type='capa'\nconst capaItem = items.find(i => i.json.type === 'capa');\n\nconst capa = {\n  headline: parsed.carousel?.capa_titulo || \"\",\n  subheadline: parsed.carousel?.capa_subtitulo || \"\",\n  imagem_base64: capaItem?.json?.imagem_base64 || null,\n  image_url: capaItem?.json?.image_url || null,\n  fallback_used: capaItem?.json?.fallback_used || false\n};\n\nif (!capa.imagem_base64 && !capa.image_url) {\n  console.log(\"⚠️ AVISO: Capa sem imagem!\");\n  console.log(\"Items disponíveis:\", items.map(i => ({ \n    type: i.json.type, \n    has_base64: !!i.json.imagem_base64,\n    has_url: !!i.json.image_url\n  })));\n}\n\n// SLIDES - renderizados pelo HCTI (2-N)\nconst slides = items\n  .filter(i => i.json.numero !== undefined && i.json.type !== 'capa' && i.json.image_url)\n  .map(i => ({\n    numero: i.json.numero,\n    titulo: i.json.titulo || '',\n    corpo: i.json.texto || '',\n    emoji: '',\n    imagem_url: i.json.image_url,\n    imagem_download: i.json.image_url,\n    theme: i.json.theme || parsed.theme_seed || 'dark',\n    is_impact: i.json.is_impact || false\n  }))\n  .sort((a, b) => a.numero - b.numero);\n\nconst legenda = parsed.legenda || '';\nconst fontes = parsed.research?.sources || [];\n\nconst resultado = {\n  capa: capa,\n  slides: slides,\n  legenda: legenda,\n  fontes: fontes,\n  metadata: {\n    theme: parsed.theme_seed || 'dark',\n    style_variation: parsed.style_variation || 1,\n    total_slides: parsed.totalSlides || 10,\n    impact_slide: parsed.impact_slide || 5,\n    cover_fallback_used: capa.fallback_used\n  }\n};\n\nreturn [{\n  json: {\n    job_id: org.job_id,\n    status: 'completed',\n    progress: 100,\n    current_step: 'completed',\n    resultado: resultado\n  }\n}];\n"
+        },
+        "id": "b71d8d14-0164-4a9d-ace2-8ea90ea01d77",
+        "name": "CAR Preparar Final",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          256,
+          352
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://vznhmeyhvlilgddgjjzs.supabase.co/functions/v1/update-job",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "x-token",
+                "value": "IU2uXKnFSBzXhK1uR2StrOKKDLSSTy5A"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"job_id\": \"{{ $json.job_id }}\",\n  \"status\": \"completed\",\n  \"progress\": 100,\n  \"current_step\": \"completed\",\n  \"resultado\": {{ JSON.stringify($json.resultado) }}\n}",
+          "options": {}
+        },
+        "id": "2a71883f-cddc-44ef-bbae-94e6266357d8",
+        "name": "CAR Status 100 Done",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          480,
+          352
+        ]
+      },
+      {
+        "parameters": {},
+        "id": "8106fa26-58b8-4d6e-8f69-95382479664a",
+        "name": "CAR Merge Final",
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3,
+        "position": [
+          -176,
+          352
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// ═══════════════════════════════════════════════════════════════\n// Preparar Seeds v2.0\n// Inclui seleção de estilo visual\n// ═══════════════════════════════════════════════════════════════\n\nconst org = $input.first().json;\n\n// Seed de tema (mantido para compatibilidade)\nconst theme_seed = Math.random() < 0.5 ? 'dark' : 'light';\n\n// NOVO: Seleção de estilo visual (1 a 5)\n// 1 = Dark, 2 = Light, 3 = Neon, 4 = Brutalist, 5 = Glass\nconst style_variation = Math.floor(Math.random() * 5) + 1;\n\n// Quantidade de slides\nconst qtd = parseInt(org.qtd_slides) || 10;\n\n// Slide de impacto (meio do carrossel)\nconst impact_slide = Math.floor(qtd / 2);\n\n// Mapeamento de estilo para nome (para logs/debug)\nconst styleNames = {\n  1: 'dark',\n  2: 'light', \n  3: 'neon',\n  4: 'brutalist',\n  5: 'glass'\n};\n\nreturn [{\n  json: {\n    ...org,\n    theme_seed,\n    style_variation,\n    style_name: styleNames[style_variation],\n    impact_slide,\n    qtd_slides: qtd\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -5584,
+          304
+        ],
+        "id": "7833ae2d-6263-4149-8d7d-745884d0cc30",
+        "name": "Preparar Seeds"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://openrouter.ai/api/v1/chat/completions",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "Bearer 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"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{\n  {\n    model: \"google/gemini-3-pro-image-preview\",\n    messages: [\n      {\n        role: \"user\",\n        content: $json.prompt\n      }\n    ],\n    modalities: [\"image\", \"text\"],\n    include_reasoning: false,\n    image_config: { aspect_ratio: \"3:4\" }\n  }\n}}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.3,
+        "position": [
+          -1536,
+          336
+        ],
+        "id": "bceb56a3-69b4-49fc-9ffd-6a865e012401",
+        "name": "imageNanoBananaRouter",
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.freepik.com/v1/ai/text-to-image/seedream-v4",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "x-freepik-api-key",
+                "value": "FPSX473cc516502f42e42bca5c2158d8475e"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"prompt\": {{ JSON.stringify($json.prompt) }},\n  \"aspect_ratio\": \"traditional_3_4\",\n  \"guidance_scale\": 3.5\n}",
+          "options": {}
+        },
+        "id": "1f6a4f43-ab94-4e0a-886a-5b926c364322",
+        "name": "Freepik Create Task",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -1424,
+          -16
+        ],
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "amount": 15
+        },
+        "id": "af801e98-7d40-4a57-b89a-bcd7f030c2af",
+        "name": "Freepik Delay 15s",
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          -1200,
+          -16
+        ],
+        "webhookId": "16f11637-2c78-49b9-b907-950ed1441459"
+      },
+      {
+        "parameters": {
+          "url": "=https://api.freepik.com/v1/ai/text-to-image/seedream-v4/{{ $('Freepik Create Task').first().json.data?.task_id }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-freepik-api-key",
+                "value": "FPSX473cc516502f42e42bca5c2158d8475e"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 30000
+          }
+        },
+        "id": "ae355825-dea8-42c1-a6eb-399264341104",
+        "name": "Freepik Get Status",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -976,
+          -16
+        ],
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Processa resultado do Freepik\nconst input = $input.first().json;\nconst createTask = $('Freepik Create Task').first().json;\nconst parsed = $('Parser Content').first().json;\nconst org = $('Organizar / Preparar Dados').first().json;\n\n// Verifica se deu erro na criação\nif (createTask.error || !createTask.data?.task_id) {\n  console.log('⚠️ Freepik falhou na criação da task, indo para HTML fallback');\n  return [{\n    json: {\n      numero: 1,\n      type: 'capa',\n      formato: 'capa',\n      image_url: null,\n      fallback_used: true,\n      freepik_failed: true,\n      titulo: parsed.carousel?.capa_titulo || '',\n      subtitulo: parsed.carousel?.capa_subtitulo || '',\n      estilo_imagem: org.estilo_imagem,\n      descricao_capa: org.descricao_capa\n    }\n  }];\n}\n\nconst status = input.data?.status;\nconst generated = input.data?.generated;\n\n// Se COMPLETED e tem URL\nif (status === 'COMPLETED' && generated && generated.length > 0) {\n  const imageUrl = generated[0];\n  console.log('✅ Freepik gerou imagem com sucesso:', imageUrl);\n  \n  return [{\n    json: {\n      numero: 1,\n      type: 'capa',\n      formato: 'capa',\n      image_url: imageUrl,\n      imagem_base64: null,\n      fallback_used: false,\n      freepik_used: true\n    }\n  }];\n}\n\n// Se ainda PROCESSING ou CREATED, marca como retry needed\nif (status === 'IN_PROGRESS' || status === 'CREATED') {\n  console.log('⏳ Freepik ainda processando, status:', status);\n  return [{\n    json: {\n      numero: 1,\n      type: 'capa',\n      formato: 'capa',\n      image_url: null,\n      retry_needed: true,\n      task_id: createTask.data?.task_id,\n      current_status: status\n    }\n  }];\n}\n\n// Se FAILED ou outro erro\nconsole.log('⚠️ Freepik falhou ou status desconhecido:', status);\nreturn [{\n  json: {\n    numero: 1,\n    type: 'capa',\n    formato: 'capa',\n    image_url: null,\n    fallback_used: true,\n    freepik_failed: true,\n    titulo: parsed.carousel?.capa_titulo || '',\n    subtitulo: parsed.carousel?.capa_subtitulo || '',\n    estilo_imagem: org.estilo_imagem,\n    descricao_capa: org.descricao_capa\n  }\n}];"
+        },
+        "id": "3fc7204a-d6bb-473a-942b-228801b9a1eb",
+        "name": "Freepik Process Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -752,
+          -16
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "retry-check",
+                "leftValue": "={{ $json.retry_needed }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "7537a0a2-4600-43fb-8710-d3d1c0736a1d",
+        "name": "Freepik Retry Check",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          -528,
+          -16
+        ]
+      },
+      {
+        "parameters": {
+          "amount": 10
+        },
+        "id": "4ba77985-20cb-46b9-8d50-083aa553338e",
+        "name": "Freepik Retry Delay",
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          -304,
+          -96
+        ],
+        "webhookId": "97410020-0589-4878-b0da-3d2fb15a9175"
+      },
+      {
+        "parameters": {
+          "url": "=https://api.freepik.com/v1/ai/text-to-image/seedream-v4/{{ $json.task_id }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-freepik-api-key",
+                "value": "FPSX473cc516502f42e42bca5c2158d8475e"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 30000
+          }
+        },
+        "id": "9a8c4a25-aed6-4604-b836-d1bb9cfa82bc",
+        "name": "Freepik Retry Get",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -80,
+          -96
+        ],
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Processa retry do Freepik\nconst input = $input.first().json;\nconst parsed = $('Parser Content').first().json;\nconst org = $('Organizar / Preparar Dados').first().json;\n\nconst status = input.data?.status;\nconst generated = input.data?.generated;\n\n// Se COMPLETED e tem URL\nif (status === 'COMPLETED' && generated && generated.length > 0) {\n  const imageUrl = generated[0];\n  console.log('✅ Freepik gerou imagem no retry:', imageUrl);\n  \n  return [{\n    json: {\n      numero: 1,\n      type: 'capa',\n      formato: 'capa',\n      image_url: imageUrl,\n      imagem_base64: null,\n      fallback_used: false,\n      freepik_used: true\n    }\n  }];\n}\n\n// Após retry, se ainda não completou, vai pro HTML\nconsole.log('⚠️ Freepik não completou após retry, indo para HTML fallback');\nreturn [{\n  json: {\n    numero: 1,\n    type: 'capa',\n    formato: 'capa',\n    image_url: null,\n    fallback_used: true,\n    freepik_failed: true,\n    titulo: parsed.carousel?.capa_titulo || '',\n    subtitulo: parsed.carousel?.capa_subtitulo || '',\n    estilo_imagem: org.estilo_imagem,\n    descricao_capa: org.descricao_capa\n  }\n}];"
+        },
+        "id": "9567647b-7beb-465c-8747-f7311e47f72b",
+        "name": "Freepik Retry Process",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          144,
+          -96
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "fallback-final-check",
+                "leftValue": "={{ $json.fallback_used }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "653bdce2-1626-431b-8651-2caa1021acb6",
+        "name": "Freepik Final Router",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          368,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.tipo_post }}",
+                      "rightValue": "carrossel_instagram",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "id": "32101922-6e44-4b57-8043-efa97718c03a"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "carrossel"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "id": "3ff0ab00-7a24-445e-bb28-7a7461bc065d",
+                      "leftValue": "={{ $json.tipo_post }}",
+                      "rightValue": "post_simples",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals",
+                        "name": "filter.operator.equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "postSimples"
+              }
+            ]
+          },
+          "options": {
+            "fallbackOutput": "extra"
+          }
+        },
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.4,
+        "position": [
+          -5392,
+          320
+        ],
+        "id": "6ed157ae-3aa5-4733-85b3-21b6f8753e7c",
+        "name": "Switch",
+        "alwaysOutputData": true
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.screenshotone.com/take",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "X-Access-Key",
+                "value": "wKC4TbVSpS-e4g"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ {\n  \"html\": $json.html,\n  \"viewport_width\": 1080,\n  \"viewport_height\": 1350,\n  \"format\": \"png\",\n  \"response_type\": \"json\",\n  \"cache\": true,\n  \"cache_ttl\": 86400\n} }}",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "id": "ab2aaaf0-677f-44b6-8156-d2fd46f465ed",
+        "name": "CAR ScreenshotOne Render",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -1536,
+          784
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const result = $input.first().json;\nconst slide = $('CAR Gerar HTML').first().json;\n\nreturn {\n  numero: slide.numero,\n  type: slide.type,\n  formato: slide.formato,\n  titulo: slide.titulo,\n  texto: slide.texto || '',\n  acao: slide.acao || '',\n  items: slide.items || [],\n  image_url: result.screenshot || result.url || result.cache_url\n};"
+        },
+        "id": "55752204-5ac4-498c-bf40-dd3077ed31bb",
+        "name": "CAR Salvar URL",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -1280,
+          848
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 📥 ENTRADA\n\nRecebe dados do webhook e prepara variáveis.\n\n**Modelos configurados:**\n- Planner: GPT-4.1-mini (rápido)\n- Synthesizer: GPT-4.1 (qualidade)\n- Writer: GPT-4.1 (qualidade) ✅\n- Image Prompt: GPT-4.1-mini",
+          "height": 420,
+          "width": 460,
+          "color": 4
+        },
+        "id": "98f9dbb7-de0c-40e7-995b-3f5fdf256bf2",
+        "name": "📥 Entrada",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -6048,
+          16
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 🔍 PESQUISA\n\nPipeline de pesquisa em 3 camadas:\n1. **Planner** → Gera queries estratégicas\n2. **Tavily** → Busca web avançada\n3. **Synthesizer** → Extrai insights acionáveis\n\n**Outputs:**\n- Dados concretos\n- Exemplos reais\n- Erros/riscos\n- Frameworks\n- Ganchos",
+          "height": 428,
+          "width": 680,
+          "color": 5
+        },
+        "id": "7797aadc-b0cd-4a49-9270-4bbada96f8b9",
+        "name": "🔍 Pesquisa",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -5184,
+          -32
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## ✍️ PRODUÇÃO DE CONTEÚDO\n\n**OTIMIZADO v2.0:**\n- Modelo: GPT-4.1 (era Haiku)\n- Prompt com 2 exemplos few-shot\n- Schema simplificado (~30 campos)\n- Parser direto sem fallbacks\n\n**Estrutura do output:**\n```json\n{\n  \"capa\": {\"titulo\", \"subtitulo\"},\n  \"slides\": [{\"numero\", \"titulo\", \"corpo\", \"acao\"}],\n  \"legenda\"\n}\n```",
+          "height": 420,
+          "width": 576,
+          "color": 6
+        },
+        "id": "336ecde0-09a2-4253-824c-65a0d2928fa9",
+        "name": "✍️ Produção",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -2976,
+          -128
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 🖼️ GERAÇÃO DE CAPA\n\n**Fallback chain:**\n1. Gemini 3 Pro (primário)\n2. Freepik Seedream v4 (fallback)\n3. HTML + HCTI (último recurso)\n\nPrompt de imagem gerado por GPT-4.1-mini.",
+          "height": 280,
+          "width": 500,
+          "color": 3
+        },
+        "id": "5d5f368a-8b9e-4e53-84c9-fe7000a6d0c8",
+        "name": "🖼️ Capa",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -2016,
+          32
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 🎨 RENDERIZAÇÃO HTML\n\n**OTIMIZADO v2.0:**\n- CSS Variables para todos os temas\n- 5 temas consistentes:\n  1. Dark\n  2. Light\n  3. Neon\n  4. Brutalist\n  5. Glass\n\n- Sem valores hardcoded\n- Suporta campo `acao` dos slides",
+          "height": 360,
+          "width": 340,
+          "color": 7
+        },
+        "id": "2f373a42-5624-4f41-9fbb-e5bae4336cac",
+        "name": "🎨 HTML",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -2624,
+          672
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 📤 FINALIZAÇÃO\n\nMerge de todos os assets:\n- Capa (imagem)\n- Slides (HTML → Screenshot)\n- Legenda\n- Metadados\n\nAtualiza job no Supabase com resultado final.",
+          "height": 260,
+          "width": 340,
+          "color": 2
+        },
+        "id": "d5481042-394e-4079-9fed-fa29c1078996",
+        "name": "📤 Final",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          672,
+          256
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## ⚡ MUDANÇAS v2.0\n\n### 1. Modelo Writer\n`claude-haiku-4.5` → `openai/gpt-4.1`\n\n### 2. Prompt com Few-Shot\n2 exemplos completos de output\n\n### 3. Schema Simplificado\n~50 campos → ~30 campos\n\n### 4. CSS Refatorado\nVariáveis CSS eliminam conflitos\n\n### 5. Parser Direto\nSem detecção de formato legacy",
+          "height": 400,
+          "width": 320
+        },
+        "id": "17afe124-42f2-40a4-b8ed-dc1e8cac26f8",
+        "name": "⚡ Changelog",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -6048,
+          464
+        ]
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "TcSvcsQgFRtxrDpj",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/TcSvcsQgFRtxrDpj",
+            "cachedResultName": "[zoryon content] Subworkflow - Post Simples v2"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {},
+            "matchingColumns": [],
+            "schema": [],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
+        "position": [
+          -5136,
+          512
+        ],
+        "id": "9e15b681-2676-4a1f-a608-218d69ed49aa",
+        "name": "Call '[zoryon content] Subworkflow - Post Simples v2'"
+      }
+    ],
+    "connections": {
+      "Webhook (inputs)": {
+        "main": [
+          [
+            {
+              "node": "Organizar / Preparar Dados",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Organizar / Preparar Dados": {
+        "main": [
+          [
+            {
+              "node": "Preparar Seeds",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenRouter (Planner + JSON Schema)": {
+        "main": [
+          [
+            {
+              "node": "Parse JSON (content -> object)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse JSON (content -> object)": {
+        "main": [
+          [
+            {
+              "node": "CAR Status 5 Planning",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "CAR Tavily Search",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CAR Tavily Search": {
+        "main": [
+          [
+            {
+              "node": "CAR Extrair Queries",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CAR Extrair Queries": {
+        "main": [
+          [
+            {
+              "node": "CAR Loop Queries",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CAR Loop Queries": {
+        "main": [
+          [
+            {
+              "node": "CAR Consolidar Pesquisa",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Delay 3s",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Delay 3s": {
+        "main": [
+          [
+            {
+              "node": "CAR Tavily Search1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CAR Processar Resultado": {
+        "main": [
+          [
+            {
+              "node": "CAR Loop Queries",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CAR Consolidar Pesquisa": {
+        "main": [
+          [
+            {
+              "node": "CAR Status 15 Researching",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Research Synthesizer",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CAR Tavily Search1": {
+        "main": [
+          [
+            {
+              "node": "CAR Processar Resultado",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Research Synthesizer": {
+        "main": [
+          [
+            {
+              "node": "CAR Status 35 Synthesizing",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Parse Synthesis",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse Synthesis": {
+        "main": [
+          [
+            {
+              "node": "CAR Status 50 Writing",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "OpenRouter - Prod Conteudo",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenRouter - Prod Conteudo": {
+        "main": [
+          [
+            {
+              "node": "Parser Content",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parser Content": {
+        "main": [
+          [
+            {
+              "node": "Status 65 Cover",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "OpenRouter - Prompt Capa",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "CAR Preparar Slides",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "puxaDadosImagem": {
+        "main": [
+          [
+            {
+              "node": "Fallback Router",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fallback Router": {
+        "main": [
+          [
+            {
+              "node": "Freepik Create Task",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "CAR Merge Final",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fallback HTML Capa": {
+        "main": [
+          [
+            {
+              "node": "Fallback HCTI Capa",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fallback HCTI Capa": {
+        "main": [
+          [
+            {
+              "node": "Fallback Parse Capa",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fallback Parse Capa": {
+        "main": [
+          [
+            {
+              "node": "CAR Merge Final",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenRouter - Prompt Capa": {
+        "main": [
+          [
+            {
+              "node": "preparePrompt",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "preparePrompt": {
+        "main": [
+          [
+            {
+              "node": "imageNanoBananaRouter",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CAR Gerar HTML": {
+        "main": [
+          [
+            {
+              "node": "CAR ScreenshotOne Render",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CAR Loop Slides": {
+        "main": [
+          [
+            {
+              "node": "CAR Merge Final",
+              "type": "main",
+              "index": 1
+            }
+          ],
+          [
+            {
+              "node": "CAR Gerar HTML",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CAR Preparar Slides": {
+        "main": [
+          [
+            {
+              "node": "CAR Loop Slides",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CAR Status 90 Finalizing": {
+        "main": [
+          [
+            {
+              "node": "CAR Preparar Final",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CAR Preparar Final": {
+        "main": [
+          [
+            {
+              "node": "CAR Status 100 Done",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CAR Merge Final": {
+        "main": [
+          [
+            {
+              "node": "CAR Status 90 Finalizing",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Preparar Seeds": {
+        "main": [
+          [
+            {
+              "node": "Switch",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "imageNanoBananaRouter": {
+        "main": [
+          [
+            {
+              "node": "puxaDadosImagem",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Freepik Create Task": {
+        "main": [
+          [
+            {
+              "node": "Freepik Delay 15s",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Freepik Delay 15s": {
+        "main": [
+          [
+            {
+              "node": "Freepik Get Status",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Freepik Get Status": {
+        "main": [
+          [
+            {
+              "node": "Freepik Process Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Freepik Process Result": {
+        "main": [
+          [
+            {
+              "node": "Freepik Retry Check",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Freepik Retry Check": {
+        "main": [
+          [
+            {
+              "node": "Freepik Retry Delay",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Freepik Final Router",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Freepik Retry Delay": {
+        "main": [
+          [
+            {
+              "node": "Freepik Retry Get",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Freepik Retry Get": {
+        "main": [
+          [
+            {
+              "node": "Freepik Retry Process",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Freepik Retry Process": {
+        "main": [
+          [
+            {
+              "node": "Freepik Final Router",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Freepik Final Router": {
+        "main": [
+          [
+            {
+              "node": "Fallback HTML Capa",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "CAR Merge Final",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Switch": {
+        "main": [
+          [
+            {
+              "node": "OpenRouter (Planner + JSON Schema)",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Call '[zoryon content] Subworkflow - Post Simples v2'",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CAR ScreenshotOne Render": {
+        "main": [
+          [
+            {
+              "node": "CAR Salvar URL",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CAR Salvar URL": {
+        "main": [
+          [
+            {
+              "node": "CAR Loop Slides",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {
+      "Webhook (inputs)": [
+        {
+          "headers": {
+            "host": "gohook.zoryon.dev",
+            "user-agent": "Zoryon-Content-Generator/1.0",
+            "content-length": "557",
+            "accept": "application/json",
+            "accept-encoding": "gzip, br",
+            "accept-language": "*",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "2600:1f1e:229:a90b:d467:b62a:ed10:39bb",
+            "cf-ipcountry": "BR",
+            "cf-pseudo-ipv4": "243.109.179.121",
+            "cf-ray": "9ae282b13c1ebe74-GRU",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-warp-tag-id": "3469da1f-5ba8-4946-97ec-6c9f04be2cf2",
+            "content-type": "application/json",
+            "x-forwarded-for": "10.0.1.10",
+            "x-forwarded-host": "gohook.zoryon.dev",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "traefik_traefik.1",
+            "x-real-ip": "10.0.1.10",
+            "x-token": "IU2uXKnFSBzXhK1uR2StrOKKDLSSTy5A"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "job_id": "job_mj6jbtur_t9g5euzu",
+            "tema": "o uso da ia para redução de tarefas manuais em negócios",
+            "nicho": "negocios",
+            "tom": "educativo_didatico",
+            "estilo": "informativo",
+            "estilo_imagem": "fotografia_ultrarealista",
+            "objetivo": "educacao",
+            "tipo_post": "carrossel_instagram",
+            "cta": "Comente QUERO para assistir uma aula",
+            "timestamp": "2025-12-15T02:28:55.503Z",
+            "user_id": "ffa01add-47a8-4852-bbf1-78b72812fd26",
+            "user_email": "jonas.silva@zoryon.dev",
+            "user_name": "Jonas Silva",
+            "qtd_slides": 10,
+            "descricao_capa": "Imagem realista de uma profissional."
+          },
+          "webhookUrl": "https://gohook.zoryon.dev/webhook/jonas-teste",
+          "executionMode": "production"
+        }
+      ]
+    },
+    "meta": {
+      "instanceId": "173fd4665e3a963029ddba2311a3ead145ec736acdc358c7f1afa42e0d53b9b1"
+    }
+  }

@@ -17,9 +17,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { NarrativeCard, type Narrative } from "../shared/narrative-card";
 import { DocumentConfigForm, type RagConfig } from "../shared/document-config-form";
+import { SynthesisSummary, type SynthesizedResearch } from "../shared/synthesis-summary";
 
 // Re-export types for external use
-export type { Narrative, RagConfig };
+export type { Narrative, RagConfig, SynthesizedResearch };
 
 export interface WizardFormData {
   selectedNarrativeId?: string;
@@ -29,6 +30,7 @@ export interface WizardFormData {
 
 interface Step3NarrativesProps {
   narratives: Narrative[];
+  synthesizedResearch?: SynthesizedResearch | null;
   initialData?: WizardFormData;
   onChange: (data: WizardFormData) => void;
   onSubmit: () => void;
@@ -61,6 +63,7 @@ const ANGLE_INFO: Record<string, { label: string; description: string; color: st
 
 export function Step3Narratives({
   narratives,
+  synthesizedResearch,
   initialData,
   onChange,
   onSubmit,
@@ -145,6 +148,11 @@ export function Step3Narratives({
           );
         })}
       </div>
+
+      {/* Synthesis Summary - Show if research was synthesized */}
+      {synthesizedResearch && (
+        <SynthesisSummary data={synthesizedResearch} />
+      )}
 
       {/* Narratives by Angle */}
       <div className="space-y-6">

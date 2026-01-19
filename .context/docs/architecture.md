@@ -449,6 +449,7 @@ sequenceDiagram
 | `document_embedding` | Generate embeddings for RAG | ⭐ Ready |
 | `wizard_narratives` | Generate narrative options for Wizard | ⭐ Implemented (Jan 2026) |
 | `wizard_generation` | Generate final content from Wizard | ⭐ Implemented (Jan 2026) |
+| `wizard_image_gen` | Generate images for Wizard slides | ⭐ Implemented (Jan 2026) |
 
 ### Worker Triggering: Development vs Production
 
@@ -784,15 +785,25 @@ The Wizard generates 4 narrative options, each with a different angle:
 1. Extract content from `referenceUrl` (Firecrawl REST API)
 2. Transcribe `referenceVideoUrl` (Apify YouTube Transcript Actor)
 3. Search context with Tavily Search API
-4. Generate RAG context if configured
-5. Generate 4 narratives with LLM (OpenRouter via Vercel AI SDK)
-6. Update wizard with narratives
+4. **Synthesize research** (Synthesizer v3.1) → structured research fields
+5. Generate RAG context if configured
+6. Generate 4 narratives with LLM (OpenRouter via Vercel AI SDK)
+7. Update wizard with narratives + synthesizedResearch
 
 **wizard_generation Job:**
 1. Fetch wizard with selected narrative
-2. Generate RAG context if configured
-3. Generate final content (slides, caption, hashtags) with LLM
-4. Update wizard with generatedContent
+2. Fetch synthesized research from step 2
+3. Generate RAG context if configured
+4. Generate final content (slides, caption, hashtags) with LLM
+5. Update wizard with generatedContent
+
+**wizard_image_gen Job (Phase 2):**
+1. Fetch wizard with generated content
+2. For each slide:
+   - Generate image using AI (OpenRouter) OR
+   - Generate HTML template (ScreenshotOne)
+3. Update wizard with generatedImages
+4. Update status to "completed"
 
 ### Wizard Services Module
 
@@ -803,9 +814,14 @@ Módulo de serviços para processamento de jobs do Wizard:
 ```
 src/lib/wizard-services/
 ├── types.ts                    # Shared types (NarrativeAngle, ContentType, ServiceResult)
-├── prompts.ts                  # Isolated prompts per content type
+├── synthesis-types.ts          # Synthesizer v3.1 research types
+├── image-types.ts              # Image generation configuration types
+├── prompts.ts                  # Isolated prompts per content type (v4.1/v2.0)
 ├── llm.service.ts              # LLM generation with retry logic
 ├── rag.service.ts              # RAG wrapper with graceful degradation
+├── synthesizer.service.ts      # Research synthesis v3.1
+├── image-generation.service.ts # AI image generation
+├── screenshotone.service.ts    # HTML template rendering
 ├── firecrawl.service.ts        # Web scraping (optional)
 ├── tavily.service.ts           # Contextual search (optional)
 ├── apify.service.ts            # YouTube transcription (optional)
@@ -851,6 +867,192 @@ className="!border-white/10 !bg-white/[0.02] !text-white !placeholder:text-white
 - Header with icon, title, description
 - Expandable content area
 - Used in Step 1 for organizing form sections
+
+## Phase 2: Synthesizer v3.1 and Image Generation
+
+### Overview
+
+Phase 2 extends the Wizard de Criação with two critical capabilities:
+
+1. **Synthesizer v3.1**: Intermediate LLM processing that transforms raw Tavily results into structured research
+2. **Image Generation**: Dual-method image generation system (AI + HTML Templates)
+
+### Updated Wizard Flow
+
+```mermaid
+stateDiagram-v2
+    [*] --> input: Start Wizard
+    input --> processing: Submit form
+    processing --> narratives: Job complete
+    processing --> failed: Job error
+    narratives --> generation: Select + Submit
+    generation --> image_gen: Submit for images
+    generation --> completed: Skip images
+    image_gen --> completed: Job complete
+    image_gen --> failed: Job error
+    failed --> input: Retry
+    completed --> [*]
+    input --> abandoned: User leaves
+    narratives --> abandoned: User leaves
+    generation --> abandoned: User leaves
+```
+
+### Synthesizer v3.1 Architecture
+
+**Location**: `src/lib/wizard-services/synthesizer.service.ts`
+
+The Synthesizer is a critical intermediate step that transforms raw Tavily search results into structured, actionable research fields before narrative generation.
+
+```mermaid
+graph LR
+    Tavily[Tavily Raw Results] --> Synthesizer[Synthesizer LLM]
+    Synthesizer --> Structured[SynthesizedResearch]
+    Structured --> Narratives[Narratives Generation]
+
+    Structured --> Resumo[resumo_executivo]
+    Structured --> Throughlines[throughlines_potenciais]
+    Structured --> Tensoes[tensoes_narrativas]
+    Structured --> Dados[dados_contextualizados]
+    Structured --> Exemplos[exemplos_narrativos]
+    Structured --> Erros[erros_armadilhas]
+    Structured --> Frameworks[frameworks_metodos]
+    Structured --> Progressao[progressao_sugerida]
+```
+
+**Key Output Fields**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `resumo_executivo` | string | Executive summary of research |
+| `throughlines_potenciais` | ThroughlinePotencial[] | 3-5 throughlines with viral potential |
+| `tensoes_narrativas` | TensoesNarrativa[] | Tensions that create engagement |
+| `dados_contextualizados` | DadoContextualizado[] | Ready-to-use data phrases |
+| `exemplos_narrativos` | ExemploNarrativo[] | Complete stories with outcomes |
+| `erros_armadilhas` | ErroArmadilha[] | Counter-intuitive mistakes |
+| `frameworks_metodos` | FrameworkMetodoV3[] | Validated frameworks |
+| `hooks` | Hook[] | Opening hooks for slides |
+| `progressao_sugerida` | ProgressaoSugeridaV3 | 3-act narrative structure |
+
+**Field Renames (v3.0 → v3.1)**:
+
+| v3.0 | v3.1 |
+|------|------|
+| `por_que_funciona` | `potencial_viral` |
+| `como_reforcar` | `justificativa` |
+| `por_que_engaje` | `tipo` |
+| `como_explorar` | `uso_sugerido` |
+| `dado` | `frase_pronta` |
+| `implicacao_pratica` | `contraste` |
+
+### Image Generation Architecture
+
+**Location**: `src/lib/wizard-services/image-generation.service.ts` + `screenshotone.service.ts`
+
+Dual-method image generation system with graceful fallback:
+
+```mermaid
+graph TD
+    Content[Generated Content] --> Choice{Method Choice}
+    Choice -->|AI Generation| AI[OpenRouter Image Models]
+    Choice -->|HTML Template| HTML[ScreenshotOne]
+    Choice -->|Auto| AI
+
+    AI --> Gemini[Gemini 3 Pro Image]
+    AI --> GPT5[GPT-5 Image]
+    AI --> Seedream[Seedream 4.5]
+    AI --> Flux[Flux 2 Max]
+
+    HTML --> Templates[18 HTML Templates]
+    Templates --> Gradient[Gradients]
+    Templates --> Typography[Typography]
+    Templates --> Patterns[Patterns]
+    Templates --> Styles[Styles]
+    Templates --> Themes[Themes]
+
+    AI --> Images[Generated Images]
+    HTML --> Images
+```
+
+**AI Image Models**:
+
+| Model | ID | Use Case |
+|-------|-----|----------|
+| Gemini Image | `google/gemini-3-pro-image-preview` | High quality, fast |
+| GPT-5 Image | `openai/gpt-5-image` | Premium quality |
+| Seedream | `bytedance-seed/seedream-4.5` | Creative visuals |
+| Flux | `black-forest-labs/flux.2-max` | Photorealistic |
+
+**ScreenshotOne Configuration**:
+
+```env
+SCREENSHOT_ONE_ACCESS_KEY=your-access-key-here
+# SCREENSHOT_ONE_SECRET_KEY=optional-for-signed-urls
+```
+
+**Why Access Key?**
+- Server-side usage (our case)
+- Images returned directly, not public URLs
+- Secret Key only needed for sharing URLs in `<img>` tags
+
+**18 HTML Templates Available**:
+
+```typescript
+const HTML_TEMPLATES = {
+  // Gradient-based (4)
+  GRADIENT_SOLID: "gradiente-solid",
+  GRADIENT_LINEAR: "gradiente-linear",
+  GRADIENT_RADIAL: "gradiente-radial",
+  GRADIENT_MESH: "gradiente-mesh",
+
+  // Typography (3)
+  TYPOGRAPHY_BOLD: "tipografia-bold",
+  TYPOGRAPHY_CLEAN: "tipografia-clean",
+  TYPOGRAPHY_OVERLAY: "tipografia-overlay",
+
+  // Patterns (4)
+  PATTERN_GEOMETRIC: "padrão-geométrico",
+  PATTERN_DOTS: "padrão-círculos",
+  PATTERN_LINES: "padrão-linhas",
+  PATTERN_WAVES: "padrão-ondas",
+
+  // Styles (4)
+  GLASSMORPHISM: "glassmorphism",
+  NEOMORPHISM: "neomorphism",
+  BRUTALIST: "brutalista",
+  NEUMORPHISM: "neumorphism",
+
+  // Themes (4)
+  DARK_MODE: "dark-mode",
+  LIGHT_MODE: "light-mode",
+  NEON_GLOW: "neon-glow",
+  SUNSET_VIBES: "sunset-vibes",
+}
+```
+
+### Prompt Versions
+
+| Content Type | Version | Features |
+|--------------|---------|----------|
+| **Carousel** | v4.1 | XML tags, Synthesizer v3.1 integration, ProgressaoSugeridaV3 |
+| **Image Post** | v2.0 | HCCA structure, retention techniques |
+| **Video Script** | v2.0 | 5 structures, 3-second optimization |
+
+### Environment Variables (Phase 2)
+
+```env
+# ─────────────────────────────────────────────────────────────────────────────
+# 🖼️ IMAGE GENERATION (Wizard)
+# ─────────────────────────────────────────────────────────────────────────────
+# ScreenshotOne - HTML to Image rendering (OPCIONAL)
+# Obtenha em: https://dash.screenshotone.com/
+#
+# • Use o ACCESS KEY (não o Secret Key) para autenticação padrão
+# • O Secret Key é opcional, apenas para assinar URLs públicas
+#
+# Para gerar imagens com templates HTML (fallback quando Gemini/Freepik não estão disponíveis)
+SCREENSHOT_ONE_ACCESS_KEY=your-access-key-here
+# SCREENSHOT_ONE_SECRET_KEY=your-secret-key-here  # Opcional - apenas para URLs públicas assinadas
+```
 
 ---
 

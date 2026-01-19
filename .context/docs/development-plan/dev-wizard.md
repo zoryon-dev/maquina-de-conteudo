@@ -1,8 +1,9 @@
 # 📋 Plano de Implementação - Wizard de Criação
 
 > **Status**: ✅ Implementação Concluída (Janeiro 2026)
+> **Fase 2 (Image Generation)**: Em implementação
 
-Este documento descreve o plano completo para o Wizard de Criação, que foi implementado seguindo as 10 fases abaixo.
+Este documento descreve o plano completo para o Wizard de Criação, que foi implementado seguindo as 10 fases abaixo, mais a Fase 2 de geração de imagens.
 
 ## Status de Implementação por Fase
 
@@ -18,6 +19,7 @@ Este documento descreve o plano completo para o Wizard de Criação, que foi imp
 | 8 | Step 4 - Generation | ✅ |
 | 9 | Orchestrator Components | ✅ |
 | 10 | Worker Handlers | ✅ |
+| 2 | **Phase 2 - Image Generation** | 🔄 Em progresso |
 
 ## 1. Estrutura de Arquivos Implementada
 
@@ -30,15 +32,18 @@ src/
 │       ├── steps/
 │       │   ├── step-1-inputs.tsx        # ✅ Formulário briefing (refatorado Jan 2026)
 │       │   ├── step-2-processing.tsx    # ✅ Loading/polling
-│       │   ├── step-3-narratives.tsx    # ✅ Cards de narrativa (fixado Jan 2026)
-│       │   └── step-4-generation.tsx    # ✅ Preview + save
+│       │   ├── step-3-narratives.tsx    # ✅ Cards de narrativa + síntese (atualizado Jan 2026)
+│       │   ├── step-4-generation.tsx    # ✅ Preview + save
+│       │   └── step-5-image-generation.tsx # 🔄 Phase 2: Geração de imagens
 │       └── shared/
 │           ├── document-config-form.tsx     # ✅ RAG configuration
 │           ├── narrative-card.tsx            # ✅ Card individual
+│           ├── synthesis-summary.tsx       # 🔄 Phase 2: Resumo da pesquisa
+│           ├── image-generation-options.tsx # 🔄 Phase 2: Opções de imagem
 │           └── wizard-steps-indicator.tsx    # ✅ Progress indicator
 │
 ├── components/ui/
-│   └── collapsible.tsx                    # ✅ NEW: CollapsibleSection component
+│   └── collapsible.tsx                    # ✅ CollapsibleSection component
 │
 ├── app/api/wizard/
 │   ├── route.ts                        # ✅ GET (list), POST (create)
@@ -47,10 +52,25 @@ src/
 │       └── submit/route.ts             # ✅ POST (trigger jobs)
 │
 ├── lib/queue/
-│   └── types.ts                       # ✅ + WIZARD_NARRATIVES, WIZARD_GENERATION
+│   └── types.ts                       # ✅ + WIZARD_NARRATIVES, WIZARD_GENERATION, WIZARD_IMAGE_GEN
+│
+├── lib/wizard-services/
+│   ├── types.ts                        # ✅ Shared interfaces
+│   ├── synthesis-types.ts              # 🔄 Phase 2: Synthesizer v3.1 types
+│   ├── image-types.ts                  # 🔄 Phase 2: Image generation types
+│   ├── prompts.ts                      # ✅ Prompts (v4.1 carousel, v2.0 image/video)
+│   ├── llm.service.ts                  # ✅ LLM generation
+│   ├── rag.service.ts                  # ✅ RAG wrapper
+│   ├── synthesizer.service.ts          # 🔄 Phase 2: Research synthesis v3.1
+│   ├── image-generation.service.ts     # 🔄 Phase 2: AI image generation
+│   ├── screenshotone.service.ts        # 🔄 Phase 2: HTML template rendering
+│   ├── firecrawl.service.ts            # ✅ Web scraping
+│   ├── tavily.service.ts               # ✅ Contextual search
+│   ├── apify.service.ts                # ✅ YouTube transcription
+│   └── index.ts                        # ✅ Barrel exports
 │
 └── app/api/workers/
-    └── route.ts                        # ✅ + wizard_narratives, wizard_generation handlers
+    └── route.ts                        # ✅ + wizard_narratives, wizard_generation, wizard_image_gen handlers
 ```
 
 ## Componentes Criados
@@ -120,38 +140,56 @@ Dispara jobs de processamento:
 
 ### wizard_narratives
 1. Busca wizard no banco
-2. Extrai conteúdo de URLs (placeholder Firecrawl)
-3. Transcreve vídeo (placeholder Apify)
-4. Busca contexto (placeholder Tavily)
-5. Gera 4 narrativas usando IA (placeholder)
-6. Atualiza wizard com narratives
+2. Extrai conteúdo de URLs (Firecrawl)
+3. Transcreve vídeo (Apify)
+4. Busca contexto (Tavily)
+5. **Sintetiza pesquisa** (Synthesizer v3.1)
+6. Gera 4 narrativas usando IA
+7. Atualiza wizard com narratives + synthesizedResearch
 
 ### wizard_generation
-1. Busca wizard com narrativas selecionada
-2. Gera conteúdo (slides, caption, hashtags)
-3. Salva generatedContent no wizard
-4. Atualiza status
+1. Busca wizard com narrativa selecionada
+2. Busca pesquisa sintetizada
+3. Gera conteúdo (slides, caption, hashtags)
+4. Salva generatedContent no wizard
+5. Atualiza status
+
+### wizard_image_gen (Phase 2)
+1. Busca wizard com conteúdo gerado
+2. Para cada slide, gera imagem usando:
+   - AI Generation (OpenRouter) ou
+   - HTML Template (ScreenshotOne)
+3. Salva generatedImages no wizard
+4. Atualiza status para "completed"
 
 ## Integrações Implementadas ✅
 
 Todas as integrações foram implementadas em Janeiro 2026:
 
-| Integração | Status | Arquivo |
-|------------|--------|---------|
-| **Firecrawl** | ✅ REST API | `src/lib/wizard-services/firecrawl.service.ts` |
-| **Apify** | ✅ YouTube Transcript Actor | `src/lib/wizard-services/apify.service.ts` |
-| **Tavily** | ✅ Search API | `src/lib/wizard-services/tavily.service.ts` |
-| **OpenRouter** | ✅ Vercel AI SDK | `src/lib/wizard-services/llm.service.ts` |
-| **Voyage AI** | ✅ RAG (existente) | `src/lib/wizard-services/rag.service.ts` |
+| Integração | Status | Arquivo | Descrição |
+|------------|--------|---------|-----------|
+| **Firecrawl** | ✅ REST API | `firecrawl.service.ts` | Web scraping de URLs de referência |
+| **Apify** | ✅ YouTube Transcript | `apify.service.ts` | Transcrição de vídeos do YouTube |
+| **Tavily** | ✅ Search API | `tavily.service.ts` | Busca contextual em tempo real |
+| **OpenRouter** | ✅ Vercel AI SDK | `llm.service.ts` | Geração de narrativas e conteúdo |
+| **Voyage AI** | ✅ RAG | `rag.service.ts` | Embeddings para RAG (existente) |
+| **Synthesizer** | ✅ v3.1 | `synthesizer.service.ts` | Pesquisa estruturada via LLM |
+| **Image Gen** | ✅ AI + HTML | `image-generation.service.ts` | Geração de imagens via OpenRouter |
+| **ScreenshotOne** | ✅ HTML→Image | `screenshotone.service.ts` | Renderização de templates HTML |
 
 ### Estrutura dos Serviços Wizard
 
 ```
 src/lib/wizard-services/
 ├── types.ts                    # Interfaces compartilhadas
-├── prompts.ts                  # Prompts isolados por tipo de conteúdo
+├── synthesis-types.ts          # Synthesizer v3.1 types
+├── image-types.ts              # Image generation types
+├── prompts.ts                  # Prompts isolados (v4.1/v2.0)
 ├── llm.service.ts              # Geração de narrativas e conteúdo
 ├── rag.service.ts              # Wrapper RAG com graceful degradation
+├── synthesizer.service.ts      # Síntese de pesquisa v3.1
+├── image-generation.service.ts # Geração de imagens AI
+├── screenshotone.service.ts    # Renderização HTML templates
 ├── firecrawl.service.ts        # Web scraping (opcional)
 ├── tavily.service.ts           # Contextual search (opcional)
 ├── apify.service.ts            # YouTube transcription (opcional)
@@ -164,6 +202,156 @@ src/lib/wizard-services/
 - **Prompts Isolados**: Cada tipo de conteúdo tem seu prompt próprio (fácil edição)
 - **Retry Logic**: LLM calls com exponential backoff
 - **Type-Safe**: Interfaces TypeScript completas
+
+## Phase 2: Synthesizer v3.1 e Image Generation
+
+### Visão Geral
+
+A Phase 2 adiciona duas funcionalidades críticas ao Wizard:
+
+1. **Synthesizer v3.1**: Uma etapa intermediária que transforma resultados brutos do Tavily em pesquisa estruturada
+2. **Image Generation**: Sistema de geração de imagens com dois métodos (AI + HTML Templates)
+
+### Fluxo Atualizado
+
+```
+Inputs → Extração → Tavily Search → SYNTHESIZER → Narratives → Content → Images
+```
+
+### Synthesizer v3.1 - Pesquisa Estruturada
+
+**Localização**: `src/lib/wizard-services/synthesizer.service.ts`
+
+O Synthesizer é uma etapa crítica que transforma resultados brutos do Tavily em campos de pesquisa estruturados antes da geração de narrativas.
+
+#### Campos de Saída
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `resumo_executivo` | string | Executive summary da pesquisa |
+| `throughlines_potenciais` | array | 3-5 throughlines com potencial_viral + justificativa |
+| `tensoes_narrativas` | array | Tensões com tipo + uso_sugerido |
+| `dados_contextualizados` | array | Dados prontos com frase_pronta + contraste |
+| `exemplos_narrativos` | array | Histórias completas com protagonista → resultado |
+| `erros_armadilhas` | array | Erros contra-intuitivos que parecem corretos |
+| `frameworks_metodos` | array | Frameworks validados com passos |
+| `hooks` | array | Ganchos para slides/captions |
+| `progressao_sugerida` | object | Estrutura 3 atos (ato1_captura, ato2_desenvolvimento, ato3_resolucao) |
+| `perguntas_respondidas` | array | Para open loops |
+| `gaps_oportunidades` | array | O que a pesquisa não cobriu |
+
+#### Campos Renomeados (v3.1)
+
+| v3.0 | v3.1 | Descrição |
+|------|------|-----------|
+| `por_que_funciona` | `potencial_viral` | Por que o throughline é viral |
+| `como_reforcar` | `justificativa` | Justificativa do throughline |
+| `por_que_engaja` | `tipo` | Tipo de tensão |
+| `como_explorar` | `uso_sugerido` | Como usar a tensão |
+| `dado` | `frase_pronta` | Frase pronta com dado |
+| `implicacao_pratica` | `contraste` | Elemento de contraste |
+
+### Image Generation - Geração de Imagens
+
+**Localização**: `src/lib/wizard-services/image-generation.service.ts` + `screenshotone.service.ts`
+
+Sistema de geração de imagens com dois métodos:
+
+#### Métodos Disponíveis
+
+| Método | Descrição | Quando Usar |
+|--------|-----------|-------------|
+| **AI Generation** | Imagens via OpenRouter (Gemini, GPT-5 Image, etc.) | Qualidade máxima, criativo |
+| **HTML Template** | Templates renderizados via ScreenshotOne | Fallback, consistência visual |
+
+#### Modelos de Imagem AI
+
+```typescript
+const AI_IMAGE_MODELS = {
+  GEMINI_IMAGE: "google/gemini-3-pro-image-preview",
+  OPENAI_IMAGE: "openai/gpt-5-image",
+  SEEDREAM: "bytedance-seed/seedream-4.5",
+  FLUX: "black-forest-labs/flux.2-max",
+}
+```
+
+#### ScreenshotOne Configuration
+
+**Importante**: Use o **Access Key** (não o Secret Key) para autenticação padrão:
+
+```env
+SCREENSHOT_ONE_ACCESS_KEY=seu-access-key-aqui
+# SCREENSHOT_ONE_SECRET_KEY=opcional-apenas-para-urls-publicas-assinadas
+```
+
+**Por que Access Key?**
+- Uso server-side (nosso caso)
+- Imagens retornadas diretamente, não URLs públicas
+- Secret Key só é necessária para compartilhar URLs em `<img>` tags
+
+#### HTML Templates (18 opções)
+
+```typescript
+const HTML_TEMPLATES = {
+  // Gradient-based
+  GRADIENT_SOLID: "gradiente-solid",
+  GRADIENT_LINEAR: "gradiente-linear",
+  GRADIENT_RADIAL: "gradiente-radial",
+  GRADIENT_MESH: "gradiente-mesh",
+
+  // Typography
+  TYPOGRAPHY_BOLD: "tipografia-bold",
+  TYPOGRAPHY_CLEAN: "tipografia-clean",
+  TYPOGRAPHY_OVERLAY: "tipografia-overlay",
+
+  // Patterns
+  PATTERN_GEOMETRIC: "padrão-geométrico",
+  PATTERN_DOTS: "padrão-círculos",
+  PATTERN_LINES: "padrão-linhas",
+  PATTERN_WAVES: "padrão-ondas",
+
+  // Styles
+  GLASSMORPHISM: "glassmorphism",
+  NEOMORPHISM: "neomorphism",
+  BRUTALIST: "brutalista",
+  NEUMORPHISM: "neumorphism",
+
+  // Themes
+  DARK_MODE: "dark-mode",
+  LIGHT_MODE: "light-mode",
+  NEON_GLOW: "neon-glow",
+  SUNSET_VIBES: "sunset-vibes",
+}
+```
+
+### Prompts v4.1 / v2.0
+
+**Localização**: `src/lib/wizard-services/prompts.ts`
+
+Atualização dos prompts com tags XML e integração Synthesizer v3.1:
+
+| Tipo | Versão | Características |
+|------|--------|-----------------|
+| **Carousel** | v4.1 | Tags XML, integração Synthesizer v3.1, ProgressaoSugeridaV3 |
+| **Image Post** | v2.0 | Estrutura HCCA, técnicas de retenção |
+| **Video Script** | v2.0 | 5 estruturas, otimização 3 segundos |
+
+### Environment Variables - Phase 2
+
+```env
+# ─────────────────────────────────────────────────────────────────────────────
+# 🖼️ IMAGE GENERATION (Wizard)
+# ─────────────────────────────────────────────────────────────────────────────
+# ScreenshotOne - HTML to Image rendering (OPCIONAL)
+# Obtenha em: https://dash.screenshotone.com/
+#
+# • Use o ACCESS KEY (não o Secret Key) para autenticação padrão
+# • O Secret Key é opcional, apenas para assinar URLs públicas
+#
+# Para gerar imagens com templates HTML (fallback quando Gemini/Freepik não estão disponíveis)
+SCREENSHOT_ONE_ACCESS_KEY=your-access-key-here
+# SCREENSHOT_ONE_SECRET_KEY=your-secret-key-here  # Opcional - apenas para URLs públicas assinadas
+```
 
 ## Uso Básico
 

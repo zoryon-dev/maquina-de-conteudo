@@ -16,6 +16,14 @@ export interface NarrativeOption {
   title: string;
   description: string;
   angle: NarrativeAngle;
+  // Extended fields for richer context
+  viewpoint?: string;
+  whyUse?: string;
+  impact?: string;
+  tone?: string;
+  keywords?: string[];
+  differentiation?: string;
+  risks?: string;
 }
 
 // ============================================================================
@@ -28,6 +36,25 @@ export interface GeneratedSlide {
   title: string;
   content: string;
   imagePrompt?: string;
+  // ZORYON v3.0 additional fields
+  numero?: number;
+  acao?: string;
+}
+
+// ZORYON v4.0 carousel structure
+export interface ZoryonCarousel {
+  throughline: string; // Central phrase connecting all slides
+  capa: {
+    titulo: string;
+    subtitulo: string;
+  };
+  slides: Array<{
+    numero: number;
+    titulo: string;
+    corpo: string;
+    acao: string;
+  }>;
+  legenda: string;
 }
 
 export interface GeneratedContent {
