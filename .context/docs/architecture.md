@@ -994,7 +994,18 @@ SCREENSHOT_ONE_ACCESS_KEY=your-access-key-here
 - Images returned directly, not public URLs
 - Secret Key only needed for sharing URLs in `<img>` tags
 
-**18 HTML Templates Available**:
+**22+ HTML Templates Available** (Janeiro 2026: migrated to static HTML files):
+
+**Static Templates** (`.context/wizard-prompts/`):
+
+| File | Description | Use Case |
+|------|-------------|----------|
+| `dark-mode.html` | Dark background + light text | Night posts, tech |
+| `white-mode.html` | Light background + dark text | Day posts, corporate |
+| `superheadline.html` | Focus on impactful headline | Ads, promotions |
+| `twitter.html` | Formatted for Twitter/X | Threads, text posts |
+
+**Dynamic Templates** (TypeScript code):
 
 ```typescript
 const HTML_TEMPLATES = {
@@ -1027,6 +1038,24 @@ const HTML_TEMPLATES = {
   NEON_GLOW: "neon-glow",
   SUNSET_VIBES: "sunset-vibes",
 }
+```
+
+**Static Template Structure:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    /* Inline CSS for ScreenshotOne compatibility */
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Content with placeholders: {{title}}, {{content}}, {{cta}} -->
+  </div>
+</body>
+</html>
 ```
 
 ### Prompt Versions

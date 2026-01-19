@@ -28,6 +28,11 @@ maquina-de-conteudo/
 │   │   ├── api-integration-specialist.md
 │   │   ├── neon-database-specialist.md
 │   │   └── clerk-auth-specialist.md
+│   ├── wizard-prompts/      # Templates HTML estáticos para Wizard
+│   │   ├── dark-mode.html
+│   │   ├── white-mode.html
+│   │   ├── superheadline.html
+│   │   └── twitter.html
 │   └── docs/                # Documentação geral
 │       ├── architecture.md
 │       ├── development-workflow.md
@@ -58,7 +63,8 @@ maquina-de-conteudo/
 │   │   ├── voyage/          # Voyage AI embeddings
 │   │   ├── rag/             # RAG utilities
 │   │   ├── storage/         # Storage abstraction layer (R2 + Local)
-│   │   └── queue/           # Queue system
+│   │   ├── queue/           # Queue system
+│   │   └── wizard-services/ # Wizard de Criação services
 │   └── stores/              # Zustand stores
 ├── drizzle/                 # Migrations
 ├── CLAUDE.md                # Este arquivo
@@ -86,6 +92,13 @@ maquina-de-conteudo/
 ### 4. Autenticação
 - Login/Signup com Clerk
 - Middleware de proteção de rotas
+
+### 5. Wizard de Criação
+- Multi-step form para criação de conteúdo com IA
+- 5 etapas: Inputs → Processing → Narratives → Generation → Image Gen
+- Synthesizer v3.1 para pesquisa estruturada
+- Geração de imagens via AI (OpenRouter) ou HTML Templates (ScreenshotOne)
+- Templates HTML estáticos em `.context/wizard-prompts/` (dark-mode, white-mode, superheadline, twitter)
 
 ## Design System
 

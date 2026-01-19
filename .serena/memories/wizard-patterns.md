@@ -259,40 +259,79 @@ SCREENSHOT_ONE_ACCESS_KEY=seu-access-key-aqui
 - Imagens retornadas diretamente, não URLs públicas
 - Secret Key só é necessária para compartilhar URLs em `<img>` tags
 
-### HTML Templates (18 opções)
+### HTML Templates (22+ opções)
+
+A partir de Janeiro 2026, os templates HTML foram migrados de JS/JSON dinâmicos para **arquivos HTML estáticos**, facilitando customização e manutenção.
+
+#### Templates Estáticos (`.context/wizard-prompts/`)
+
+| Arquivo | Descrição | Uso |
+|---------|-----------|-----|
+| `dark-mode.html` | Template com fundo escuro + tipografia clara | Posts noturnos, tech |
+| `white-mode.html` | Template com fundo claro + tipografia escura | Posts diurnos, corporativos |
+| `superheadline.html` | Foco em headline impactante | Anúncios, promoções |
+| `twitter.html` | Formatado para Twitter/X | Threads, posts textuais |
+
+#### Templates Dinâmicos (via código)
 
 ```typescript
 const HTML_TEMPLATES = {
-  // Gradient-based
+  // Gradient-based (4)
   GRADIENT_SOLID: "gradiente-solid",
   GRADIENT_LINEAR: "gradiente-linear",
   GRADIENT_RADIAL: "gradiente-radial",
   GRADIENT_MESH: "gradiente-mesh",
 
-  // Typography
+  // Typography (3)
   TYPOGRAPHY_BOLD: "tipografia-bold",
   TYPOGRAPHY_CLEAN: "tipografia-clean",
   TYPOGRAPHY_OVERLAY: "tipografia-overlay",
 
-  // Patterns
+  // Patterns (4)
   PATTERN_GEOMETRIC: "padrão-geométrico",
   PATTERN_DOTS: "padrão-círculos",
   PATTERN_LINES: "padrão-linhas",
   PATTERN_WAVES: "padrão-ondas",
 
-  // Styles
+  // Styles (4)
   GLASSMORPHISM: "glassmorphism",
   NEOMORPHISM: "neomorphism",
   BRUTALIST: "brutalista",
   NEUMORPHISM: "neumorphism",
 
-  // Themes
+  // Themes (4)
   DARK_MODE: "dark-mode",
   LIGHT_MODE: "light-mode",
   NEON_GLOW: "neon-glow",
   SUNSET_VIBES: "sunset-vibes",
 }
 ```
+
+### Estrutura dos Templates Estáticos
+
+```html
+<!-- .context/wizard-prompts/dark-mode.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    /* CSS inline para compatibilidade ScreenshotOne */
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Conteúdo com placeholders: {{title}}, {{content}}, {{cta}} -->
+  </div>
+</body>
+</html>
+```
+
+**Vantagens dos templates estáticos:**
+- Edição visual direta no arquivo HTML
+- Preview imediato no navegador
+- Versionamento via Git
+- Fácil adição de novos templates
 
 ### Tipos de Geração de Imagem
 

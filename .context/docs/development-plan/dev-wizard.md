@@ -289,40 +289,59 @@ SCREENSHOT_ONE_ACCESS_KEY=seu-access-key-aqui
 - Imagens retornadas diretamente, não URLs públicas
 - Secret Key só é necessária para compartilhar URLs em `<img>` tags
 
-#### HTML Templates (18 opções)
+#### HTML Templates (22+ opções)
+
+A partir de Janeiro 2026, os templates HTML foram **migrados de JS/JSON dinâmicos para arquivos HTML estáticos**.
+
+**Templates Estáticos** (`.context/wizard-prompts/`):
+
+| Arquivo | Descrição | Uso |
+|---------|-----------|-----|
+| `dark-mode.html` | Fundo escuro + tipografia clara | Posts noturnos, tech |
+| `white-mode.html` | Fundo claro + tipografia escura | Posts diurnos, corporativos |
+| `superheadline.html` | Foco em headline impactante | Anúncios, promoções |
+| `twitter.html` | Formatado para Twitter/X | Threads, posts textuais |
+
+**Templates Dinâmicos** (via código TypeScript):
 
 ```typescript
 const HTML_TEMPLATES = {
-  // Gradient-based
+  // Gradient-based (4)
   GRADIENT_SOLID: "gradiente-solid",
   GRADIENT_LINEAR: "gradiente-linear",
   GRADIENT_RADIAL: "gradiente-radial",
   GRADIENT_MESH: "gradiente-mesh",
 
-  // Typography
+  // Typography (3)
   TYPOGRAPHY_BOLD: "tipografia-bold",
   TYPOGRAPHY_CLEAN: "tipografia-clean",
   TYPOGRAPHY_OVERLAY: "tipografia-overlay",
 
-  // Patterns
+  // Patterns (4)
   PATTERN_GEOMETRIC: "padrão-geométrico",
   PATTERN_DOTS: "padrão-círculos",
   PATTERN_LINES: "padrão-linhas",
   PATTERN_WAVES: "padrão-ondas",
 
-  // Styles
+  // Styles (4)
   GLASSMORPHISM: "glassmorphism",
   NEOMORPHISM: "neomorphism",
   BRUTALIST: "brutalista",
   NEUMORPHISM: "neumorphism",
 
-  // Themes
+  // Themes (4)
   DARK_MODE: "dark-mode",
   LIGHT_MODE: "light-mode",
   NEON_GLOW: "neon-glow",
   SUNSET_VIBES: "sunset-vibes",
 }
 ```
+
+**Vantagens dos templates estáticos:**
+- Edição visual direta no arquivo HTML
+- Preview imediato no navegador antes de usar
+- Versionamento via Git
+- Fácil adição de novos templates
 
 ### Prompts v4.1 / v2.0
 
@@ -409,6 +428,13 @@ A tabela `contentWizards` foi criada com todos os campos necessários:
 5. Implementar testes E2E para o fluxo completo
 
 ## Histórico de Atualizações
+
+### Janeiro 2026 - Templates HTML Estáticos
+- **Migração**: Templates JS/JSON dinâmicos → Arquivos HTML estáticos
+- **Novos templates**: `dark-mode.html`, `white-mode.html`, `superheadline.html`, `twitter.html`
+- **Benefícios**: Edição visual direta, preview no navegador, versionamento Git
+- **Arquivos removidos**: `prompt-carrosel.js`, `prompt-sintetizer.js`, `model-*.json`
+- **Localização**: `.context/wizard-prompts/*.html`
 
 ### Janeiro 2026 - Refatoração Visual
 - **Step 1**: Grid 2-colunas, CollapsibleSection, inputs visíveis
