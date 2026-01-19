@@ -7,6 +7,9 @@
  * This endpoint is called when:
  * - User clicks "Generate Narratives" (enqueues wizard_narratives job)
  * - User selects a narrative (enqueues wizard_generation job)
+ *
+ * In development mode, automatically triggers the worker to process jobs immediately.
+ * In production, Vercel Cron handles worker execution.
  */
 
 import { NextResponse } from "next/server";
@@ -16,6 +19,7 @@ import { contentWizards, jobs } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { createJob } from "@/lib/queue/jobs";
 import { JobType } from "@/lib/queue/types";
+import { isQueueConfigured, QueueNotConfiguredError, triggerWorker } from "@/lib/queue/client";
 import type { PostType } from "@/db/schema";
 
 interface SubmitRequestBody {
@@ -24,9 +28,17 @@ interface SubmitRequestBody {
 }
 
 /**
+ * Check if we're in development mode
+ */
+function isDevelopment(): boolean {
+  return process.env.NODE_ENV === "development";
+}
+
+/**
  * POST /api/wizard/[id]/submit
  *
  * Triggers wizard processing by enqueuing appropriate background jobs.
+ * In development, also triggers the worker immediately.
  */
 export async function POST(
   request: Request,
@@ -56,12 +68,25 @@ export async function POST(
       return NextResponse.json({ error: "Wizard not found" }, { status: 404 });
     }
 
+    // Verify queue system is configured before creating jobs
+    if (!isQueueConfigured()) {
+      return NextResponse.json(
+        {
+          error: "Queue system not configured",
+          message: "Please configure UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN environment variables to enable background processing.",
+        },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json() as SubmitRequestBody;
     const { submitType } = body;
 
+    let jobId: number;
+
     if (submitType === "narratives") {
       // Enqueue wizard_narratives job
-      const jobId = await createJob(
+      jobId = await createJob(
         userId,
         JobType.WIZARD_NARRATIVES,
         {
@@ -89,6 +114,14 @@ export async function POST(
         })
         .where(eq(contentWizards.id, wizardId));
 
+      // In development, trigger worker immediately to process the job
+      if (isDevelopment()) {
+        // Fire and forget - don't wait for completion
+        triggerWorker().catch((err) => {
+          console.error("Failed to trigger worker in development:", err);
+        });
+      }
+
       return NextResponse.json({
         success: true,
         jobId,
@@ -105,7 +138,7 @@ export async function POST(
       }
 
       // Enqueue wizard_generation job
-      const jobId = await createJob(
+      jobId = await createJob(
         userId,
         JobType.WIZARD_GENERATION,
         {
@@ -128,6 +161,14 @@ export async function POST(
           updatedAt: new Date(),
         })
         .where(eq(contentWizards.id, wizardId));
+
+      // In development, trigger worker immediately to process the job
+      if (isDevelopment()) {
+        // Fire and forget - don't wait for completion
+        triggerWorker().catch((err) => {
+          console.error("Failed to trigger worker in development:", err);
+        });
+      }
 
       return NextResponse.json({
         success: true,

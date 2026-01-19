@@ -238,3 +238,118 @@ A tabela `contentWizards` foi criada com todos os campos necessários:
 - **Prompts Isolados**: `prompts.ts` com funções separadas por tipo de conteúdo
 - **Model Selector**: Seletor de modelos de IA no Step 1 (TEXT_MODELS da OpenRouter)
 - **Worker Handlers**: Handlers `wizard_narratives` e `wizard_generation` completos
+
+### Janeiro 2026 - Worker Debugging
+- **Problema**: Worker nunca executado em desenvolvimento (Vercel Cron só funciona em produção)
+- **Solução**: Auto-trigger do worker após criar jobs em `isDevelopment()`
+- **Proxy.ts**: Bypass Clerk auth para `/api/workers` (usa `WORKER_SECRET`)
+- **Queue Client**: Novo helper `triggerWorker()` com opção `waitForJobId`
+- **JSONB Fix**: Step 4 agora verifica tipo antes de `JSON.parse()` (objeto vs string)
+- **Documentação**: `.context/docs/insights/013-wizard-worker-debugging-jan2026.md`
+
+## Worker System - Development vs Production
+
+O sistema de worker funciona de forma diferente em desenvolvimento e produção:
+
+| Aspecto | Development | Production |
+|---------|-------------|------------|
+| **Trigger** | Manual via `triggerWorker()` | Vercel Cron (1 minuto) |
+| **Auth** | `WORKER_SECRET` | `WORKER_SECRET` |
+| **Endpoint** | `/api/workers` | `/api/workers` |
+
+### Auto-Trigger em Desenvolvimento
+
+```typescript
+// src/app/api/wizard/[id]/submit/route.ts
+import { triggerWorker } from "@/lib/queue/client";
+
+function isDevelopment(): boolean {
+  return process.env.NODE_ENV === "development";
+}
+
+// Após criar job (narratives ou generation)
+if (isDevelopment()) {
+  triggerWorker().catch((err) => {
+    console.error("Failed to trigger worker in development:", err);
+  });
+}
+```
+
+### triggerWorker() Helper
+
+```typescript
+// src/lib/queue/client.ts
+export async function triggerWorker(options?: {
+  waitForJobId?: number;
+  timeoutMs?: number;
+}): Promise<{
+  success: boolean;
+  message: string;
+  jobId?: number;
+  result?: unknown;
+}>
+```
+
+**Uso:**
+- `triggerWorker()` - Fire and forget (padrão)
+- `triggerWorker({ waitForJobId: 123 })` - Aguarda conclusão do job
+
+### Worker Authentication Bypass
+
+```typescript
+// src/proxy.ts
+const isWorkerRoute = (request: Request) => {
+  const url = new URL(request.url);
+  return url.pathname === "/api/workers";
+};
+
+export default clerkMiddleware(async (auth, request) => {
+  // Allow worker endpoint to bypass Clerk auth (uses WORKER_SECRET instead)
+  if (isWorkerRoute(request)) {
+    return NextResponse.next();
+  }
+  // ... rest of middleware
+});
+```
+
+### Comandos de Debug
+
+```bash
+# Trigger worker manualmente
+curl -X POST http://localhost:3000/api/workers \
+  -H "Authorization: Bearer dev-secret-change-in-production"
+
+# Verificar estado do wizard
+curl http://localhost:3000/api/wizard/6
+```
+
+## Troubleshooting - Wizard
+
+### Jobs não processam
+
+1. **Verificar se worker está sendo acionado:**
+   - Em dev: verificar logs para "Failed to trigger worker"
+   - Verificar se `WORKER_SECRET` está correto
+
+2. **Limpar jobs pending antigos:**
+   ```sql
+   DELETE FROM jobs WHERE status = 'pending' AND id < X;
+   ```
+
+3. **Limpar filas Redis:**
+   ```bash
+   redis-cli DEL jobs:pending jobs:processing
+   ```
+
+### JSON.parse Error no Step 4
+
+**Sintoma:** `SyntaxError: "[object Object]" is not valid JSON`
+
+**Causa:** PostgreSQL JSONB columns podem ser objetos, não strings.
+
+**Solução:**
+```typescript
+const content = typeof wizard.generatedContent === 'string'
+  ? JSON.parse(wizard.generatedContent)
+  : wizard.generatedContent;
+```

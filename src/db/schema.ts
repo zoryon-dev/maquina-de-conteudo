@@ -471,6 +471,13 @@ export const contentWizards = pgTable(
 
     // Job tracking
     jobId: integer("job_id").references(() => jobs.id, { onDelete: "set null" }),
+    jobStatus: jobStatusEnum("job_status"), // "pending" | "processing" | "completed" | "failed"
+    processingProgress: jsonb("processing_progress").$type<{
+      stage: "extraction" | "transcription" | "research" | "narratives" | "generation"
+      percent: number
+      message: string
+    }>(),
+    jobError: text("job_error"), // Error message if job failed
 
     // Timestamps
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -943,6 +950,13 @@ export type NewScheduledPost = typeof scheduledPosts.$inferInsert;
 export type ContentWizard = typeof contentWizards.$inferSelect;
 export type NewContentWizard = typeof contentWizards.$inferInsert;
 export type WizardStep = typeof wizardStepEnum.enumValues[number];
+
+// Wizard processing progress type
+export type WizardProcessingProgress = {
+  stage: "extraction" | "transcription" | "research" | "narratives" | "generation"
+  percent: number
+  message: string
+};
 export type Job = typeof jobs.$inferSelect;
 export type NewJob = typeof jobs.$inferInsert;
 export type ZepThread = typeof zepThreads.$inferSelect;

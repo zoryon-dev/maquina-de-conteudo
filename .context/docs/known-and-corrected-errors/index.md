@@ -895,6 +895,32 @@ const result = await generateText({
 
 ---
 
+### 32. JSON.parse Error - "[object Object]" is not valid JSON
+
+**Erro:**
+```
+SyntaxError: "[object Object]" is not valid JSON
+    at JSON.parse (<anonymous>)
+    at Step4Generation.useEffect.pollWizardStatus (step-4-generation.tsx:129:59)
+```
+
+**Causa:** PostgreSQL JSONB columns podem ser retornados como objetos JavaScript pelo Drizzle ORM, não como strings. `response.json()` já faz o parse do JSON da resposta HTTP.
+
+**Solução:** Verificar o tipo antes de tentar fazer parse:
+```typescript
+// ❌ ERRADO - Assumiu que generatedContent é sempre string
+const generatedContent: GeneratedContent = JSON.parse(wizard.generatedContent)
+
+// ✅ CORRETO - Verifica se é string ou objeto
+const generatedContent: GeneratedContent = typeof wizard.generatedContent === 'string'
+  ? JSON.parse(wizard.generatedContent)
+  : wizard.generatedContent
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/032-json-parse-object-error.md`
+
+---
+
 ## Padrões de Solução
 
 ### 1. Sempre validar tipos de DB

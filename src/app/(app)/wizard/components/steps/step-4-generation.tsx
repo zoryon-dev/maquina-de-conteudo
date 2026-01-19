@@ -126,9 +126,10 @@ export function Step4Generation({
 
         // Check if content is ready
         if (wizard.generatedContent) {
-          const generatedContent: GeneratedContent = JSON.parse(
-            wizard.generatedContent
-          );
+          // generatedContent might be an object or a JSON string
+          const generatedContent: GeneratedContent = typeof wizard.generatedContent === 'string'
+            ? JSON.parse(wizard.generatedContent)
+            : wizard.generatedContent;
 
           if (isMountedRef.current) {
             setContent(generatedContent);

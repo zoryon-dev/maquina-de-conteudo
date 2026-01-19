@@ -450,6 +450,33 @@ sequenceDiagram
 | `wizard_narratives` | Generate narrative options for Wizard | ⭐ Implemented (Jan 2026) |
 | `wizard_generation` | Generate final content from Wizard | ⭐ Implemented (Jan 2026) |
 
+### Worker Triggering: Development vs Production
+
+**CRITICAL:** Vercel Cron (`vercel.json`) only works in production deployment. Development requires manual triggering.
+
+| Environment | Trigger Method | Implementation |
+|-------------|----------------|----------------|
+| **Development** | Manual via `triggerWorker()` | Called after job creation |
+| **Production** | Vercel Cron | Every minute via `vercel.json` |
+
+```typescript
+// Auto-trigger pattern in development
+import { triggerWorker } from "@/lib/queue/client";
+
+function isDevelopment(): boolean {
+  return process.env.NODE_ENV === "development";
+}
+
+// After creating a job
+if (isDevelopment()) {
+  triggerWorker().catch((err) => {
+    console.error("Failed to trigger worker in development:", err);
+  });
+}
+```
+
+**Worker Authentication:** The `/api/workers` endpoint bypasses Clerk auth and uses `WORKER_SECRET` instead (configured in `src/proxy.ts`).
+
 ## Authentication Flow
 
 ### Clerk Integration

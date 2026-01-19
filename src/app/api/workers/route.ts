@@ -21,6 +21,7 @@ import { eq, and } from "drizzle-orm";
 import { splitDocumentIntoChunks } from "@/lib/voyage/chunking";
 import { generateEmbeddingsBatch } from "@/lib/voyage/embeddings";
 import type { DocumentEmbeddingPayload, WizardNarrativesPayload, WizardGenerationPayload } from "@/lib/queue/types";
+import type { WizardProcessingProgress } from "@/db/schema";
 
 // Wizard services - background job processing
 import {
@@ -39,6 +40,68 @@ import {
  * Secret para validar chamadas internas do worker
  */
 const WORKER_SECRET = process.env.WORKER_SECRET || "dev-secret";
+
+/**
+ * Validates that required API keys are configured
+ * Returns error message if any required key is missing, null if all OK
+ */
+function validateRequiredApiKeys(jobType: string): string | null {
+  const missing: string[] = [];
+
+  // OPENROUTER is always required for AI operations
+  if (!process.env.OPENROUTER_API_KEY) {
+    missing.push("OPENROUTER_API_KEY");
+  }
+
+  // Job-specific validations
+  if (jobType === "wizard_narratives") {
+    // These are optional but log warnings if missing
+    if (!process.env.TAVILY_API_KEY) {
+      console.warn("TAVILY_API_KEY not configured - contextual search will be skipped");
+    }
+    if (!process.env.FIRECRAWL_API_KEY) {
+      console.warn("FIRECRAWL_API_KEY not configured - URL extraction will be skipped");
+    }
+    if (!process.env.APIFY_API_KEY) {
+      console.warn("APIFY_API_KEY not configured - YouTube transcription will be skipped");
+    }
+  }
+
+  if (jobType === "document_embedding") {
+    // VOYAGE is required for document embedding
+    if (!process.env.VOYAGE_API_KEY) {
+      missing.push("VOYAGE_API_KEY");
+    }
+  }
+
+  return missing.length > 0 ? `Missing required API keys: ${missing.join(", ")}` : null;
+}
+
+/**
+ * Helper para atualizar o progresso do wizard durante processamento
+ */
+async function updateWizardProgress(
+  wizardId: number,
+  data: {
+    jobStatus?: "pending" | "processing" | "completed" | "failed";
+    processingProgress?: WizardProcessingProgress;
+    jobError?: string;
+  }
+): Promise<void> {
+  const updateData: Record<string, unknown> = { updatedAt: new Date() };
+
+  if (data.jobStatus) {
+    updateData.jobStatus = data.jobStatus;
+  }
+  if (data.processingProgress) {
+    updateData.processingProgress = data.processingProgress as any;
+  }
+  if (data.jobError) {
+    updateData.jobError = data.jobError;
+  }
+
+  await db.update(contentWizards).set(updateData).where(eq(contentWizards.id, wizardId));
+}
 
 // Handlers para cada tipo de job
 const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
@@ -208,12 +271,29 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       throw new Error(`Wizard ${wizardId} not found for user ${userId}`);
     }
 
+    // Set initial status to processing
+    await updateWizardProgress(wizardId, {
+      jobStatus: "processing",
+      processingProgress: {
+        stage: "extraction",
+        percent: 10,
+        message: "Iniciando processamento...",
+      },
+    });
+
     let extractedContent = "";
     let researchData = "";
-    let ragContext: string | null = null;
 
     // 2. Extract content from reference URL (Firecrawl)
     if (referenceUrl) {
+      await updateWizardProgress(wizardId, {
+        processingProgress: {
+          stage: "extraction",
+          percent: 25,
+          message: "Extraindo conteúdo da URL de referência...",
+        },
+      });
+
       const firecrawlResult = await extractFromUrl(referenceUrl);
       if (firecrawlResult.success && firecrawlResult.data) {
         extractedContent = firecrawlResult.data.content;
@@ -222,6 +302,14 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
 
     // 3. Transcribe video (Apify)
     if (referenceVideoUrl) {
+      await updateWizardProgress(wizardId, {
+        processingProgress: {
+          stage: "transcription",
+          percent: 40,
+          message: "Transcrevendo vídeo do YouTube...",
+        },
+      });
+
       const transcriptionResult = await transcribeYouTube(referenceVideoUrl);
       if (transcriptionResult.success && transcriptionResult.data) {
         if (extractedContent) {
@@ -233,6 +321,14 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
 
     // 4. Search for context (Tavily)
     if (theme) {
+      await updateWizardProgress(wizardId, {
+        processingProgress: {
+          stage: "research",
+          percent: 60,
+          message: "Pesquisando informações contextuais...",
+        },
+      });
+
       const searchQuery = objective
         ? `${theme} ${objective} ${contentType === "video" ? "video content" : contentType}`
         : `${theme} ${contentType === "video" ? "video content" : contentType}`;
@@ -249,11 +345,19 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
 
     // 5. Generate RAG context if configured
     if (ragConfig && (ragConfig.documents || ragConfig.collections)) {
+      await updateWizardProgress(wizardId, {
+        processingProgress: {
+          stage: "research",
+          percent: 70,
+          message: "Buscando contexto na base de conhecimento...",
+        },
+      });
+
       const ragQuery = `Context for ${contentType} content: ${theme || context || objective || "general content"}`;
       const ragResult = await generateWizardRagContext(userId, ragQuery, ragConfig);
 
       if (ragResult.success && ragResult.data) {
-        ragContext = formatRagForPrompt(ragResult.data);
+        const ragContext = formatRagForPrompt(ragResult.data);
         // Store RAG source info in researchResults for reference
         const ragSourceInfo = formatRagSourcesForMetadata(ragResult.data);
         if (ragSourceInfo.length > 0) {
@@ -263,6 +367,14 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     }
 
     // 6. Generate narratives using AI
+    await updateWizardProgress(wizardId, {
+      processingProgress: {
+        stage: "narratives",
+        percent: 85,
+        message: "Gerando narrativas com IA...",
+      },
+    });
+
     const narrativesResult = await generateNarratives({
       contentType: contentType as any,
       theme,
@@ -275,12 +387,17 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     });
 
     if (!narrativesResult.success) {
+      // Update wizard with error status
+      await updateWizardProgress(wizardId, {
+        jobStatus: "failed",
+        jobError: `Failed to generate narratives: ${narrativesResult.error}`,
+      });
       throw new Error(`Failed to generate narratives: ${narrativesResult.error}`);
     }
 
     const narratives = narrativesResult.data!;
 
-    // 7. Update wizard with narratives
+    // 7. Update wizard with narratives and mark as completed
     await db
       .update(contentWizards)
       .set({
@@ -288,6 +405,13 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         extractedContent: extractedContent || null,
         researchQueries: researchData ? [researchData] : [],
         currentStep: "narratives",
+        jobStatus: "completed",
+        processingProgress: {
+          stage: "narratives",
+          percent: 100,
+          message: "Narrativas geradas com sucesso!",
+        },
+        jobError: null,
         updatedAt: new Date(),
       })
       .where(eq(contentWizards.id, wizardId));
@@ -328,17 +452,39 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       throw new Error(`Wizard ${wizardId} has no narratives`);
     }
 
+    // Set initial status to processing
+    await updateWizardProgress(wizardId, {
+      jobStatus: "processing",
+      processingProgress: {
+        stage: "generation",
+        percent: 10,
+        message: "Iniciando geração de conteúdo...",
+      },
+    });
+
     // Parse narratives
     const narratives = wizard.narratives as any[];
     const selectedNarrative = narratives.find((n: any) => n.id === selectedNarrativeId);
 
     if (!selectedNarrative) {
+      await updateWizardProgress(wizardId, {
+        jobStatus: "failed",
+        jobError: `Narrative ${selectedNarrativeId} not found`,
+      });
       throw new Error(`Narrative ${selectedNarrativeId} not found`);
     }
 
     // 2. Generate RAG context if configured
     let ragContextForPrompt: string | undefined;
     if (ragConfig && (ragConfig.documents || ragConfig.collections)) {
+      await updateWizardProgress(wizardId, {
+        processingProgress: {
+          stage: "generation",
+          percent: 30,
+          message: "Buscando contexto na base de conhecimento...",
+        },
+      });
+
       const ragQuery = `Context for ${contentType} generation: ${wizard.theme || wizard.objective || "general content"}`;
       const ragResult = await generateWizardRagContext(userId, ragQuery, ragConfig);
 
@@ -348,6 +494,14 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     }
 
     // 3. Generate content using AI
+    await updateWizardProgress(wizardId, {
+      processingProgress: {
+        stage: "generation",
+        percent: 60,
+        message: "Gerando conteúdo final com IA...",
+      },
+    });
+
     const contentResult = await generateContent({
       contentType: contentType as any,
       selectedNarrative: selectedNarrative as any,
@@ -358,17 +512,29 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     }, model);
 
     if (!contentResult.success) {
+      // Update wizard with error status
+      await updateWizardProgress(wizardId, {
+        jobStatus: "failed",
+        jobError: `Failed to generate content: ${contentResult.error}`,
+      });
       throw new Error(`Failed to generate content: ${contentResult.error}`);
     }
 
     const generatedContent = contentResult.data!;
 
-    // 4. Update wizard with generated content
+    // 4. Update wizard with generated content and mark as completed
     await db
       .update(contentWizards)
       .set({
         generatedContent: JSON.stringify(generatedContent),
         currentStep: "generation",
+        jobStatus: "completed",
+        processingProgress: {
+          stage: "generation",
+          percent: 100,
+          message: "Conteúdo gerado com sucesso!",
+        },
+        jobError: null,
         updatedAt: new Date(),
         completedAt: new Date(),
       })
@@ -420,6 +586,16 @@ export async function POST(request: Request) {
         jobId,
         status: job.status,
       });
+    }
+
+    // Validate required API keys for this job type
+    const validationError = validateRequiredApiKeys(job.type);
+    if (validationError) {
+      await updateJobStatus(jobId, "failed", { error: validationError });
+      return NextResponse.json(
+        { error: validationError, jobType: job.type },
+        { status: 500 }
+      );
     }
 
     // Marcar como processando

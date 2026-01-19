@@ -144,7 +144,7 @@ export async function GET(
 ```env
 UPSTASH_REDIS_REST_URL=https://xxx.upstash.io
 UPSTASH_REDIS_REST_TOKEN=xxx
-WORKER_SECRET=dev-secret  # Para autenticar worker
+WORKER_SECRET=dev-secret-change-in-production  # Para autenticar worker
 ```
 
 ## Chaves do Redis
@@ -163,9 +163,108 @@ jobs:processing   - Lista de jobs em processamento
 
 ## Integrando com Agendadores
 
-### Cron Job
+### Development vs Production
+
+O sistema de worker funciona de forma diferente em desenvolvimento e produção:
+
+| Aspecto | Development | Production |
+|---------|-------------|------------|
+| **Trigger** | Manual via `triggerWorker()` | Vercel Cron (1 minuto) |
+| **Auth** | `WORKER_SECRET` | `WORKER_SECRET` |
+| **Endpoint** | `/api/workers` | `/api/workers` |
+
+**IMPORTANTE:** Vercel Cron (`vercel.json`) só funciona em produção. Em desenvolvimento, é necessário acionar o worker manualmente.
+
+### triggerWorker() Helper
+
+**Localização:** `src/lib/queue/client.ts`
+
+```typescript
+export async function triggerWorker(options?: {
+  waitForJobId?: number;
+  timeoutMs?: number;
+}): Promise<{
+  success: boolean;
+  message: string;
+  jobId?: number;
+  result?: unknown;
+}>
+```
+
+**Uso básico (fire and forget):**
+```typescript
+import { triggerWorker } from "@/lib/queue/client";
+
+// Auto-trigger em desenvolvimento
+if (process.env.NODE_ENV === "development") {
+  triggerWorker().catch((err) => {
+    console.error("Failed to trigger worker:", err);
+  });
+}
+```
+
+**Uso com wait for job completion:**
+```typescript
+const result = await triggerWorker({
+  waitForJobId: 123,
+  timeoutMs: 120000, // 2 minutos
+});
+
+if (result.success) {
+  console.log("Job completed:", result.result);
+} else {
+  console.error("Job failed:", result.message);
+}
+```
+
+### Auto-Trigger Pattern
+
+```typescript
+// src/app/api/wizard/[id]/submit/route.ts
+function isDevelopment(): boolean {
+  return process.env.NODE_ENV === "development";
+}
+
+// Após criar job
+if (isDevelopment()) {
+  // Fire and forget - don't wait for completion
+  triggerWorker().catch((err) => {
+    console.error("Failed to trigger worker in development:", err);
+  });
+}
+```
+
+### Worker Authentication Bypass
+
+```typescript
+// src/proxy.ts
+const isWorkerRoute = (request: Request) => {
+  const url = new URL(request.url);
+  return url.pathname === "/api/workers";
+};
+
+export default clerkMiddleware(async (auth, request) => {
+  // Allow worker endpoint to bypass Clerk auth (uses WORKER_SECRET instead)
+  if (isWorkerRoute(request)) {
+    return NextResponse.next();
+  }
+  // ... rest of middleware
+});
+```
+
+### Cron Job (Production)
 ```bash
-# Executar worker a cada minuto
+# Vercel Cron configuration (vercel.json)
+{
+  "crons": [
+    {
+      "path": "/api/workers",
+      "schedule": "* * * * *"
+    }
+  ]
+}
+
+# Ou via curl tradicional
 * * * * * curl -X POST https://api.example.com/api/workers \
   -H "Authorization: Bearer $WORKER_SECRET"
 ```
@@ -173,4 +272,29 @@ jobs:processing   - Lista de jobs em processamento
 ### Upstash QStash
 ```typescript
 // Configurar schedule no QStash para chamar worker
+```
+
+## Troubleshooting - Queue
+
+### Jobs não processam
+
+1. **Verificar se worker está sendo acionado:**
+   - Em dev: verificar logs para "Failed to trigger worker"
+   - Verificar se `WORKER_SECRET` está correto (default: `dev-secret-change-in-production`)
+
+2. **Limpar jobs pending antigos:**
+   ```sql
+   DELETE FROM jobs WHERE status = 'pending' AND id < X;
+   ```
+
+3. **Limpar filas Redis:**
+   ```bash
+   redis-cli DEL jobs:pending jobs:processing
+   ```
+
+### Trigger manual do worker (debug)
+
+```bash
+curl -X POST http://localhost:3000/api/workers \
+  -H "Authorization: Bearer dev-secret-change-in-production"
 ```

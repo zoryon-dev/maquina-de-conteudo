@@ -71,6 +71,10 @@ export function Step2Processing({
   const isMountedRef = useRef(true);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef(Date.now());
+
+  // Maximum polling time (5 minutes)
+  const POLLING_TIMEOUT = 5 * 60 * 1000;
 
   // Poll wizard status until narratives are ready
   useEffect(() => {
@@ -78,6 +82,24 @@ export function Step2Processing({
 
     const pollWizardStatus = async () => {
       try {
+        // Check for timeout
+        const elapsed = Date.now() - startTimeRef.current;
+        if (elapsed > POLLING_TIMEOUT) {
+          if (isMountedRef.current) {
+            setStatus({
+              step: "failed",
+              message: "Tempo limite excedido",
+              error: "O processamento está demorando mais que o normal. Verifique se o worker está configurado corretamente.",
+            });
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+            onError?.("Tempo limite excedido");
+          }
+          return;
+        }
+
         const response = await fetch(`/api/wizard/${wizardId}`);
 
         if (!response.ok) {

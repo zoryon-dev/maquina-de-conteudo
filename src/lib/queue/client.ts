@@ -10,9 +10,28 @@ import { Redis } from "@upstash/redis";
 const url = process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
+/**
+ * Verifica se o sistema de filas está configurado corretamente
+ */
+export function isQueueConfigured(): boolean {
+  return !!(url && token);
+}
+
+/**
+ * Error customizado para quando a fila não está configurada
+ */
+export class QueueNotConfiguredError extends Error {
+  constructor() {
+    super(
+      "Queue system not configured. Please set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN environment variables."
+    );
+    this.name = "QueueNotConfiguredError";
+  }
+}
+
 if (!url || !token) {
   console.warn(
-    "UPSTASH_REDIS_REST_URL e UPSTASH_REDIS_REST_TOKEN devem ser configurados para usar o sistema de filas."
+    "⚠️  UPSTASH_REDIS_REST_URL e UPSTASH_REDIS_REST_TOKEN devem ser configurados para usar o sistema de filas."
   );
 }
 
@@ -31,15 +50,20 @@ const PROCESSING_QUEUE = "jobs:processing";
  * Adiciona um job à fila de processamento
  * @param jobId - ID do job no banco de dados
  * @param priority - Prioridade do job (maior = mais urgente)
+ * @throws {QueueNotConfiguredError} Se Redis não estiver configurado
  */
 export async function enqueueJob(jobId: number, priority = 0): Promise<void> {
+  if (!isQueueConfigured()) {
+    throw new QueueNotConfiguredError();
+  }
+
   try {
     // Usar LPUSH com score de prioridade (formato: priority:timestamp:jobId)
     const score = `${String(999999 - priority).padStart(6, "0")}:${Date.now()}:${jobId}`;
     await redis.lpush(JOB_QUEUE, score);
   } catch (error) {
     console.error("Erro ao enfileirar job:", error);
-    throw error;
+    throw new Error(`Failed to enqueue job: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 }
 
@@ -90,4 +114,107 @@ export async function getQueueSize(): Promise<number> {
  */
 export async function getProcessingCount(): Promise<number> {
   return await redis.llen(PROCESSING_QUEUE);
+}
+
+/**
+ * Triggers the worker endpoint to process pending jobs.
+ * In development, this can be called after enqueueing jobs to process them immediately.
+ * In production, Vercel Cron handles this automatically.
+ *
+ * @returns { success: boolean, message: string }
+ */
+export async function triggerWorker(options?: { waitForJobId?: number; timeoutMs?: number }): Promise<{
+  success: boolean;
+  message: string;
+  jobId?: number;
+  result?: unknown;
+}> {
+  const workerUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/workers`;
+  const workerSecret = process.env.WORKER_SECRET || "dev-secret";
+
+  try {
+    // If waitForJobId is provided, poll until that job completes or timeout
+    if (options?.waitForJobId) {
+      const startTime = Date.now();
+      const timeout = options.timeoutMs ?? 120000; // Default 2 minutes
+      const pollInterval = 2000; // Check every 2 seconds
+
+      // First, trigger the worker to start processing
+      await fetch(workerUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${workerSecret}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      // Then poll for job completion
+      while (Date.now() - startTime < timeout) {
+        // Trigger worker again to keep processing
+        await fetch(workerUrl, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${workerSecret}`,
+            "Content-Type": "application/json",
+          },
+        }).catch(() => {
+          // Ignore errors during polling
+        });
+
+        // Check job status
+        const { getJob } = await import("./jobs");
+        const job = await getJob(options.waitForJobId!);
+
+        if (job?.status === "completed") {
+          return {
+            success: true,
+            message: "Job completed successfully",
+            jobId: job.id,
+            result: job.result,
+          };
+        }
+
+        if (job?.status === "failed") {
+          return {
+            success: false,
+            message: `Job failed: ${job.error || "Unknown error"}`,
+            jobId: job.id,
+          };
+        }
+
+        // Wait before next poll
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      }
+
+      return {
+        success: false,
+        message: "Job processing timed out",
+        jobId: options.waitForJobId,
+      };
+    }
+
+    // Simple trigger - just fire and forget
+    const response = await fetch(workerUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${workerSecret}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = await response.json() as any;
+
+    return {
+      success: response.ok,
+      message: data.message || response.statusText,
+      jobId: data.jobId,
+      result: data.result,
+    };
+  } catch (error) {
+    console.error("Error triggering worker:", error);
+    return {
+      success: false,
+      message: `Failed to trigger worker: ${error instanceof Error ? error.message : "Unknown error"}`,
+    };
+  }
 }

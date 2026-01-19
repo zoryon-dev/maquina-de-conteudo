@@ -300,8 +300,38 @@ await complete_database_migration({ migrationId: "xxx" });
 DATABASE_URL=postgresql://user:pass@host-pooler.region.neon.tech/db?sslmode=require
 ```
 
-### Direto (Não recomendado para serverless)
+### Connection String (Não recomendado para serverless)
 
 ```env
 DATABASE_URL=postgresql://user:pass@host.region.neon.tech/db?sslmode=require
 ```
+
+## JSONB Parsing Pattern
+
+**Problema:** PostgreSQL JSONB columns podem ser retornados como objetos JavaScript pelo Drizzle ORM, não como strings.
+
+**Quando isso acontece:**
+- `response.json()` já faz o parse da resposta HTTP
+- Drizzle ORM retorna JSONB como objetos JavaScript
+- JSON armazenado como string vem como string
+
+**Solução:** Sempre verificar tipo antes de `JSON.parse()`:
+
+```typescript
+// ❌ ERRADO - Assumiu que sempre é string
+const content = JSON.parse(wizard.generatedContent)
+
+// ✅ CORRETO - Verifica tipo antes
+const content = typeof wizard.generatedContent === 'string'
+  ? JSON.parse(wizard.generatedContent)
+  : wizard.generatedContent
+
+// Ou com uma função helper
+function parseJSONB<T>(value: string | T): T {
+  return typeof value === 'string' ? JSON.parse(value) : value;
+}
+
+const content = parseJSONB<GeneratedContent>(wizard.generatedContent);
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/032-json-parse-object-error.md`

@@ -243,8 +243,117 @@ export function getVideoPrompt(params: { ... }): string
 - Badge mostrando modelo selecionado
 - Valor padrão: `openai/gpt-5.2`
 
+## Worker System - Development vs Production
+
+### Auto-Trigger Pattern
+
+**Problema:** Vercel Cron (`vercel.json`) só funciona em produção. Em desenvolvimento, o worker nunca é acionado.
+
+**Solução:** Auto-trigger do worker após criar jobs em modo de desenvolvimento:
+
+```typescript
+// src/app/api/wizard/[id]/submit/route.ts
+import { triggerWorker } from "@/lib/queue/client";
+
+function isDevelopment(): boolean {
+  return process.env.NODE_ENV === "development";
+}
+
+// Após criar job (narratives ou generation)
+if (isDevelopment()) {
+  // Fire and forget - don't wait for completion
+  triggerWorker().catch((err) => {
+    console.error("Failed to trigger worker in development:", err);
+  });
+}
+```
+
+### Worker Authentication
+
+O endpoint `/api/workers` usa `WORKER_SECRET` em vez de Clerk auth:
+
+```typescript
+// src/proxy.ts
+const isWorkerRoute = (request: Request) => {
+  const url = new URL(request.url);
+  return url.pathname === "/api/workers";
+};
+
+export default clerkMiddleware(async (auth, request) => {
+  // Allow worker endpoint to bypass Clerk auth (uses WORKER_SECRET instead)
+  if (isWorkerRoute(request)) {
+    return NextResponse.next();
+  }
+  // ... rest of middleware
+});
+```
+
+### Queue Debugging
+
+**Problema:** Jobs antigos acumulados no Redis bloqueiam jobs novos (FIFO).
+
+**Solução:** Limpar jobs pending antigos e filas Redis:
+
+```typescript
+// Delete old pending jobs
+await sql`DELETE FROM jobs WHERE status = 'pending' AND id < ${currentJobId}`;
+
+// Clear Redis queues
+await redis.del('jobs:pending');
+await redis.del('jobs:processing');
+```
+
+**Trigger manual do worker (debug):**
+```bash
+curl -X POST http://localhost:3000/api/workers \
+  -H "Authorization: Bearer dev-secret-change-in-production"
+```
+
+### triggerWorker() Helper
+
+**Localização:** `src/lib/queue/client.ts`
+
+```typescript
+export async function triggerWorker(options?: {
+  waitForJobId?: number;
+  timeoutMs?: number;
+}): Promise<{
+  success: boolean;
+  message: string;
+  jobId?: number;
+  result?: unknown;
+}>
+```
+
+**Uso:**
+- `triggerWorker()` - Fire and forget
+- `triggerWorker({ waitForJobId: 123 })` - Aguarda conclusão do job
+
+## JSONB Parsing Pattern
+
+**Problema:** PostgreSQL JSONB columns podem ser retornados como objetos JavaScript, não strings.
+
+**Solução:** Sempre verificar tipo antes de `JSON.parse()`:
+
+```typescript
+// ❌ ERRADO
+const content = JSON.parse(wizard.generatedContent)
+
+// ✅ CORRETO
+const content = typeof wizard.generatedContent === 'string'
+  ? JSON.parse(wizard.generatedContent)
+  : wizard.generatedContent
+```
+
+**Por que isso acontece:**
+- `response.json()` já faz o parse da resposta HTTP
+- Drizzle ORM retorna JSONB como objetos JavaScript
+- JSON armazenado como string vem como string
+
 ## Referências
 
 - Documento completo: `.context/docs/development-plan/dev-wizard.md`
 - Architecture: `.context/docs/architecture.md`
 - Wizard Services: `src/lib/wizard-services/`
+- Queue System: `.serena/memories/queue-patterns.md`
+- Erro JSON.parse: `.context/docs/known-and-corrected-errors/032-json-parse-object-error.md`

@@ -7,11 +7,12 @@
 import { WizardPage } from "./components/wizard-page"
 
 interface PageProps {
-  searchParams: { wizardId?: string }
+  searchParams: Promise<{ wizardId?: string }>
 }
 
 export default async function WizardPageRoute({ searchParams }: PageProps) {
-  const wizardId = searchParams.wizardId ? parseInt(searchParams.wizardId) : undefined
+  const params = await searchParams
+  const wizardId = params.wizardId ? parseInt(params.wizardId) : undefined
 
   return <WizardPage wizardId={wizardId} />
 }
