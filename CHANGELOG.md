@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MoveToCollectionDialog: move documents between collections
 
 ### Changed
+- **Wizard Templates**: Migrated from dynamic JS/JSON to static HTML templates
+- 4 new HTML templates for image generation (dark-mode, white-mode, superheadline, twitter)
+- Improved content dialog with better media handling and preview
+- Enhanced image generation options UI with better organization
 - Wizard flow updated: Inputs → Processing → **Synthesizer** → Narratives → Generation → **Image Gen**
 - RAG chunking: changed from fixed 4000 tokens to category-specific (800-1300 tokens)
 - RAG threshold: unified to 0.5 across entire pipeline (was 0.6-0.7)
@@ -36,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wizard narratives job now includes Synthesizer v3.1 research synthesis step
 - `WORKER_SECRET` default value updated to `dev-secret-change-in-production`
 - `.env.example`: Added ScreenshotOne configuration section (Access Key vs Secret Key)
+
+### Removed
+- Legacy JS/JSON prompt generation files (prompt-carrosel.js, prompt-sintetizer.js, etc.)
+- Obsolete template model files (model-carrossel.json, model-post-simples.json)
+- Old wizard prompt documentation files
 
 ### Fixed
 - **Critical**: Wizard worker not processing jobs in development (Vercel Cron only works in production)
@@ -59,7 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated vercel-ai-sdk-patterns.md with sendMessage format and memoization patterns
 - Updated react-hooks-patterns.md with useMemo + useCallback for streaming
 
-**Commit**: `03f822b` - 2026-01-19
+**Commit**: `78ceb11` - 2026-01-19
 
 ---
 
