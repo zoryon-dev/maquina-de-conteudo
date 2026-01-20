@@ -10,6 +10,7 @@ export {
   deletePromptAction,
   saveVariableAction,
   deleteVariableAction,
+  getUserVariablesAction,
 } from "./save-settings"
 
 export type {

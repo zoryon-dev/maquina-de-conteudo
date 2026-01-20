@@ -238,6 +238,23 @@ export type {
 export { INSTAGRAM_DIMENSIONS } from "./image-types";
 
 // ============================================================================
+// USER VARIABLES SERVICE
+// ============================================================================
+
+export {
+  getUserVariables,
+  formatVariablesForPrompt,
+  enhancePromptWithVariables,
+  getNegativeTermsArray,
+  checkForNegativeTerms,
+} from "./user-variables.service";
+
+export type {
+  UserVariables,
+  FormattedVariablesContext,
+} from "./user-variables.service";
+
+// ============================================================================
 // SERVICE STATUS
 // ============================================================================
 

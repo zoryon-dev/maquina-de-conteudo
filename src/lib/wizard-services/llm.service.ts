@@ -20,6 +20,12 @@ import {
   getContentPrompt,
   extractJSONFromResponse,
 } from "./prompts";
+import {
+  getUserVariables,
+  getNegativeTermsArray,
+  formatVariablesForPrompt,
+  type UserVariables,
+} from "./user-variables.service";
 import type {
   NarrativeOption,
   GeneratedContent,
@@ -42,6 +48,62 @@ const WIZARD_DEFAULT_MODEL = process.env.WIZARD_DEFAULT_MODEL || DEFAULT_TEXT_MO
  * Maximum retries for LLM calls
  */
 const MAX_RETRIES = 2;
+
+
+// ============================================================================
+// USER VARIABLES HELPER
+// ============================================================================
+
+/**
+ * Fetch user variables and merge with input-provided values.
+ *
+ * User variables from database act as defaults, but explicit values
+ * in the wizard input take precedence. This allows users to override
+ * their saved variables when creating specific content.
+ *
+ * Also formats the variables into a context block for prompt injection.
+ */
+async function loadAndFormatUserVariables(
+  inputTargetAudience?: string,
+  inputTone?: string,
+  inputNiche?: string,
+  inputCta?: string,
+  inputNegativeTerms?: string[]
+): Promise<{
+  variables: UserVariables
+  variablesContext: string
+  mergedNegativeTerms: string[]
+}> {
+  // Fetch saved variables from database
+  const savedVariables = await getUserVariables()
+
+  // Merge: input values take precedence over saved variables
+  const mergedVariables: UserVariables = {
+    tone: inputTone || savedVariables.tone,
+    brandVoice: savedVariables.brandVoice,
+    niche: inputNiche || savedVariables.niche,
+    targetAudience: inputTargetAudience || savedVariables.targetAudience,
+    audienceFears: savedVariables.audienceFears,
+    audienceDesires: savedVariables.audienceDesires,
+    differentiators: savedVariables.differentiators,
+    contentGoals: savedVariables.contentGoals,
+    preferredCTAs: savedVariables.preferredCTAs,
+    negativeTerms: savedVariables.negativeTerms,
+  }
+
+  // Format variables for prompt injection
+  const { context: variablesContext } = formatVariablesForPrompt(mergedVariables)
+
+  // Merge negative terms (input + saved)
+  const savedNegativeTerms = getNegativeTermsArray(savedVariables)
+  const mergedNegativeTerms = [...new Set([...savedNegativeTerms, ...(inputNegativeTerms || [])])]
+
+  return {
+    variables: mergedVariables,
+    variablesContext,
+    mergedNegativeTerms,
+  }
+}
 
 
 // ============================================================================
@@ -109,8 +171,17 @@ export async function generateNarratives(
   }
 
   try {
+    // Load user variables and merge with input
+    const { variablesContext, mergedNegativeTerms } = await loadAndFormatUserVariables(
+      input.targetAudience,
+      undefined, // tone
+      undefined, // niche
+      input.cta,
+      input.negativeTerms
+    )
+
     // Build the system prompt with all available context
-    const systemPrompt = getNarrativesSystemPrompt({
+    let systemPrompt = getNarrativesSystemPrompt({
       contentType: input.contentType,
       theme: input.theme,
       context: input.context,
@@ -119,7 +190,17 @@ export async function generateNarratives(
       cta: input.cta,
       extractedContent: input.extractedContent,
       researchData: input.researchData,
-    });
+    })
+
+    // Append user variables context if available
+    if (variablesContext) {
+      systemPrompt += `\n\n${variablesContext}`
+    }
+
+    // Append negative terms if available
+    if (mergedNegativeTerms.length > 0) {
+      systemPrompt += `\n\nTERMOS PROIBIDOS (do usuário): ${mergedNegativeTerms.join(", ")}`
+    }
 
     // ==============================================================================
     // WIZARD DEBUG: PROMPT ENVIADO PARA IA (NARRATIVAS)
@@ -343,19 +424,38 @@ export async function generateContent(
   }
 
   try {
+    // Load user variables and merge with input
+    const { variablesContext, mergedNegativeTerms } = await loadAndFormatUserVariables(
+      input.targetAudience,
+      undefined, // tone
+      undefined, // niche
+      input.cta,
+      input.negativeTerms
+    )
+
     // Build the content-specific prompt
-    const prompt = getContentPrompt({
+    let prompt = getContentPrompt({
       contentType: input.contentType,
       narrativeAngle: input.selectedNarrative.angle,
       narrativeTitle: input.selectedNarrative.title,
       narrativeDescription: input.selectedNarrative.description,
       numberOfSlides: input.numberOfSlides,
       cta: input.cta,
-      negativeTerms: input.negativeTerms,
+      negativeTerms: mergedNegativeTerms.length > 0 ? mergedNegativeTerms : input.negativeTerms,
       ragContext: input.ragContext,
       theme: input.theme,
       targetAudience: input.targetAudience,
-    });
+    })
+
+    // Append user variables context if available
+    if (variablesContext) {
+      prompt += `\n\n${variablesContext}`
+    }
+
+    // Append negative terms if available and not already in the prompt
+    if (mergedNegativeTerms.length > 0) {
+      prompt += `\n\nTERMOS PROIBIDOS (do usuário): ${mergedNegativeTerms.join(", ")}`
+    }
 
     // Create a user message that reinforces the content type
     const userMessage = `Generate ${input.contentType} content with the selected narrative approach.`;

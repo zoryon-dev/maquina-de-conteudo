@@ -626,3 +626,40 @@ export async function getApiKeysStatusAction(): Promise<Record<string, ApiKeySta
     return {}
   }
 }
+
+/**
+ * Fetches all user variables for the current user
+ *
+ * Returns a record of variableKey -> variableValue for all saved variables.
+ * This is safe to use in Client Components.
+ *
+ * @returns Promise with user variables record
+ */
+export async function getUserVariablesAction(): Promise<Record<string, string>> {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return {}
+  }
+
+  try {
+    const variables = await db
+      .select({
+        variableKey: userVariables.variableKey,
+        variableValue: userVariables.variableValue,
+      })
+      .from(userVariables)
+      .where(eq(userVariables.userId, userId))
+
+    // Convert to record for easier consumption
+    const result: Record<string, string> = {}
+    for (const variable of variables) {
+      result[variable.variableKey] = variable.variableValue
+    }
+
+    return result
+  } catch (error) {
+    console.error("Get user variables error:", error)
+    return {}
+  }
+}
