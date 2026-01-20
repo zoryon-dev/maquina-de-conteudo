@@ -42,6 +42,11 @@ import {
 import type { SynthesizerInput, SynthesizedResearch, ResearchPlannerOutput, ResearchQuery } from "@/lib/wizard-services";
 import type { SearchResult } from "@/lib/wizard-services/types";
 
+// Social media workers
+import { publishToInstagram, type InstagramPublishPayload } from "@/lib/social/workers/publish-instagram";
+import { publishToFacebook, type FacebookPublishPayload } from "@/lib/social/workers/publish-facebook";
+import { fetchSocialMetrics, type MetricsFetchPayload } from "@/lib/social/workers/fetch-metrics";
+
 /**
  * Secret para validar chamadas internas do worker
  */
@@ -312,6 +317,38 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     // TODO: Implementar publicação agendada
     await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulação
     return { published: true, postId: "post_123" };
+  },
+
+  /**
+   * Social Media - Instagram Publish Handler
+   *
+   * Publishes a post to Instagram via the Instagram Graph API.
+   * Handles both single media and carousel posts.
+   */
+  social_publish_instagram: async (payload: unknown) => {
+    const { publishedPostId, userId } = payload as InstagramPublishPayload;
+    return await publishToInstagram({ publishedPostId, userId });
+  },
+
+  /**
+   * Social Media - Facebook Publish Handler
+   *
+   * Publishes a post to Facebook via the Facebook Graph API.
+   * Facebook supports native scheduling via scheduled_publish_time.
+   */
+  social_publish_facebook: async (payload: unknown) => {
+    const { publishedPostId, userId } = payload as FacebookPublishPayload;
+    return await publishToFacebook({ publishedPostId, userId });
+  },
+
+  /**
+   * Social Media - Metrics Fetch Handler
+   *
+   * Fetches metrics for published posts from Instagram and Facebook.
+   * Updates the metrics in the database.
+   */
+  social_metrics_fetch: async (payload: unknown) => {
+    return await fetchSocialMetrics(payload as MetricsFetchPayload);
   },
 
   web_scraping: async () => {
