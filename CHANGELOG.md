@@ -10,6 +10,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **User Variables System**: Complete integration between settings variables and content generation
+  - 10 configurable variables: tone, brandVoice, niche, targetAudience, audienceFears, audienceDesires, negativeTerms, differentiators, contentGoals, preferredCTAs
+  - Variables auto-save on edit (no manual save button needed)
+  - Injected automatically into Wizard LLM prompts for narratives and content generation
+  - Merge strategy: saved variables as defaults, Wizard input takes precedence
+  - Negative terms merged from both sources (saved + input)
+- **Social Media Integration**: Configuration section for Instagram, Facebook, and LinkedIn
+  - SocialSection component with OAuth flow and account management
+  - Social API routes: `/api/social/oauth`, `/api/social/callback`, `/api/social/connections`, `/api/social/publish`
+  - Social library service with platform-specific operations
+  - Cron job route for scheduled social publishing
+- **Library Detail Page**: Dedicated page for viewing and managing individual content items
+  - Content preview with media carousel support
+  - Content actions: view, edit, delete, schedule
+  - Enhanced filtering with expanded options
+- **UI Components**: Media carousel components for content display
+  - `media-carousel`: Single image/media carousel with navigation
+  - `multi-card-carousel`: Multi-card carousel for content display
+- **Database Schema**: New tables for social integration
+  - `social_accounts`: Connected social media accounts
+  - `social_posts`: Published and scheduled posts
+  - `social_metrics`: Engagement metrics tracking
+  - `scheduled_posts`: Content scheduling with status tracking
+
+### Changed
 - **Synthesizer v3.1**: Intermediate LLM processing for structured research (throughlines, tensions, frameworks)
 - **Image Generation System**: Dual-method image generation (AI via OpenRouter + HTML Templates via ScreenshotOne)
 - `wizard_image_gen` job type for generating images for wizard slides
