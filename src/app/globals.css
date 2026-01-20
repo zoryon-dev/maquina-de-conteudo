@@ -278,4 +278,13 @@
   ::-webkit-scrollbar-thumb:hover {
     background: hsl(0 0% 35% / 0.7);
   }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }

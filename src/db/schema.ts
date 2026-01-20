@@ -39,6 +39,9 @@ export const jobTypeEnum = pgEnum("job_type", [
   "document_embedding",
   "wizard_narratives",
   "wizard_generation",
+  "social_publish_instagram",
+  "social_publish_facebook",
+  "social_metrics_fetch",
 ]);
 
 export const jobStatusEnum = pgEnum("job_status", [
@@ -56,6 +59,24 @@ export const wizardStepEnum = pgEnum("wizard_step", [
   "generation",
   "completed",
   "abandoned",
+]);
+
+// ========================================
+// SOCIAL MEDIA INTEGRATION ENUMS
+// ========================================
+
+// Social platform enum
+export const socialPlatformEnum = pgEnum("social_platform", [
+  "instagram",
+  "facebook",
+]);
+
+// Social connection status enum
+export const socialConnectionStatusEnum = pgEnum("social_connection_status", [
+  "active",
+  "expired",
+  "revoked",
+  "error",
 ]);
 
 // 1. USERS - Sincronizado com Clerk
@@ -552,6 +573,77 @@ export const jobs = pgTable(
   ]
 );
 
+// ========================================
+// SOCIAL MEDIA INTEGRATION TABLES
+// ========================================
+
+// 10. SOCIAL_CONNECTIONS - Conexões com Instagram e Facebook
+export const socialConnections = pgTable(
+  "social_connections",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    platform: socialPlatformEnum("platform").notNull(),
+    accountId: text("account_id").notNull(), // Instagram Business Account ID or Facebook Page ID
+    accountName: text("account_name"), // Display name
+    accountUsername: text("account_username"), // @username
+    accountProfilePic: text("account_profile_pic"), // Profile picture URL
+    accessToken: text("access_token").notNull(), // Long-lived access token
+    tokenExpiresAt: timestamp("token_expires_at"), // Token expiration (60 days for Instagram)
+    status: socialConnectionStatusEnum("status").default("active").notNull(),
+    metadata: jsonb("metadata"), // Additional data (permissions, scopes, etc.)
+    lastVerifiedAt: timestamp("last_verified_at"), // Last time connection was verified
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    deletedAt: timestamp("deleted_at"), // Soft delete
+  },
+  (table) => [
+    index("social_connections_user_id_idx").on(table.userId),
+    index("social_connections_platform_idx").on(table.platform),
+    index("social_connections_status_idx").on(table.status),
+    unique("social_connections_user_platform_unique").on(table.userId, table.platform),
+  ]
+);
+
+// 11. PUBLISHED_POSTS - Posts publicados em redes sociais
+export const publishedPosts = pgTable(
+  "published_posts",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    libraryItemId: integer("library_item_id").references(
+      () => libraryItems.id,
+      { onDelete: "set null" }
+    ),
+    platform: socialPlatformEnum("platform").notNull(),
+    platformPostId: text("platform_post_id"), // IG Media ID or FB Post ID
+    platformPostUrl: text("platform_post_url"), // URL to the published post
+    mediaType: postTypeEnum("media_type"), // IMAGE, VIDEO, CAROUSEL, etc.
+    caption: text("caption"), // Post caption/text
+    status: text("status").notNull(), // "publishing", "published", "failed", "scheduled"
+    scheduledFor: timestamp("scheduled_for"), // When to publish (for server-side scheduling)
+    publishedAt: timestamp("published_at"), // When it was actually published
+    failureReason: text("failure_reason"), // Error message if failed
+    metrics: jsonb("metrics"), // Store metrics: { likes, comments, shares, impressions, reach, etc. }
+    metricsLastFetchedAt: timestamp("metrics_last_fetched_at"), // Last time metrics were fetched
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    deletedAt: timestamp("deleted_at"), // Soft delete
+  },
+  (table) => [
+    index("published_posts_user_id_idx").on(table.userId),
+    index("published_posts_library_item_id_idx").on(table.libraryItemId),
+    index("published_posts_platform_idx").on(table.platform),
+    index("published_posts_status_idx").on(table.status),
+    index("published_posts_scheduled_for_idx").on(table.scheduledFor),
+    index("published_posts_platform_post_id_idx").on(table.platformPostId),
+  ]
+);
+
 // Relations - usersRelations movido para SETTINGS RELATIONS para incluir settings tables
 
 export const messagesRelations = relations(messages, ({ one }) => ({
@@ -618,6 +710,7 @@ export const libraryItemsRelations = relations(libraryItems, ({ one, many }) => 
   }),
   scheduledPosts: many(scheduledPosts),
   tags: many(libraryItemTags),
+  publishedPosts: many(publishedPosts),
 }));
 
 // Categories relations
@@ -693,6 +786,28 @@ export const contentWizardsRelations = relations(contentWizards, ({ one }) => ({
   job: one(jobs, {
     fields: [contentWizards.jobId],
     references: [jobs.id],
+  }),
+}));
+
+// ========================================
+// SOCIAL MEDIA INTEGRATION RELATIONS
+// ========================================
+
+export const socialConnectionsRelations = relations(socialConnections, ({ one }) => ({
+  user: one(users, {
+    fields: [socialConnections.userId],
+    references: [users.id],
+  }),
+}));
+
+export const publishedPostsRelations = relations(publishedPosts, ({ one }) => ({
+  user: one(users, {
+    fields: [publishedPosts.userId],
+    references: [users.id],
+  }),
+  libraryItem: one(libraryItems, {
+    fields: [publishedPosts.libraryItemId],
+    references: [libraryItems.id],
   }),
 }));
 
@@ -926,6 +1041,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   apiKeys: many(userApiKeys),
   prompts: many(userPrompts),
   variables: many(userVariables),
+  socialConnections: many(socialConnections),
+  publishedPosts: many(publishedPosts),
 }));
 
 // ========================================
@@ -996,3 +1113,14 @@ export type JobType = typeof jobTypeEnum.enumValues[number];
 export type JobStatus = typeof jobStatusEnum.enumValues[number];
 export type PostType = typeof postTypeEnum.enumValues[number];
 export type ContentStatus = typeof contentStatusEnum.enumValues[number];
+
+// ========================================
+// TYPE EXPORTS - SOCIAL MEDIA INTEGRATION
+// ========================================
+
+export type SocialPlatform = typeof socialPlatformEnum.enumValues[number];
+export type SocialConnectionStatus = typeof socialConnectionStatusEnum.enumValues[number];
+export type SocialConnection = typeof socialConnections.$inferSelect;
+export type NewSocialConnection = typeof socialConnections.$inferInsert;
+export type PublishedPost = typeof publishedPosts.$inferSelect;
+export type NewPublishedPost = typeof publishedPosts.$inferInsert;
