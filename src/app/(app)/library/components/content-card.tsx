@@ -3,11 +3,13 @@
  *
  * Card individual para visualização em grid da biblioteca.
  * Exibe thumbnail, título, badges e ações.
+ * Clicar no card abre a página de detalhes.
  * Suporta edição inline de título com duplo clique.
  */
 
 "use client"
 
+import Link from "next/link"
 import { Check, Type, Image, Layers, Video, Camera, MoreVertical, Copy, Trash2, Edit2, Loader2 } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import { cn } from "@/lib/utils"
@@ -137,17 +139,18 @@ export function ContentCard({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Clickable overlay for opening dialog (excludes checkbox and menu) */}
-      <button
-        onClick={onEdit}
+      {/* Link wrapper for opening detail page */}
+      <Link
+        href={`/library/${item.id}`}
         className="absolute inset-0 z-0"
-        aria-label="Abrir detalhes"
+        aria-label="Ver detalhes"
       />
 
-      {/* Selection Checkbox - higher z-index to catch clicks before overlay */}
+      {/* Selection Checkbox - higher z-index to catch clicks before link */}
       <button
         onClick={(e) => {
           e.stopPropagation();
+          e.preventDefault();
           onSelect();
         }}
         className={cn(

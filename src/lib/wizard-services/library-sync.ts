@@ -137,17 +137,15 @@ export function mapGeneratedContentToLibraryItem(
   // Type-specific mapping
   switch (type) {
     case "carousel": {
-      const mediaUrls = generatedContent.slides
-        ?.map(s => s.imagePrompt)
-        .filter(Boolean) || []
-
+      // Note: Images are generated separately via /api/library/[id]/generate-image
+      // We don't save imagePrompt as mediaUrl anymore - leave it null for images to be added later
       return {
         userId,
         type: type as PostType,
         status: "draft" as ContentStatus,
         title,
         content: JSON.stringify(generatedContent),
-        mediaUrl: mediaUrls.length > 0 ? JSON.stringify(mediaUrls) : null,
+        mediaUrl: null, // Will be populated when images are generated
         metadata: JSON.stringify({
           ...baseMetadata,
           slideCount: generatedContent.slides?.length || 0,

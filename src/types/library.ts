@@ -97,7 +97,66 @@ export interface LibraryFilters {
   categories?: number[];
   tags?: number[];
   platforms?: Platform[];
-  dateRange?: { start: Date; end: Date };
+  dateRange?: { start: Date; end: Date; preset?: DatePreset };
+}
+
+/**
+ * Presets de filtro de data
+ */
+export type DatePreset = "today" | "week" | "month" | "custom"
+
+/**
+ * Configurações de preset de data
+ */
+export interface DatePresetConfig {
+  label: string;
+  getRange: () => { start: Date; end: Date }
+}
+
+export const DATE_PRESETS: Record<DatePreset, DatePresetConfig> = {
+  today: {
+    label: "Hoje",
+    getRange: () => {
+      const start = new Date()
+      start.setHours(0, 0, 0, 0)
+      const end = new Date()
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
+    }
+  },
+  week: {
+    label: "Esta Semana",
+    getRange: () => {
+      const now = new Date()
+      const start = new Date(now)
+      start.setDate(now.getDate() - now.getDay())
+      start.setHours(0, 0, 0, 0)
+      const end = new Date(start)
+      end.setDate(start.getDate() + 6)
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
+    }
+  },
+  month: {
+    label: "Este Mês",
+    getRange: () => {
+      const now = new Date()
+      const start = new Date(now.getFullYear(), now.getMonth(), 1)
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
+    }
+  },
+  custom: {
+    label: "Personalizado",
+    getRange: () => {
+      const start = new Date()
+      start.setHours(0, 0, 0, 0)
+      const end = new Date()
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
+    }
+  }
 }
 
 /**

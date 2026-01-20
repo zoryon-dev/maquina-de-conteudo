@@ -2,10 +2,12 @@
  * Content Row Component
  *
  * Linha individual para visualização em lista da biblioteca.
+ * Clicar no título abre a página de detalhes.
  */
 
 "use client"
 
+import Link from "next/link"
 import { Check, Type, Image, Layers, Video, Camera, MoreVertical, Edit2, Copy, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
@@ -91,14 +93,16 @@ export function ContentRow({
             <TypeIcon className={cn("w-4 h-4", typeConfig.color)} />
           </div>
 
-          {/* Title and content preview */}
+          {/* Title and content preview - clickable */}
           <div className="min-w-0 flex-1">
-            <p
-              className="text-sm font-medium text-white truncate max-w-md"
-              onDoubleClick={onEdit}
+            <Link
+              href={`/library/${item.id}`}
+              className="block"
             >
-              {item.title || "Sem título"}
-            </p>
+              <p className="text-sm font-medium text-white truncate max-w-md hover:text-primary transition-colors">
+                {item.title || "Sem título"}
+              </p>
+            </Link>
             {item.content && (
               <p className="text-xs text-white/40 truncate max-w-md">
                 {item.content}

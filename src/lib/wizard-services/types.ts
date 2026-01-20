@@ -36,6 +36,7 @@ export interface GeneratedSlide {
   title: string;
   content: string;
   imagePrompt?: string;
+  imageUrl?: string; // URL of the generated image (populated after image generation)
   // ZORYON v3.0 additional fields
   numero?: number;
   acao?: string;

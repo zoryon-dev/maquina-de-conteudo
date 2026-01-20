@@ -46,6 +46,8 @@ export function LibraryPage() {
     toggleStatus,
     toggleCategory,
     toggleTag,
+    toggleDatePreset,
+    clearDateFilter,
   } = useLibraryFilters()
 
   // Data fetching
@@ -220,6 +222,8 @@ export function LibraryPage() {
         onToggleStatus={toggleStatus}
         onToggleCategory={toggleCategory}
         onToggleTag={toggleTag}
+        onToggleDatePreset={toggleDatePreset}
+        onClearDateFilter={clearDateFilter}
       />
 
       {/* Content Area */}

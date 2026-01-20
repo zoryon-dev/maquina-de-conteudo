@@ -1143,6 +1143,53 @@ export async function deleteTagAction(id: number): Promise<ActionResult> {
 // ============================================================================
 
 /**
+ * Clear invalid media URLs from a library item
+ * Use this to fix items where mediaUrl contains text prompts instead of image URLs
+ *
+ * @param id - Library item ID
+ * @returns Action result
+ */
+export async function clearMediaUrlAction(
+  id: number
+): Promise<ActionResult> {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return { success: false, error: "Não autenticado" }
+  }
+
+  try {
+    // Check ownership
+    const [existing] = await db
+      .select({ mediaUrl: libraryItems.mediaUrl })
+      .from(libraryItems)
+      .where(eq(libraryItems.id, id))
+      .limit(1)
+
+    if (!existing) {
+      return { success: false, error: "Conteúdo não encontrado" }
+    }
+
+    // Clear the mediaUrl field
+    await db
+      .update(libraryItems)
+      .set({ mediaUrl: null, updatedAt: new Date() })
+      .where(eq(libraryItems.id, id))
+
+    revalidatePath("/library")
+    revalidatePath(`/library/${id}`)
+
+    return { success: true }
+  } catch (error) {
+    console.error("Error clearing media URL:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Erro ao limpar mídia",
+    }
+  }
+}
+
+/**
  * Get library statistics
  *
  * @returns Library stats

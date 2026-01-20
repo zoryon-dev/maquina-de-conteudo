@@ -7,8 +7,9 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import type { LibraryFilters } from "@/types/library"
+import type { LibraryFilters, DatePreset } from "@/types/library"
 import type { PostType, ContentStatus } from "@/db/schema"
+import { DATE_PRESETS } from "@/types/library"
 
 export interface UseLibraryFiltersReturn {
   filters: LibraryFilters
@@ -19,6 +20,8 @@ export interface UseLibraryFiltersReturn {
   toggleStatus: (status: ContentStatus) => void
   toggleCategory: (categoryId: number) => void
   toggleTag: (tagId: number) => void
+  toggleDatePreset: (preset: DatePreset) => void
+  clearDateFilter: () => void
   setSearch: (search: string) => void
   setDateRange: (start: Date, end: Date) => void
   isTypeActive: (type: PostType) => boolean
@@ -96,6 +99,26 @@ export function useLibraryFilters(
     }))
   }, [])
 
+  const toggleDatePreset = useCallback((preset: DatePreset) => {
+    setFilters((prev) => {
+      const currentPreset = prev.dateRange?.preset
+      if (currentPreset === preset) {
+        // Toggle off if clicking the same preset
+        return { ...prev, dateRange: undefined }
+      }
+      // Apply new preset
+      const range = DATE_PRESETS[preset].getRange()
+      return { ...prev, dateRange: { ...range, preset } }
+    })
+  }, [])
+
+  const clearDateFilter = useCallback(() => {
+    setFilters((prev) => ({
+      ...prev,
+      dateRange: undefined,
+    }))
+  }, [])
+
   const isTypeActive = useCallback(
     (type: PostType) => {
       return filters.types?.includes(type) ?? false
@@ -142,6 +165,8 @@ export function useLibraryFilters(
     toggleStatus,
     toggleCategory,
     toggleTag,
+    toggleDatePreset,
+    clearDateFilter,
     setSearch,
     setDateRange,
     isTypeActive,

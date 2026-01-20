@@ -1,20 +1,21 @@
 /**
  * Library Filter Bar Component
  *
- * Barra de filtros expansível para tipos, status, categorias e tags.
+ * Barra de filtros expansível para tipos, status, categorias, tags e datas.
  * Baseada no padrão do calendário com adaptações para a biblioteca.
  */
 
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, ChevronUp, Filter, X, Hash, Folder } from "lucide-react"
+import { ChevronDown, ChevronUp, Filter, X, Hash, Folder, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import type { LibraryFilters } from "@/types/library"
+import type { LibraryFilters, DatePreset } from "@/types/library"
 import type { PostType, ContentStatus } from "@/db/schema"
 import { CONTENT_TYPE_CONFIGS } from "@/types/calendar"
+import { DATE_PRESETS } from "@/types/library"
 
 // Extend STATUS_CONFIGS from calendar with proper types
 const STATUS_CONFIGS: Record<ContentStatus, { label: string; color: string }> = {
@@ -33,6 +34,8 @@ interface LibraryFilterBarProps {
   onToggleStatus: (status: ContentStatus) => void
   onToggleCategory: (categoryId: number) => void
   onToggleTag: (tagId: number) => void
+  onToggleDatePreset: (preset: DatePreset) => void
+  onClearDateFilter: () => void
   // TODO: Add categories and tags when available
   categories?: Array<{ id: number; name: string; color?: string | null }>
   tags?: Array<{ id: number; name: string; color?: string | null }>
@@ -47,6 +50,8 @@ export function LibraryFilterBar({
   onToggleStatus,
   onToggleCategory,
   onToggleTag,
+  onToggleDatePreset,
+  onClearDateFilter,
   categories = [],
   tags = [],
 }: LibraryFilterBarProps) {
@@ -140,6 +145,12 @@ export function LibraryFilterBar({
               onRemove={() => onUpdateFilters({ ...filters, search: undefined })}
             />
           )}
+          {filters.dateRange && (
+            <FilterPill
+              label={`Data: ${filters.dateRange.preset ? DATE_PRESETS[filters.dateRange.preset].label : "Personalizado"}`}
+              onRemove={onClearDateFilter}
+            />
+          )}
         </div>
       )}
 
@@ -171,6 +182,14 @@ export function LibraryFilterBar({
             }))}
             selected={filters.statuses || []}
             onToggle={(value) => onToggleStatus(value as ContentStatus)}
+          />
+
+          {/* Date Filter */}
+          <DateFilterSection
+            filters={filters}
+            onUpdateFilters={onUpdateFilters}
+            onClearDateFilter={onClearDateFilter}
+            onToggleDatePreset={onToggleDatePreset}
           />
 
           {/* Category Filter */}
@@ -292,5 +311,55 @@ function FilterPill({ label, onRemove }: FilterPillProps) {
       {label}
       <X className="w-3 h-3 ml-1" />
     </Badge>
+  )
+}
+
+/**
+ * Date Filter Section with preset buttons
+ */
+interface DateFilterSectionProps {
+  filters: LibraryFilters
+  onUpdateFilters: (filters: LibraryFilters) => void
+  onClearDateFilter: () => void
+  onToggleDatePreset: (preset: DatePreset) => void
+}
+
+function DateFilterSection({
+  filters,
+  onUpdateFilters,
+  onClearDateFilter,
+  onToggleDatePreset,
+}: DateFilterSectionProps) {
+  const activePreset = filters.dateRange?.preset
+
+  return (
+    <div>
+      <h4 className="text-xs font-medium text-white/60 uppercase mb-2 flex items-center gap-1.5">
+        <Calendar className="w-3 h-3" />
+        Período
+      </h4>
+      <div className="flex flex-wrap gap-2">
+        {(Object.keys(DATE_PRESETS) as DatePreset[]).map((preset) => {
+          const isSelected = activePreset === preset
+
+          return (
+            <button
+              key={preset}
+              onClick={() => onToggleDatePreset(preset)}
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all",
+                "border",
+                isSelected
+                  ? "bg-primary/20 border-primary text-primary"
+                  : "bg-white/[0.02] border-white/10 text-white/70 hover:border-white/20"
+              )}
+            >
+              <span>{DATE_PRESETS[preset].label}</span>
+              {isSelected && <X className="w-3 h-3 ml-1" />}
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }
