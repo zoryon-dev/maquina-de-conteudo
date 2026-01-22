@@ -8,7 +8,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { X, Loader2, Link as LinkIcon, ImagePlus, Folder, Hash, Layers, Type, ChevronLeft, ChevronRight } from "lucide-react"
+import { X, Loader2, Link as LinkIcon, ImagePlus, Folder, Hash, Layers, Type, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils"
 import { CategoryPicker } from "./category-picker"
 import { TagPicker } from "./tag-picker"
 import type { LibraryItemWithRelations, Category, Tag } from "@/types/library"
+import { toast } from "sonner"
 
 // ============================================================================
 // TYPES FOR CAROUSEL
@@ -80,6 +81,7 @@ export function ContentDialog({ open, item, onClose, onSave }: ContentDialogProp
   const [tagIds, setTagIds] = useState<number[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isRegeneratingImages, setIsRegeneratingImages] = useState(false)
 
   // Carousel-specific state
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
@@ -229,6 +231,43 @@ export function ContentDialog({ open, item, onClose, onSave }: ContentDialogProp
   // Handle remove media URL
   const handleRemoveMediaUrl = (url: string) => {
     setMediaUrls(mediaUrls.filter((u) => u !== url))
+  }
+
+  // Handle regenerate images for carousel
+  const handleRegenerateImages = async () => {
+    if (!item || item.type !== "carousel") return
+
+    setIsRegeneratingImages(true)
+    setError(null)
+
+    try {
+      // Call the queue API to regenerate images
+      const response = await fetch(`/api/library/${item.id}/regenerate-images`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Erro ao regenerar imagens" }))
+        throw new Error(errorData.error || "Erro ao regenerar imagens")
+      }
+
+      const data = await response.json()
+
+      // Show success message
+      toast.success("Imagens sendo geradas", {
+        description: "Você será notificado quando estiverem prontas.",
+      })
+
+      // Close dialog to show updated state
+      onSave()
+      onClose()
+    } catch (err) {
+      console.error("Error regenerating images:", err)
+      setError(err instanceof Error ? err.message : "Erro ao regenerar imagens")
+    } finally {
+      setIsRegeneratingImages(false)
+    }
   }
 
   // Handle keyboard shortcuts
@@ -536,6 +575,29 @@ export function ContentDialog({ open, item, onClose, onSave }: ContentDialogProp
                   </div>
                 ))}
               </div>
+            )}
+
+            {/* Regenerate Images Button - for carousels */}
+            {type === "carousel" && isEditing && (
+              <Button
+                type="button"
+                onClick={handleRegenerateImages}
+                disabled={isRegeneratingImages}
+                variant="outline"
+                className="border-white/10 text-white/70 hover:text-white hover:bg-white/5 w-full"
+              >
+                {isRegeneratingImages ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Gerando imagens...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Regenerar Imagens com IA
+                  </>
+                )}
+              </Button>
             )}
           </div>
 

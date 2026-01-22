@@ -91,6 +91,7 @@ export async function dequeueJob(): Promise<number | null> {
  * @param jobId - ID do job
  */
 export async function markAsProcessing(jobId: number): Promise<void> {
+  if (!isQueueConfigured()) return;
   await redis.lpush(PROCESSING_QUEUE, String(jobId));
 }
 
@@ -99,6 +100,7 @@ export async function markAsProcessing(jobId: number): Promise<void> {
  * @param jobId - ID do job
  */
 export async function removeFromProcessing(jobId: number): Promise<void> {
+  if (!isQueueConfigured()) return;
   await redis.lrem(PROCESSING_QUEUE, 1, String(jobId));
 }
 
@@ -106,6 +108,7 @@ export async function removeFromProcessing(jobId: number): Promise<void> {
  * Retorna o tamanho da fila pendente
  */
 export async function getQueueSize(): Promise<number> {
+  if (!isQueueConfigured()) return 0;
   return await redis.llen(JOB_QUEUE);
 }
 
@@ -113,6 +116,7 @@ export async function getQueueSize(): Promise<number> {
  * Retorna o número de jobs em processamento
  */
 export async function getProcessingCount(): Promise<number> {
+  if (!isQueueConfigured()) return 0;
   return await redis.llen(PROCESSING_QUEUE);
 }
 

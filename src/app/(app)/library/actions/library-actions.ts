@@ -599,6 +599,56 @@ export async function deleteLibraryItemAction(
 }
 
 /**
+ * Batch delete multiple library items
+ *
+ * @param ids - Library item IDs to delete
+ * @returns Action result
+ */
+export async function deleteLibraryItemsAction(
+  ids: number[]
+): Promise<ActionResult> {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return { success: false, error: "Não autenticado" }
+  }
+
+  if (ids.length === 0) {
+    return { success: false, error: "Nenhum item selecionado" }
+  }
+
+  try {
+    // Check ownership for all items
+    const items = await db
+      .select()
+      .from(libraryItems)
+      .where(inArray(libraryItems.id, ids))
+
+    const ownedItems = items.filter((item) => item.userId === userId)
+
+    if (ownedItems.length !== ids.length) {
+      return { success: false, error: "Alguns itens não foram encontrados" }
+    }
+
+    // Soft delete all items
+    await db
+      .update(libraryItems)
+      .set({ deletedAt: new Date() })
+      .where(inArray(libraryItems.id, ids))
+
+    revalidatePath("/library")
+
+    return { success: true }
+  } catch (error) {
+    console.error("Error batch deleting library items:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Erro ao excluir conteúdos",
+    }
+  }
+}
+
+/**
  * Batch update status for multiple library items
  *
  * @param ids - Library item IDs

@@ -14,6 +14,7 @@ export enum JobType {
   DOCUMENT_EMBEDDING = "document_embedding",
   WIZARD_NARRATIVES = "wizard_narratives",
   WIZARD_GENERATION = "wizard_generation",
+  WIZARD_IMAGE_GENERATION = "wizard_image_generation",
 }
 
 // Status dos jobs
@@ -36,6 +37,47 @@ export interface AiImageGenerationPayload {
   prompt: string;
   style?: string;
   aspectRatio?: string;
+}
+
+/**
+ * Payload for wizard image generation job
+ * Generates images for wizard content and syncs to library
+ */
+export interface WizardImageGenerationPayload {
+  /** Wizard ID */
+  wizardId: number;
+  /** User ID for authorization */
+  userId: string;
+  /** Image generation configuration */
+  config: {
+    method: "ai" | "html-template";
+    aiOptions?: {
+      model: string;
+      color: string;
+      style: string;
+      composition?: string;
+      mood?: string;
+      customColor?: string;
+      additionalContext?: string;
+    };
+    htmlOptions?: {
+      template: string;
+      title?: string;
+      body?: string;
+      cta?: string;
+      backgroundColor?: string;
+      textColor?: string;
+      accentColor?: string;
+    };
+    coverPosts?: {
+      coverMethod: "ai" | "html-template";
+      coverAiOptions?: any;
+      coverHtmlOptions?: any;
+      postsMethod: "ai" | "html-template";
+      postsAiOptions?: any;
+      postsHtmlOptions?: any;
+    };
+  };
 }
 
 export interface CarouselCreationPayload {
@@ -138,7 +180,8 @@ export type JobPayload =
   | WebScrapingPayload
   | DocumentEmbeddingPayload
   | WizardNarrativesPayload
-  | WizardGenerationPayload;
+  | WizardGenerationPayload
+  | WizardImageGenerationPayload;
 
 // Estrutura de um job
 export interface QueueJob {

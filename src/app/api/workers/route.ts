@@ -13,14 +13,14 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { dequeueJob, markAsProcessing, removeFromProcessing, enqueueJob } from "@/lib/queue/client";
+import { dequeueJob, markAsProcessing, removeFromProcessing } from "@/lib/queue/client";
 import { getJob, incrementJobAttempts, updateJobStatus } from "@/lib/queue/jobs";
 import { db } from "@/db";
-import { jobs, documents, documentEmbeddings, contentWizards } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { jobs, documents, documentEmbeddings, contentWizards, libraryItems } from "@/db/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { splitDocumentIntoChunks } from "@/lib/voyage/chunking";
 import { generateEmbeddingsBatch } from "@/lib/voyage/embeddings";
-import type { DocumentEmbeddingPayload, WizardNarrativesPayload, WizardGenerationPayload } from "@/lib/queue/types";
+import type { DocumentEmbeddingPayload, WizardNarrativesPayload, WizardGenerationPayload, WizardImageGenerationPayload } from "@/lib/queue/types";
 import type { WizardProcessingProgress } from "@/db/schema";
 
 // Wizard services - background job processing
@@ -37,6 +37,10 @@ import {
   createLibraryItemFromWizard,
   synthesizeResearch,
   generateResearchQueries,
+  generateAiImage,
+  generateHtmlTemplateImage,
+  isImageGenerationAvailable,
+  isScreenshotOneAvailable,
 } from "@/lib/wizard-services";
 
 import type { SynthesizerInput, SynthesizedResearch, ResearchPlannerOutput, ResearchQuery } from "@/lib/wizard-services";
@@ -47,10 +51,21 @@ import { publishToInstagram, type InstagramPublishPayload } from "@/lib/social/w
 import { publishToFacebook, type FacebookPublishPayload } from "@/lib/social/workers/publish-facebook";
 import { fetchSocialMetrics, type MetricsFetchPayload } from "@/lib/social/workers/fetch-metrics";
 
+// Storage
+import { getStorageProvider } from "@/lib/storage";
+
 /**
  * Secret para validar chamadas internas do worker
+ *
+ * Accepts two authentication methods:
+ * 1. CRON_SECRET environment variable (recommended for Vercel Cron)
+ * 2. WORKER_SECRET environment variable (legacy)
+ *
+ * For Vercel Cron jobs, use: /api/workers?secret={CRON_SECRET}
+ * For direct calls, use: Authorization: Bearer {CRON_SECRET}
  */
-const WORKER_SECRET = process.env.WORKER_SECRET || "dev-secret";
+const CRON_SECRET = process.env.CRON_SECRET || "dev-cron-secret";
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.CRON_SECRET || "dev-secret";
 
 /**
  * Validates that required API keys are configured
@@ -112,6 +127,42 @@ async function updateWizardProgress(
   }
 
   await db.update(contentWizards).set(updateData).where(eq(contentWizards.id, wizardId));
+}
+
+/**
+ * Helper para fazer upload de imagem base64 para o storage
+ *
+ * Converte data:image/png;base64,... em Buffer e faz upload
+ * Retorna a URL pública da imagem
+ */
+async function uploadBase64ImageToStorage(
+  base64DataUrl: string,
+  wizardId: number,
+  slideNumber: number
+): Promise<string> {
+  // Extrair os dados base64 da URL
+  const matches = base64DataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+  if (!matches) {
+    throw new Error("Invalid base64 data URL format");
+  }
+
+  const format = matches[1]; // png, jpeg, etc.
+  const base64 = matches[2];
+  const buffer = Buffer.from(base64, 'base64');
+
+  // Gerar chave única para o arquivo
+  const timestamp = Date.now();
+  const key = `wizard-${wizardId}/slide-${slideNumber}-${timestamp}.${format}`;
+
+  // Fazer upload usando o storage provider configurado
+  const storage = getStorageProvider();
+  const result = await storage.uploadFile(buffer, key, {
+    contentType: `image/${format}`,
+  });
+
+  console.log(`[STORAGE] Uploaded image to ${result.url}`);
+
+  return result.url;
 }
 
 /**
@@ -1082,14 +1133,316 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       libraryItemId: libraryResult.success ? libraryResult.libraryItemId : undefined,
     };
   },
+
+  /**
+   * Wizard Image Generation Handler
+   *
+   * Processes wizard_image_generation job by:
+   * 1. Fetching the wizard with generated content
+   * 2. Generating images (AI or HTML template) for each slide
+   * 3. Updating wizard.generatedImages
+   * 4. Syncing to library (updating libraryItems.mediaUrl)
+   * 5. Marking job as completed
+   */
+  wizard_image_generation: async (payload: unknown) => {
+    const { wizardId, userId, config } =
+      payload as WizardImageGenerationPayload;
+
+    console.log(`[WIZARD-IMAGE] JOB wizard_image_generation START - wizardId: ${wizardId}, userId: ${userId}`);
+
+    // 1. Get wizard
+    const [wizard] = await db
+      .select()
+      .from(contentWizards)
+      .where(and(eq(contentWizards.id, wizardId), eq(contentWizards.userId, userId)))
+      .limit(1);
+
+    if (!wizard) {
+      throw new Error(`Wizard ${wizardId} not found for user ${userId}`);
+    }
+
+    // 2. Determine number of slides to generate
+    let numberOfSlides = 1;
+    let slides: Array<{ content: string; title?: string }> = [];
+
+    if (wizard.generatedContent && typeof wizard.generatedContent === "object") {
+      const content = wizard.generatedContent as Record<string, unknown>;
+      if (content.slides && Array.isArray(content.slides)) {
+        numberOfSlides = content.slides.length;
+        slides = content.slides.map((s: unknown) => {
+          const slide = s as Record<string, unknown>;
+          return {
+            content: String(slide.content || ""),
+            title: slide.title ? String(slide.title) : undefined,
+          };
+        });
+      }
+    }
+
+    // Fallback to theme if no slides found
+    if (slides.length === 0) {
+      slides = [{ content: wizard.theme || "Conteúdo gerado" }];
+      numberOfSlides = 1;
+    }
+
+    console.log(`[WIZARD-IMAGE] Generating ${numberOfSlides} images for ${slides.length} slides`);
+
+    // 3. Determine effective configuration (support both legacy and coverPosts format)
+    let effectiveConfig: typeof config = config;
+
+    if (config.coverPosts && !config.method) {
+      const cp = config.coverPosts;
+      effectiveConfig = {
+        method: cp.coverMethod,
+        aiOptions: cp.coverAiOptions,
+        htmlOptions: cp.coverHtmlOptions,
+        coverPosts: cp,
+      } as typeof config;
+    }
+
+    // Validate configuration
+    const hasValidAiConfig = effectiveConfig.method === "ai" && effectiveConfig.aiOptions;
+    const hasValidHtmlConfig = effectiveConfig.method === "html-template" && effectiveConfig.htmlOptions;
+
+    if (!hasValidAiConfig && !hasValidHtmlConfig) {
+      throw new Error("Invalid configuration for selected method");
+    }
+
+    // Check service availability
+    if (effectiveConfig.method === "ai" && !isImageGenerationAvailable()) {
+      throw new Error("OpenRouter API key not configured");
+    }
+
+    if (effectiveConfig.method === "html-template" && !isScreenshotOneAvailable()) {
+      throw new Error("ScreenshotOne access key not configured");
+    }
+
+    // 4. Update wizard with processing status
+    await updateWizardProgress(wizardId, {
+      jobStatus: "processing",
+      processingProgress: {
+        stage: "generation",
+        percent: 10,
+        message: "Iniciando geração de imagens...",
+      },
+    });
+
+    // Update library item metadata to show processing
+    if (wizard.libraryItemId) {
+      const [libraryItem] = await db
+        .select()
+        .from(libraryItems)
+        .where(eq(libraryItems.id, wizard.libraryItemId!))
+        .limit(1);
+
+      if (libraryItem) {
+        const currentMetadata = JSON.parse(libraryItem.metadata || '{}');
+        await db
+          .update(libraryItems)
+          .set({
+            metadata: JSON.stringify({
+              ...currentMetadata,
+              imageProcessing: {
+                status: "processing",
+                wizardId,
+                startedAt: new Date().toISOString(),
+              },
+            }),
+            updatedAt: new Date(),
+          })
+          .where(eq(libraryItems.id, wizard.libraryItemId!));
+      }
+    }
+
+    // 5. Generate images for each slide
+    const newImages: any[] = [];
+    const cp = config.coverPosts;
+
+    for (let i = 0; i < slides.length; i++) {
+      const slide = slides[i];
+      const slideNumber = i + 1;
+      const isCover = slideNumber === 1;
+
+      // Update progress
+      await updateWizardProgress(wizardId, {
+        processingProgress: {
+          stage: "generation",
+          percent: 10 + Math.floor((i / slides.length) * 80),
+          message: `Gerando imagem ${slideNumber}/${slides.length}...`,
+        },
+      });
+
+      // Determine configuration for this slide
+      let slideConfig: typeof config = effectiveConfig;
+      if (cp) {
+        const method = isCover ? cp.coverMethod : cp.postsMethod;
+        const aiOptions = isCover ? cp.coverAiOptions : cp.postsAiOptions;
+        const htmlOptions = isCover ? cp.coverHtmlOptions : cp.postsHtmlOptions;
+        slideConfig = { method, aiOptions, htmlOptions, coverPosts: cp } as typeof config;
+      }
+
+      // Prepare generation input
+      const generationInput = {
+        slideTitle: (slide.title || wizard.theme || undefined) as string | undefined,
+        slideContent: slide.content,
+        slideNumber,
+        config: slideConfig as any, // Cast to avoid type issues with union
+        wizardContext: {
+          theme: wizard.theme || undefined,
+          objective: wizard.objective || undefined,
+          targetAudience: wizard.targetAudience || undefined,
+        },
+      };
+
+      // Generate image based on method
+      let result: any = null;
+
+      if (slideConfig.method === "ai") {
+        const aiResult = await generateAiImage(generationInput);
+        if (!aiResult.success || !aiResult.data) {
+          throw new Error(`Failed to generate AI image for slide ${slideNumber}: ${aiResult.error}`);
+        }
+        result = aiResult.data;
+      } else {
+        const htmlResult = await generateHtmlTemplateImage(generationInput);
+        if (!htmlResult.success || !htmlResult.data) {
+          throw new Error(`Failed to generate template image for slide ${slideNumber}: ${htmlResult.error}`);
+        }
+        result = htmlResult.data;
+      }
+
+      if (!result) {
+        throw new Error(`Failed to generate image for slide ${slideNumber}`);
+      }
+
+      newImages.push(result);
+      console.log(`[WIZARD-IMAGE] Generated image ${slideNumber}/${slides.length}: ${result.imageUrl}`);
+    }
+
+    // 6. Update wizard with generated images
+    const existingImages = (wizard.generatedImages as unknown as any[]) || [];
+    const updatedImages = [...existingImages, ...newImages];
+
+    await db
+      .update(contentWizards)
+      .set({
+        imageGenerationConfig: config as any,
+        generatedImages: updatedImages as any,
+        jobStatus: "completed",
+        processingProgress: {
+          stage: "generation",
+          percent: 100,
+          message: "Imagens geradas com sucesso!",
+        },
+        jobError: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(contentWizards.id, wizardId));
+
+    // 7. Upload images to storage and sync to library
+    if (wizard.libraryItemId) {
+      // First, upload all base64 images to storage
+      console.log(`[WIZARD-IMAGE] Uploading ${newImages.length} images to storage...`);
+      const uploadedImageUrls: string[] = [];
+
+      for (let i = 0; i < newImages.length; i++) {
+        const img = newImages[i];
+        const slideNumber = i + 1;
+
+        // Check if imageUrl is a base64 data URL
+        if (img.imageUrl.startsWith('data:image/')) {
+          try {
+            const storageUrl = await uploadBase64ImageToStorage(img.imageUrl, wizardId, slideNumber);
+            uploadedImageUrls.push(storageUrl);
+            console.log(`[WIZARD-IMAGE] Uploaded image ${slideNumber}/${newImages.length} to storage`);
+          } catch (uploadError) {
+            console.error(`[WIZARD-IMAGE] Failed to upload image ${slideNumber}:`, uploadError);
+            // Fall back to base64 URL if upload fails
+            uploadedImageUrls.push(img.imageUrl);
+          }
+        } else {
+          // Already a regular URL, use as-is
+          uploadedImageUrls.push(img.imageUrl);
+        }
+      }
+
+      // Now update the library item with the storage URLs
+      const [libraryItem] = await db
+        .select()
+        .from(libraryItems)
+        .where(eq(libraryItems.id, wizard.libraryItemId!))
+        .limit(1);
+
+      if (libraryItem) {
+        const currentMetadata = JSON.parse(libraryItem.metadata || '{}');
+
+        // Merge with existing mediaUrls if any
+        const existingMediaUrls = libraryItem.mediaUrl
+          ? JSON.parse(libraryItem.mediaUrl)
+          : [];
+        const allMediaUrls = [...existingMediaUrls, ...uploadedImageUrls];
+
+        await db
+          .update(libraryItems)
+          .set({
+            mediaUrl: JSON.stringify(allMediaUrls),
+            metadata: JSON.stringify({
+              ...currentMetadata,
+              imageProcessing: null, // Remove processing flag
+              imagesGeneratedAt: new Date().toISOString(),
+              imageCount: allMediaUrls.length,
+            }),
+            updatedAt: new Date(),
+          })
+          .where(eq(libraryItems.id, wizard.libraryItemId!));
+
+        console.log(`[WIZARD-IMAGE] Synced ${uploadedImageUrls.length} images to library item ${wizard.libraryItemId}`);
+      }
+    }
+
+    console.log(`[WIZARD-IMAGE] JOB wizard_image_generation COMPLETED - wizardId: ${wizardId}`);
+
+    return {
+      success: true,
+      images: newImages,
+      wizardId,
+      libraryItemId: wizard.libraryItemId,
+    };
+  },
 };
 
 export async function POST(request: Request) {
-  // Verificar autenticação via secret (para chamadas internas)
-  const authHeader = request.headers.get("authorization");
-  const secret = authHeader?.replace("Bearer ", "");
+  // Verificar autenticação - múltiplos métodos suportados:
 
-  if (secret !== WORKER_SECRET) {
+  // 1. Vercel Cron header (x-vercel-cron) - enviado automaticamente pelo Vercel Cron Jobs
+  const isVercelCron = request.headers.get("x-vercel-cron") === "true";
+
+  // 2. Vercel Cron Secret (x-vercel-cron-secret) - configurado nas settings do projeto Vercel
+  const vercelCronSecret = request.headers.get("x-vercel-cron-secret");
+  const configuredCronSecret = process.env.CRON_SECRET;
+
+  // 3. Authorization header (para chamadas manuais)
+  const authHeader = request.headers.get("authorization");
+  const bearerSecret = authHeader?.replace("Bearer ", "");
+
+  // 4. Query parameter (para compatibilidade)
+  const { searchParams } = new URL(request.url);
+  const querySecret = searchParams.get("secret");
+
+  // 5. Test mode in development
+  const testMode = searchParams.get("test") === "true" && process.env.NODE_ENV === "development";
+
+  // Validar autenticação
+  const isValidSecret =
+    isVercelCron || // Vercel Cron autenticado pelo header
+    vercelCronSecret === configuredCronSecret || // Vercel Cron com secret
+    bearerSecret === CRON_SECRET || // Authorization header
+    bearerSecret === WORKER_SECRET ||
+    querySecret === CRON_SECRET || // Query parameter
+    querySecret === WORKER_SECRET ||
+    testMode; // Development test mode
+
+  if (!isValidSecret) {
     // Alternativamente, aceitar autenticação Clerk para testes manuais
     const { userId } = await auth();
     if (!userId) {
@@ -1099,7 +1452,29 @@ export async function POST(request: Request) {
 
   try {
     // Desenfileirar próximo job
-    const jobId = await dequeueJob();
+    let jobId = await dequeueJob();
+
+    // Fallback: se Redis não estiver configurado ou fila vazia,
+    // buscar jobs pendentes diretamente do banco
+    if (!jobId) {
+      const { isQueueConfigured } = await import("@/lib/queue/client");
+      if (!isQueueConfigured()) {
+        console.warn("[Worker] Redis not configured, falling back to direct database polling");
+
+        // Buscar jobs pendentes do banco ordenados por prioridade e data de criação
+        const [fallbackJob] = await db
+          .select({ id: jobs.id })
+          .from(jobs)
+          .where(eq(jobs.status, "pending"))
+          .orderBy(desc(jobs.priority), desc(jobs.createdAt))
+          .limit(1);
+
+        if (fallbackJob) {
+          jobId = fallbackJob.id;
+          console.log(`[Worker] Processing job ${jobId} from database (Redis fallback)`);
+        }
+      }
+    }
 
     if (!jobId) {
       return NextResponse.json({
@@ -1177,8 +1552,16 @@ export async function POST(request: Request) {
         await db.update(jobs).set({ status: "pending" as any }).where(eq(jobs.id, jobId));
         await removeFromProcessing(jobId);
 
-        // Re-enfileirar no Redis
-        await enqueueJob(jobId, job.priority ?? undefined);
+        // Re-enfileirar no Redis (se configurado)
+        const { isQueueConfigured, enqueueJob: enqueueJobFn } = await import("@/lib/queue/client");
+        if (isQueueConfigured()) {
+          try {
+            await enqueueJobFn(jobId, job.priority ?? undefined);
+          } catch (enqueueError) {
+            console.warn(`[Worker] Failed to re-enqueue job ${jobId} to Redis:`, enqueueError);
+            // Job stays in DB as pending, will be picked up by fallback
+          }
+        }
 
         return NextResponse.json({
           message: "Job failed, will retry",
@@ -1223,26 +1606,62 @@ export async function POST(request: Request) {
  * GET /api/workers
  *
  * Retorna status da fila (útil para monitoramento).
+ *
+ * Query params:
+ * - test=true: Permite acesso sem autenticação em desenvolvimento
+ * - includeJobs=true: Inclui lista de jobs pendentes
  */
 export async function GET(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Allow test mode in development
+  const { searchParams } = new URL(request.url);
+  const testMode = searchParams.get("test") === "true" && process.env.NODE_ENV === "development";
+
+  if (!testMode) {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   }
 
   try {
-    const { getQueueSize, getProcessingCount } = await import("@/lib/queue/client");
+    const { getQueueSize, getProcessingCount, isQueueConfigured } = await import("@/lib/queue/client");
 
     const [queueSize, processingCount] = await Promise.all([
       getQueueSize(),
       getProcessingCount(),
     ]);
 
+    // Get pending jobs from database if requested
+    let pendingJobs: unknown[] = [];
+    if (searchParams.get("includeJobs") === "true") {
+      const { db } = await import("@/db");
+      const { jobs } = await import("@/db/schema");
+      const { eq, desc } = await import("drizzle-orm");
+
+      pendingJobs = await db
+        .select({
+          id: jobs.id,
+          type: jobs.type,
+          status: jobs.status,
+          createdAt: jobs.createdAt,
+          attempts: jobs.attempts,
+        })
+        .from(jobs)
+        .where(eq(jobs.status, "pending"))
+        .orderBy(desc(jobs.createdAt))
+        .limit(10);
+    }
+
     return NextResponse.json({
       queue: {
         pending: queueSize,
         processing: processingCount,
       },
+      redis: {
+        configured: isQueueConfigured(),
+        url: !!process.env.UPSTASH_REDIS_REST_URL,
+      },
+      pendingJobs,
     });
   } catch (error) {
     console.error("Error getting queue status:", error);

@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ProcessingModal } from "@/components/ui/processing-modal";
 import type { WizardStepValue } from "./shared/wizard-steps-indicator";
 import { WizardStepsIndicator } from "./shared/wizard-steps-indicator";
 import { Step1Inputs } from "./steps/step-1-inputs";
@@ -30,7 +31,6 @@ import {
 } from "./steps/step-4-generation";
 import {
   Step5ImageGeneration,
-  type Step5ImageGenerationProps,
   type GeneratedContent as Step5GeneratedContent,
 } from "./steps/step-5-image-generation";
 import type { ImageGenerationConfig, GeneratedImage } from "@/lib/wizard-services/client";
@@ -107,6 +107,8 @@ export function WizardPage({
   const [formData, setFormData] = useState<WizardFormData>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showProcessingModal, setShowProcessingModal] = useState(false);
+  const [queuedJobId, setQueuedJobId] = useState<number | null>(null);
 
   const isMountedRef = useRef(true);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -343,10 +345,9 @@ export function WizardPage({
     setCurrentStep("narratives");
   };
 
-  // Step 5: Handle image generation
+  // Step 5: Handle image generation (async via queue)
   const handleGenerateImage = async (config: ImageGenerationConfig) => {
     if (!wizardId) return;
-    setIsSubmitting(true);
     setError(null);
 
     try {
@@ -362,8 +363,8 @@ export function WizardPage({
         }),
       });
 
-      // Trigger image generation via API
-      const response = await fetch(`/api/wizard/${wizardId}/generate-image`, {
+      // Queue image generation via API (returns immediately with jobId)
+      const response = await fetch(`/api/wizard/${wizardId}/queue-image-generation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ config }),
@@ -371,7 +372,7 @@ export function WizardPage({
 
       if (!response.ok) {
         // Try to get detailed error from response
-        let errorMessage = "Failed to generate image";
+        let errorMessage = "Failed to queue image generation";
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorData.message || errorMessage;
@@ -385,25 +386,16 @@ export function WizardPage({
       }
 
       const data = await response.json();
+      console.log("[WIZARD] Job queued:", data.jobId);
 
-      // Update wizard with generated images
-      setWizard((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          generatedImages: data.images || [],
-        };
-      });
+      // Store jobId for processing modal
+      setQueuedJobId(data.jobId);
 
-      setFormData((prev) => ({
-        ...prev,
-        generatedImages: data.images || [],
-      }));
+      // Show processing modal - it will auto-redirect to dashboard
+      setShowProcessingModal(true);
     } catch (err) {
-      console.error("Error generating image:", err);
-      setError(err instanceof Error ? err.message : "Failed to generate image");
-    } finally {
-      setIsSubmitting(false);
+      console.error("Error queuing image generation:", err);
+      setError(err instanceof Error ? err.message : "Failed to queue image generation");
     }
   };
 
@@ -655,6 +647,16 @@ export function WizardPage({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Processing Modal */}
+      <ProcessingModal
+        isOpen={showProcessingModal}
+        title="Gerando Imagens"
+        message="Suas imagens estão sendo geradas em segundo plano. Você será notificado quando estiverem prontas!"
+        redirectPath="/dashboard"
+        jobId={queuedJobId ?? undefined}
+        jobType="wizard_image_generation"
+      />
     </div>
   );
 }

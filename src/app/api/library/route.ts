@@ -3,6 +3,7 @@
  *
  * GET /api/library - Fetch library items with filters
  * POST /api/library - Create a new library item
+ * DELETE /api/library - Batch delete library items
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -10,6 +11,7 @@ import { auth } from "@clerk/nextjs/server"
 import {
   getLibraryItemsAction,
   createLibraryItemAction,
+  deleteLibraryItemsAction,
 } from "@/app/(app)/library/actions/library-actions"
 
 export async function GET(request: NextRequest) {
@@ -80,6 +82,38 @@ export async function POST(_request: NextRequest) {
     console.error("Error creating library item:", error)
     return NextResponse.json(
       { success: false, error: "Failed to create library item" },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 }
+    )
+  }
+
+  try {
+    const body = await request.json()
+    const { ids } = body as { ids: number[] }
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Invalid IDs provided" },
+        { status: 400 }
+      )
+    }
+
+    const result = await deleteLibraryItemsAction(ids)
+    return NextResponse.json(result)
+  } catch (error) {
+    console.error("Error deleting library items:", error)
+    return NextResponse.json(
+      { success: false, error: "Failed to delete library items" },
       { status: 500 }
     )
   }

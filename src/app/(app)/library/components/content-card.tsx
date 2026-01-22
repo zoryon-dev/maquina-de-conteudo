@@ -3,15 +3,14 @@
  *
  * Card individual para visualização em grid da biblioteca.
  * Exibe thumbnail, título, badges e ações.
- * Clicar no card abre a página de detalhes.
+ * Clicar no card abre o drawer de imagens (modo slide lateral).
  * Suporta edição inline de título com duplo clique.
  */
 
 "use client"
 
-import Link from "next/link"
 import { Check, Type, Image, Layers, Video, Camera, MoreVertical, Copy, Trash2, Edit2, Loader2 } from "lucide-react"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,6 +22,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
+import { ImageGalleryDrawer, type GalleryImage } from "@/components/ui/image-gallery-drawer"
 import type { LibraryItemWithRelations } from "@/types/library"
 import { CONTENT_TYPE_CONFIGS, STATUS_CONFIGS } from "@/types/calendar"
 import { formatDate } from "@/lib/format"
@@ -57,12 +57,42 @@ export function ContentCard({
   const [isSaving, setIsSaving] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Gallery drawer state
+  const [galleryOpen, setGalleryOpen] = useState(false)
+
   const typeConfig = CONTENT_TYPE_CONFIGS[item.type]
   const statusConfig = STATUS_CONFIGS[item.status]
   const TypeIcon = TYPE_ICONS[item.type] || Type
 
+  // Parse metadata to check if images are being processed
+  const metadata = useMemo(() => {
+    try {
+      return typeof item.metadata === "string"
+        ? JSON.parse(item.metadata)
+        : item.metadata || {}
+    } catch {
+      return {}
+    }
+  }, [item.metadata])
+
+  const imageProcessing = metadata.imageProcessing
+  const isImageProcessing = imageProcessing?.status === "processing" ||
+                           imageProcessing?.status === "pending"
+
   // Get preview URL or placeholder
-  const mediaUrls = item.mediaUrl ?? []
+  // Parse mediaUrl if it's a JSON string (stored as JSON in DB)
+  const mediaUrls: string[] = useMemo(() => {
+    if (!item.mediaUrl) return []
+    try {
+      const parsed = typeof item.mediaUrl === "string"
+        ? JSON.parse(item.mediaUrl)
+        : item.mediaUrl
+      return Array.isArray(parsed) ? parsed : [item.mediaUrl]
+    } catch {
+      // If not valid JSON, treat as single URL
+      return [item.mediaUrl]
+    }
+  }, [item.mediaUrl])
   const hasMedia = mediaUrls.length > 0
   const previewUrl = hasMedia ? mediaUrls[0] : null
 
@@ -130,21 +160,45 @@ export function ContentCard({
     }
   }
 
+  // Converter URLs para o formato do drawer
+  const galleryImages: GalleryImage[] = useMemo(() => {
+    if (!hasMedia) return []
+
+    return mediaUrls.map((url, index) => ({
+      url,
+      index,
+      isHtmlTemplate: url.startsWith("http"), // Assume HTTP URLs are from storage (regenerable)
+    }))
+  }, [mediaUrls, hasMedia])
+
+  // Handler para abrir a galeria
+  const handleOpenGallery = () => {
+    if (hasMedia) {
+      setGalleryOpen(true)
+    }
+  }
+
+  // Handler para quando uma imagem é atualizada
+  const handleImageUpdated = (index: number, newUrl: string) => {
+    // Force refresh para atualizar a visualização
+    window.location.reload()
+  }
+
   return (
-    <div
-      className={cn(
-        "group relative bg-white/[0.02] border border-white/10 rounded-lg overflow-hidden transition-all hover:bg-white/[0.04] hover:border-white/15",
-        selected && "ring-2 ring-primary ring-offset-2 ring-offset-[#0a0a0f]"
-      )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {/* Link wrapper for opening detail page */}
-      <Link
-        href={`/library/${item.id}`}
-        className="absolute inset-0 z-0"
-        aria-label="Ver detalhes"
-      />
+    <>
+      <div
+        className={cn(
+          "group relative bg-white/[0.02] border border-white/10 rounded-lg overflow-hidden transition-all hover:bg-white/[0.04] hover:border-white/15 cursor-pointer",
+          selected && "ring-2 ring-primary ring-offset-2 ring-offset-[#0a0a0f]",
+          isImageProcessing && "border-yellow-500/30 bg-yellow-500/5"
+        )}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onClick={handleOpenGallery}
+        role="button"
+        tabIndex={0}
+        aria-label="Abrir galeria de imagens"
+      >
 
       {/* Selection Checkbox - higher z-index to catch clicks before link */}
       <button
@@ -211,6 +265,13 @@ export function ContentCard({
 
         {/* Badges */}
         <div className="flex flex-wrap gap-1.5">
+          {/* Processing Badge */}
+          {isImageProcessing && (
+            <Badge className="text-xs px-1.5 py-0 bg-yellow-500/20 text-yellow-300 border-yellow-500/30 flex items-center gap-1">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Gerando imagens...
+            </Badge>
+          )}
           <Badge className={cn("text-xs px-1.5 py-0", statusConfig.color)}>
             {statusConfig.label}
           </Badge>
@@ -286,11 +347,15 @@ export function ContentCard({
             className="w-48 bg-[#1a1a2e] border-white/10"
           >
             <DropdownMenuItem
-              onClick={onEdit}
-              className="text-white/80 hover:text-white hover:bg-white/5 focus:text-white focus:bg-white/5 cursor-pointer"
+              onClick={isImageProcessing ? undefined : onEdit}
+              disabled={isImageProcessing}
+              className={cn(
+                "text-white/80 hover:text-white hover:bg-white/5 focus:text-white focus:bg-white/5",
+                isImageProcessing && "opacity-50 cursor-not-allowed"
+              )}
             >
               <Edit2 className="w-4 h-4 mr-2" />
-              Editar
+              {isImageProcessing ? "Processando..." : "Editar"}
             </DropdownMenuItem>
             <DropdownMenuItem
               className="text-white/80 hover:text-white hover:bg-white/5 focus:text-white focus:bg-white/5 cursor-pointer"
@@ -310,6 +375,16 @@ export function ContentCard({
         </DropdownMenu>
       </div>
 
-    </div>
+      </div>
+
+      {/* Image Gallery Drawer */}
+      <ImageGalleryDrawer
+        open={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        images={galleryImages}
+        libraryItemId={item.id}
+        onImageUpdated={handleImageUpdated}
+      />
+    </>
   )
 }

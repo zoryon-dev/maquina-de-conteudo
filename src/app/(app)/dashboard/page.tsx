@@ -13,6 +13,7 @@ import { StatsGrid } from "./components/stats-grid"
 import { ScheduledPreview } from "./components/scheduled-preview"
 import { QuickActions } from "./components/quick-actions"
 import { StatusBreakdown } from "./components/status-breakdown"
+import { JobPollingManager } from "@/components/job-polling-manager"
 import type { SerializedCalendarPost } from "./components/scheduled-preview"
 
 async function getNextWeekPosts(): Promise<SerializedCalendarPost[]> {
@@ -53,6 +54,9 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f]">
+      {/* Job Polling Manager - handles background job notifications */}
+      <JobPollingManager />
+
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Header */}
         <div className="mb-8">

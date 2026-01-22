@@ -39,6 +39,7 @@ export const jobTypeEnum = pgEnum("job_type", [
   "document_embedding",
   "wizard_narratives",
   "wizard_generation",
+  "wizard_image_generation",
   "social_publish_instagram",
   "social_publish_facebook",
   "social_metrics_fetch",

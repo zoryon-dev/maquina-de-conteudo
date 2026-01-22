@@ -7,7 +7,8 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Library, Plus, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -32,6 +33,9 @@ import type { LibraryItemWithRelations } from "@/types/library"
 import type { ContentStatus } from "@/db/schema"
 
 export function LibraryPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
   // View mode (grid/list + sorting)
   const { viewMode, toggleViewMode, setSortBy, toggleSortOrder } = useLibraryView()
 
@@ -64,6 +68,21 @@ export function LibraryPage() {
   // Delete confirmation dialog state
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<number | null>(null)
+
+  // Handle ?edit=ID parameter to open edit dialog
+  useEffect(() => {
+    const editId = searchParams.get("edit")
+    if (editId && !isLoading && items.length > 0) {
+      const id = parseInt(editId)
+      if (!isNaN(id)) {
+        const itemToEdit = items.find((item) => item.id === id)
+        if (itemToEdit && !dialogOpen) {
+          setEditingItem(itemToEdit)
+          setDialogOpen(true)
+        }
+      }
+    }
+  }, [searchParams, items, isLoading, dialogOpen])
 
   // Selection handlers
   const toggleSelection = (id: number) => {
@@ -187,6 +206,10 @@ export function LibraryPage() {
   const handleDialogClose = () => {
     setDialogOpen(false)
     setEditingItem(null)
+    // Limpar o parâmetro ?edit= da URL
+    if (searchParams.get("edit")) {
+      router.push("/library")
+    }
   }
 
   const handleDialogSave = () => {

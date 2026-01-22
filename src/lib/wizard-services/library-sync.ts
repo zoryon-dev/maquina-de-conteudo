@@ -137,8 +137,8 @@ export function mapGeneratedContentToLibraryItem(
   // Type-specific mapping
   switch (type) {
     case "carousel": {
-      // Note: Images are generated separately via /api/library/[id]/generate-image
-      // We don't save imagePrompt as mediaUrl anymore - leave it null for images to be added later
+      // Note: Images are generated separately via wizard_image_generation job
+      // Mark as processing so UI knows images are pending
       return {
         userId,
         type: type as PostType,
@@ -149,6 +149,10 @@ export function mapGeneratedContentToLibraryItem(
         metadata: JSON.stringify({
           ...baseMetadata,
           slideCount: generatedContent.slides?.length || 0,
+          imageProcessing: {
+            status: "pending",
+            startedAt: new Date().toISOString(),
+          },
         }),
       }
     }
