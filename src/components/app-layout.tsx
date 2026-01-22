@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { MessageSquare, Library, Calendar, Globe, Settings, Sparkles } from "lucide-react"
+import { Library, Calendar, Globe, Settings, Sparkles, LayoutDashboard } from "lucide-react"
 import { NavBar } from "@/components/ui/tubelight-navbar"
 import { UserMenu } from "@/components/auth/user-menu"
 import { cn } from "@/lib/utils"
@@ -20,7 +20,8 @@ interface AppLayoutProps {
 export function AppLayout({ children, className }: AppLayoutProps) {
   const navItems = React.useMemo(
     () => [
-      { name: "Conversas", url: "/chat", icon: MessageSquare },
+      { name: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+      { name: "ZoryAI", url: "/chat", icon: Sparkles },
       { name: "Wizard", url: "/wizard", icon: Sparkles },
       { name: "Biblioteca", url: "/library", icon: Library },
       { name: "Calendário", url: "/calendar", icon: Calendar },
@@ -41,12 +42,12 @@ export function AppLayout({ children, className }: AppLayoutProps) {
             <div className="grid grid-cols-[1fr_auto_1fr] items-center h-16 gap-4">
               {/* Logo - alinhado à esquerda */}
               <Link
-                href="/chat"
+                href="/dashboard"
                 className="flex items-center gap-2.5 group justify-start"
               >
                 <div className="relative">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 group-hover:from-primary/30 group-hover:to-primary/10 transition-all">
-                    <MessageSquare className="h-5 w-5 text-primary" strokeWidth={2.5} />
+                    <LayoutDashboard className="h-5 w-5 text-primary" strokeWidth={2.5} />
                   </div>
                   {/* Glow effect no logo */}
                   <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity -z-10" />
@@ -58,7 +59,7 @@ export function AppLayout({ children, className }: AppLayoutProps) {
 
               {/* Menu central - sempre no centro */}
               <div className="flex justify-center">
-                <NavBar items={navItems} defaultActive="Conversas" />
+                <NavBar items={navItems} defaultActive="Dashboard" />
               </div>
 
               {/* Espaçador vazio à direita para equilibrar o grid */}

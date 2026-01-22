@@ -44,8 +44,21 @@ export async function createJob<T extends JobPayload>(
     .returning({ id: jobs.id });
 
   // Se não for agendado, enfileirar imediatamente
+  // Se a fila não estiver configurada (Redis não disponível),
+  // o job fica no banco com status pending mas não é enfileirado
   if (!options?.scheduledFor) {
-    await enqueueJob(newJob.id, options?.priority);
+    try {
+      const { enqueueJob, isQueueConfigured } = await import("./client");
+      if (isQueueConfigured()) {
+        await enqueueJob(newJob.id, options?.priority);
+      } else {
+        // Fila não configurada: job fica no banco mas não é enfileirado
+        console.warn(`[Queue] Redis not configured, job ${newJob.id} created in DB only`);
+      }
+    } catch (error) {
+      // Se falhar ao enfileirar, logar mas não falhar a criação do job
+      console.error(`[Queue] Failed to enqueue job ${newJob.id}:`, error);
+    }
   }
 
   return newJob.id;

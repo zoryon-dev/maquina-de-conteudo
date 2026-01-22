@@ -1,13 +1,16 @@
 /**
  * Document Upload API Route
  *
- * Handles file uploads (PDF, TXT, MD) with automatic text extraction.
+ * Handles file uploads (PDF, TXT, MD, DOC, DOCX) with automatic text extraction.
  * Uses storage abstraction layer for both local and R2 storage.
  * Stores the original file and extracts text for embedding/processing.
  *
  * Storage Providers:
  * - Local: Files saved to public/uploads/documents/
  * - R2: Files uploaded to Cloudflare R2 bucket
+ *
+ * Supports both single file and bulk upload (multiple files).
+ * Bulk uploads create individual jobs for each document for parallel processing.
  *
  * @see src/lib/storage/ for storage abstraction layer
  */
@@ -19,6 +22,7 @@ import { documents, users } from "@/db/schema"
 import { eq, and, isNull } from "drizzle-orm"
 import { createJob } from "@/lib/queue/jobs"
 import { JobType } from "@/lib/queue/types"
+import { triggerWorker } from "@/lib/queue/client"
 import {
   getStorageProvider,
   generateStorageKey,
@@ -26,12 +30,28 @@ import {
   type UploadResult,
 } from "@/lib/storage"
 
+/**
+ * Check if we're in development mode
+ */
+function isDevelopment(): boolean {
+  return process.env.NODE_ENV === "development"
+}
+
 // Maximum file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024
-// Allowed file types
-const ALLOWED_TYPES = ["application/pdf", "text/plain", "text/markdown"]
-// Allowed extensions
-const ALLOWED_EXTENSIONS = [".pdf", ".txt", ".md"]
+// Allowed file types (extended to include Word documents)
+const ALLOWED_TYPES = [
+  "application/pdf",
+  "text/plain",
+  "text/markdown",
+  "application/msword", // .doc
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+]
+// Allowed extensions (extended to include Word documents)
+const ALLOWED_EXTENSIONS = [".pdf", ".txt", ".md", ".doc", ".docx"]
+
+// Maximum files for bulk upload
+const MAX_BULK_UPLOAD = 10
 
 /**
  * Ensure user exists in database (auto-create if missing)
@@ -90,17 +110,60 @@ async function extractTextFromTXT(buffer: Buffer, encoding: BufferEncoding = "ut
 }
 
 /**
+ * Extract text from DOCX buffer using mammoth
+ */
+async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
+  try {
+    const mammoth = await import("mammoth")
+    const result = await mammoth.extractRawText({ buffer })
+    return result.value || ""
+  } catch (error) {
+    console.error("DOCX extraction error:", error)
+    throw new Error("Failed to extract text from DOCX file")
+  }
+}
+
+/**
+ * Extract text from DOC buffer (legacy Word format)
+ * Note: .doc files are harder to parse; mammoth doesn't support them
+ * This is a placeholder that returns empty text with a warning
+ */
+async function extractTextFromDOC(buffer: Buffer): Promise<string> {
+  try {
+    // For legacy .doc files, we could use antiword or similar tools
+    // For now, we'll use mammoth which may fail for .doc files
+    const mammoth = await import("mammoth")
+    const result = await mammoth.extractRawText({ buffer })
+    return result.value || ""
+  } catch (error) {
+    console.warn("DOC extraction not fully supported - consider converting to DOCX:", error)
+    throw new Error("Legacy .doc files are not fully supported. Please convert to .docx format.")
+  }
+}
+
+/**
  * Validate file type using magic bytes (more reliable than MIME type)
  *
  * @param buffer - File buffer
  * @returns Detected file extension or null
  */
-function detectFileTypeFromBytes(buffer: Buffer): "pdf" | "txt" | "md" | null {
+function detectFileTypeFromBytes(buffer: Buffer): "pdf" | "txt" | "md" | "doc" | "docx" | null {
   const header = buffer.subarray(0, 8).toString("hex")
 
   // PDF: %PDF (25 50 44 46)
   if (header.startsWith("25504446")) {
     return "pdf"
+  }
+
+  // DOCX: PK (50 4B) - ZIP archive signature
+  // DOCX files are ZIP archives, so we check for the ZIP signature
+  if (header.startsWith("504b0304")) {
+    return "docx"
+  }
+
+  // DOC: D0 CF 11 E0 A1 B1 1A E1 (OLE compound document signature)
+  if (header.startsWith("d0cf11e0")) {
+    return "doc"
   }
 
   // For text files, check if content is printable ASCII/UTF-8
@@ -110,8 +173,8 @@ function detectFileTypeFromBytes(buffer: Buffer): "pdf" | "txt" | "md" | null {
   const ratio = printableChars / sample.length
 
   if (ratio < 0.1) {
-    // Likely a text file
-    return "md"
+    // Likely a text file - determine if txt or md by extension
+    return "txt"
   }
 
   return null
@@ -123,82 +186,54 @@ function detectFileTypeFromBytes(buffer: Buffer): "pdf" | "txt" | "md" | null {
  * @param filename - Original filename
  * @returns Detected file type or null
  */
-function detectFileTypeFromExtension(filename: string): "pdf" | "txt" | "md" | null {
+function detectFileTypeFromExtension(filename: string): "pdf" | "txt" | "md" | "doc" | "docx" | null {
   const ext = filename.toLowerCase().slice(filename.lastIndexOf("."))
   if (ALLOWED_EXTENSIONS.includes(ext)) {
-    return ext.slice(1) as "pdf" | "txt" | "md"
+    return ext.slice(1) as "pdf" | "txt" | "md" | "doc" | "docx"
   }
   return null
 }
 
 /**
- * POST /api/documents/upload
- *
- * Uploads a document file (PDF, TXT, MD) with automatic text extraction.
- * Uses storage abstraction layer for flexible storage backends.
- *
- * Flow:
- * 1. Authenticate user
- * 2. Validate file (type, size)
- * 3. Extract text from file
- * 4. Upload to storage (local or R2 based on env config)
- * 5. Create document record in database
- * 6. Add to collection if specified
- * 7. Create embedding job for async processing
+ * Process a single file upload
+ * Helper function used by both single and bulk upload
  */
-export async function POST(request: NextRequest) {
+async function processSingleFile(
+  file: File,
+  userId: string,
+  title: string | null,
+  category: string | null,
+  collectionId: string | null
+): Promise<{
+  success: boolean
+  document?: {
+    id: number
+    title: string
+    fileType: string
+    contentLength: number
+    category: string
+  }
+  error?: string
+}> {
   try {
-    const { userId } = await auth()
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    // Ensure user exists in database (auto-create if missing from Clerk webhook)
-    await ensureUserExists(userId)
-
-    const formData = await request.formData()
-    const file = formData.get("file") as File | null
-    const title = formData.get("title") as string | null
-    const category = formData.get("category") as string | null
-    const collectionId = formData.get("collectionId") as string | null
-
-    if (!file) {
-      return NextResponse.json(
-        { error: "No file provided" },
-        { status: 400 }
-      )
-    }
-
     // Validate file type by MIME type
     if (!ALLOWED_TYPES.includes(file.type)) {
       // Also check extension as fallback
       const extType = detectFileTypeFromExtension(file.name)
       if (!extType) {
-        return NextResponse.json(
-          {
-            error: "Invalid file type",
-            allowedTypes: ALLOWED_TYPES,
-            allowedExtensions: ALLOWED_EXTENSIONS,
-          },
-          { status: 400 }
-        )
+        return {
+          success: false,
+          error: "Invalid file type",
+        }
       }
     }
 
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        {
-          error: "File too large",
-          maxSize: MAX_FILE_SIZE,
-          maxSizeMB: MAX_FILE_SIZE / (1024 * 1024),
-        },
-        { status: 400 }
-      )
+      return {
+        success: false,
+        error: `File too large (max ${MAX_FILE_SIZE / (1024 * 1024)}MB)`,
+      }
     }
 
     // Convert file to buffer
@@ -208,15 +243,23 @@ export async function POST(request: NextRequest) {
     // Detect file type from bytes for validation
     const detectedType = detectFileTypeFromBytes(buffer)
     if (!detectedType) {
-      return NextResponse.json(
-        { error: "Could not detect valid file type" },
-        { status: 400 }
-      )
+      // Fall back to extension detection
+      const extType = detectFileTypeFromExtension(file.name)
+      if (!extType) {
+        return {
+          success: false,
+          error: "Could not detect valid file type",
+        }
+      }
     }
+
+    // Use provided title or fallback to filename
+    const documentTitle = title?.trim() || file.name.replace(/\.[^/.]+$/, "")
 
     // Extract text based on file type
     let content = ""
-    let fileType: "pdf" | "txt" | "md" = detectedType
+    const fallbackType = detectFileTypeFromExtension(file.name)
+    const fileType: "pdf" | "txt" | "md" | "doc" | "docx" = detectedType || fallbackType || "pdf"
 
     switch (fileType) {
       case "pdf":
@@ -225,6 +268,12 @@ export async function POST(request: NextRequest) {
       case "txt":
       case "md":
         content = await extractTextFromTXT(buffer, "utf-8")
+        break
+      case "docx":
+        content = await extractTextFromDOCX(buffer)
+        break
+      case "doc":
+        content = await extractTextFromDOC(buffer)
         break
     }
 
@@ -235,42 +284,29 @@ export async function POST(request: NextRequest) {
       .trim()
 
     if (!content) {
-      return NextResponse.json(
-        { error: "No text could be extracted from file" },
-        { status: 400 }
-      )
+      return {
+        success: false,
+        error: "No text could be extracted from file",
+      }
     }
-
-    // Use provided title or fallback to filename
-    const documentTitle = title?.trim() || file.name.replace(/\.[^/.]+$/, "")
 
     // Get storage provider and generate storage key
     const storage = getStorageProvider()
     const storageKey = generateStorageKey(userId, file.name, "documents")
 
     // Upload file to storage (local or R2)
-    let uploadResult: UploadResult
-    try {
-      uploadResult = await storage.uploadFile(buffer, storageKey, {
-        contentType: file.type,
-        metadata: {
-          originalFilename: file.name,
-          userId,
-          uploadedAt: new Date().toISOString(),
-        },
-      })
-    } catch (uploadError) {
-      console.error("Storage upload error:", uploadError)
-      return NextResponse.json(
-        {
-          error: "Failed to upload file to storage",
-          details: uploadError instanceof Error ? uploadError.message : String(uploadError),
-        },
-        { status: 500 }
-      )
-    }
+    // Note: R2 provider automatically sanitizes metadata to ASCII-safe Unicode escapes
+    // The original filename is preserved in the database metadata below
+    const uploadResult: UploadResult = await storage.uploadFile(buffer, storageKey, {
+      contentType: file.type,
+      metadata: {
+        originalFilename: file.name,
+        userId,
+        uploadedAt: new Date().toISOString(),
+      },
+    })
 
-    // Prepare storage metadata
+    // Prepare storage metadata (keep original filename in DB)
     const storageMetadata = {
       originalFilename: file.name,
       fileSize: file.size,
@@ -335,6 +371,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create embedding job to process the document asynchronously
+    // This is now resilient to queue unavailability
     await createJob(
       userId,
       JobType.DOCUMENT_EMBEDDING,
@@ -342,29 +379,167 @@ export async function POST(request: NextRequest) {
         documentId: newDocument.id,
         userId,
       }
-    )
+    ).catch((err) => {
+      // Log but don't fail the upload if job creation fails
+      console.error(`[Upload] Failed to create embedding job for document ${newDocument.id}:`, err)
+    })
 
-    // Get document URL for response
-    const documentUrl = getDocumentUrl(newDocument)
+    // In development, trigger worker immediately to process the job
+    if (isDevelopment()) {
+      // Fire and forget - don't wait for completion
+      triggerWorker().catch((err) => {
+        console.error("Failed to trigger worker in development:", err)
+      })
+    }
 
-    return NextResponse.json({
+    return {
       success: true,
       document: {
         id: newDocument.id,
         title: newDocument.title,
-        fileType: newDocument.fileType,
+        fileType: newDocument.fileType!,
         contentLength: content.length,
-        category: newDocument.category,
-        storageProvider: newDocument.storageProvider,
-        storageKey: newDocument.storageKey,
-        url: documentUrl,
+        category: newDocument.category!,
       },
-      storage: {
-        provider: uploadResult.provider,
-        key: uploadResult.key,
-        url: uploadResult.url,
-      },
-    })
+    }
+  } catch (error) {
+    console.error("File processing error:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    }
+  }
+}
+
+/**
+ * POST /api/documents/upload
+ *
+ * Uploads document files (PDF, TXT, MD, DOC, DOCX) with automatic text extraction.
+ * Supports both single file and bulk upload (multiple files).
+ * Uses storage abstraction layer for flexible storage backends.
+ *
+ * Flow:
+ * 1. Authenticate user
+ * 2. Validate file(s) (type, size, count)
+ * 3. Extract text from each file
+ * 4. Upload to storage (local or R2 based on env config)
+ * 5. Create document record(s) in database
+ * 6. Add to collection if specified
+ * 7. Create embedding job(s) for async processing
+ *
+ * Request FormData:
+ * - file: Single file (for single upload)
+ * - files: Multiple files (for bulk upload)
+ * - title: Optional title (applied to all files in bulk)
+ * - category: Document category (default: "general")
+ * - collectionId: Optional collection ID to add documents to
+ *
+ * Response:
+ * - Single upload: { success: true, document: {...} }
+ * - Bulk upload: { success: true, documents: [...], failed: [...] }
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const { userId } = await auth()
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      )
+    }
+
+    // Ensure user exists in database (auto-create if missing from Clerk webhook)
+    await ensureUserExists(userId)
+
+    const formData = await request.formData()
+
+    // Check for bulk upload (multiple files)
+    const filesEntry = formData.getAll("files")
+    const singleFile = formData.get("file") as File | null
+
+    // Use bulk upload if "files" field is present and has values
+    const isBulkUpload = filesEntry.length > 0 && filesEntry[0] instanceof File
+
+    const filesToProcess: File[] = []
+
+    if (isBulkUpload) {
+      // Bulk upload mode
+      if (filesEntry.length > MAX_BULK_UPLOAD) {
+        return NextResponse.json(
+          {
+            error: `Too many files`,
+            maxFiles: MAX_BULK_UPLOAD,
+            providedFiles: filesEntry.length,
+          },
+          { status: 400 }
+        )
+      }
+      filesToProcess.push(...(filesEntry as File[]))
+    } else if (singleFile) {
+      // Single file upload mode (backward compatibility)
+      filesToProcess.push(singleFile)
+    } else {
+      return NextResponse.json(
+        { error: "No file(s) provided" },
+        { status: 400 }
+      )
+    }
+
+    // Get common metadata for all files
+    const title = formData.get("title") as string | null
+    const category = formData.get("category") as string | null
+    const collectionId = formData.get("collectionId") as string | null
+
+    // Process files
+    const results = isBulkUpload
+      ? await Promise.all(
+          filesToProcess.map((file) =>
+            processSingleFile(file, userId, title, category, collectionId)
+          )
+        )
+      : [await processSingleFile(filesToProcess[0], userId, title, category, collectionId)]
+
+    // Separate successful and failed uploads
+    const successfulUploads = results.filter((r) => r.success)
+    const failedUploads = results.filter((r) => !r.success)
+
+    // Build response
+    if (isBulkUpload) {
+      return NextResponse.json({
+        success: true,
+        documents: successfulUploads.map((r) => r.document),
+        failed: failedUploads.map((r) => ({
+          filename: results.find((_, i) => results[i] === r)?.error || "Unknown",
+          error: r.error,
+        })),
+        total: results.length,
+        successful: successfulUploads.length,
+        failedCount: failedUploads.length,
+      })
+    } else {
+      // Single file upload (backward compatible)
+      const firstResult = results[0]
+
+      if (!firstResult.success) {
+        return NextResponse.json(
+          {
+            error: firstResult.error || "Failed to upload document",
+          },
+          { status: 400 }
+        )
+      }
+
+      const documentUrl = getDocumentUrl({ id: firstResult.document!.id } as any)
+
+      return NextResponse.json({
+        success: true,
+        document: {
+          ...firstResult.document,
+          url: documentUrl,
+        },
+      })
+    }
   } catch (error) {
     console.error("Document upload error:", error)
     return NextResponse.json(
@@ -386,7 +561,8 @@ export async function GET() {
   return NextResponse.json({
     maxSize: MAX_FILE_SIZE,
     maxSizeMB: MAX_FILE_SIZE / (1024 * 1024),
+    maxBulkUpload: MAX_BULK_UPLOAD,
     allowedTypes: ALLOWED_TYPES,
-    allowedExtensions: [".pdf", ".txt", ".md"],
+    allowedExtensions: ALLOWED_EXTENSIONS,
   })
 }

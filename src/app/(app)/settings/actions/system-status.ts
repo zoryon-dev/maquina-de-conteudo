@@ -5,6 +5,8 @@
  * This is read-only - users cannot modify system-controlled API keys.
  */
 
+"use server"
+
 import { auth } from "@clerk/nextjs/server"
 import { isVoyageConfigured, isVoyageUsingEnvVar } from "@/lib/voyage"
 

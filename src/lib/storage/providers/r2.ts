@@ -29,6 +29,9 @@ import type {
 } from "../types"
 import { StorageProvider, StorageError, StorageErrorCode } from "../types"
 import { getR2Config } from "../config"
+import { sanitizeMetadataForS3 } from "../encoding"
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Imported for future use when reading metadata from S3
+import { restoreMetadataFromS3 } from "../encoding"
 
 export interface R2StorageConfig {
   /** Cloudflare Account ID */
@@ -72,18 +75,27 @@ export class R2StorageProvider implements IStorageProviderWithBatch {
 
   /**
    * Upload a file to R2
+   *
+   * Note: Metadata is automatically sanitized to ensure ASCII-only values
+   * for S3/R2 compatibility. Unicode characters are encoded as \uXXXX escapes.
    */
   async uploadFile(
     buffer: Buffer,
     key: string,
     options?: UploadOptions
   ): Promise<UploadResult> {
+    // Sanitize metadata to ensure ASCII-only values (S3/R2 requirement)
+    // Unicode characters are encoded as \uXXXX escape sequences
+    const sanitizedMetadata = options?.metadata
+      ? sanitizeMetadataForS3(options.metadata)
+      : undefined
+
     const command = new PutObjectCommand({
       Bucket: this.bucketName,
       Key: key,
       Body: buffer,
       ContentType: options?.contentType || "application/octet-stream",
-      Metadata: options?.metadata,
+      Metadata: sanitizedMetadata,
       ContentEncoding: options?.contentEncoding,
     })
 

@@ -16,7 +16,7 @@ import { NextResponse } from "next/server"
 import { db } from "@/db"
 import { publishedPosts } from "@/db/schema"
 import { lt, and, eq, isNull } from "drizzle-orm"
-import { enqueueJob } from "@/lib/queue/client"
+import { createJob } from "@/lib/queue/jobs"
 import { PublishedPostStatus } from "@/lib/social/types"
 
 const CRON_SECRET = process.env.CRON_SECRET || "dev-cron-secret"
@@ -78,23 +78,20 @@ export async function GET(request: Request) {
         // Instagram: Enqueue job for worker to process
         if (!post.platformPostId) {
           // Create job in database with correct signature
-          const jobResult = await createJob(
+          await createJob(
             post.userId,
-            "social_publish_instagram",
+            "social_publish_instagram" as any,
             {
               publishedPostId: post.id,
               userId: post.userId,
-            },
+            } as any,
             {
               priority: 1, // High priority for scheduled posts
             }
           )
 
-          if (jobResult.success && jobResult.jobId) {
-            // Enqueue to Redis
-            await enqueueJob(jobResult.jobId, 1)
-            enqueuedCount++
-          }
+          // Job is automatically enqueued if Redis is configured
+          enqueuedCount++
         } else {
           // Already has platformPostId, meaning it was scheduled natively somehow
           // Just mark as published
