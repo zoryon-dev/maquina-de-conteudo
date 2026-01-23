@@ -9,7 +9,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Calendar, Tag, Clock, Edit2, CalendarClock, Send, RefreshCw, Download } from "lucide-react"
+import { ArrowLeft, Calendar, Tag, Clock, Edit2, CalendarClock, Send, RefreshCw, Download, Expand } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -19,6 +19,7 @@ import type { LibraryItemWithRelations } from "@/types/library"
 import { CONTENT_TYPE_CONFIGS, STATUS_CONFIGS } from "@/types/calendar"
 import { ContentPreviewSection } from "./content-preview-section"
 import { ContentActionsSection } from "./content-actions-section"
+import { AmpliarContentDialog } from "./ampliar-content-dialog"
 
 // ============================================================================
 // TYPES
@@ -40,6 +41,7 @@ export interface LibraryDetailPageProps {
 
 export function LibraryDetailPage({ item, mediaUrls, carouselSlides }: LibraryDetailPageProps) {
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [ampliarDialogOpen, setAmpliarDialogOpen] = useState(false)
 
   // Parse metadata for additional info
   let metadata: Record<string, unknown> = {}
@@ -109,18 +111,32 @@ export function LibraryDetailPage({ item, mediaUrls, carouselSlides }: LibraryDe
           </div>
         </div>
 
-        {/* Download All Images */}
-        {mediaUrls.length > 0 && (
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2">
+          {/* Ampliar Button - Abre dialog de edição visual */}
           <Button
             variant="outline"
             size="sm"
             className="shrink-0 border-white/10 text-white/70 hover:text-white hover:bg-white/5"
-            onClick={() => handleDownloadAll(mediaUrls)}
+            onClick={() => setAmpliarDialogOpen(true)}
           >
-            <Download className="w-4 h-4 mr-2" />
-            Baixar Imagens
+            <Expand className="w-4 h-4 mr-2" />
+            Ampliar
           </Button>
-        )}
+
+          {/* Download All Images */}
+          {mediaUrls.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 border-white/10 text-white/70 hover:text-white hover:bg-white/5"
+              onClick={() => handleDownloadAll(mediaUrls)}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Baixar Imagens
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Main Content Grid - 65/35 Layout */}
@@ -145,6 +161,16 @@ export function LibraryDetailPage({ item, mediaUrls, carouselSlides }: LibraryDe
           onRefresh={() => setIsRefreshing(!isRefreshing)}
         />
       </div>
+
+      {/* Ampliar Content Dialog */}
+      <AmpliarContentDialog
+        open={ampliarDialogOpen}
+        onOpenChange={setAmpliarDialogOpen}
+        item={item}
+        mediaUrls={mediaUrls}
+        carouselSlides={carouselSlides}
+        onUpdate={() => setIsRefreshing(!isRefreshing)}
+      />
     </div>
   )
 }
