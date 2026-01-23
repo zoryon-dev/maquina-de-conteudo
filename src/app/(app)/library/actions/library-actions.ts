@@ -16,6 +16,7 @@ import {
   categories,
   tags,
   libraryItemTags,
+  contentWizards,
 } from "@/db/schema"
 import { eq, and, gte, lte, isNull, inArray, desc, asc, sql, ilike } from "drizzle-orm"
 import type {
@@ -1337,6 +1338,102 @@ export async function getLibraryStatsAction(): Promise<LibraryStats | null> {
     }
   } catch (error) {
     console.error("Error fetching library stats:", error)
+    return null
+  }
+}
+
+/**
+ * Get wizard template data for a library item
+ * Used by ImageGalleryDrawer to determine if images can be text-edited
+ *
+ * @param libraryItemId - Library item ID
+ * @returns Wizard data with template information or null
+ */
+export async function getWizardTemplateDataAction(
+  libraryItemId: number
+): Promise<{
+  slideTemplates: Array<{
+    slideIndex: number
+    templateType?: string
+    templateData?: {
+      headline?: string
+      descricao?: string
+      subtitulo?: string
+      paragrafo1?: string
+      paragrafo2?: string
+      destaque?: string
+    }
+  }>
+} | null> {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return null
+  }
+
+  try {
+    const [wizard] = await db
+      .select({
+        generatedImages: contentWizards.generatedImages,
+        generatedContent: contentWizards.generatedContent,
+      })
+      .from(contentWizards)
+      .where(eq(contentWizards.libraryItemId, libraryItemId))
+      .limit(1)
+
+    if (!wizard) {
+      return null
+    }
+
+    const generatedImages = wizard.generatedImages as unknown as Array<{
+      method: string
+      template?: string
+      config?: any
+    }> || []
+
+    const generatedContent = wizard.generatedContent as unknown as {
+      slides?: Array<{ title?: string; content: string; headline?: string }>
+    } | null
+
+    // Extrair informações de template para cada slide
+    const slideTemplates = generatedImages.map((img, index) => {
+      const slideContent = generatedContent?.slides?.[index]
+
+      // Mapear templates para os tipos suportados
+      let templateType: string | undefined
+      if (img.template) {
+        // Converter nome do template para o formato esperado
+        const templateLower = img.template.toLowerCase()
+        if (templateLower.includes("dark") || templateLower.includes("preto")) {
+          templateType = "dark-mode"
+        } else if (templateLower.includes("white") || templateLower.includes("branco")) {
+          templateType = "white-mode"
+        } else if (templateLower.includes("twitter")) {
+          templateType = "twitter"
+        } else if (templateLower.includes("headline") || templateLower.includes("super")) {
+          templateType = "super-headline"
+        } else {
+          templateType = img.template
+        }
+      }
+
+      return {
+        slideIndex: index,
+        templateType,
+        templateData: {
+          headline: slideContent?.headline || slideContent?.title || "",
+          descricao: slideContent?.content || "",
+          subtitulo: "",
+          paragrafo1: "",
+          paragrafo2: "",
+          destaque: "",
+        },
+      }
+    })
+
+    return { slideTemplates }
+  } catch (error) {
+    console.error("Error fetching wizard template data:", error)
     return null
   }
 }

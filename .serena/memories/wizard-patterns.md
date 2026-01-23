@@ -408,6 +408,37 @@ Cria novo wizard com estado inicial "input".
 ### GET /api/wizard/[id]
 Retorna dados completos do wizard.
 
+### POST /api/themes/[id]/wizard
+Cria wizard a partir de tema salvo, com processamento AI:
+
+```typescript
+// Process theme based on source type
+if (theme.sourceType === 'perplexity') {
+  const processor = new ThemeProcessorService();
+  const processed = await processor.processPerplexityTheme({...});
+  // → { theme, context, objective, referenceUrl }
+} else if (theme.sourceType === 'instagram') {
+  const processed = await processInstagramTheme({...});
+  // → { theme, context, objective, suggestedContentType }
+} else if (theme.sourceType === 'youtube') {
+  const processed = await processYouTubeTheme({...});
+  // → { theme, context, objective, suggestedContentType }
+}
+
+// Create wizard with processed data
+const [wizard] = await db.insert(contentWizards).values({
+  contentType: suggestedContentType,
+  theme: wizardTheme,      // Processed by AI
+  context: wizardContext,  // Processed by AI
+  referenceUrl: referenceUrl,  // Best URL extracted
+  objective: wizardObjective,
+  targetAudience: theme.targetAudience,
+  extractedContent: theme.briefing ? {...} : undefined,
+}).returning();
+```
+
+**Importante**: Usa `?wizardId=` para redirect, não `?edit=`.
+
 ### PATCH /api/wizard/[id]
 Atualiza dados do wizard (auto-save, transições).
 

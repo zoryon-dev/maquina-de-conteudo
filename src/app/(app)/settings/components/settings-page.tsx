@@ -53,7 +53,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 mt-[25px] mb-[25px]">
+    <div className="space-y-6">
       {/* Header */}
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold text-white">

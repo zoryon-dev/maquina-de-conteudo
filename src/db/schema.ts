@@ -813,6 +813,115 @@ export const publishedPostsRelations = relations(publishedPosts, ({ one }) => ({
 }));
 
 // ========================================
+// DISCOVERY THEMES TABLES
+// ========================================
+
+// Discovery source type enum
+export const themeSourceTypeEnum = pgEnum("theme_source_type", [
+  "manual",
+  "youtube",
+  "instagram",
+  "perplexity",
+  "aggregated",
+]);
+
+// Discovery theme status enum
+export const themeStatusEnum = pgEnum("theme_status", [
+  "draft",
+  "active",
+  "archived",
+]);
+
+// 15. THEMES - Temas descobertos via Discovery Service
+export const themes = pgTable(
+  "themes",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    // Core fields (compatível com Wizard)
+    title: text("title").notNull(),
+    theme: text("theme").notNull(),
+    context: text("context"),
+    targetAudience: text("target_audience"),
+
+    // AI-generated briefing
+    briefing: text("briefing"),
+    keyPoints: jsonb("key_points").$type<string[]>(),
+    angles: jsonb("angles").$type<string[]>(),
+
+    // Source metadata
+    sourceType: themeSourceTypeEnum("source_type")
+      .notNull()
+      .default("manual"),
+    sourceUrl: text("source_url"),
+    sourceData: jsonb("source_data").$type<Record<string, unknown>>(),
+
+    // Trend metrics
+    engagementScore: integer("engagement_score"),
+    trendingAt: timestamp("trending_at"),
+
+    // Organization
+    category: text("category"),
+    tags: jsonb("tags").$type<string[]>(),
+    status: themeStatusEnum("status").default("active"),
+
+    // Timestamps
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    deletedAt: timestamp("deleted_at"), // Soft delete
+  },
+  (table) => [
+    index("themes_user_id_idx").on(table.userId),
+    index("themes_status_idx").on(table.status),
+    index("themes_created_at_idx").on(table.createdAt),
+    index("themes_trending_at_idx").on(table.trendingAt),
+    index("themes_deleted_at_idx").on(table.deletedAt),
+  ]
+);
+
+// 16. THEME_TAGS - Relação many-to-many entre temas e tags
+export const themeTags = pgTable(
+  "theme_tags",
+  {
+    themeId: integer("theme_id")
+      .notNull()
+      .references(() => themes.id, { onDelete: "cascade" }),
+    tagId: integer("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.themeId, table.tagId] }),
+  ]
+);
+
+// ========================================
+// DISCOVERY THEMES RELATIONS
+// ========================================
+
+export const themesRelations = relations(themes, ({ one, many }) => ({
+  user: one(users, {
+    fields: [themes.userId],
+    references: [users.id],
+  }),
+  themeTags: many(themeTags),
+}));
+
+export const themeTagsRelations = relations(themeTags, ({ one }) => ({
+  theme: one(themes, {
+    fields: [themeTags.themeId],
+    references: [themes.id],
+  }),
+  tag: one(tags, {
+    fields: [themeTags.tagId],
+    references: [tags.id],
+  }),
+}));
+
+// ========================================
 // SETTINGS TABLES
 // ========================================
 
@@ -1044,6 +1153,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   variables: many(userVariables),
   socialConnections: many(socialConnections),
   publishedPosts: many(publishedPosts),
+  themes: many(themes),
 }));
 
 // ========================================
@@ -1125,3 +1235,14 @@ export type SocialConnection = typeof socialConnections.$inferSelect;
 export type NewSocialConnection = typeof socialConnections.$inferInsert;
 export type PublishedPost = typeof publishedPosts.$inferSelect;
 export type NewPublishedPost = typeof publishedPosts.$inferInsert;
+
+// ========================================
+// TYPE EXPORTS - DISCOVERY THEMES
+// ========================================
+
+export type ThemeSourceType = typeof themeSourceTypeEnum.enumValues[number];
+export type ThemeStatus = typeof themeStatusEnum.enumValues[number];
+export type Theme = typeof themes.$inferSelect;
+export type NewTheme = typeof themes.$inferInsert;
+export type ThemeTag = typeof themeTags.$inferSelect;
+export type NewThemeTag = typeof themeTags.$inferInsert;

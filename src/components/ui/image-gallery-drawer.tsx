@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { getWizardTemplateDataAction } from "@/app/(app)/library/actions/library-actions"
 
 // ============================================================================
 // TYPES
@@ -68,6 +69,7 @@ export function ImageGalleryDrawer({
   const [zoom, setZoom] = useState(1)
   const [isEditing, setIsEditing] = useState(false)
   const [isRegenerating, setIsRegenerating] = useState(false)
+  const [enrichedImages, setEnrichedImages] = useState<GalleryImage[]>(images)
 
   // Estado para edição de texto
   const [editedText, setEditedText] = useState({
@@ -78,6 +80,33 @@ export function ImageGalleryDrawer({
     paragrafo2: "",
     destaque: "",
   })
+
+  // Buscar dados do wizard quando o drawer abrir
+  useEffect(() => {
+    if (open && libraryItemId) {
+      getWizardTemplateDataAction(libraryItemId).then((data) => {
+        if (data && data.slideTemplates.length > 0) {
+          // Enriquecer as imagens com os metadados do template
+          const enriched = images.map((img) => {
+            const templateInfo = data.slideTemplates[img.index]
+            if (templateInfo?.templateType) {
+              return {
+                ...img,
+                isHtmlTemplate: true,
+                templateType: templateInfo.templateType as any,
+                templateData: templateInfo.templateData,
+              }
+            }
+            return img
+          })
+          setEnrichedImages(enriched)
+        }
+      })
+    }
+  }, [open, libraryItemId, images])
+
+  // Usar as imagens enriquecidas quando disponíveis, senão as originais
+  const displayImages = enrichedImages.length > 0 ? enrichedImages : images
 
   // Reset current index quando mudar as imagens
   useEffect(() => {
@@ -91,7 +120,7 @@ export function ImageGalleryDrawer({
 
   // Carregar dados do template atual
   useEffect(() => {
-    const currentImage = images[currentIndex]
+    const currentImage = displayImages[currentIndex]
     if (currentImage?.templateData) {
       setEditedText({
         headline: currentImage.templateData.headline || "",
@@ -102,18 +131,18 @@ export function ImageGalleryDrawer({
         destaque: currentImage.templateData.destaque || "",
       })
     }
-  }, [currentIndex, images])
+  }, [currentIndex, displayImages])
 
-  const currentImage = images[currentIndex]
+  const currentImage = displayImages[currentIndex]
 
   // Handlers de navegação
   const goToPrevious = useCallback(() => {
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1))
-  }, [images.length])
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : displayImages.length - 1))
+  }, [displayImages.length])
 
   const goToNext = useCallback(() => {
-    setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0))
-  }, [images.length])
+    setCurrentIndex((prev) => (prev < displayImages.length - 1 ? prev + 1 : 0))
+  }, [displayImages.length])
 
   const goToImage = useCallback((index: number) => {
     setCurrentIndex(index)
@@ -201,11 +230,11 @@ export function ImageGalleryDrawer({
         }),
       })
 
-      if (!response.ok) {
-        throw new Error("Erro ao regenerar imagem")
-      }
-
       const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || data.details || "Erro ao regenerar imagem")
+      }
 
       if (data.success && data.newImageUrl) {
         // Atualizar a URL da imagem
@@ -224,7 +253,7 @@ export function ImageGalleryDrawer({
   }
 
   // Se não há imagens ou drawer fechado, não renderizar
-  if (!open || images.length === 0) {
+  if (!open || displayImages.length === 0) {
     return null
   }
 
@@ -256,7 +285,7 @@ export function ImageGalleryDrawer({
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <div className="flex items-center gap-3">
             <span className="text-white/60 text-sm">
-              Imagem {currentIndex + 1} de {images.length}
+              Imagem {currentIndex + 1} de {displayImages.length}
             </span>
             {templateType && (
               <span className="text-xs px-2 py-1 bg-primary/20 text-primary rounded">
@@ -505,7 +534,7 @@ export function ImageGalleryDrawer({
 
             {/* Dots de navegação */}
             <div className="flex items-center gap-1.5">
-              {images.map((_, index) => (
+              {displayImages.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => goToImage(index)}

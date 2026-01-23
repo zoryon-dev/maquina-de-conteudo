@@ -7,16 +7,14 @@
 
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import {
-  Wand2,
   CalendarClock,
   Send,
   RefreshCw,
   Sparkles,
-  Info,
   Hash,
-  Clock,
   Calendar as CalendarIcon,
   FileText,
   MoreHorizontal,
@@ -29,8 +27,9 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { formatDate } from "@/lib/format"
 import type { LibraryItemWithRelations } from "@/types/library"
-import { CONTENT_TYPE_CONFIGS } from "@/types/calendar"
+import { CONTENT_TYPE_CONFIGS, STATUS_CONFIGS } from "@/types/calendar"
 import { clearMediaUrlAction } from "../../actions/library-actions"
+import { ScheduleDrawer } from "./schedule-drawer"
 import { toast } from "sonner"
 
 // ============================================================================
@@ -39,11 +38,11 @@ import { toast } from "sonner"
 
 export interface ContentActionsSectionProps {
   item: LibraryItemWithRelations
-  origin: string
-  narrative: string | null
-  wizardId: number | null
+  origin?: string
+  narrative?: string | null
+  wizardId?: number | null
   hashtags: string[]
-  metadata: Record<string, unknown>
+  metadata?: Record<string, unknown>
   isRefreshing: boolean
   onRefresh: () => void
 }
@@ -54,27 +53,55 @@ export interface ContentActionsSectionProps {
 
 export function ContentActionsSection({
   item,
-  origin,
-  narrative,
   wizardId,
   hashtags,
-  metadata,
   isRefreshing,
   onRefresh,
 }: ContentActionsSectionProps) {
   const typeConfig = CONTENT_TYPE_CONFIGS[item.type]
+  const statusConfig = STATUS_CONFIGS[item.status]
+
+  // Schedule drawer state
+  const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false)
+
+  // Extract caption for scheduling
+  const caption = (() => {
+    if (!item.content) return null
+    try {
+      const parsed = JSON.parse(item.content)
+      return parsed.caption || item.content
+    } catch {
+      return item.content
+    }
+  })()
 
   // Handlers
   function handleSchedule(id: number) {
-    console.log("Schedule post:", id)
+    setScheduleDrawerOpen(true)
   }
 
-  function handlePublishNow(id: number) {
+  async function handlePublishNow(id: number) {
+    toast.info("Publicação direta será implementada em breve.")
     console.log("Publish now:", id)
   }
 
-  function handleRebuild(id: number) {
-    console.log("Rebuild:", id)
+  async function handleRebuild(id: number) {
+    try {
+      toast.info("Reconstruindo conteúdo...")
+      const response = await fetch(`/api/library/${id}/regenerate-images`, {
+        method: "POST",
+      })
+
+      if (response.ok) {
+        toast.success("Conteúdo reconstruído!")
+        onRefresh()
+      } else {
+        toast.error("Erro ao reconstruir")
+      }
+    } catch (error) {
+      console.error("Error rebuilding:", error)
+      toast.error("Erro ao reconstruir")
+    }
   }
 
   async function handleGenerateImages(id: number) {
@@ -135,17 +162,6 @@ export function ContentActionsSection({
         </h3>
 
         <div className="space-y-2">
-          {/* Edit Post */}
-          <Link href={`/library?edit=${item.id}`} className="block">
-            <Button
-              variant="outline"
-              className="w-full justify-start border-white/10 text-white/70 hover:text-white hover:bg-white/5 h-10"
-            >
-              <Wand2 className="w-4 h-4 mr-2" />
-              Editar Post
-            </Button>
-          </Link>
-
           {/* Schedule Post */}
           <Button
             variant="outline"
@@ -204,42 +220,47 @@ export function ContentActionsSection({
       </div>
 
       {/* Origin Card */}
-      {(origin !== "Biblioteca" || narrative || wizardId) && (
-        <div className="bg-white/[0.02] border border-white/10 rounded-xl p-4 space-y-3">
-          <h3 className="text-sm font-medium text-white/90 flex items-center gap-2">
-            <Info className="w-4 h-4 text-white/60" />
-            Origem
-          </h3>
+      <div className="bg-white/[0.02] border border-white/10 rounded-xl p-4 space-y-3">
+        <h3 className="text-sm font-medium text-white/90 flex items-center gap-2">
+          <FileText className="w-4 h-4 text-white/60" />
+          Detalhes
+        </h3>
 
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-white/60">Criado via:</span>
-              <span className="text-white/90">{formatOrigin(origin)}</span>
-            </div>
-
-            {narrative && (
-              <div className="flex justify-between">
-                <span className="text-white/60">Narrativa:</span>
-                <span className="text-white/90">{formatNarrative(narrative)}</span>
-              </div>
-            )}
-
-            <div className="flex justify-between">
-              <span className="text-white/60">Data:</span>
-              <span className="text-white/90">{formatDate(item.createdAt)}</span>
-            </div>
-
-            {wizardId && (
-              <Link
-                href={`/wizard?id=${wizardId}`}
-                className="text-primary hover:text-primary/80 text-xs"
-              >
-                Ver no Wizard →
-              </Link>
-            )}
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-white/60">Tipo:</span>
+            <span className="text-white/90">{typeConfig.label}</span>
           </div>
+
+          <div className="flex justify-between">
+            <span className="text-white/60">Status:</span>
+            <span className={cn("text-xs px-2 py-0.5 rounded", statusConfig.color)}>
+              {statusConfig.label}
+            </span>
+          </div>
+
+          <div className="flex justify-between">
+            <span className="text-white/60">Criado em:</span>
+            <span className="text-white/90">{formatDate(item.createdAt)}</span>
+          </div>
+
+          {item.updatedAt && item.updatedAt !== item.createdAt && (
+            <div className="flex justify-between">
+              <span className="text-white/60">Atualizado:</span>
+              <span className="text-white/90">{formatDate(item.updatedAt)}</span>
+            </div>
+          )}
+
+          {wizardId && (
+            <Link
+              href={`/wizard?id=${wizardId}`}
+              className="text-primary hover:text-primary/80 text-xs block mt-2"
+            >
+              Ver no Wizard →
+            </Link>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Hashtags Card */}
       {hashtags.length > 0 && (
@@ -292,42 +313,6 @@ export function ContentActionsSection({
         </div>
       )}
 
-      {/* Metadata Card */}
-      <div className="bg-white/[0.02] border border-white/10 rounded-xl p-4 space-y-3">
-        <h3 className="text-sm font-medium text-white/90 flex items-center gap-2">
-          <FileText className="w-4 h-4 text-white/60" />
-          Detalhes
-        </h3>
-
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-white/60">Tipo:</span>
-            <span className="text-white/90">{typeConfig.label}</span>
-          </div>
-
-          {item.updatedAt && (
-            <div className="flex justify-between">
-              <span className="text-white/60">Atualizado:</span>
-              <span className="text-white/90">{formatDate(item.updatedAt)}</span>
-            </div>
-          )}
-
-          {item.scheduledFor && (
-            <div className="flex justify-between">
-              <span className="text-white/60">Agendado:</span>
-              <span className="text-white/90">{formatDate(item.scheduledFor)}</span>
-            </div>
-          )}
-
-          {item.publishedAt && (
-            <div className="flex justify-between">
-              <span className="text-white/60">Publicado:</span>
-              <span className="text-white/90">{formatDate(item.publishedAt)}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* More Options */}
       <div className="flex justify-center">
         <Button
@@ -338,6 +323,16 @@ export function ContentActionsSection({
           <MoreHorizontal className="w-5 h-5" />
         </Button>
       </div>
+
+      {/* Schedule Drawer */}
+      <ScheduleDrawer
+        open={scheduleDrawerOpen}
+        onClose={() => setScheduleDrawerOpen(false)}
+        libraryItemId={item.id}
+        itemTitle={item.title}
+        itemType={item.type}
+        caption={caption}
+      />
     </div>
   )
 }
@@ -345,23 +340,3 @@ export function ContentActionsSection({
 // ============================================================================
 // HELPERS
 // ============================================================================
-
-function formatOrigin(origin: string): string {
-  const originMap: Record<string, string> = {
-    "Biblioteca": "Upload Manual",
-    "Wizard": "Wizard de Criação",
-    "Chat": "Chat com IA",
-    "API": "Integração",
-  }
-  return originMap[origin] || origin
-}
-
-function formatNarrative(narrative: string): string {
-  const narrativeMap: Record<string, string> = {
-    "criativo": "Criativo",
-    "estrategico": "Estratégico",
-    "dinamico": "Dinâmico",
-    "inspirador": "Inspirador",
-  }
-  return narrativeMap[narrative] || narrative
-}

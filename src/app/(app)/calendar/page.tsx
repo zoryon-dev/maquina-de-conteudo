@@ -183,13 +183,13 @@ function CalendarClient() {
  */
 export default function CalendarPage() {
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="space-y-6">
       {/* Page Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">
+      <div>
+        <h1 className="text-2xl font-semibold text-white mb-1">
           Calendário Editorial
         </h1>
-        <p className="text-white/60">
+        <p className="text-sm text-white/60">
           Planeje e agende seus posts para redes sociais
         </p>
       </div>

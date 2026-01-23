@@ -21,8 +21,9 @@ import type { VideoTranscription, ServiceResult } from "./types";
 
 /**
  * Apify API token from environment.
+ * Supports both APIFY_API_TOKEN (SDK default) and APIFY_API_KEY (common alternative).
  */
-const APIFY_API_TOKEN = process.env.APIFY_API_TOKEN;
+const APIFY_API_TOKEN = process.env.APIFY_API_TOKEN || process.env.APIFY_API_KEY;
 
 /**
  * Apify API endpoint.

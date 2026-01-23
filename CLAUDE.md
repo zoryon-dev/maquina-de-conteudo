@@ -104,8 +104,9 @@ DATABASE_URL=postgresql://...
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
 CLERK_SECRET_KEY=sk_...
 
-# APIs
+# AI & APIs
 OPENROUTER_API_KEY=sk-or-...
+PERPLEXITY_API_KEY=your-perplexity-key
 VOYAGE_API_KEY=voyage-...
 TAVILY_API_KEY=tvly-...
 FIRECRAWL_API_KEY=fc-...
@@ -203,6 +204,14 @@ chore: dependências
 
 ## Features Principais
 
+### Discovery (`/discover`)
+Descoberta de temas trending em múltiplas plataformas (YouTube, Instagram, Perplexity).
+
+- **Memória Serena:** `discovery-patterns`
+- **Arquivos:** `src/app/(app)/discover/`, `src/lib/discovery-services/`
+- **Features:** Tabs por plataforma, 5-10 resultados por fonte, AI theme processing
+- **Plataformas:** YouTube Data API, Instagram (Apify), Perplexity AI (sonar model)
+
 ### Biblioteca de Conteúdo (`/library`)
 Gerenciamento completo de conteúdos criados (textos, imagens, carrosséis).
 
@@ -265,6 +274,7 @@ Consulte via Serena para padrões detalhados:
 | `database-patterns` | Drizzle ORM |
 | `vercel-ai-sdk-patterns` | Vercel AI SDK |
 | `rag-embedding-patterns` | RAG + Voyage AI |
+| `ai-processing-patterns` | Uso de IA no sistema (Theme, Narratives, Content) |
 | `storage-patterns` | R2 + Local storage |
 | `queue-patterns` | Sistema de filas |
 | `library-patterns` | Biblioteca de conteúdo |

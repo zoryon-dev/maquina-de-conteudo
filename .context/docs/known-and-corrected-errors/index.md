@@ -2,6 +2,20 @@
 
 Documentação de erros encontrados durante o desenvolvimento e suas soluções.
 
+## Erros Recentes
+
+### 33. Discovery Implementation Errors (Janeiro 2026)
+
+**[Ver documento completo](./033-discovery-implementation-errors-jan2026.md)**
+
+- Multiple primary keys em tabela junction
+- Type exports faltando
+- useRef sem valor inicial
+- Spinner size prop incorreto
+- E muito mais...
+
+---
+
 ## Erros de TypeScript
 
 ### 1. "Duplicate identifier" em imports

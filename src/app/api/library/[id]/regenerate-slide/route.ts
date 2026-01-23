@@ -112,18 +112,43 @@ export async function POST(
       destaque: editedData.destaque || "",
     }
 
-    // Gerar a nova imagem
+    // Determinar o tipo de template baseado no slideConfig.template
+    let templateType: "dark-mode" | "white-mode" | "twitter" | "super-headline" = "dark-mode"
+    if (slideConfig.template) {
+      const templateLower = slideConfig.template.toLowerCase()
+      if (templateLower.includes("white") || templateLower.includes("branco")) {
+        templateType = "white-mode"
+      } else if (templateLower.includes("twitter")) {
+        templateType = "twitter"
+      } else if (templateLower.includes("headline") || templateLower.includes("super")) {
+        templateType = "super-headline"
+      }
+    }
+
+    // Build proper config with htmlOptions
+    // The stored config might not have htmlOptions in the correct structure
+    const existingHtmlOptions = slideConfig.config?.htmlOptions || slideConfig.config?.coverPosts?.coverHtmlOptions || slideConfig.config?.coverPosts?.postsHtmlOptions
+
     const generationInput = {
       slideTitle: editedData.headline || slideContent?.headline || slideContent?.title,
       slideContent: editedData.descricao || slideContent?.content || "",
       slideNumber: slideIndex + 1,
-      config: slideConfig.config,
+      config: {
+        method: "html-template" as const,
+        htmlOptions: existingHtmlOptions || {
+          template: templateType,
+          primaryColor: "#a3e635",
+          secondaryColor: "#f97316",
+        },
+      },
       wizardContext: {
         theme: wizard.theme || undefined,
         objective: wizard.objective || undefined,
         targetAudience: wizard.targetAudience || undefined,
       },
     }
+
+    console.log("[REGENERATE-SLIDE] Generation input:", JSON.stringify(generationInput, null, 2))
 
     const result = await generateHtmlTemplateImage(generationInput)
 

@@ -1,0 +1,340 @@
+/**
+ * Themes Server Actions
+ *
+ * Server actions for managing themes discovered via Discovery Service.
+ * Supports CRUD operations with soft delete.
+ */
+
+'use server';
+
+import { auth } from '@clerk/nextjs/server';
+import { db } from '@/db';
+import { themes, themeTags, tags } from '@/db/schema';
+import { eq, and, isNull, desc, ilike, inArray } from 'drizzle-orm';
+import type {
+  Theme,
+  NewTheme,
+  ThemeStatus,
+  ThemeSourceType,
+} from '@/db/schema';
+import type { TrendingTopicWithBriefing } from '@/lib/discovery-services/types';
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+export interface ThemeFilters {
+  status?: ThemeStatus;
+  category?: string;
+  search?: string;
+  sourceType?: ThemeSourceType;
+}
+
+export interface CreateThemeInput {
+  title: string;
+  theme: string;
+  context?: string;
+  targetAudience?: string;
+  briefing?: string;
+  keyPoints?: string[];
+  angles?: string[];
+  sourceType?: ThemeSourceType;
+  sourceUrl?: string;
+  sourceData?: Record<string, unknown>;
+  engagementScore?: number;
+  category?: string;
+  tags?: string[];
+  status?: ThemeStatus;
+}
+
+export interface UpdateThemeInput extends Partial<CreateThemeInput> {
+  id: number;
+}
+
+// ============================================================================
+// READ OPERATIONS
+// ============================================================================
+
+/**
+ * Get all themes for the current user.
+ */
+export async function getThemesAction(filters?: ThemeFilters) {
+  const { userId } = await auth();
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  const conditions = [isNull(themes.deletedAt)];
+
+  if (filters?.status) {
+    conditions.push(eq(themes.status, filters.status));
+  }
+
+  if (filters?.category) {
+    conditions.push(eq(themes.category, filters.category));
+  }
+
+  if (filters?.sourceType) {
+    conditions.push(eq(themes.sourceType, filters.sourceType));
+  }
+
+  if (filters?.search) {
+    conditions.push(ilike(themes.title, `%${filters.search}%`));
+  }
+
+  const userThemes = await db
+    .select()
+    .from(themes)
+    .where(and(...conditions))
+    .orderBy(desc(themes.createdAt));
+
+  return userThemes;
+}
+
+/**
+ * Get a single theme by ID.
+ */
+export async function getThemeAction(id: number) {
+  const { userId } = await auth();
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  const [theme] = await db
+    .select()
+    .from(themes)
+    .where(and(eq(themes.id, id), eq(themes.userId, userId), isNull(themes.deletedAt)));
+
+  return theme || null;
+}
+
+// ============================================================================
+// CREATE OPERATIONS
+// ============================================================================
+
+/**
+ * Create a new theme.
+ */
+export async function createThemeAction(data: CreateThemeInput) {
+  const { userId } = await auth();
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  const [theme] = await db
+    .insert(themes)
+    .values({
+      userId,
+      title: data.title,
+      theme: data.theme,
+      context: data.context,
+      targetAudience: data.targetAudience,
+      briefing: data.briefing,
+      keyPoints: data.keyPoints || [],
+      angles: data.angles || [],
+      sourceType: data.sourceType || 'manual',
+      sourceUrl: data.sourceUrl,
+      sourceData: data.sourceData,
+      engagementScore: data.engagementScore,
+      category: data.category,
+      tags: data.tags || [],
+      status: data.status || 'active',
+    })
+    .returning();
+
+  return theme;
+}
+
+/**
+ * Create themes from discovery results.
+ */
+export async function createThemesFromDiscoveryAction(
+  topics: TrendingTopicWithBriefing[]
+): Promise<Theme[]> {
+  const { userId } = await auth();
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  if (topics.length === 0) {
+    return [];
+  }
+
+  const values = topics.map((topic) => ({
+    userId,
+    title: topic.title,
+    theme: topic.theme,
+    context: topic.context,
+    targetAudience: topic.targetAudience,
+    briefing: topic.briefing,
+    keyPoints: topic.keyPoints || [],
+    angles: topic.suggestedAngles || [],
+    sourceType: topic.source.type as ThemeSourceType,
+    sourceUrl: topic.source.url,
+    sourceData: topic.source.rawData,
+    engagementScore: topic.metrics.engagementScore,
+    trendingAt: new Date(),
+    status: 'active' as ThemeStatus,
+  }));
+
+  const createdThemes = await db
+    .insert(themes)
+    .values(values)
+    .returning();
+
+  return createdThemes;
+}
+
+// ============================================================================
+// UPDATE OPERATIONS
+// ============================================================================
+
+/**
+ * Update an existing theme.
+ */
+export async function updateThemeAction(data: UpdateThemeInput) {
+  const { userId } = await auth();
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  const { id, ...updateData } = data;
+
+  const [theme] = await db
+    .update(themes)
+    .set({
+      ...updateData,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(themes.id, id), eq(themes.userId, userId), isNull(themes.deletedAt)))
+    .returning();
+
+  return theme || null;
+}
+
+/**
+ * Update theme status.
+ */
+export async function updateThemeStatusAction(id: number, status: ThemeStatus) {
+  const { userId } = await auth();
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  const [theme] = await db
+    .update(themes)
+    .set({ status, updatedAt: new Date() })
+    .where(and(eq(themes.id, id), eq(themes.userId, userId), isNull(themes.deletedAt)))
+    .returning();
+
+  return theme || null;
+}
+
+// ============================================================================
+// DELETE OPERATIONS
+// ============================================================================
+
+/**
+ * Soft delete a theme.
+ */
+export async function deleteThemeAction(id: number) {
+  const { userId } = await auth();
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  const [theme] = await db
+    .update(themes)
+    .set({ deletedAt: new Date() })
+    .where(and(eq(themes.id, id), eq(themes.userId, userId), isNull(themes.deletedAt)))
+    .returning();
+
+  return { success: !!theme };
+}
+
+/**
+ * Delete multiple themes.
+ */
+export async function deleteThemesAction(ids: number[]) {
+  const { userId } = await auth();
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  const result = await db
+    .update(themes)
+    .set({ deletedAt: new Date() })
+    .where(
+      and(
+        inArray(themes.id, ids),
+        eq(themes.userId, userId),
+        isNull(themes.deletedAt)
+      )
+    );
+
+  return { success: true };
+}
+
+// ============================================================================
+// UTILITY OPERATIONS
+// ============================================================================
+
+/**
+ * Get theme categories for the current user.
+ */
+export async function getThemeCategoriesAction() {
+  const { userId } = await auth();
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  const userThemes = await db
+    .select({ category: themes.category })
+    .from(themes)
+    .where(and(eq(themes.userId, userId), isNull(themes.deletedAt)));
+
+  const categories = [
+    ...new Set(userThemes.map((t) => t.category).filter(Boolean) as string[]),
+  ];
+
+  return categories;
+}
+
+/**
+ * Get theme statistics.
+ */
+export async function getThemeStatsAction() {
+  const { userId } = await auth();
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  const userThemes = await db
+    .select()
+    .from(themes)
+    .where(and(eq(themes.userId, userId), isNull(themes.deletedAt)));
+
+  const byStatus = userThemes.reduce(
+    (acc, theme) => {
+      const status = theme.status ?? 'unknown';
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
+  const bySource = userThemes.reduce(
+    (acc, theme) => {
+      const sourceType = theme.sourceType ?? 'unknown';
+      acc[sourceType] = (acc[sourceType] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
+  return {
+    total: userThemes.length,
+    byStatus,
+    bySource,
+  };
+}

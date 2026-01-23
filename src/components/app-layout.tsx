@@ -1,7 +1,18 @@
 "use client"
 
 import * as React from "react"
-import { Library, Calendar, Globe, Settings, Sparkles, LayoutDashboard } from "lucide-react"
+import {
+  Library,
+  Calendar,
+  Globe,
+  Settings,
+  Sparkles,
+  LayoutDashboard,
+  TrendingUp,
+  Wand2,
+  Lightbulb,
+  Search,
+} from "lucide-react"
 import { NavBar } from "@/components/ui/tubelight-navbar"
 import { UserMenu } from "@/components/auth/user-menu"
 import { cn } from "@/lib/utils"
@@ -20,13 +31,44 @@ interface AppLayoutProps {
 export function AppLayout({ children, className }: AppLayoutProps) {
   const navItems = React.useMemo(
     () => [
-      { name: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-      { name: "ZoryAI", url: "/chat", icon: Sparkles },
-      { name: "Wizard", url: "/wizard", icon: Sparkles },
-      { name: "Biblioteca", url: "/library", icon: Library },
-      { name: "Calendário", url: "/calendar", icon: Calendar },
-      { name: "Fontes", url: "/sources", icon: Globe },
-      { name: "Configurações", url: "/settings", icon: Settings },
+      {
+        name: "Dash",
+        url: "/dashboard",
+        icon: LayoutDashboard,
+      },
+      {
+        name: "Descoberta",
+        url: "/discover",
+        icon: TrendingUp,
+        children: [
+          { name: "Discovery", url: "/discover", icon: Search },
+          { name: "Temas", url: "/themes", icon: Lightbulb },
+        ],
+      },
+      {
+        name: "Criar",
+        url: "/wizard",
+        icon: Wand2,
+        children: [
+          { name: "Wizard", url: "/wizard", icon: Wand2 },
+          { name: "ZoryAI", url: "/chat", icon: Sparkles },
+        ],
+      },
+      {
+        name: "Gestão",
+        url: "/library",
+        icon: Library,
+        children: [
+          { name: "Biblioteca", url: "/library", icon: Library },
+          { name: "Calendário", url: "/calendar", icon: Calendar },
+          { name: "Fontes", url: "/sources", icon: Globe },
+        ],
+      },
+      {
+        name: "Configurações",
+        url: "/settings",
+        icon: Settings,
+      },
     ],
     []
   )
@@ -59,7 +101,7 @@ export function AppLayout({ children, className }: AppLayoutProps) {
 
               {/* Menu central - sempre no centro */}
               <div className="flex justify-center">
-                <NavBar items={navItems} defaultActive="Dashboard" />
+                <NavBar items={navItems} defaultActive="Dash" />
               </div>
 
               {/* Espaçador vazio à direita para equilibrar o grid */}
@@ -74,7 +116,7 @@ export function AppLayout({ children, className }: AppLayoutProps) {
       {/* Main Content */}
       <main
         className={cn(
-          "max-w-6xl mx-auto px-4 pt-24 pb-8",
+          "max-w-6xl mx-auto px-4 pt-32 pb-12",
           className
         )}
       >

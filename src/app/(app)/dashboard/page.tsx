@@ -53,13 +53,13 @@ export default async function DashboardPage() {
   ])
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f]">
+    <>
       {/* Job Polling Manager - handles background job notifications */}
       <JobPollingManager />
 
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="mb-8">
+        <div>
           <h1 className="text-2xl font-semibold text-white mb-1">
             Bem-vindo de volta!
           </h1>
@@ -69,28 +69,20 @@ export default async function DashboardPage() {
         </div>
 
         {/* Stats Grid - Topo */}
-        <div className="mb-6">
-          <StatsGrid stats={libraryStats} />
-        </div>
+        <StatsGrid stats={libraryStats} />
 
         {/* Status das Publicações - Largura Total */}
-        <div className="mb-6">
-          <StatusBreakdown stats={libraryStats} />
-        </div>
+        <StatusBreakdown stats={libraryStats} />
 
         {/* Layout de duas colunas */}
         <div className="grid md:grid-cols-2 gap-6">
           {/* Coluna esquerda: Próximas publicações */}
-          <div className="space-y-6">
-            <ScheduledPreview posts={scheduledPosts} />
-          </div>
+          <ScheduledPreview posts={scheduledPosts} />
 
           {/* Coluna direita: Ações rápidas */}
-          <div className="space-y-6">
-            <QuickActions />
-          </div>
+          <QuickActions />
         </div>
       </div>
-    </div>
+    </>
   )
 }

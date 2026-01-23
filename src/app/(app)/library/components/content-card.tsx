@@ -3,13 +3,15 @@
  *
  * Card individual para visualização em grid da biblioteca.
  * Exibe thumbnail, título, badges e ações.
- * Clicar no card abre o drawer de imagens (modo slide lateral).
+ * Clicar no card abre a página de detalhes (com legenda, agendamento, etc).
+ * Botão de galeria abre o drawer de imagens (modo slide lateral).
  * Suporta edição inline de título com duplo clique.
  */
 
 "use client"
 
-import { Check, Type, Image, Layers, Video, Camera, MoreVertical, Copy, Trash2, Edit2, Loader2 } from "lucide-react"
+import Link from "next/link"
+import { Check, Type, Image, Layers, Video, Camera, MoreVertical, Copy, Trash2, Edit2, Loader2, Images } from "lucide-react"
 import { useState, useRef, useEffect, useMemo } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -172,14 +174,16 @@ export function ContentCard({
   }, [mediaUrls, hasMedia])
 
   // Handler para abrir a galeria
-  const handleOpenGallery = () => {
+  const handleOpenGallery = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
     if (hasMedia) {
       setGalleryOpen(true)
     }
   }
 
   // Handler para quando uma imagem é atualizada
-  const handleImageUpdated = (index: number, newUrl: string) => {
+  const handleImageUpdated = (_index: number, newUrl: string) => {
     // Force refresh para atualizar a visualização
     window.location.reload()
   }
@@ -188,17 +192,19 @@ export function ContentCard({
     <>
       <div
         className={cn(
-          "group relative bg-white/[0.02] border border-white/10 rounded-lg overflow-hidden transition-all hover:bg-white/[0.04] hover:border-white/15 cursor-pointer",
+          "group relative bg-white/[0.02] border border-white/10 rounded-lg overflow-hidden transition-all hover:bg-white/[0.04] hover:border-white/15",
           selected && "ring-2 ring-primary ring-offset-2 ring-offset-[#0a0a0f]",
           isImageProcessing && "border-yellow-500/30 bg-yellow-500/5"
         )}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        onClick={handleOpenGallery}
-        role="button"
-        tabIndex={0}
-        aria-label="Abrir galeria de imagens"
       >
+      {/* Link wrapper for opening detail page */}
+      <Link
+        href={`/library/${item.id}`}
+        className="absolute inset-0 z-0"
+        aria-label="Ver detalhes"
+      />
 
       {/* Selection Checkbox - higher z-index to catch clicks before link */}
       <button
@@ -219,7 +225,7 @@ export function ContentCard({
       </button>
 
       {/* Preview/Thumbnail */}
-      <div className="aspect-video bg-white/5 flex items-center justify-center overflow-hidden pointer-events-none">
+      <div className="aspect-video bg-white/5 flex items-center justify-center overflow-hidden pointer-events-none relative">
         {previewUrl ? (
           <img
             src={previewUrl}
@@ -231,6 +237,25 @@ export function ContentCard({
           <div className="flex flex-col items-center justify-center gap-2 text-white/20">
             <TypeIcon className="w-12 h-12" />
           </div>
+        )}
+
+        {/* Gallery Button - aparece ao hover se há múltiplas imagens */}
+        {hasMedia && mediaUrls.length > 0 && (
+          <button
+            onClick={handleOpenGallery}
+            className={cn(
+              "absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity pointer-events-auto",
+              isHovered && "opacity-100"
+            )}
+            aria-label="Abrir galeria de imagens"
+          >
+            <div className="flex items-center gap-2 bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full">
+              <Images className="w-4 h-4 text-white" />
+              <span className="text-white text-sm font-medium">
+                {mediaUrls.length} {mediaUrls.length === 1 ? "imagem" : "imagens"}
+              </span>
+            </div>
+          </button>
         )}
       </div>
 

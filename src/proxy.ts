@@ -23,10 +23,10 @@ export default clerkMiddleware(async (auth, request) => {
     return NextResponse.next();
   }
 
-  // Redirecionar usuário autenticado da home para chat
+  // Redirecionar usuário autenticado da home para dashboard
   if (request.nextUrl.pathname === "/" && (await auth()).userId) {
     const url = request.nextUrl.clone();
-    url.pathname = "/chat";
+    url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 

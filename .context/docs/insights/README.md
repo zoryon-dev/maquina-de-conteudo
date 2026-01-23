@@ -34,6 +34,9 @@ Documentação de insights e padrões aprendidos durante cada fase do desenvolvi
 - **[014](./014-wizard-phase2-synthesizer-image-gen-jan2026.md)** - Synthesizer v3.1 e Image Generation
 - **[015](./015-wizard-static-html-templates-jan2026.md)** - Migração para Templates HTML Estáticos
 
+### Discovery Feature
+- **[016](./016-discovery-feature-implementation-jan2026.md)** - Trending Discovery Service ✨ NOVO
+
 ## Tópicos Recorrentes
 
 ### Padrões React

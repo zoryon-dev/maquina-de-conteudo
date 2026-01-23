@@ -868,6 +868,150 @@ className="!border-white/10 !bg-white/[0.02] !text-white !placeholder:text-white
 - Expandable content area
 - Used in Step 1 for organizing form sections
 
+## Discovery Architecture
+
+### Overview
+
+The Discovery feature enables users to find trending topics across multiple platforms (YouTube, Instagram, Perplexity) and seamlessly convert them into Wizard-ready content with AI-powered theme processing.
+
+### Discovery Flow
+
+```mermaid
+graph TD
+    User[User] --> Search[Search by Keyword]
+    Search --> Parallel[Parallel Fetch]
+
+    subgraph Platforms
+        Parallel --> YouTube[YouTube Data API]
+        Parallel --> Instagram[Instagram Apify]
+        Parallel --> Perplexity[Perplexity AI]
+    end
+
+    YouTube --> Results[Results Array]
+    Instagram --> Results
+    Perplexity --> Results
+
+    Results --> Tabs[Tabs UI by Platform]
+    Tabs --> Save[Save Theme]
+    Save --> AI[AI Theme Processing]
+    AI --> Wizard[Create Wizard]
+    Wizard --> Redirect[Redirect to /wizard]
+```
+
+### Services Architecture
+
+**Location**: `src/lib/discovery-services/`
+
+```typescript
+// Service structure
+discovery-services/
+├── types.ts                          # Platform types, TrendingTopic
+├── discovery.service.ts               # Orchestration layer
+├── youtube/
+│   ├── youtube-discovery.service.ts  # YouTube Data API client
+│   └── index.ts
+├── instagram/
+│   ├── search-scraper.service.ts     # Post search
+│   ├── stats-scraper.service.ts      # Hashtag stats
+│   └── index.ts                       # Facade
+└── perplexity/
+    ├── perplexity-discovery.service.ts  # Perplexity API client
+    ├── theme-processor.service.ts       # AI processing (Perplexity)
+    └── index.ts
+```
+
+### AI Theme Processing
+
+All saved themes are processed by AI before creating a Wizard:
+
+```mermaid
+graph LR
+    Theme[Saved Theme] --> Check{sourceType?}
+
+    Check -->|perplexity| Perp[ThemeProcessorService]
+    Check -->|instagram| Inst[SocialThemeProcessorService]
+    Check -->|youtube| You[SocialThemeProcessorService]
+
+    Perp --> Gemini[Gemini 2.0 Flash]
+    Inst --> Gemini
+    You --> Gemini
+
+    Gemini --> Processed[Processed Theme]
+    Processed --> Wiz[Create Wizard]
+```
+
+**Processing Results**:
+- **Perplexity**: theme, context, objective, referenceUrl (from citations)
+- **Instagram**: theme, context, objective, suggestedContentType
+- **YouTube**: theme, context, objective, suggestedContentType
+
+### API Routes
+
+```
+POST /api/discovery
+  Body: { keyword: string, platforms: Platform[] }
+  Response: { topics: TrendingTopic[] }
+
+POST /api/themes
+  Body: { title, theme, context, sourceType, sourceUrl, ... }
+  Response: { theme: Theme }
+
+POST /api/themes/[id]/wizard
+  Creates wizard with AI-processed theme data
+  Response: { wizardId, theme }
+```
+
+### Tabs UI Pattern
+
+Results are displayed in platform-specific tabs with color coding:
+
+| Platform | Color | Icon |
+|----------|-------|------|
+| YouTube | Red (`text-red-500`) | Youtube |
+| Perplexity | Purple (`text-purple-500`) | Brain |
+| Instagram | Pink Gradient (`from-yellow-400 via-pink-500 to-purple-600`) | Instagram |
+
+### Platform Type
+
+```typescript
+type Platform = 'youtube' | 'instagram' | 'perplexity';
+```
+
+### Database Schema
+
+**themes** table stores discovery results:
+
+```typescript
+{
+  id: serial,
+  userId: string,           // Clerk user ID
+  title: string,            // Display title
+  theme: string,            // Main theme
+  context?: string,         // Additional context
+  objective?: string,        // Content objective
+  sourceType: 'theme_source_type',  // manual|youtube|instagram|perplexity|aggregated
+  sourceUrl?: string,       // Original URL
+  targetAudience?: string,  // Target audience
+  briefing?: string,        // AI-generated briefing
+  keyPoints?: string[],     // Key points from briefing
+  angles?: string[],        // Suggested angles
+  sourceData?: JSONB,       // Platform-specific data (citations, etc.)
+  status: 'theme_status',   // draft|active|archived
+  deletedAt?: timestamp,    // Soft delete
+  createdAt: timestamp,
+  updatedAt: timestamp
+}
+```
+
+### External APIs
+
+| Service | API | Model/Version | Purpose |
+|---------|-----|--------------|---------|
+| YouTube | Google Data API v3 | - | Video search |
+| Instagram | Apify | Instagram Scraper | Post/stats scraping |
+| Perplexity | Perplexity API | sonar | AI search with citations |
+| Theme Processing | OpenRouter | gemini-2.0-flash-exp:free | Theme refinement |
+
 ## Phase 2: Synthesizer v3.1 and Image Generation
 
 ### Overview

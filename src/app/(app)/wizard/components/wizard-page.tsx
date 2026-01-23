@@ -452,7 +452,7 @@ export function WizardPage({
   const narratives = wizard?.narratives ?? [];
 
   return (
-    <div className={cn("space-y-6 mt-[25px] mb-[25px]", className)}>
+    <div className={cn("space-y-6", className)}>
       {/* Page Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
