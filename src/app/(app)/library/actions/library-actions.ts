@@ -27,6 +27,7 @@ import type {
   LibraryStats,
   Category,
   Tag,
+  PaginatedList,
 } from "@/types/library"
 import type { PostType, ContentStatus } from "@/db/schema"
 
@@ -37,21 +38,25 @@ import type { PostType, ContentStatus } from "@/db/schema"
 /**
  * Fetch library items with filters, sorting and pagination
  *
- * @param filters - Filter options
+ * @param filters - Filter options (including page/limit for pagination)
  * @param viewMode - View mode with sorting preferences
- * @param pagination - Optional pagination
- * @returns Array of library items with relations
+ * @returns Paginated list or array of library items with relations
  */
 export async function getLibraryItemsAction(
   filters: LibraryFilters = {},
-  viewMode: ViewMode = { mode: "grid", sortBy: "createdAt", sortOrder: "desc" },
-  pagination?: { page: number; limit: number }
-): Promise<LibraryItemWithRelations[]> {
+  viewMode: ViewMode = { mode: "grid", sortBy: "createdAt", sortOrder: "desc" }
+): Promise<PaginatedList<LibraryItemWithRelations> | LibraryItemWithRelations[]> {
   const { userId } = await auth()
 
   if (!userId) {
     return []
   }
+
+  // Extract pagination params
+  const page = filters.page ?? 1
+  const limit = filters.limit ?? 12
+  const offset = (page - 1) * limit
+  const isPaginated = filters.page !== undefined || filters.limit !== undefined
 
   try {
     // Build query conditions
@@ -100,6 +105,16 @@ export async function getLibraryItemsAction(
 
     const orderByDirection = viewMode.sortOrder === "asc" ? asc : desc
 
+    // Get total count for pagination
+    let total = 0
+    if (isPaginated) {
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(libraryItems)
+        .where(and(...conditions))
+      total = count
+    }
+
     // Execute main query
     const items = await db
       .select({
@@ -120,11 +135,13 @@ export async function getLibraryItemsAction(
       .from(libraryItems)
       .where(and(...conditions))
       .orderBy(orderByDirection(orderByColumn))
-      .limit(pagination?.limit ?? 100)
-      .offset(pagination ? (pagination.page - 1) * pagination.limit : 0)
+      .limit(isPaginated ? limit : 100)
+      .offset(isPaginated ? offset : 0)
 
     if (items.length === 0) {
-      return []
+      return isPaginated
+        ? { items: [], pagination: { page, limit, total: 0, totalPages: 0 } }
+        : []
     }
 
     // Fetch related data
@@ -200,6 +217,20 @@ export async function getLibraryItemsAction(
         status: sp.status as any,
       })),
     })) as LibraryItemWithRelations[]
+
+    // Return paginated response or array based on request
+    if (isPaginated) {
+      const totalPages = limit > 0 ? Math.ceil(total / limit) : 0
+      return {
+        items: result,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
+      }
+    }
 
     return result
   } catch (error) {

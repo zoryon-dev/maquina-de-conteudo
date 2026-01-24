@@ -112,15 +112,19 @@ export interface WizardFormData {
 }
 ```
 
-### Narrative (Step 3)
+### Narrative (Step 3) - Tribal v4
 
 ```typescript
 export interface Narrative {
   id: string;
   title: string;
   description: string;
-  angle: "criativo" | "estrategico" | "dinamico" | "inspirador";
+  angle: "herege" | "visionario" | "tradutor" | "testemunha";  // Tribal angles
   content: string;
+  // Tribal fields (v4)
+  hook?: string;                  // Primeira frase que cria reconhecimento
+  core_belief?: string;           // Crença compartilhada que une criador e audiência
+  status_quo_challenged?: string; // O que o conteúdo questiona
 }
 
 export interface RagConfig {
@@ -376,29 +380,43 @@ async function generateImageWithFallback(input) {
 }
 ```
 
-## Prompts v4.1 / v2.0
+## Prompts v4 - Tribal Philosophy (Seth Godin)
 
 **Localização**: `src/lib/wizard-services/prompts.ts`
 
-Atualização dos prompts com tags XML e integração Synthesizer v3:
+Refatoração completa baseada no livro "Tribos" de Seth Godin. Conteúdo que cria pertencimento, não apenas alcance.
 
-### Carousel v4.1
+### Ângulos Tribais (4 tipos)
 
-- Tags XML: `<identidade>`, `<filosofia_central>`, `<sistema_throughline>`, etc.
-- Integração com `throughlines_potenciais[]`, `tensoes_narrativas[]`, `dados_contextualizados[]`
-- ProgressaoSugeridaV3 structure
+| Ângulo | Descrição | Cor |
+|--------|-----------|-----|
+| `herege` | Desafia o senso comum, provoca reflexão | red-400 |
+| `visionario` | Mostra futuro possível, inspira mudança | purple-400 |
+| `tradutor` | Simplifica o complexo, democratiza conhecimento | blue-400 |
+| `testemunha` | Compartilha jornada pessoal, cria identificação | green-400 |
 
-### Image Post v2.0
+### Carousel v4.2
 
-- Tags XML: `<identidade>`, `<filosofia>`, `<framework_imagem>`, `<framework_legenda>`
-- Estrutura HCCA: Hook → Contexto → Conteúdo → Ação
-- Técnicas de retenção: Pattern Interrupt, Curiosity Gap, Social Proof
+- **Limite por slide:** 130 caracteres (aumentado de 80)
+- **Estrutura:** 3 atos (Captura → Transformação → Convite)
+- **Modelo:** User's model OR fallback google/gemini-3-flash-preview, temp 0.8
+- **Foco:** "Uma ideia por slide" - frases de impacto
 
-### Video Script v2.0
+### Image/Video Posts v3.0 (Tribal)
 
-- Tags XML: `<identidade>`, `<filosofia>`, `<framework_hooks>`, `<framework_estrutura>`
-- 5 estruturas: Problema-Solução, Lista/Dicas, Storytelling, Polêmica, Tutorial
-- Otimização para retenção nos primeiros 3 segundos
+- **Image Post:** Declaração tribal que pessoas querem associar à identidade
+- **Video Script:** Transformação de perspectiva em segundos
+- **Modelo:** User's model OR fallback google/gemini-3-flash-preview, temp 0.7
+- **Caption:** Template universal tribal (mínimo 200 palavras)
+
+### Novas Funções de Prompt
+
+| Função | Propósito |
+|--------|----------|
+| `getBaseTribalSystemPrompt()` | System prompt universal tribal |
+| `getThemeProcessingPrompt()` | Processamento de temas trending |
+| `getSynthesizerPrompt()` | Síntese de pesquisa em munição narrativa |
+| `getCaptionTribalTemplateInstructions()` | Template universal de caption |
 
 ## API Routes
 
@@ -517,10 +535,17 @@ export function getImagePrompt(params: { ... }): string      // v2.0
 export function getVideoPrompt(params: { ... }): string       // v2.0
 ```
 
-**Versões dos Prompts:**
-- **Carousel v4.1**: Tags XML, integração Synthesizer v3.1, ProgressaoSugeridaV3
-- **Image Post v2.0**: HCCA structure, técnicas de retenção
-- **Video Script v2.0**: 5 estruturas, otimização 3 segundos
+**Versões dos Prompts (v4 Tribal):**
+- **Carousel v4.2**: 130 chars/slide, 3 atos, tribal philosophy
+- **Image Post v3.0**: Declaração tribal, identidade > informação
+- **Video Script v3.0**: Transformação de perspectiva, hooks tribais
+- **Synthesizer**: Munição narrativa (throughlines, tensões, dados)
+
+**Especificação de Modelos (OpenRouter):**
+- Theme Processing: google/gemini-3-flash-preview, temp 0.3 (interno)
+- Narratives: openai/gpt-4.1, temp 0.7 (interno)
+- Synthesizer: openai/gpt-4.1-mini, temp 0.4 (interno)
+- Carousel/Image/Video: User's model OR google/gemini-3-flash-preview, temp 0.7-0.8 (user choice)
 
 **IMPORTANTE**: Para alterar prompts de um tipo específico, edite apenas a função correspondente em `prompts.ts`.
 

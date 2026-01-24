@@ -25,12 +25,12 @@ import type { RagConfig, RagResult, ServiceResult } from "./types";
  * Default RAG options for Wizard.
  *
  * Optimized for social media content generation:
- * - Lower threshold for better recall (0.5)
+ * - Lower threshold for better recall (0.4)
  * - Moderate token budget (3000)
  * - Include sources for attribution
  */
 const WIZARD_DEFAULT_RAG_OPTIONS = {
-  threshold: 0.5,
+  threshold: 0.4,
   maxChunks: 15,
   maxTokens: 3000,
   includeSources: true,

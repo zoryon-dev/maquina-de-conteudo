@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search') || undefined;
     const sourceType = searchParams.get('sourceType') as ThemeSourceType | null;
     const stats = searchParams.get('stats') === 'true';
+    const page = searchParams.get('page');
+    const limit = searchParams.get('limit');
 
     if (stats) {
       const themeStats = await getThemeStatsAction();
@@ -42,6 +44,8 @@ export async function GET(req: NextRequest) {
       category,
       search,
       sourceType: sourceType || undefined,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
     };
 
     const themes = await getThemesAction(filters);

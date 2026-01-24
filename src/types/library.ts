@@ -98,6 +98,8 @@ export interface LibraryFilters {
   tags?: number[];
   platforms?: Platform[];
   dateRange?: { start: Date; end: Date; preset?: DatePreset };
+  page?: number;
+  limit?: number;
 }
 
 /**

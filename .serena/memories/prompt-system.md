@@ -159,3 +159,50 @@ deletePromptAction(agent: string): Promise<SaveSettingsResult>
 | `src/app/(app)/settings/components/sections/prompts-section.tsx` | Prompts UI |
 | `src/app/(app)/settings/actions/save-settings.ts` | Server actions |
 | `.context/docs/estruturas-tecnicas/fluxo-prompts-user.md` | Detailed documentation |
+
+## Wizard Prompts v4 - Tribal Philosophy
+
+**Localização:** `src/lib/wizard-services/prompts.ts`
+
+Prompts baseados no livro "Tribos" de Seth Godin para conteúdo que cria pertencimento.
+
+### Novos Prompts Tribais
+
+| Prompt | Modelo | Temp | Propósito |
+|--------|--------|------|-----------|
+| `getBaseTribalSystemPrompt()` | - | - | System prompt universal tribal |
+| `getThemeProcessingPrompt()` | gemini-3-flash-preview | 0.3 | Processamento de temas trending |
+| `getNarrativesSystemPrompt()` | gpt-4.1 | 0.7 | Geração de narrativas tribais |
+| `getSynthesizerPrompt()` | gpt-4.1-mini | 0.4 | Síntese de pesquisa |
+
+### Ângulos Tribais
+
+| Ângulo | Descrição |
+|--------|-----------|
+| `herege` | Desafia o senso comum, provoca reflexão |
+| `visionario` | Mostra futuro possível, inspira mudança |
+| `tradutor` | Simplifica o complexo, democratiza conhecimento |
+| `testemunha` | Compartilha jornada pessoal, cria identificação |
+
+### Campos Tribais nas Narrativas
+
+```typescript
+interface NarrativeOption {
+  hook?: string;                  // Primeira frase que cria reconhecimento
+  core_belief?: string;           // Crença compartilhada que une criador e audiência
+  status_quo_challenged?: string; // O que o conteúdo questiona
+}
+```
+
+### Template de Caption Universal
+
+**Função:** `getCaptionTribalTemplateInstructions()`
+
+Estrutura de caption aplicada a todos os tipos de conteúdo:
+1. **HOOK** - Emoji contextual + frase que continua o conteúdo visual
+2. **BLOCO DE CONEXÃO** (50-80 palavras) - Por que isso importa
+3. **BLOCO DE VALOR** (80-120 palavras) - Insights que não estão no visual
+4. **BLOCO DE IDENTIFICAÇÃO** (30-50 palavras) - "Se você também..."
+5. **CONVITE TRIBAL** (20-40 palavras) - Não peça, convide
+
+Mínimo 200 palavras. Seja generoso.

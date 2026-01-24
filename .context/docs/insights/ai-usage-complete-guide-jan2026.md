@@ -394,7 +394,7 @@ export async function generateNarratives(input: NarrativeInput): Promise<Service
 }
 ```
 
-### Schema
+### Schema (Tribal v4)
 
 ```typescript
 const narrativesSchema = z.object({
@@ -402,9 +402,12 @@ const narrativesSchema = z.object({
     id: z.string(),
     title: z.string(),
     description: z.string(),
-    angle: z.enum(['criativo', 'estrategico', 'dinamico', 'inspirador']),
+    angle: z.enum(['herege', 'visionario', 'tradutor', 'testemunha']),
+    hook: z.string().optional(),                  // Tribal field
+    core_belief: z.string().optional(),           // Tribal field
+    status_quo_challenged: z.string().optional(), // Tribal field
     content: z.string(),
-  })).min(3).max(5),
+  })).min(4).max(4),  // Exatamente 4 ângulos tribais
 });
 ```
 
@@ -433,29 +436,34 @@ ${input.targetAudience || 'Público geral interessado no tema'}
 </público_alvo>
 
 <instruções>
-Gere 3-5 narrativas diferentes para conteúdo de redes sociais, cada uma com um ângulo único:
-- criativo: abordagem inovadora, fora da caixa
-- estrategico: foco em resultados práticos
-- dinamico: tom energético, motivacional
-- inspirador: histórias que inspiram ação
+Gere 4 narrativas tribais baseadas em Seth Godin, cada uma com um ângulo de liderança:
+- herege: Desafia o senso comum, provoca reflexão
+- visionario: Mostra futuro possível, inspira mudança
+- tradutor: Simplifica o complexo, democratiza conhecimento
+- testemunha: Compartilha jornada pessoal, cria identificação
 
 Para cada narrativa:
-1. Título curto e impactante
-2. Descrição de 1-2 frases
-3. Ângulo predominante
-4. Conteúdo desenvolvido (200-300 caracteres)
+1. Gancho tribal (hook): Primeira frase que cria reconhecimento imediato
+2. Título curto e impactante
+3. Descrição da transformação
+4. Crença compartilhada (core_belief): Une criador e audiência
+5. Senso comum questionado (status_quo_challenged)
+6. Conteúdo desenvolvido
 </instruções>`;
 }
 ```
 
-### Response Format
+### Response Format (Tribal v4)
 
 ```typescript
 interface Narrative {
   id: string;
   title: string;
   description: string;
-  angle: 'criativo' | 'estrategico' | 'dinamico' | 'inspirador';
+  angle: 'herege' | 'visionario' | 'tradutor' | 'testemunha';
+  hook?: string;                  // Primeira frase que cria reconhecimento
+  core_belief?: string;           // Crença compartilhada que une criador e audiência
+  status_quo_challenged?: string; // Senso comum questionado
   content: string;
 }
 ```
@@ -468,14 +476,16 @@ interface Narrative {
 
 Gerar o conteúdo final baseado na narrativa selecionada pelo usuário.
 
-### Tipos Suportados
+### Tipos Suportados (Tribal v4)
 
 | Tipo | Versão | Características |
 |------|--------|----------------|
-| Carousel | v4.1 | Tags XML, Synthesizer v3.1, ProgressaoSugeridaV3 |
-| Image Post | v2.0 | HCCA structure, técnicas de retenção |
-| Video Script | v2.0 | 5 estruturas, otimização 3 segundos |
+| Carousel | v4.2 | 130 chars/slide, 3 atos tribal structure |
+| Image Post | v3.0 | Declaração tribal, identidade > informação |
+| Video Script | v3.0 | Hooks tribais, transformação de perspectiva |
 | Text | v1.0 | Thread/Tweet padrão |
+| Theme Processing | v4 | Tribal lens para trending topics |
+| Synthesizer | v4 | Munição narrativa (throughlines, tensões) |
 
 ### Localização
 

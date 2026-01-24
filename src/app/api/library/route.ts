@@ -46,6 +46,16 @@ export async function GET(request: NextRequest) {
       filters.search = search
     }
 
+    // Parse pagination params
+    const page = searchParams.get("page")
+    const limit = searchParams.get("limit")
+    if (page) {
+      filters.page = parseInt(page, 10)
+    }
+    if (limit) {
+      filters.limit = parseInt(limit, 10)
+    }
+
     // Parse view mode
     const viewMode = {
       mode: (searchParams.get("viewMode") ?? "grid") as "grid" | "list",

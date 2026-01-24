@@ -111,10 +111,10 @@ async function loadAndFormatUserVariables(
 // ============================================================================
 
 /**
- * Generate 4 narrative options with different angles.
+ * Generate 4 narrative options with different tribal angles.
  *
- * This function creates 4 distinct narrative approaches (criativo, estrategico,
- * dinamico, inspirador) for the same content topic.
+ * This function creates 4 distinct narrative approaches (herege, visionario,
+ * tradutor, testemunha) based on Seth Godin's "Tribes" philosophy.
  *
  * @param input - Wizard input data
  * @param model - Optional model override
@@ -278,7 +278,11 @@ export async function generateNarratives(
         title: String(narrative.title),
         description: String(narrative.description),
         angle: narrative.angle as NarrativeOption["angle"],
-        // Optional fields - preserve if present
+        // Tribal narrative fields (v4)
+        ...(n && "hook" in n && n.hook ? { hook: String(n.hook) } : {}),
+        ...(n && "core_belief" in n && n.core_belief ? { core_belief: String(n.core_belief) } : {}),
+        ...(n && "status_quo_challenged" in n && n.status_quo_challenged ? { status_quo_challenged: String(n.status_quo_challenged) } : {}),
+        // Extended fields for richer context (legacy, still supported)
         ...(n && "viewpoint" in n && n.viewpoint ? { viewpoint: String(n.viewpoint) } : {}),
         ...(n && "whyUse" in n && n.whyUse ? { whyUse: String(n.whyUse) } : {}),
         ...(n && "impact" in n && n.impact ? { impact: String(n.impact) } : {}),
@@ -291,12 +295,12 @@ export async function generateNarratives(
       };
     });
 
-    // Ensure all 4 angles are present
+    // Ensure all 4 tribal angles are present
     const requiredAngles: NarrativeOption["angle"][] = [
-      "criativo",
-      "estrategico",
-      "dinamico",
-      "inspirador",
+      "herege",
+      "visionario",
+      "tradutor",
+      "testemunha",
     ];
 
     for (const angle of requiredAngles) {
@@ -318,6 +322,11 @@ export async function generateNarratives(
       console.log(`[WIZARD-DEBUG]   angle: ${n.angle}`);
       console.log(`[WIZARD-DEBUG]   title: ${n.title}`);
       console.log(`[WIZARD-DEBUG]   description: ${n.description}`);
+      // Tribal narrative fields (v4)
+      if (n.hook) console.log(`[WIZARD-DEBUG]   hook: ${n.hook}`);
+      if (n.core_belief) console.log(`[WIZARD-DEBUG]   core_belief: ${n.core_belief}`);
+      if (n.status_quo_challenged) console.log(`[WIZARD-DEBUG]   status_quo_challenged: ${n.status_quo_challenged}`);
+      // Extended fields (legacy)
       if (n.viewpoint) console.log(`[WIZARD-DEBUG]   viewpoint: ${n.viewpoint}`);
       if (n.whyUse) console.log(`[WIZARD-DEBUG]   whyUse: ${n.whyUse}`);
       if (n.impact) console.log(`[WIZARD-DEBUG]   impact: ${n.impact}`);
@@ -368,9 +377,9 @@ export async function generateNarratives(
  *   numberOfSlides: 10,
  *   selectedNarrative: {
  *     id: "narrative-1",
- *     title: "Criativo",
+ *     title: "Herege",
  *     description: "...",
- *     angle: "criativo"
+ *     angle: "herege"
  *   },
  *   cta: "Link in bio",
  *   ragContext: "Additional context..."
@@ -400,6 +409,11 @@ export async function generateContent(
   console.log(`[WIZARD-DEBUG]   angle: ${input.selectedNarrative.angle}`);
   console.log(`[WIZARD-DEBUG]   title: ${input.selectedNarrative.title}`);
   console.log(`[WIZARD-DEBUG]   description: ${input.selectedNarrative.description}`);
+  // Tribal narrative fields (v4)
+  if (input.selectedNarrative.hook) console.log(`[WIZARD-DEBUG]   hook: ${input.selectedNarrative.hook}`);
+  if (input.selectedNarrative.core_belief) console.log(`[WIZARD-DEBUG]   core_belief: ${input.selectedNarrative.core_belief}`);
+  if (input.selectedNarrative.status_quo_challenged) console.log(`[WIZARD-DEBUG]   status_quo_challenged: ${input.selectedNarrative.status_quo_challenged}`);
+  // Extended fields (legacy)
   if (input.selectedNarrative.viewpoint) console.log(`[WIZARD-DEBUG]   viewpoint: ${input.selectedNarrative.viewpoint}`);
   if (input.selectedNarrative.whyUse) console.log(`[WIZARD-DEBUG]   whyUse: ${input.selectedNarrative.whyUse}`);
   if (input.selectedNarrative.impact) console.log(`[WIZARD-DEBUG]   impact: ${input.selectedNarrative.impact}`);

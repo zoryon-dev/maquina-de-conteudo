@@ -9,14 +9,22 @@
 // NARRATIVE TYPES
 // ============================================================================
 
-export type NarrativeAngle = "criativo" | "estrategico" | "dinamico" | "inspirador";
+/**
+ * Tribal narrative angles based on Seth Godin's "Tribes" philosophy.
+ * Each angle represents a different leadership approach for content creation.
+ */
+export type NarrativeAngle = "herege" | "visionario" | "tradutor" | "testemunha";
 
 export interface NarrativeOption {
   id: string;
   title: string;
   description: string;
   angle: NarrativeAngle;
-  // Extended fields for richer context
+  // Tribal narrative fields (v4)
+  hook?: string; // First sentence that creates immediate recognition
+  core_belief?: string; // The shared belief that unites creator and audience
+  status_quo_challenged?: string; // What common sense this content questions
+  // Extended fields for richer context (legacy, still supported)
   viewpoint?: string;
   whyUse?: string;
   impact?: string;

@@ -2,7 +2,8 @@
  * Step 3 - Narratives Selection
  *
  * Displays generated narrative options for user to choose from.
- * Each narrative has a title, description, and angle (criativo, estrategico, dinamico, inspirador).
+ * Each narrative has a title, description, and angle (herege, visionario, tradutor, testemunha).
+ * Based on Seth Godin's "Tribes" philosophy for tribal content leadership.
  * User selects one narrative to proceed to content generation.
  */
 
@@ -39,24 +40,24 @@ interface Step3NarrativesProps {
 }
 
 const ANGLE_INFO: Record<string, { label: string; description: string; color: string }> = {
-  criativo: {
-    label: "Criativo",
-    description: "Abordagem inovadora e original",
+  herege: {
+    label: "Herege",
+    description: "Desafia o senso comum e provoca reflexão",
+    color: "text-red-400",
+  },
+  visionario: {
+    label: "Visionário",
+    description: "Mostra um futuro possível e inspira mudança",
     color: "text-purple-400",
   },
-  estrategico: {
-    label: "Estratégico",
-    description: "Focado em objetivos e resultados",
+  tradutor: {
+    label: "Tradutor",
+    description: "Simplifica o complexo e democratiza conhecimento",
     color: "text-blue-400",
   },
-  dinamico: {
-    label: "Dinâmico",
-    description: "Energético e envolvente",
-    color: "text-orange-400",
-  },
-  inspirador: {
-    label: "Inspirador",
-    description: "Motivacional e aspiracional",
+  testemunha: {
+    label: "Testemunha",
+    description: "Compartilha jornada pessoal e cria identificação",
     color: "text-green-400",
   },
 };

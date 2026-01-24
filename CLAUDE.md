@@ -197,7 +197,7 @@ chore: dependências
 ### RAG & Embeddings (Voyage AI)
 - **Memória Serena:** `rag-embedding-patterns`
 - **Modelo:** `voyage-4-large` (1024 dims)
-- **Threshold:** `0.5` (unificado)
+- **Threshold:** `0.4` (melhorado para tribal content)
 - **Chunking:** Category-specific via `getChunkingOptionsForCategory()`
 
 ---
@@ -274,11 +274,11 @@ Consulte via Serena para padrões detalhados:
 | `database-patterns` | Drizzle ORM |
 | `vercel-ai-sdk-patterns` | Vercel AI SDK |
 | `rag-embedding-patterns` | RAG + Voyage AI |
-| `ai-processing-patterns` | Uso de IA no sistema (Theme, Narratives, Content) |
+| `ai-processing-patterns` | IA no sistema (Prompts v4 Tribal, Theme, Narratives, Content) |
 | `storage-patterns` | R2 + Local storage |
 | `queue-patterns` | Sistema de filas |
 | `library-patterns` | Biblioteca de conteúdo |
 | `calendar-patterns` | Calendário editorial |
 | `sources-page-refactor` | Página de fontes |
 | `prompt-system` | Sistema de prompts |
-| `wizard-patterns` | Wizard de criação |
+| `wizard-patterns` | Wizard de criação (Prompts v4 Tribal, 4 ângulos tribais) |

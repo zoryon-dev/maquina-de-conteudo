@@ -2,7 +2,8 @@
  * Narrative Card
  *
  * Displays a single narrative option with title, description, and angle.
- * Shows rich context details when expanded (viewpoint, whyUse, impact, tone, etc.).
+ * Shows rich context details when expanded (tribal fields: hook, core_belief, status_quo_challenged).
+ * Based on Seth Godin's "Tribes" philosophy for tribal content leadership.
  * Used in Step 3 - Narratives selection.
  */
 
@@ -18,7 +19,11 @@ export interface Narrative {
   title: string;
   description: string;
   angle: string;
-  // Extended fields for richer context
+  // Tribal narrative fields (v4)
+  hook?: string;
+  core_belief?: string;
+  status_quo_challenged?: string;
+  // Extended fields for richer context (legacy, still supported)
   viewpoint?: string;
   whyUse?: string;
   impact?: string;
@@ -37,29 +42,34 @@ interface NarrativeCardProps {
 }
 
 const ANGLE_ICONS: Record<string, React.ElementType> = {
-  criativo: Sparkles,
-  estrategico: Target,
-  dinamico: Zap,
-  inspirador: Lightbulb,
+  herege: Zap,
+  visionario: Lightbulb,
+  tradutor: Sparkles,
+  testemunha: Target,
 };
 
 const ANGLE_COLORS: Record<string, string> = {
-  criativo: "text-purple-400",
-  estrategico: "text-blue-400",
-  dinamico: "text-orange-400",
-  inspirador: "text-green-400",
+  herege: "text-red-400",
+  visionario: "text-purple-400",
+  tradutor: "text-blue-400",
+  testemunha: "text-green-400",
 };
 
 const ANGLE_BADGE_COLORS: Record<string, string> = {
-  criativo: "bg-purple-500/20 text-purple-300 border-purple-500/30",
-  estrategico: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  dinamico: "bg-orange-500/20 text-orange-300 border-orange-500/30",
-  inspirador: "bg-green-500/20 text-green-300 border-green-500/30",
+  herege: "bg-red-500/20 text-red-300 border-red-500/30",
+  visionario: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+  tradutor: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  testemunha: "bg-green-500/20 text-green-300 border-green-500/30",
 };
 
 // Helper function to check if narrative has rich context
 function hasRichContext(narrative: Narrative): boolean {
   return !!(
+    // Tribal narrative fields (v4)
+    narrative.hook ||
+    narrative.core_belief ||
+    narrative.status_quo_challenged ||
+    // Extended fields (legacy)
     narrative.viewpoint ||
     narrative.whyUse ||
     narrative.impact ||
@@ -215,6 +225,47 @@ export function NarrativeCard({
               className="overflow-hidden"
             >
               <div className="px-5 pb-5 space-y-4">
+                {/* Tribal Fields (v4) */}
+                {/* Hook */}
+                {narrative.hook && (
+                  <div className="flex items-start gap-3">
+                    <Zap className={cn("w-4 h-4 mt-0.5 flex-shrink-0", angleColor)} />
+                    <div>
+                      <span className="text-xs font-medium text-white/60 uppercase tracking-wide">Hook de Captura</span>
+                      <p className="text-sm text-white/80 mt-1">{narrative.hook}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Core Belief */}
+                {narrative.core_belief && (
+                  <div className="flex items-start gap-3">
+                    <Target className="w-4 h-4 mt-0.5 flex-shrink-0 text-pink-400" />
+                    <div>
+                      <span className="text-xs font-medium text-white/60 uppercase tracking-wide">Crença Compartilhada</span>
+                      <p className="text-sm text-white/80 mt-1">{narrative.core_belief}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Status Quo Challenged */}
+                {narrative.status_quo_challenged && (
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-400" />
+                    <div>
+                      <span className="text-xs font-medium text-white/60 uppercase tracking-wide">Senso Comum Questionado</span>
+                      <p className="text-sm text-white/80 mt-1">{narrative.status_quo_challenged}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Divider between tribal and legacy fields */}
+                {(narrative.hook || narrative.core_belief || narrative.status_quo_challenged) &&
+                 (narrative.viewpoint || narrative.whyUse || narrative.impact) && (
+                  <div className="border-t border-white/10 pt-2" />
+                )}
+
+                {/* Legacy Fields */}
                 {/* Viewpoint */}
                 {narrative.viewpoint && (
                   <div className="flex items-start gap-3">

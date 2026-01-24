@@ -174,7 +174,7 @@ export async function generateNarratives(input: NarrativeInput): Promise<Service
 }
 ```
 
-### Schema de Narrativas
+### Schema de Narrativas (Tribal v4)
 
 ```typescript
 const narrativesSchema = z.object({
@@ -182,9 +182,12 @@ const narrativesSchema = z.object({
     id: z.string(),
     title: z.string(),
     description: z.string(),
-    angle: z.enum(['criativo', 'estrategico', 'dinamico', 'inspirador']),
+    angle: z.enum(['herege', 'visionario', 'tradutor', 'testemunha']),
+    hook: z.string().optional(),                  // Primeira frase que cria reconhecimento
+    core_belief: z.string().optional(),           // Crença compartilhada
+    status_quo_challenged: z.string().optional(), // Senso comum questionado
     content: z.string(),
-  })).min(3).max(5),
+  })).min(4).max(4),  // Exatamente 4 ângulos tribais
 });
 ```
 
@@ -220,10 +223,12 @@ export async function generateContent(input: ContentInput): Promise<ServiceResul
 
 | Tipo | Versão | Características |
 |------|--------|----------------|
-| **Carousel** | v4.1 | Tags XML, Synthesizer v3.1, ProgressaoSugeridaV3 |
-| **Image Post** | v2.0 | HCCA structure, técnicas de retenção |
-| **Video Script** | v2.0 | 5 estruturas, otimização 3 segundos |
+| **Carousel** | v4.2 | 130 chars/slide, 3 atos tribal |
+| **Image Post** | v3.0 | Declaração tribal, identidade > informação |
+| **Video Script** | v3.0 | Hooks tribais, transformação de perspectiva |
 | **Text** | v1.0 | Thread/Tweet padrão |
+| **Theme Processing** | v4 | Tribal lens para trending topics |
+| **Synthesizer** | v4 | Munição narrativa (throughlines, tensões) |
 
 ## 4. RAG Context
 
@@ -260,6 +265,12 @@ const { embedding } = await embedder.doEmbed({
 
 // similarity = cosineSimilarity(queryEmbedding, docEmbedding)
 ```
+
+**Configuração RAG (v4):**
+- **Threshold:** 0.4 (reduzido de 0.5 para melhor recall)
+- **Max chunks:** 15
+- **Max tokens:** 3000
+- **Include sources:** true
 
 ## 5. Image Generation
 
@@ -340,14 +351,15 @@ FIRECRAWL_API_KEY=fc-...
 SCREENSHOT_ONE_ACCESS_KEY=your-access-key
 ```
 
-## Modelos de LLM Utilizados
+## Modelos de LLM Utilizados (v4 Tribal)
 
-| Serviço | Modelo Padão | Propósito |
-|---------|--------------|-----------|
-| Theme Processing | gemini-2.0-flash-exp:free | Processamento rápido |
-| Narratives | gpt-4.1 | Criatividade |
-| Content Generation | gpt-4.1 | Qualidade |
-| Synthesizer | gemini-2.0-flash-exp:free | Velocidade |
+| Serviço | Modelo | Temperature | Propósito |
+|---------|--------|-------------|-----------|
+| Theme Processing | google/gemini-3-flash-preview | 0.3 | Processamento rápido (interno) |
+| Narratives | openai/gpt-4.1 | 0.7 | Criatividade (interno) |
+| Synthesizer | openai/gpt-4.1-mini | 0.4 | Velocidade (interno) |
+| Carousel | User's model OR google/gemini-3-flash-preview | 0.8 | User choice |
+| Image/Video | User's model OR google/gemini-3-flash-preview | 0.7 | User choice |
 
 ## Prompt Engineering Patterns
 

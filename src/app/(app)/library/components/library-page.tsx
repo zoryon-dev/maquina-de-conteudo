@@ -29,6 +29,7 @@ import { LibraryGrid } from "./library-grid"
 import { LibraryList } from "./library-list"
 import { EmptyLibraryState } from "./empty-library-state"
 import { ContentDialog } from "./content-dialog"
+import { Pagination } from "@/components/ui/pagination"
 import type { LibraryItemWithRelations } from "@/types/library"
 import type { ContentStatus } from "@/db/schema"
 
@@ -54,8 +55,19 @@ export function LibraryPage() {
     clearDateFilter,
   } = useLibraryFilters()
 
-  // Data fetching
-  const { items, isLoading, error, refetch } = useLibraryData(filters, viewMode)
+  // Data fetching with pagination
+  const {
+    items,
+    isLoading,
+    error,
+    refetch,
+    total,
+    page,
+    limit,
+    totalPages,
+    setPage,
+    setLimit,
+  } = useLibraryData({ filters, viewMode })
 
   // Selection state (for batch actions)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -218,6 +230,18 @@ export function LibraryPage() {
     refetch()
   }
 
+  // Pagination handlers
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage)
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
+  const handleLimitChange = (newLimit: number) => {
+    setLimit(newLimit)
+    setPage(1) // Reset to first page when changing items per page
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -282,6 +306,19 @@ export function LibraryPage() {
           sortBy={viewMode.sortBy}
           sortOrder={viewMode.sortOrder}
           onSortBy={setSortBy}
+        />
+      )}
+
+      {/* Pagination - show when there are items */}
+      {!isLoading && !error && items.length > 0 && totalPages > 1 && (
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          total={total}
+          limit={limit}
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+          isLoading={isLoading}
         />
       )}
 

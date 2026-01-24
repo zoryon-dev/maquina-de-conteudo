@@ -10,7 +10,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@/db';
 import { themes, themeTags, tags } from '@/db/schema';
-import { eq, and, isNull, desc, ilike, inArray } from 'drizzle-orm';
+import { eq, and, isNull, desc, ilike, inArray, sql } from 'drizzle-orm';
 import type {
   Theme,
   NewTheme,
@@ -28,6 +28,16 @@ export interface ThemeFilters {
   category?: string;
   search?: string;
   sourceType?: ThemeSourceType;
+  page?: number;
+  limit?: number;
+}
+
+export interface PaginatedThemesResponse {
+  items: Theme[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export interface CreateThemeInput {
@@ -56,13 +66,17 @@ export interface UpdateThemeInput extends Partial<CreateThemeInput> {
 // ============================================================================
 
 /**
- * Get all themes for the current user.
+ * Get all themes for the current user with pagination support.
  */
-export async function getThemesAction(filters?: ThemeFilters) {
+export async function getThemesAction(filters?: ThemeFilters): Promise<PaginatedThemesResponse | Theme[]> {
   const { userId } = await auth();
   if (!userId) {
     throw new Error('Unauthorized');
   }
+
+  const page = filters?.page || 1;
+  const limit = filters?.limit || 12;
+  const offset = (page - 1) * limit;
 
   const conditions = [isNull(themes.deletedAt)];
 
@@ -82,12 +96,33 @@ export async function getThemesAction(filters?: ThemeFilters) {
     conditions.push(ilike(themes.title, `%${filters.search}%`));
   }
 
+  // Get total count
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(themes)
+    .where(and(...conditions));
+
+  // Get paginated items
   const userThemes = await db
     .select()
     .from(themes)
     .where(and(...conditions))
-    .orderBy(desc(themes.createdAt));
+    .orderBy(desc(themes.createdAt))
+    .limit(limit)
+    .offset(offset);
 
+  // If pagination parameters are provided, return paginated response
+  if (filters?.page || filters?.limit) {
+    return {
+      items: userThemes,
+      total: count,
+      page,
+      limit,
+      totalPages: Math.ceil(count / limit),
+    };
+  }
+
+  // For backward compatibility, return array if no pagination
   return userThemes;
 }
 

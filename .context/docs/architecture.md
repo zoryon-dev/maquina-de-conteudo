@@ -577,7 +577,7 @@ graph LR
 - Dimensions: 1024
 - Chunk Size: **Category-specific** (800-1300 tokens)
 - Overlap: 100-200 tokens (varies by category)
-- Similarity Threshold: 0.5 (unified)
+- Similarity Threshold: 0.4 (improved recall for tribal content - unified)
 
 **Category-Specific Chunking:**
 | Category | Chunk Size | Overlap | Use Case |
@@ -768,16 +768,21 @@ export const contentWizards = pgTable("content_wizards", {
 | `/api/wizard/[id]` | DELETE | Soft delete (currentStep: "abandoned") |
 | `/api/wizard/[id]/submit` | POST | Trigger background job (narratives or generation) |
 
-### Narrative Angles
+### Narrative Angles (Tribal v4)
 
-The Wizard generates 4 narrative options, each with a different angle:
+The Wizard generates 4 narrative options based on Seth Godin's "Tribes" philosophy:
 
-| Angle | Label | Description |
-|-------|-------|-------------|
-| `criativo` | Criativo | Abordagem inovadora e original |
-| `estrategico` | Estratégico | Focado em objetivos e resultados |
-| `dinamico` | Dinâmico | Energético e envolvente |
-| `inspirador` | Inspirador | Motivacional e aspiracional |
+| Angle | Label | Color | Description |
+|-------|-------|-------|-------------|
+| `herege` | Herege | red-400 | Desafia o senso comum, provoca reflexão |
+| `visionario` | Visionário | purple-400 | Mostra futuro possível, inspira mudança |
+| `tradutor` | Tradutor | blue-400 | Simplifica o complexo, democratiza conhecimento |
+| `testemunha` | Testemunha | green-400 | Compartilha jornada pessoal, cria identificação |
+
+**Tribal Fields (v4):**
+- `hook`: Primeira frase que cria reconhecimento imediato
+- `core_belief`: Crença compartilhada que une criador e audiência
+- `status_quo_challenged`: O que o conteúdo questiona |
 
 ### Background Jobs
 
@@ -816,7 +821,7 @@ src/lib/wizard-services/
 ├── types.ts                    # Shared types (NarrativeAngle, ContentType, ServiceResult)
 ├── synthesis-types.ts          # Synthesizer v3.1 research types
 ├── image-types.ts              # Image generation configuration types
-├── prompts.ts                  # Isolated prompts per content type (v4.1/v2.0)
+├── prompts.ts                  # Tribal v4 prompts (base-tribal, carousel v4.2, image/video v3.0)
 ├── llm.service.ts              # LLM generation with retry logic
 ├── rag.service.ts              # RAG wrapper with graceful degradation
 ├── synthesizer.service.ts      # Research synthesis v3.1
@@ -1202,13 +1207,19 @@ const HTML_TEMPLATES = {
 </html>
 ```
 
-### Prompt Versions
+### Prompt Versions (Tribal v4)
 
 | Content Type | Version | Features |
 |--------------|---------|----------|
-| **Carousel** | v4.1 | XML tags, Synthesizer v3.1 integration, ProgressaoSugeridaV3 |
-| **Image Post** | v2.0 | HCCA structure, retention techniques |
-| **Video Script** | v2.0 | 5 structures, 3-second optimization |
+| **Theme Processing** | v4 | Tribal lens for trending topics (gemini-3-flash-preview, temp 0.3) |
+| **Narratives** | v4 | 4 tribal angles based on Seth Godin (gpt-4.1, temp 0.7) |
+| **Synthesizer** | v4 | Narrative ammunition (gpt-4.1-mini, temp 0.4) |
+| **Carousel** | v4.2 | 130 chars/slide, 3-act tribal structure (user's model OR gemini-3-flash-preview, temp 0.8) |
+| **Image Post** | v3.0 | Tribal declaration, identity > information (user's model OR gemini-3-flash-preview, temp 0.7) |
+| **Video Script** | v3.0 | Tribal hooks, perspective transformation (user's model OR gemini-3-flash-preview, temp 0.7) |
+
+**Universal Tribal Caption Template:**
+Minimum 200 words. Structure: Hook → Connection (50-80) → Value (80-120) → Identification (30-50) → Tribal Invitation (20-40).
 
 ### Environment Variables (Phase 2)
 
@@ -1295,4 +1306,4 @@ Clerk webhooks keep database in sync rather than fetching user data on each requ
 
 ---
 
-*Updated based on codebase analysis as of Jan 18, 2026 (Fase 9 - Wizard de Criação + Database-backed Chat + Wizard Services).*
+*Updated based on codebase analysis as of Jan 23, 2026 (Tribal v4 Migration - Seth Godin's "Tribes" philosophy).*
