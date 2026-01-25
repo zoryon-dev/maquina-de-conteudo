@@ -23,12 +23,14 @@ import {
   Plus,
   Minus,
   Cpu,
+  Database,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -40,8 +42,11 @@ import { cn } from "@/lib/utils";
 import {
   CollapsibleSection,
 } from "@/components/ui/collapsible";
+import { DocumentConfigForm, type RagConfig } from "../shared/document-config-form";
 import type { PostType } from "@/db/schema";
 import { TEXT_MODELS, DEFAULT_TEXT_MODEL, type ModelProvider } from "@/lib/models";
+import type { VideoDuration } from "@/lib/wizard-services/types";
+import type { ImageGenerationConfig } from "@/lib/wizard-services/image-types";
 
 export interface WizardFormData {
   contentType?: PostType;
@@ -62,6 +67,11 @@ export interface WizardFormData {
     collections?: number[];
   };
   negativeTerms?: string[];
+  // v4.0 video-specific fields
+  videoDuration?: VideoDuration;
+  videoIntention?: string;
+  generateThumbnail?: boolean;
+  thumbnailConfig?: ImageGenerationConfig;
 }
 
 interface Step1InputsProps {
@@ -360,6 +370,46 @@ export function Step1Inputs({
             </div>
           </CollapsibleSection>
 
+          {/* Base de Conhecimento RAG - Destacado */}
+          <div className="relative">
+            {/* Glow effect for RAG section */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 via-purple-500/20 to-blue-500/20 rounded-2xl blur-xl opacity-60" />
+
+            <div className="relative bg-white/[0.02] border-2 border-primary/40 rounded-2xl p-5 space-y-4">
+              {/* Header com ícone e título */}
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-gradient-to-br from-primary/20 to-purple-500/20 border border-primary/30">
+                  <Database className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                    Base de Conhecimento
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-medium">
+                      RAG
+                    </span>
+                  </h3>
+                  <p className="text-sm text-white/60">
+                    Enriqueça seu conteúdo com documentos da sua base
+                  </p>
+                </div>
+              </div>
+
+              {/* DocumentConfigForm */}
+              <DocumentConfigForm
+                config={data.ragConfig ?? { mode: "auto" }}
+                onChange={(config) => onChange({ ...data, ragConfig: config })}
+              />
+
+              {/* Dica de uso */}
+              <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
+                <Sparkles className="w-4 h-4 text-primary/70 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-white/70 leading-relaxed">
+                  <span className="text-primary font-medium">Dica:</span> Documentos selecionados aqui influenciarão tanto as <strong>narrativas</strong> quanto o <strong>conteúdo final</strong>, tornando tudo mais personalizado e alinhado com seu conhecimento.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Detalhes do Conteúdo */}
           <CollapsibleSection
             title="3. Detalhes do Conteúdo"
@@ -628,6 +678,187 @@ export function Step1Inputs({
               </div>
             </div>
           </CollapsibleSection>
+
+          {/* Video Configuration - v4.0 NEW */}
+          {data.contentType === "video" && (
+            <CollapsibleSection
+              title="7. Configurações de Vídeo"
+              description="Personalize roteiro e thumbnail"
+              icon={PlayCircle}
+              defaultOpen={true}
+            >
+              <div className="space-y-5">
+                {/* Video Duration */}
+                <div className="space-y-3">
+                  <Label className="text-sm text-white/80 flex items-center gap-2">
+                    <Target className="w-4 h-4 text-primary" />
+                    Duração do Roteiro
+                  </Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { value: "3-5min" as VideoDuration, label: "3-5 min" },
+                      { value: "5-10min" as VideoDuration, label: "5-10 min" },
+                      { value: "10min+" as VideoDuration, label: "10+ min" },
+                      { value: "curto" as VideoDuration, label: "Curto (30-60s)" },
+                    ].map((option) => (
+                      <motion.button
+                        key={option.value}
+                        type="button"
+                        onClick={() => onChange({ ...data, videoDuration: option.value })}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className={cn(
+                          "p-3 rounded-lg border text-sm font-medium transition-all",
+                          data.videoDuration === option.value
+                            ? "bg-primary/20 border-primary text-white shadow-lg shadow-primary/20"
+                            : "bg-white/5 border-white/10 text-white/60 hover:border-white/20 hover:bg-white/[0.03]"
+                        )}
+                      >
+                        {option.label}
+                      </motion.button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-white/50">
+                    A duração define a profundidade e quantidade de insights no roteiro
+                  </p>
+                </div>
+
+                {/* Video Intention */}
+                <div className="space-y-2">
+                  <Label className="text-sm text-white/80 flex items-center gap-2">
+                    <Megaphone className="w-4 h-4 text-primary" />
+                    Intenção do Vídeo
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="Ex: Educar sobre produtividade, inspirar mudança..."
+                    value={data.videoIntention ?? ""}
+                    onChange={(e) => onChange({ ...data, videoIntention: e.target.value })}
+                    className="!border-white/10 !bg-white/[0.02] !text-white !placeholder:text-white/40 focus-visible:!border-primary/50"
+                  />
+                  <p className="text-xs text-white/50">
+                    Qual transformação você quer criar na audiência?
+                  </p>
+                </div>
+
+                {/* Generate Thumbnail Toggle */}
+                <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30">
+                      <ImageIcon className="w-4 h-4 text-purple-300" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">Thumbnail com IA</p>
+                      <p className="text-xs text-white/60">
+                        Gerar thumbnail automaticamente após o roteiro
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={data.generateThumbnail ?? false}
+                    onCheckedChange={(checked) => onChange({ ...data, generateThumbnail: checked })}
+                    className="data-[state=checked]:bg-primary/50"
+                  />
+                </div>
+
+                {/* Thumbnail Config - Shows when enabled */}
+                {data.generateThumbnail && (
+                  <div className="p-4 bg-gradient-to-br from-primary/5 to-purple-500/5 border border-primary/20 rounded-lg space-y-3">
+                    <p className="text-sm font-medium text-white flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      Configurações da Thumbnail
+                    </p>
+                    <p className="text-xs text-white/60">
+                      A thumbnail será gerada após a criação do roteiro usando as opções abaixo
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                      {/* Method Selection */}
+                      <div className="space-y-2">
+                        <Label className="text-xs text-white/70">Método de Geração</Label>
+                        <div className="flex gap-2">
+                          {["ai", "html-template"].map((method) => (
+                            <button
+                              key={method}
+                              type="button"
+                              onClick={() => {
+                                const config = data.thumbnailConfig || { method: "ai" as const, aiOptions: { model: "google/gemini-3-pro-image-preview", color: "vibrante", style: "moderno" } };
+                                onChange({ ...data, thumbnailConfig: { ...config, method: method as "ai" | "html-template" } });
+                              }}
+                              className={cn(
+                                "flex-1 px-3 py-2 rounded-lg border text-xs font-medium transition-all",
+                                data.thumbnailConfig?.method === method
+                                  ? "bg-primary/20 border-primary text-white"
+                                  : "bg-white/5 border-white/10 text-white/60 hover:border-white/20"
+                              )}
+                            >
+                              {method === "ai" ? "🤖 IA" : "📄 Template"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Color Selection */}
+                      <div className="space-y-2">
+                        <Label className="text-xs text-white/70">Paleta de Cores</Label>
+                        <select
+                          value={data.thumbnailConfig?.aiOptions?.color || "vibrante"}
+                          onChange={(e) => {
+                            const config = data.thumbnailConfig || { method: "ai" as const, aiOptions: { model: "google/gemini-3-pro-image-preview", color: "vibrante", style: "moderno" } };
+                            onChange({ ...data, thumbnailConfig: { ...config, aiOptions: { ...config.aiOptions!, color: e.target.value as any } } });
+                          }}
+                          className="w-full h-10 px-3 rounded-lg border border-white/10 bg-white/[0.02] text-white text-sm focus-visible:!border-primary/50"
+                        >
+                          <option value="vibrante">Vibrante</option>
+                          <option value="quente">Quente</option>
+                          <option value="fria">Fria</option>
+                          <option value="neon">Neon</option>
+                          <option value="pastel">Pastel</option>
+                        </select>
+                      </div>
+
+                      {/* Style Selection */}
+                      <div className="space-y-2">
+                        <Label className="text-xs text-white/70">Estilo Visual</Label>
+                        <select
+                          value={data.thumbnailConfig?.aiOptions?.style || "moderno"}
+                          onChange={(e) => {
+                            const config = data.thumbnailConfig || { method: "ai" as const, aiOptions: { model: "google/gemini-3-pro-image-preview", color: "vibrante", style: "moderno" } };
+                            onChange({ ...data, thumbnailConfig: { ...config, aiOptions: { ...config.aiOptions!, style: e.target.value as any } } });
+                          }}
+                          className="w-full h-10 px-3 rounded-lg border border-white/10 bg-white/[0.02] text-white text-sm focus-visible:!border-primary/50"
+                        >
+                          <option value="moderno">Moderno</option>
+                          <option value="minimalista">Minimalista</option>
+                          <option value="bold">Bold</option>
+                          <option value="dramatic">Dramático</option>
+                          <option value="playful">Lúdico</option>
+                        </select>
+                      </div>
+
+                      {/* Mood Selection */}
+                      <div className="space-y-2">
+                        <Label className="text-xs text-white/70">Mood</Label>
+                        <select
+                          value={data.thumbnailConfig?.aiOptions?.mood || "inspirador"}
+                          onChange={(e) => {
+                            const config = data.thumbnailConfig || { method: "ai" as const, aiOptions: { model: "google/gemini-3-pro-image-preview", color: "vibrante", style: "moderno" } };
+                            onChange({ ...data, thumbnailConfig: { ...config, aiOptions: { ...config.aiOptions!, mood: e.target.value as any } } });
+                          }}
+                          className="w-full h-10 px-3 rounded-lg border border-white/10 bg-white/[0.02] text-white text-sm focus-visible:!border-primary/50"
+                        >
+                          <option value="inspirador">Inspirador</option>
+                          <option value="surpreendente">Surpreendente</option>
+                          <option value="energetico">Energético</option>
+                          <option value="urgente">Urgente</option>
+                          <option value="misterioso">Misterioso</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CollapsibleSection>
+          )}
         </div>
       </div>
 

@@ -22,30 +22,23 @@ import {
   AlertCircle,
   Copy,
   Eye,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  Target,
+  Lightbulb,
+  Video,
+  Palette,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { PostType } from "@/db/schema";
+import type { GeneratedSlide, GeneratedContent, VideoScriptStructured } from "@/lib/wizard-services/types";
+import { VideoThumbnailGeneration } from "../shared/video-thumbnail-generation";
 
-export interface GeneratedSlide {
-  title?: string;
-  content: string;
-  imagePrompt?: string;
-}
-
-export interface GeneratedContent {
-  type: PostType;
-  slides: GeneratedSlide[];
-  caption?: string;
-  hashtags?: string[];
-  cta?: string;
-  metadata?: {
-    narrative?: string;
-    model?: string;
-    generatedAt?: string;
-  };
-}
+// Re-export for external use
+export type { GeneratedSlide, GeneratedContent };
 
 export interface GenerationStatus {
   step: "idle" | "generating" | "completed" | "failed";
@@ -80,6 +73,329 @@ const CONTENT_TYPE_LABELS: Record<PostType, string> = {
   story: "Story",
 };
 
+// ============================================================================
+// TYPE GUARDS
+// ============================================================================
+
+/**
+ * Type guard to check if script is VideoScriptStructured (v4.3)
+ */
+function isVideoScriptStructured(script: string | VideoScriptStructured | undefined): script is VideoScriptStructured {
+  return script !== undefined && typeof script === "object" && "meta" in script && "thumbnail" in script && "roteiro" in script;
+}
+
+// ============================================================================
+// VIDEO SCRIPT PREVIEW COMPONENT (v4.3)
+// ============================================================================
+
+interface VideoScriptPreviewProps {
+  script: VideoScriptStructured;
+}
+
+function VideoScriptPreview({ script }: VideoScriptPreviewProps) {
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    meta: true,
+    thumbnail: true,
+    hook: true,
+    desenvolvimento: true,
+    cta: true,
+    notasProducao: false,
+    caption: false,
+    hashtags: false,
+  });
+
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  // Get badge color for section type
+  const getSectionTypeColor = (tipo: string) => {
+    const colors: Record<string, string> = {
+      problema: "bg-red-500/20 text-red-400 border-red-500/30",
+      conceito: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+      passo: "bg-green-500/20 text-green-400 border-green-500/30",
+      exemplo: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+      erro: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+      contraste: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+      sintese: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
+      cta: "bg-primary/20 text-primary border-primary/30",
+    };
+    return colors[tipo] || "bg-gray-500/20 text-gray-400 border-gray-500/30";
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Meta Section */}
+      <CollapsibleSection
+        title="Meta (Valor Central)"
+        icon={Sparkles}
+        expanded={expandedSections.meta}
+        onToggle={() => toggleSection("meta")}
+        className="border-primary/20 bg-primary/5"
+      >
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs text-white/50 mb-1">Duração Estimada</p>
+            <p className="text-sm font-medium text-white">{script.meta.duracao_estimada}</p>
+          </div>
+          <div>
+            <p className="text-xs text-white/50 mb-1">Ângulo Tribal</p>
+            <p className="text-sm font-medium text-white capitalize">{script.meta.angulo_tribal}</p>
+          </div>
+          <div className="p-3 rounded-lg bg-gradient-to-r from-primary/20 to-green-500/20 border border-primary/30">
+            <p className="text-xs text-primary/80 mb-1">💎 Valor Central</p>
+            <p className="text-sm text-white font-medium">{script.meta.valor_central}</p>
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      {/* Thumbnail Section */}
+      <CollapsibleSection
+        title="Thumbnail"
+        icon={Palette}
+        expanded={expandedSections.thumbnail}
+        onToggle={() => toggleSection("thumbnail")}
+        className="border-purple-500/20 bg-purple-500/5"
+      >
+        <div className="space-y-3">
+          <div className="p-3 rounded-lg bg-white/[0.02] border border-white/10">
+            <p className="text-xs text-white/50 mb-1">🎯 Título</p>
+            <p className="text-base font-bold text-white">{script.thumbnail.titulo}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="p-2 rounded-lg bg-white/[0.02] border border-white/10">
+              <p className="text-xs text-white/50 mb-1">😶 Expressão</p>
+              <p className="text-xs text-white/80">{script.thumbnail.expressao}</p>
+            </div>
+            <div className="p-2 rounded-lg bg-white/[0.02] border border-white/10">
+              <p className="text-xs text-white/50 mb-1">✏️ Texto Overlay</p>
+              <p className="text-xs text-white/80">{script.thumbnail.texto_overlay}</p>
+            </div>
+          </div>
+          <div className="p-2 rounded-lg bg-white/[0.02] border border-white/10">
+            <p className="text-xs text-white/50 mb-1">🎨 Estilo</p>
+            <p className="text-xs text-white/80">{script.thumbnail.estilo}</p>
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      {/* Hook Section */}
+      <CollapsibleSection
+        title="Hook"
+        icon={Target}
+        expanded={expandedSections.hook}
+        onToggle={() => toggleSection("hook")}
+        className="border-yellow-500/20 bg-yellow-500/5"
+      >
+        <div className="space-y-3">
+          <div className="p-3 rounded-lg bg-white/[0.02] border border-white/10">
+            <p className="text-xs text-white/50 mb-1">📢 Texto</p>
+            <p className="text-sm text-white font-medium">{script.roteiro.hook.texto}</p>
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1 p-2 rounded-lg bg-white/[0.02] border border-white/10">
+              <p className="text-xs text-white/50 mb-1">Tipo</p>
+              <p className="text-xs text-white/80 capitalize">{script.roteiro.hook.tipo}</p>
+            </div>
+            <div className="flex-[2] p-2 rounded-lg bg-white/[0.02] border border-white/10">
+              <p className="text-xs text-white/50 mb-1">📹 Nota Gravação</p>
+              <p className="text-xs text-white/80">{script.roteiro.hook.nota_gravacao}</p>
+            </div>
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      {/* Desenvolvimento (Development Sections) */}
+      <CollapsibleSection
+        title={`Desenvolvimento (${script.roteiro.desenvolvimento.length} seções)`}
+        icon={Lightbulb}
+        expanded={expandedSections.desenvolvimento}
+        onToggle={() => toggleSection("desenvolvimento")}
+        className="border-blue-500/20 bg-blue-500/5"
+      >
+        <div className="space-y-3">
+          {script.roteiro.desenvolvimento.map((secao, idx) => (
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.05 }}
+              className="p-3 rounded-lg bg-white/[0.02] border border-white/10"
+            >
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <span className={cn(
+                  "text-xs px-2 py-0.5 rounded border font-medium",
+                  getSectionTypeColor(secao.tipo)
+                )}>
+                  {secao.numero}. {secao.tipo.toUpperCase()}
+                </span>
+              </div>
+              <div className="space-y-2">
+                <div>
+                  <p className="text-xs font-medium text-primary mb-1">{secao.topico}</p>
+                  <p className="text-sm text-white/90">{secao.insight}</p>
+                </div>
+                {secao.exemplo && (
+                  <div className="p-2 rounded bg-white/[0.02] border-l-2 border-primary/50">
+                    <p className="text-xs text-white/50 mb-1">💡 Exemplo</p>
+                    <p className="text-xs text-white/80 italic">{secao.exemplo}</p>
+                  </div>
+                )}
+                <div className="pt-2 border-t border-white/10">
+                  <p className="text-xs text-white/50">➡️ {secao.transicao}</p>
+                </div>
+                <div className="pt-2 border-t border-white/10">
+                  <p className="text-xs text-white/40">📹 {secao.nota_gravacao}</p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </CollapsibleSection>
+
+      {/* CTA Section */}
+      <CollapsibleSection
+        title="Call-to-Action"
+        icon={Target}
+        expanded={expandedSections.cta}
+        onToggle={() => toggleSection("cta")}
+        className="border-green-500/20 bg-green-500/5"
+      >
+        <div className="space-y-3">
+          <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
+            <p className="text-xs text-primary/80 mb-1">📢 Convite</p>
+            <p className="text-sm text-white font-medium">{script.roteiro.cta.texto}</p>
+          </div>
+          <div className="p-3 rounded-lg bg-white/[0.02] border border-white/10">
+            <p className="text-xs text-white/50 mb-1">➡️ Próximo Passo</p>
+            <p className="text-sm text-white/80">{script.roteiro.cta.proximo_passo}</p>
+          </div>
+          <div className="p-2 rounded-lg bg-white/[0.02] border border-white/10">
+            <p className="text-xs text-white/40">📹 {script.roteiro.cta.nota_gravacao}</p>
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      {/* Notas de Produção */}
+      <CollapsibleSection
+        title="Notas de Produção"
+        icon={Video}
+        expanded={expandedSections.notasProducao}
+        onToggle={() => toggleSection("notasProducao")}
+        className="border-gray-500/20 bg-gray-500/5"
+      >
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs text-white/50 mb-1">🎭 Tom Geral</p>
+            <p className="text-sm text-white/80">{script.notas_producao.tom_geral}</p>
+          </div>
+          <div>
+            <p className="text-xs text-white/50 mb-1">⏱️ Ritmo</p>
+            <p className="text-sm text-white/80">{script.notas_producao.ritmo}</p>
+          </div>
+          <div>
+            <p className="text-xs text-white/50 mb-1">🎵 Música Mood</p>
+            <p className="text-sm text-white/80">{script.notas_producao.musica_mood}</p>
+          </div>
+          <div>
+            <p className="text-xs text-white/50 mb-1">🎬 Visuais Chave</p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {script.notas_producao.visuais_chave.map((visual, idx) => (
+                <span
+                  key={idx}
+                  className="text-xs text-white/70 bg-white/[0.02] border border-white/10 px-2 py-1 rounded"
+                >
+                  {visual}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      {/* Caption */}
+      <CollapsibleSection
+        title="Caption"
+        icon={FileText}
+        expanded={expandedSections.caption}
+        onToggle={() => toggleSection("caption")}
+        className="border-indigo-500/20 bg-indigo-500/5"
+      >
+        <p className="text-sm text-white/80 whitespace-pre-wrap">{script.caption}</p>
+      </CollapsibleSection>
+
+      {/* Hashtags */}
+      <CollapsibleSection
+        title="Hashtags"
+        icon={FileText}
+        expanded={expandedSections.hashtags}
+        onToggle={() => toggleSection("hashtags")}
+        className="border-pink-500/20 bg-pink-500/5"
+      >
+        <div className="flex flex-wrap gap-2">
+          {script.hashtags.map((tag, idx) => (
+            <span
+              key={idx}
+              className="text-xs text-primary/80 bg-primary/10 px-2 py-1 rounded-full"
+            >
+              {tag.startsWith("#") ? tag : `#${tag}`}
+            </span>
+          ))}
+        </div>
+      </CollapsibleSection>
+    </div>
+  );
+}
+
+// ============================================================================
+// COLLAPSIBLE SECTION COMPONENT
+// ============================================================================
+
+interface CollapsibleSectionProps {
+  title: string;
+  icon: React.ElementType;
+  expanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+  className?: string;
+}
+
+function CollapsibleSection({ title, icon: Icon, expanded, onToggle, children, className }: CollapsibleSectionProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={cn("rounded-xl border overflow-hidden", className)}
+    >
+      <button
+        onClick={onToggle}
+        className="w-full p-3 flex items-center gap-3 hover:bg-white/[0.02] transition-colors"
+      >
+        <Icon className="w-4 h-4 text-white/60 flex-shrink-0" />
+        <span className="text-sm font-medium text-white flex-1 text-left">{title}</span>
+        {expanded ? (
+          <ChevronUp className="w-4 h-4 text-white/40" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-white/40" />
+        )}
+      </button>
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="p-3 pt-0">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
 export function Step4Generation({
   wizardId,
   contentType,
@@ -96,7 +412,7 @@ export function Step4Generation({
   const [content, setContent] = useState<GeneratedContent | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [savedToLibrary, setSavedToLibrary] = useState(false);
-  const [activeTab, setActiveTab] = useState<"preview" | "raw">("preview");
+  const [activeTab, setActiveTab] = useState<"preview" | "thumbnail" | "raw">("preview");
 
   const isMountedRef = useRef(true);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -250,11 +566,30 @@ export function Step4Generation({
   const handleCopyContent = () => {
     if (!content) return;
 
-    const text = content.slides
-      .map((slide, i) => `Slide ${i + 1}:\n${slide.content}`)
-      .join("\n\n");
+    let text = "";
 
-    navigator.clipboard.writeText(text);
+    if (content.slides && content.slides.length > 0) {
+      // Carousel content
+      text = content.slides
+        .map((slide, i) => `Slide ${i + 1}:\n${slide.content}`)
+        .join("\n\n");
+    } else if (content.caption) {
+      // Text/Image/Video content
+      text = content.caption;
+      if (content.cta) {
+        text += `\n\nCTA: ${content.cta}`;
+      }
+      if (content.hashtags && content.hashtags.length > 0) {
+        text += `\n\n${content.hashtags.map((tag) => tag.startsWith("#") ? tag : `#${tag}`).join(" ")}`;
+      }
+    } else if (content.script) {
+      // Video script content
+      text = content.script;
+    }
+
+    if (text) {
+      navigator.clipboard.writeText(text);
+    }
   };
 
   const handleDownload = () => {
@@ -452,12 +787,18 @@ export function Step4Generation({
             </div>
 
             {/* Content Preview */}
-            <Tabs value={activeTab} onValueChange={(v: string) => setActiveTab(v as "preview" | "raw")}>
-              <TabsList className="grid w-full grid-cols-2">
+            <Tabs value={activeTab} onValueChange={(v: string) => setActiveTab(v as "preview" | "thumbnail" | "raw")}>
+              <TabsList className={cn("grid w-full", contentType === "video" ? "grid-cols-3" : "grid-cols-2")}>
                 <TabsTrigger value="preview">
                   <Eye className="w-4 h-4 mr-2" />
                   Preview
                 </TabsTrigger>
+                {contentType === "video" && (
+                  <TabsTrigger value="thumbnail">
+                    <Palette className="w-4 h-4 mr-2" />
+                    Thumbnail
+                  </TabsTrigger>
+                )}
                 <TabsTrigger value="raw">
                   <FileText className="w-4 h-4 mr-2" />
                   Raw
@@ -465,50 +806,107 @@ export function Step4Generation({
               </TabsList>
 
               <TabsContent value="preview" className="space-y-3 mt-4">
-                {content.slides.map((slide, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="p-4 rounded-xl bg-white/[0.02] border border-white/10"
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <span className="text-xs font-medium text-primary">
-                        Slide {index + 1}
-                      </span>
-                      {slide.title && (
-                        <span className="text-xs text-white/60">
-                          {slide.title}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-white/80 whitespace-pre-wrap">
-                      {slide.content}
-                    </p>
-                    {slide.imagePrompt && (
-                      <div className="mt-3 pt-3 border-t border-white/5">
-                        <p className="text-xs text-white/40 mb-1">Image Prompt:</p>
-                        <p className="text-xs text-white/50 italic">
-                          {slide.imagePrompt}
+                {/* Slides Preview (for carousel) */}
+                {content.slides && content.slides.length > 0 && (
+                  <>
+                    {content.slides.map((slide, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="p-4 rounded-xl bg-white/[0.02] border border-white/10"
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <span className="text-xs font-medium text-primary">
+                            Slide {index + 1}
+                          </span>
+                          {slide.title && (
+                            <span className="text-xs text-white/60">
+                              {slide.title}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-white/80 whitespace-pre-wrap">
+                          {slide.content}
                         </p>
-                      </div>
-                    )}
-                  </motion.div>
-                ))}
+                        {slide.imagePrompt && (
+                          <div className="mt-3 pt-3 border-t border-white/5">
+                            <p className="text-xs text-white/40 mb-1">Image Prompt:</p>
+                            <p className="text-xs text-white/50 italic">
+                              {slide.imagePrompt}
+                            </p>
+                          </div>
+                        )}
+                      </motion.div>
+                    ))}
+                  </>
+                )}
 
-                {/* Caption & Hashtags */}
-                {(content.caption || content.hashtags) && (
+                {/* Caption/Script Preview (for text/image/video) */}
+                {!content.slides || content.slides.length === 0 ? (
+                  <>
+                    {content.caption && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-4 rounded-xl bg-white/[0.02] border border-white/10"
+                      >
+                        <p className="text-xs text-primary mb-2">Caption:</p>
+                        <p className="text-sm text-white/80 whitespace-pre-wrap">
+                          {content.caption}
+                        </p>
+                      </motion.div>
+                    )}
+
+                    {content.script && (
+                      <>
+                        {/* v4.0 Structured Video Script */}
+                        {isVideoScriptStructured(content.script) ? (
+                          <VideoScriptPreview script={content.script} />
+                        ) : (
+                          /* v3.0 Legacy String Script */
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="p-4 rounded-xl bg-white/[0.02] border border-white/10"
+                          >
+                            <p className="text-xs text-primary mb-2">Script:</p>
+                            <p className="text-sm text-white/80 whitespace-pre-wrap">
+                              {content.script}
+                            </p>
+                          </motion.div>
+                        )}
+                      </>
+                    )}
+
+                    {(content.metadata as any)?.imagePrompt && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-4 rounded-xl bg-white/[0.02] border border-white/10"
+                      >
+                        <p className="text-xs text-primary mb-2">Image Prompt:</p>
+                        <p className="text-sm text-white/80 italic">
+                          {(content.metadata as any).imagePrompt}
+                        </p>
+                      </motion.div>
+                    )}
+                  </>
+                ) : null}
+
+                {/* Hashtags & CTA (for all types) */}
+                {(content.caption || content.hashtags || content.cta) && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: content.slides.length * 0.05 }}
+                    transition={{ delay: (content.slides?.length || 0) * 0.05 }}
                     className="p-4 rounded-xl bg-primary/5 border border-primary/20"
                   >
-                    {content.caption && (
+                    {content.cta && (
                       <div className="mb-3">
-                        <p className="text-xs text-primary mb-1">Caption:</p>
-                        <p className="text-sm text-white/80">{content.caption}</p>
+                        <p className="text-xs text-primary mb-1">CTA:</p>
+                        <p className="text-sm text-white/80">{content.cta}</p>
                       </div>
                     )}
                     {content.hashtags && content.hashtags.length > 0 && (
@@ -526,6 +924,28 @@ export function Step4Generation({
                   </motion.div>
                 )}
               </TabsContent>
+
+              {/* Thumbnail Generation Tab (only for video content type) */}
+              {contentType === "video" && (
+                <TabsContent value="thumbnail" className="mt-4">
+                  {isVideoScriptStructured(content.script) ? (
+                    <VideoThumbnailGeneration
+                      wizardId={wizardId}
+                      thumbnailTitle={content.script.thumbnail.titulo}
+                      contextoTematico={`${content.metadata.narrativeTitle} - ${content.script.meta.valor_central}`}
+                      wizardContext={{
+                        theme: content.metadata.narrativeTitle,
+                        niche: content.metadata.narrativeAngle,
+                      }}
+                    />
+                  ) : (
+                    <div className="p-8 text-center text-white/60">
+                      <Palette className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p>Geração de thumbnail disponível apenas para roteiros v4.3</p>
+                    </div>
+                  )}
+                </TabsContent>
+              )}
 
               <TabsContent value="raw" className="mt-4">
                 <div className="p-4 rounded-xl bg-white/[0.02] border border-white/10 overflow-auto max-h-96">

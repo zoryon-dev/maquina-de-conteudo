@@ -307,15 +307,29 @@ export function WizardPage({
     }
   };
 
-  // Step 4: Handle generation completion - transition to image generation
+  // Step 4: Handle generation completion - transition based on content type
   const handleGenerationComplete = (content: GeneratedContent) => {
     // Store generated content in formData for use in Step 5
     setFormData((prev) => ({
       ...prev,
       generatedContent: typeof content === 'string' ? content : JSON.stringify(content),
     }));
-    // Transition to image generation step instead of completed
-    setCurrentStep("image-generation");
+
+    // Only auto-advance to image generation for carousel
+    // For text/image posts, let user choose if they want to generate images
+    const contentType = formData.contentType;
+    if (contentType === "carousel") {
+      // Carousels ALWAYS need image generation
+      setCurrentStep("image-generation");
+    } else if (contentType === "image") {
+      // Image posts can optionally have an image, but not required
+      // For now, go to image-generation step as optional
+      setCurrentStep("image-generation");
+    } else {
+      // Text and video posts are complete after generation
+      // User can optionally add images later if needed
+      setCurrentStep("completed");
+    }
   };
 
   // Step 5: Handle content editing

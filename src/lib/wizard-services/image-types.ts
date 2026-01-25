@@ -230,6 +230,77 @@ export interface ImageGenerationInput {
 }
 
 // ============================================================================
+// VIDEO THUMBNAIL GENERATION (v4.0)
+// ============================================================================
+
+/**
+ * Nano Banana thumbnail style options
+ * Each style has specific color, background, and mood mappings
+ */
+export type NanoBananaStyle =
+  | "profissional"
+  | "minimalista"
+  | "moderno"
+  | "energético"
+  | "educacional"
+  | "provocativo"
+  | "inspirador"
+  | "tech";
+
+/**
+ * Input for generating video thumbnail (legacy v4.0 format)
+ * Reuses AI image generation with thumbnail-specific optimization
+ */
+export interface VideoThumbnailInput {
+  thumbnailTitle: string; // Short title from video script
+  narrativeTitle?: string; // Additional context from narrative
+  thumbnailConfig: ImageGenerationConfig;
+  wizardContext?: {
+    theme?: string;
+    niche?: string;
+    objective?: string;
+    targetAudience?: string;
+    tone?: string;
+  };
+}
+
+/**
+ * Input for generating video thumbnail using Nano Banana format (v4.3)
+ * Uses structured prompt generation with reference image support
+ */
+export interface NanoBananaThumbnailInput {
+  thumbnailTitle: string; // 4-6 words creating curiosity
+  estilo?: NanoBananaStyle; // Visual style (default: profissional)
+  contextoTematico: string; // Thematic context for the thumbnail
+  expressao?: string; // Facial expression suggestion (optional, will be mapped from theme)
+  referenciaImagem1?: string; // URL to user/person photo (optional)
+  referenciaImagem2?: string; // URL to style reference (optional)
+  wizardContext?: {
+    theme?: string;
+    niche?: string;
+    objective?: string;
+    targetAudience?: string;
+    tone?: string;
+  };
+}
+
+/**
+ * Nano Banana output format with specifications
+ */
+export interface NanoBananaThumbnailOutput {
+  prompt: string; // 5-line structured prompt
+  negative_prompt: string;
+  especificacoes: {
+    texto: string; // Exact text that appears on thumbnail
+    cor_texto: string; // Hex color
+    cor_fundo: string; // Hex color of main background
+    posicao_texto: "centro" | "terco_superior" | "terco_inferior";
+    expressao: string; // Facial expression
+  };
+  variacoes: string[]; // Array of alternative suggestions
+}
+
+// ============================================================================
 // SERVICE RESULT
 // ============================================================================
 
@@ -244,6 +315,23 @@ export interface ImageGenerationResult {
 // ============================================================================
 
 /**
+ * User Brand Presets for image generation
+ * When available, these are integrated into the prompt for brand-aligned visuals
+ */
+export interface UserBrandPresets {
+  voiceTone?: string;
+  brandVoice?: string;
+  niches?: string;
+  targetAudience?: string;
+  fearsAndPains?: string;
+  desiresAndAspirations?: string;
+  differentials?: string;
+  contentObjectives?: string;
+  preferredCTAs?: string;
+  forbiddenTerms?: string;
+}
+
+/**
  * Input for generating the AI image prompt
  */
 export interface PromptGenerationInput {
@@ -256,6 +344,7 @@ export interface PromptGenerationInput {
     objective?: string;
     targetAudience?: string;
   };
+  brand?: UserBrandPresets; // User Brand Presets - v4.3 integration
 }
 
 /**

@@ -19,6 +19,8 @@
 - Componentes client apenas quando necessário (ex.: menu usuário, navbar)
 - Layouts com `max-w-6xl` e padding consistente
 - Header do `AppLayout` usa padding vertical (`pt-5 pb-5`) no container glassmorphism
+- Geração de imagem via OpenRouter pode retornar base64 em `message.images` (Gemini), exigir parsing e conversão para data URL antes de subir para storage
+- Gemini via OpenRouter pode retornar `message.images[0].image_url.url` já como `data:image/png;base64,...`
 
 ## User Defined Namespaces
 - [Leave blank - user populates]

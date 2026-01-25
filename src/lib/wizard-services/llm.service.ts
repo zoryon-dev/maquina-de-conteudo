@@ -33,6 +33,7 @@ import type {
   WizardNarrativesInput,
   WizardGenerationInput,
 } from "./types";
+import { validateCarouselResponse, logValidationError } from "./validation";
 
 // ============================================================================
 // CONFIGURATION
@@ -206,11 +207,23 @@ export async function generateNarratives(
     // WIZARD DEBUG: PROMPT ENVIADO PARA IA (NARRATIVAS)
     // ==============================================================================
     console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] PROMPT ENVIADO PARA IA (GERAÇÃO DE NARRATIVAS)`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(systemPrompt);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-NARRATIVES] 🚀 INICIANDO GERAÇÃO DE NARRATIVAS`);
+    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-NARRATIVES] 📊 ESTATÍSTICAS DO PROMPT:`);
+    console.log(`[WIZARD-NARRATIVES]   • Tamanho total: ${systemPrompt.length} caracteres`);
+    console.log(`[WIZARD-NARRATIVES]   • Tokens estimados: ~${Math.round(systemPrompt.length / 4)} tokens`);
+    console.log(`[WIZARD-NARRATIVES]   • Modelo: ${model}`);
+    console.log(`[WIZARD-NARRATIVES]   • Variáveis de usuário: ${variablesContext ? "Sim" : "Não"}`);
+    console.log(`[WIZARD-NARRATIVES]   • Termos proibidos: ${mergedNegativeTerms.length || 0}`);
+    console.log(`[WIZARD-NARRATIVES] 📝 CONTEÚDO EXTRAÍDO: ${input.extractedContent ? "✅ " + input.extractedContent.length + " chars" : "❌ Nenhum"}`);
+    console.log(`[WIZARD-NARRATIVES] 🔬 PESQUISA: ${input.researchData ? "✅ " + input.researchData.length + " chars" : "❌ Nenhuma"}`);
+    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-NARRATIVES] 📄 PROMPT COMPLETO (primeiros 2000 chars):`);
+    console.log("─".repeat(80));
+    console.log(systemPrompt.substring(0, 2000) + (systemPrompt.length > 2000 ? "\n... [truncado]" : ""));
+    console.log("─".repeat(80));
+    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
     console.log(`${"=".repeat(80)}\n`);
 
     // Call LLM with retry logic
@@ -225,11 +238,16 @@ export async function generateNarratives(
     // WIZARD DEBUG: RESPOSTA DA IA (NARRATIVAS)
     // ==============================================================================
     console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] RESPOSTA BRUTA DA IA (NARRATIVAS)`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(response);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-NARRATIVES] 📥 RESPOSTA BRUTA DA IA`);
+    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-NARRATIVES]   • Tamanho: ${response.length} caracteres`);
+    console.log(`[WIZARD-NARRATIVES]   • Tokens estimados: ~${Math.round(response.length / 4)} tokens`);
+    console.log(`[WIZARD-NARRATIVES] 📄 CONTEÚDO (primeiros 1500 chars):`);
+    console.log("─".repeat(80));
+    console.log(response.substring(0, 1500) + (response.length > 1500 ? "\n... [truncado]" : ""));
+    console.log("─".repeat(80));
+    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
     console.log(`${"=".repeat(80)}\n`);
 
     // Parse JSON response
@@ -239,11 +257,30 @@ export async function generateNarratives(
     // WIZARD DEBUG: RESPOSTA PARSEADA (NARRATIVAS)
     // ==============================================================================
     console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] RESPOSTA PARSEADA (NARRATIVAS)`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-NARRATIVES] ✅ JSON EXTRAÍDO COM SUCESSO`);
+    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-NARRATIVES] 📊 ESTRUTURA: ${parsed && typeof parsed === 'object' && 'narratives' in parsed ? "✅ Válida" : "❌ Inválida"}`);
+
+    if (parsed && typeof parsed === 'object' && 'narratives' in parsed) {
+      const narrs = (parsed as { narratives: unknown[] }).narratives;
+      console.log(`[WIZARD-NARRATIVES] 📝 NARRATIVAS GERADAS: ${Array.isArray(narrs) ? narrs.length : 0}`);
+
+      if (Array.isArray(narrs)) {
+        narrs.forEach((narr: unknown, idx: number) => {
+          if (narr && typeof narr === 'object') {
+            const n = narr as Record<string, unknown>;
+            console.log(`[WIZARD-NARRATIVES]   ${idx + 1}. ${n.title || "(sem título)"} [${n.angle || "sem ângulo"}]`);
+          }
+        });
+      }
+    }
+
+    console.log(`[WIZARD-NARRATIVES] 📄 JSON COMPLETO:`);
+    console.log("─".repeat(80));
     console.log(JSON.stringify(parsed, null, 2));
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log("─".repeat(80));
+    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
     console.log(`${"=".repeat(80)}\n`);
 
     // Validate response structure
@@ -336,7 +373,9 @@ export async function generateNarratives(
       if (n.risks) console.log(`[WIZARD-DEBUG]   risks: ${n.risks}`);
       console.log(`[WIZARD-DEBUG]   ──────────────────────────────────────────────────────`);
     });
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-NARRATIVES] 🎉 GERAÇÃO DE NARRATIVAS CONCLUÍDA COM SUCESSO!`);
+    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
     console.log(`${"=".repeat(80)}\n`);
 
     return {
@@ -478,14 +517,25 @@ export async function generateContent(
     // WIZARD DEBUG: PROMPT ENVIADO PARA IA (CONTEÚDO)
     // ==============================================================================
     console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] PROMPT ENVIADO PARA IA (GERAÇÃO DE CONTEÚDO)`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(prompt);
-    console.log(`[WIZARD-DEBUG] ───────────────────────────────────────────────────────────`);
-    console.log(`[WIZARD-DEBUG] USER MESSAGE:`);
-    console.log(userMessage);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-CONTENT] 🚀 INICIANDO GERAÇÃO DE CONTEÚDO FINAL`);
+    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-CONTENT] 📊 ESTATÍSTICAS DO PROMPT:`);
+    console.log(`[WIZARD-CONTENT]   • Tamanho total: ${prompt.length} caracteres`);
+    console.log(`[WIZARD-CONTENT]   • Tokens estimados: ~${Math.round(prompt.length / 4)} tokens`);
+    console.log(`[WIZARD-CONTENT]   • Modelo: ${model}`);
+    console.log(`[WIZARD-CONTENT]   • Tipo de conteúdo: ${input.contentType}`);
+    console.log(`[WIZARD-CONTENT]   • Ângulo da narrativa: ${input.selectedNarrative.angle}`);
+    console.log(`[WIZARD-CONTENT]   • Slides: ${input.numberOfSlides || "N/A"}`);
+    console.log(`[WIZARD-CONTENT]   • RAG Context: ${input.ragContext ? "✅ " + input.ragContext.length + " chars" : "❌ Nenhum"}`);
+    console.log(`[WIZARD-CONTENT]   • Variáveis usuário: ${variablesContext ? "✅" : "❌"}`);
+    console.log(`[WIZARD-CONTENT]   • Termos proibidos: ${mergedNegativeTerms.length || 0}`);
+    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-CONTENT] 📄 PROMPT COMPLETO (primeiros 2000 chars):`);
+    console.log("─".repeat(80));
+    console.log(prompt.substring(0, 2000) + (prompt.length > 2000 ? "\n... [truncado]" : ""));
+    console.log("─".repeat(80));
+    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
     console.log(`${"=".repeat(80)}\n`);
 
     // Call LLM with retry logic
@@ -500,11 +550,16 @@ export async function generateContent(
     // WIZARD DEBUG: RESPOSTA DA IA (CONTEÚDO)
     // ==============================================================================
     console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] RESPOSTA BRUTA DA IA (CONTEÚDO)`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(response);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-CONTENT] 📥 RESPOSTA BRUTA DA IA`);
+    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-CONTENT]   • Tamanho: ${response.length} caracteres`);
+    console.log(`[WIZARD-CONTENT]   • Tokens estimados: ~${Math.round(response.length / 4)} tokens`);
+    console.log(`[WIZARD-CONTENT] 📄 CONTEÚDO (primeiros 1500 chars):`);
+    console.log("─".repeat(80));
+    console.log(response.substring(0, 1500) + (response.length > 1500 ? "\n... [truncado]" : ""));
+    console.log("─".repeat(80));
+    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
     console.log(`${"=".repeat(80)}\n`);
 
     // Parse JSON response
@@ -523,11 +578,27 @@ export async function generateContent(
     // WIZARD DEBUG: CONTEÚDO FINAL ESTRUTURADO
     // ==============================================================================
     console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] CONTEÚDO FINAL ESTRUTURADO`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(JSON.stringify(generatedContent, null, 2));
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-CONTENT] ✅ CONTEÚDO FINAL ESTRUTURADO`);
+    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-CONTENT] 📊 RESUMO DO CONTEÚDO GERADO:`);
+    console.log(`[WIZARD-CONTENT]   • Tipo: ${generatedContent.type}`);
+    console.log(`[WIZARD-CONTENT]   • Slides: ${generatedContent.slides?.length || 0}`);
+    console.log(`[WIZARD-CONTENT]   • Caption: ${generatedContent.caption ? "✅ " + generatedContent.caption.length + " chars" : "❌"}`);
+    console.log(`[WIZARD-CONTENT]   • Hashtags: ${generatedContent.hashtags?.length || 0}`);
+    console.log(`[WIZARD-CONTENT]   • CTA: ${generatedContent.cta ? "✅" : "❌"}`);
+
+    if (generatedContent.slides && generatedContent.slides.length > 0) {
+      console.log(`[WIZARD-CONTENT] 📄 SLIDES GERADOS:`);
+      generatedContent.slides.forEach((slide, idx) => {
+        console.log(`[WIZARD-CONTENT]   ${idx + 1}. ${slide.title ? slide.title.substring(0, 50) : "(sem título)"}...`);
+        console.log(`[WIZARD-CONTENT]      ${slide.content.substring(0, 80)}...`);
+      });
+    }
+
+    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-CONTENT] 🎉 GERAÇÃO DE CONTEÚDO CONCLUÍDA COM SUCESSO!`);
+    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
     console.log(`${"=".repeat(80)}\n`);
 
     return {
@@ -579,11 +650,14 @@ function structureGeneratedContent(
 
   switch (contentType) {
     case "carousel": {
-      // Handle new ZORYON v3.0 structure with capa, slides (numero/titulo/corpo/acao), legenda
+      // Handle new ZORYON v4.3 structure with valor_central, capa, slides (numero/tipo/titulo/corpo/conexao_proximo), legenda
       if ("capa" in response && "slides" in response && "legenda" in response) {
-        // New format: { capa: { titulo, subtitulo }, slides: [{ numero, titulo, corpo, acao }], legenda }
-        const capa = response.capa as Record<string, unknown> | undefined;
-        const slides = response.slides as Array<{ numero?: number; titulo?: string; corpo?: string; acao?: string }>;
+        // VALIDAÇÃO RUNTIME v4.3 - Garante que a IA seguiu as instruções
+        const validated = validateCarouselResponse(response);
+
+        // New format: { throughline, valor_central, capa: { titulo, subtitulo }, slides: [{ numero, tipo, titulo, corpo, conexao_proximo }], legenda }
+        const capa = validated.capa;
+        const slides = validated.slides;
 
         return {
           type: "carousel",
@@ -597,13 +671,18 @@ function structureGeneratedContent(
             ...slides.map((slide) => ({
               title: String(slide.titulo || ""),
               content: String(slide.corpo || ""),
-              imagePrompt: slide.acao ? String(slide.acao) : undefined,
+              // v4.3: removed 'acao' field - actionability is now in slide 'tipo' and content itself
+              imagePrompt: undefined,
             })),
           ],
-          caption: response.legenda ? String(response.legenda) : undefined,
-          hashtags: response.hashtags ? StringArray(response.hashtags) : undefined,
-          cta: response.cta ? String(response.cta) : undefined,
-          metadata: baseMetadata,
+          caption: validated.legenda,
+          hashtags: undefined,
+          cta: undefined,
+          metadata: {
+            ...baseMetadata,
+            throughline: validated.throughline,
+            valor_central: validated.valor_central,
+          },
         };
       }
 

@@ -85,6 +85,26 @@ export async function POST(
     let jobId: number;
 
     if (submitType === "narratives") {
+      // ==============================================================================
+      // WIZARD DEBUG: DADOS ENVIADOS PARA O JOB
+      // ==============================================================================
+      console.log(`[WIZARD-SUBMIT] ════════════════════════════════════════════════════════`);
+      console.log(`[WIZARD-SUBMIT] CRIANDO JOB: wizard_narratives`);
+      console.log(`[WIZARD-SUBMIT] wizardId: ${wizard.id}`);
+      console.log(`[WIZARD-SUBMIT] ════════════════════════════════════════════════════════`);
+      console.log(`[WIZARD-SUBMIT] DADOS DO WIZARD:`);
+      console.log(`[WIZARD-SUBMIT]   referenceUrl: ${wizard.referenceUrl || "(não informado)"}`);
+      console.log(`[WIZARD-SUBMIT]   referenceVideoUrl: ${wizard.referenceVideoUrl || "(não informado)"}`);
+      console.log(`[WIZARD-SUBMIT]   theme: ${wizard.theme || "(não informado)"}`);
+      console.log(`[WIZARD-SUBMIT]   context: ${wizard.context || "(não informado)"}`);
+      console.log(`[WIZARD-SUBMIT]   objective: ${wizard.objective || "(não informado)"}`);
+      console.log(`[WIZARD-SUBMIT]   targetAudience: ${wizard.targetAudience || "(não informado)"}`);
+      console.log(`[WIZARD-SUBMIT]   cta: ${wizard.cta || "(não informado)"}`);
+      console.log(`[WIZARD-SUBMIT]   ragConfig.mode: ${wizard.ragConfig?.mode || "(não configurado)"}`);
+      console.log(`[WIZARD-SUBMIT]   ragConfig.documents: ${wizard.ragConfig?.documents?.length || 0}`);
+      console.log(`[WIZARD-SUBMIT]   ragConfig.collections: ${wizard.ragConfig?.collections?.length || 0}`);
+      console.log(`[WIZARD-SUBMIT] ════════════════════════════════════════════════════════`);
+
       // Enqueue wizard_narratives job
       jobId = await createJob(
         userId,

@@ -37,29 +37,12 @@ import type {
 } from "@/lib/wizard-services/client";
 import { INSTAGRAM_DIMENSIONS } from "@/lib/wizard-services/client";
 import type { PostType } from "@/db/schema";
+import type { GeneratedSlide, GeneratedContent } from "@/lib/wizard-services/types";
+
+// Re-export for external use
+export type { GeneratedSlide, GeneratedContent };
 
 // ============================================================================
-// TYPES
-// ============================================================================
-
-export interface GeneratedSlide {
-  title?: string;
-  content: string;
-  imagePrompt?: string;
-}
-
-export interface GeneratedContent {
-  type: PostType;
-  slides: GeneratedSlide[];
-  caption?: string;
-  hashtags?: string[];
-  cta?: string;
-  metadata?: {
-    narrative?: string;
-    model?: string;
-    generatedAt?: string;
-  };
-}
 
 export interface Step5ImageGenerationProps {
   slideContent?: string | GeneratedContent; // Can be JSON string or parsed object
@@ -549,7 +532,15 @@ export function Step5ImageGeneration({
         // Not valid JSON, treat as plain text content
         return {
           type: "text",
-          slides: [{ content: slideContent }],
+          slides: [{ title: "", content: slideContent }],
+          metadata: {
+            narrativeId: "",
+            narrativeTitle: "",
+            narrativeAngle: "tradutor",
+            model: "",
+            generatedAt: new Date().toISOString(),
+            ragUsed: false,
+          },
         };
       }
     }
@@ -570,11 +561,15 @@ export function Step5ImageGeneration({
 
   const selectedImage = generatedImages.find((img) => img.id === selectedImageId);
 
+  // Helper to safely get slides, always returning an array
+  const getSlides = () => editableContent?.slides || [];
+
   // Handle slide update - also notify parent
   const handleSlideUpdate = useCallback((slideIndex: number, updatedSlide: GeneratedSlide) => {
     setEditableContent((prev) => {
       if (!prev) return prev;
-      const newSlides = [...prev.slides];
+      const existingSlides = prev.slides || [];
+      const newSlides = [...existingSlides];
       newSlides[slideIndex] = updatedSlide;
       const updated = { ...prev, slides: newSlides };
       // Notify parent of the change
@@ -628,7 +623,7 @@ export function Step5ImageGeneration({
       : !!cp.coverTemplate && !!cp.coverHtmlOptions?.primaryColor;
 
     // Validate posts (remaining images) - only if there are multiple slides
-    const postsValid = editableContent && editableContent.slides.length > 1
+    const postsValid = editableContent && getSlides().length > 1
       ? (cp.postsMethod === "ai"
           ? !!cp.postsAiOptions?.model && !!cp.postsAiOptions?.color && !!cp.postsAiOptions?.style
           : !!cp.postsTemplate && !!cp.postsHtmlOptions?.primaryColor)
@@ -655,8 +650,8 @@ export function Step5ImageGeneration({
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 text-primary text-sm font-medium"
         >
           <ImageIcon className="w-4 h-4" />
-          {editableContent?.slides.length
-            ? `${editableContent.slides.length} Slide${editableContent.slides.length > 1 ? "s" : ""}`
+          {getSlides().length
+            ? `${getSlides().length} Slide${getSlides().length > 1 ? "s" : ""}`
             : `Slide ${slideNumber} de ${totalSlides}`}
         </motion.div>
         <h2 className="text-xl font-semibold text-white">
@@ -683,7 +678,7 @@ export function Step5ImageGeneration({
           {/* Horizontal Slider */}
           <div className="relative">
             {/* Slider Navigation */}
-            {editableContent.slides.length > 2 && (
+            {getSlides().length > 2 && (
               <>
                 <button
                   type="button"
@@ -715,12 +710,12 @@ export function Step5ImageGeneration({
                 msOverflowStyle: "none",
               }}
             >
-              {editableContent.slides.map((slide, index) => (
+              {getSlides().map((slide, index) => (
                 <SlideCard
                   key={index}
                   slide={slide}
                   slideNumber={index + 1}
-                  totalSlides={editableContent.slides.length}
+                  totalSlides={getSlides().length}
                   onUpdate={(updatedSlide) => handleSlideUpdate(index, updatedSlide)}
                 />
               ))}
@@ -728,7 +723,7 @@ export function Step5ImageGeneration({
 
             {/* Slide Indicator */}
             <div className="flex justify-center gap-2">
-              {editableContent.slides.map((_, index) => (
+              {getSlides().map((_, index) => (
                 <div
                   key={index}
                   className="w-2 h-2 rounded-full bg-white/20 transition-colors"
@@ -785,7 +780,7 @@ export function Step5ImageGeneration({
       {/* Generate Button */}
       <div className="pt-4 border-t border-white/10 space-y-3">
         {/* Generation Summary (if coverPosts is configured) */}
-        {config.coverPosts && editableContent && editableContent.slides.length > 1 && (
+        {config.coverPosts && editableContent && getSlides().length > 1 && (
           <div className="flex items-center justify-center gap-4 text-xs text-white/60 pb-2">
             <span className="flex items-center gap-1">
               <ImageIcon className="w-3 h-3 text-primary" />
@@ -809,15 +804,15 @@ export function Step5ImageGeneration({
           {isGenerating ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              {editableContent && editableContent.slides.length > 1
+              {editableContent && getSlides().length > 1
                 ? "Gerando imagens..."
                 : "Gerando imagem..."}
             </>
           ) : (
             <>
               <Sparkles className="w-4 h-4 mr-2" />
-              {editableContent && editableContent.slides.length > 1
-                ? `Gerar ${editableContent.slides.length} Imagens`
+              {editableContent && getSlides().length > 1
+                ? `Gerar ${getSlides().length} Imagens`
                 : "Gerar Imagem"}
             </>
           )}

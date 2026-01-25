@@ -31,6 +31,7 @@ export default function RootLayout({
       <html lang="pt-BR" className="dark" suppressHydrationWarning>
         <body
           className={`${inter.variable} ${geistMono.variable} antialiased bg-[#0a0a0f]`}
+          suppressHydrationWarning
         >
           {children}
           <Toaster richColors position="bottom-right" />

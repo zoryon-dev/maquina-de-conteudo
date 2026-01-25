@@ -32,6 +32,7 @@ import {
   formatRagSourcesForMetadata,
   extractFromUrl,
   transcribeYouTube,
+  formatYouTubeForPrompt,
   contextualSearch,
   formatSearchForPrompt,
   createLibraryItemFromWizard,
@@ -537,6 +538,17 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     // WIZARD DEBUG: WORKER RECEBEU JOB (NARRATIVAS)
     // ==============================================================================
     console.log(`[WIZARD] JOB wizard_narratives START - wizardId: ${wizardId}, userId: ${userId}, type: ${contentType}`);
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-DEBUG] WORKER: PAYLOAD RECEBIDO DO JOB`);
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-DEBUG] referenceUrl: ${referenceUrl || "(não informado)"}`);
+    console.log(`[WIZARD-DEBUG] referenceVideoUrl: ${referenceVideoUrl || "(não informado)"}`);
+    console.log(`[WIZARD-DEBUG] theme: ${theme || "(não informado)"}`);
+    console.log(`[WIZARD-DEBUG] context: ${context || "(não informado)"}`);
+    console.log(`[WIZARD-DEBUG] objective: ${objective || "(não informado)"}`);
+    console.log(`[WIZARD-DEBUG] targetAudience: ${targetAudience || "(não informado)"}`);
+    console.log(`[WIZARD-DEBUG] cta: ${cta || "(não informado)"}`);
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
 
     // 1. Get wizard
     const [wizard] = await db
@@ -563,6 +575,17 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     let researchData = "";
     let synthesizedResearchData: SynthesizedResearch | null = null;
 
+    // ==============================================================================
+    // WIZARD DEBUG: VERIFICANDO SE PRECISA EXTRAIR URL DE REFERÊNCIA
+    // ==============================================================================
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-DEBUG] WORKER: VERIFICANDO URL DE REFERÊNCIA`);
+    console.log(`[WIZARD-DEBUG] referenceUrl existe? ${referenceUrl ? "SIM ✅" : "NÃO ❌"}`);
+    if (referenceUrl) {
+      console.log(`[WIZARD-DEBUG] referenceUrl valor: ${referenceUrl}`);
+    }
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+
     // 2. Extract content from reference URL (Firecrawl)
     if (referenceUrl) {
       await updateWizardProgress(wizardId, {
@@ -573,18 +596,34 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         },
       });
 
-      console.log(`[WIZARD-DEBUG] WORKER: Extraindo conteúdo de URL: ${referenceUrl}`);
+      console.log(`[WIZARD-DEBUG] WORKER: Iniciando extração de URL: ${referenceUrl}`);
       const firecrawlResult = await extractFromUrl(referenceUrl);
+
+      console.log(`[WIZARD-DEBUG] WORKER: Resultado Firecrawl - success=${firecrawlResult.success}`);
+      if (!firecrawlResult.success) {
+        console.log(`[WIZARD-DEBUG] WORKER: Erro Firecrawl: ${firecrawlResult.error}`);
+      }
+
       if (firecrawlResult.success && firecrawlResult.data) {
         extractedContent = firecrawlResult.data.content;
-        console.log(`[WIZARD-DEBUG] WORKER: Conteúdo extraído (${extractedContent.length} chars)`);
+        console.log(`[WIZARD-DEBUG] WORKER: ✅ Conteúdo extraído com sucesso (${extractedContent.length} chars)`);
         console.log(extractedContent.substring(0, 500) + (extractedContent.length > 500 ? "..." : ""));
       } else {
-        console.log(`[WIZARD-DEBUG] WORKER: Falha na extração: ${!firecrawlResult.success ? firecrawlResult.error : "no data"}`);
+        console.log(`[WIZARD-DEBUG] WORKER: ❌ Falha na extração: ${!firecrawlResult.success ? firecrawlResult.error : "no data"}`);
       }
+    } else {
+      console.log(`[WIZARD-DEBUG] WORKER: ⏭️ Pulando extração de URL (nenhuma URL fornecida)`);
     }
 
     // 3. Transcribe video (Apify)
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-DEBUG] WORKER: VERIFICANDO SE PRECISA TRANSCREVER VÍDEO`);
+    console.log(`[WIZARD-DEBUG] referenceVideoUrl existe? ${referenceVideoUrl ? "SIM ✅" : "NÃO ❌"}`);
+    if (referenceVideoUrl) {
+      console.log(`[WIZARD-DEBUG] referenceVideoUrl valor: ${referenceVideoUrl}`);
+    }
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+
     if (referenceVideoUrl) {
       await updateWizardProgress(wizardId, {
         processingProgress: {
@@ -597,15 +636,43 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       console.log(`[WIZARD-DEBUG] WORKER: Transcrevendo vídeo: ${referenceVideoUrl}`);
       const transcriptionResult = await transcribeYouTube(referenceVideoUrl);
       if (transcriptionResult.success && transcriptionResult.data) {
+        // Log metadata extraídos
+        console.log(`[WIZARD-YOUTUBE] ✅ Transcrição bem-sucedida!`);
+        console.log(`[WIZARD-YOUTUBE] 📺 Título: ${transcriptionResult.data.metadata?.title || "(não informado)"}`);
+        console.log(`[WIZARD-YOUTUBE] 👤 Canal: ${transcriptionResult.data.metadata?.channelName || "(não informado)"}`);
+        console.log(`[WIZARD-YOUTUBE] 📊 Views: ${transcriptionResult.data.metadata?.viewCount?.toLocaleString('pt-BR') || "N/A"}`);
+        console.log(`[WIZARD-YOUTUBE] ❤️ Likes: ${transcriptionResult.data.metadata?.likeCount?.toLocaleString('pt-BR') || "N/A"}`);
+        console.log(`[WIZARD-YOUTUBE] 💬 Comentários: ${transcriptionResult.data.metadata?.commentCount?.toLocaleString('pt-BR') || "N/A"}`);
+        console.log(`[WIZARD-YOUTUBE] ⏱️ Duração: ${transcriptionResult.data.metadata?.duration ? `${Math.floor(transcriptionResult.data.metadata.duration / 60)}:${(transcriptionResult.data.metadata.duration % 60).toString().padStart(2, '0')}` : "N/A"}`);
+        console.log(`[WIZARD-YOUTUBE] 📅 Publicado: ${transcriptionResult.data.metadata?.publishedAt ? new Date(transcriptionResult.data.metadata.publishedAt).toLocaleDateString('pt-BR') : "N/A"}`);
+        console.log(`[WIZARD-YOUTUBE] 🌐 Idioma: ${transcriptionResult.data.metadata?.language?.toUpperCase() || "N/A"}`);
+        console.log(`[WIZARD-YOUTUBE] 📝 Tamanho transcrição: ${transcriptionResult.data.transcription.length} caracteres`);
+
         if (extractedContent) {
           extractedContent += `\n\n`;
         }
-        extractedContent += `Video Transcription:\n${transcriptionResult.data.transcription}`;
-        console.log(`[WIZARD-DEBUG] WORKER: Transcrição concluída (${transcriptionResult.data.transcription.length} chars)`);
+        // Use formatYouTubeForPrompt for structured metadata
+        extractedContent += formatYouTubeForPrompt(transcriptionResult.data);
+        console.log(`[WIZARD-YOUTUBE] 📦 Conteúdo formatado adicionado ao extractedContent (+${formatYouTubeForPrompt(transcriptionResult.data).length} chars)`);
       } else {
         console.log(`[WIZARD-DEBUG] WORKER: Falha na transcrição: ${!transcriptionResult.success ? transcriptionResult.error : "no data"}`);
       }
+    } else {
+      console.log(`[WIZARD-YOUTUBE] ⏭️ Pulando transcrição de vídeo (nenhuma URL fornecida)`);
     }
+
+    // ==============================================================================
+    // WIZARD DEBUG: RESUMO DA FASE DE EXTRAÇÃO
+    // ==============================================================================
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-DEBUG] WORKER: RESUMO DA EXTRAÇÃO`);
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
+    console.log(`[WIZARD-DEBUG] extractedContent final: ${extractedContent ? `${extractedContent.length} caracteres` : "(vazio)"}`);
+    if (extractedContent) {
+      console.log(`[WIZARD-DEBUG] Preview (primeiros 300 chars):`);
+      console.log(extractedContent.substring(0, 300) + (extractedContent.length > 300 ? "..." : ""));
+    }
+    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
 
     // 4. Search for context (Tavily)
     if (theme) {
@@ -994,7 +1061,15 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
 
     // 2. Generate RAG context if configured
     let ragContextForPrompt: string | undefined;
-    if (ragConfig && (ragConfig.documents || ragConfig.collections)) {
+    // Check if RAG should be used: auto mode OR has explicit documents/collections selected
+    const shouldUseRag = ragConfig && (
+      ragConfig.mode === "auto" ||
+      ragConfig.mode === undefined ||
+      (ragConfig.documents && ragConfig.documents.length > 0) ||
+      (ragConfig.collections && ragConfig.collections.length > 0)
+    );
+
+    if (shouldUseRag) {
       await updateWizardProgress(wizardId, {
         processingProgress: {
           stage: "generation",
@@ -1004,11 +1079,19 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       });
 
       const ragQuery = `Context for ${contentType} generation: ${wizard.theme || wizard.objective || "general content"}`;
+      console.log(`[WIZARD-DEBUG] RAG: Buscando contexto com query: ${ragQuery}`);
+      console.log(`[WIZARD-DEBUG] RAG: Config mode=${ragConfig?.mode}, documents=${ragConfig?.documents?.length || 0}, collections=${ragConfig?.collections?.length || 0}`);
+
       const ragResult = await generateWizardRagContext(userId, ragQuery, ragConfig);
 
       if (ragResult.success && ragResult.data) {
         ragContextForPrompt = formatRagForPrompt(ragResult.data);
+        console.log(`[WIZARD-DEBUG] RAG: Contexto gerado com sucesso (${ragResult.data.chunksIncluded} chunks, ${ragResult.data.tokensUsed} tokens)`);
+      } else {
+        console.log(`[WIZARD-DEBUG] RAG: Nenhum contexto encontrado ou erro na busca`);
       }
+    } else {
+      console.log(`[WIZARD-DEBUG] RAG: Não configurado ou desabilitado (ragConfig=${ragConfig ? 'sim' : 'não'})`);
     }
 
     // 3. Generate content using AI
@@ -1340,6 +1423,13 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       .where(eq(contentWizards.id, wizardId));
 
     // 7. Upload images to storage and sync to library
+    console.log(`[WIZARD-IMAGE] Checking library sync condition:`, {
+      wizardId,
+      libraryItemId: wizard.libraryItemId,
+      hasLibraryItem: !!wizard.libraryItemId,
+      newImagesCount: newImages.length
+    });
+
     if (wizard.libraryItemId) {
       // First, upload all base64 images to storage
       console.log(`[WIZARD-IMAGE] Uploading ${newImages.length} images to storage...`);
@@ -1398,6 +1488,9 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
 
         console.log(`[WIZARD-IMAGE] Synced ${uploadedImageUrls.length} images to library item ${wizard.libraryItemId}`);
       }
+    } else {
+      console.warn(`[WIZARD-IMAGE] ⚠️ Library sync skipped: No libraryItemId found for wizard ${wizardId}`);
+      console.warn(`[WIZARD-IMAGE] ⚠️ Images were generated but NOT saved to library. This is likely a bug in wizard_generation job.`);
     }
 
     console.log(`[WIZARD-IMAGE] JOB wizard_image_generation COMPLETED - wizardId: ${wizardId}`);

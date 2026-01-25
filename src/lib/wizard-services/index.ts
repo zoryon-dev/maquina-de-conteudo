@@ -161,6 +161,7 @@ export {
   isYouTubeUrl,
   isApifyConfigured,
   getYouTubeThumbnail,
+  formatYouTubeForPrompt,
 } from "./apify.service";
 
 // ============================================================================

@@ -11,22 +11,20 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, ArrowRight, Info, Settings2 } from "lucide-react";
+import { Sparkles, ArrowRight, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { NarrativeCard, type Narrative } from "../shared/narrative-card";
-import { DocumentConfigForm, type RagConfig } from "../shared/document-config-form";
 import { SynthesisSummary, type SynthesizedResearch } from "../shared/synthesis-summary";
 
 // Re-export types for external use
-export type { Narrative, RagConfig, SynthesizedResearch };
+export type { Narrative, SynthesizedResearch };
 
 export interface WizardFormData {
   selectedNarrativeId?: string;
   customInstructions?: string;
-  ragConfig?: RagConfig;
 }
 
 interface Step3NarrativesProps {
@@ -71,7 +69,6 @@ export function Step3Narratives({
   isSubmitting = false,
   className,
 }: Step3NarrativesProps) {
-  const [showRagConfig, setShowRagConfig] = useState(false);
   const [showCustomInstructions, setShowCustomInstructions] = useState(false);
 
   const selectedNarrativeId = initialData?.selectedNarrativeId;
@@ -88,13 +85,6 @@ export function Step3Narratives({
     onChange({
       ...initialData,
       customInstructions: value,
-    });
-  };
-
-  const handleRagConfigChange = (config: RagConfig) => {
-    onChange({
-      ...initialData,
-      ragConfig: config,
     });
   };
 
@@ -225,37 +215,6 @@ export function Step3Narratives({
                   }
                   rows={3}
                   className="resize-none !border-white/10 !bg-white/[0.02] !text-white !placeholder:text-white/40 focus-visible:!border-primary/50"
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* RAG Config Toggle */}
-      <div className="border-t border-white/10 pt-4">
-        <button
-          type="button"
-          onClick={() => setShowRagConfig(!showRagConfig)}
-          className="flex items-center gap-2 text-sm text-white/60 hover:text-white/80 transition-colors"
-        >
-          <Settings2 className="w-4 h-4" />
-          {showRagConfig ? "Ocultar" : "Mostrar"} configuração de contexto
-        </button>
-
-        <AnimatePresence>
-          {showRagConfig && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
-            >
-              <div className="pt-3">
-                <DocumentConfigForm
-                  config={initialData?.ragConfig ?? { mode: "auto" }}
-                  onChange={handleRagConfigChange}
                 />
               </div>
             </motion.div>
