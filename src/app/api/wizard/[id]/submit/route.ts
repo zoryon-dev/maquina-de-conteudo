@@ -25,6 +25,13 @@ import type { PostType } from "@/db/schema";
 interface SubmitRequestBody {
   /** Submit type: "narratives" to generate narratives, "generation" to generate final content */
   submitType: "narratives" | "generation";
+  /** Selected video title (only for video content type) */
+  selectedVideoTitle?: {
+    id: string;
+    title: string;
+    hook_factor: number;
+    reason: string;
+  };
 }
 
 /**
@@ -120,6 +127,9 @@ export async function POST(
           objective: wizard.objective ?? undefined,
           cta: wizard.cta ?? undefined,
           targetAudience: wizard.targetAudience ?? undefined,
+          videoDuration: wizard.videoDuration ?? undefined,
+          numberOfSlides: wizard.numberOfSlides ?? undefined,
+          customInstructions: wizard.customInstructions ?? undefined,
           ragConfig: wizard.ragConfig as any,
         }
       );
@@ -169,6 +179,7 @@ export async function POST(
           numberOfSlides: wizard.numberOfSlides ?? 10,
           model: wizard.model ?? undefined,
           ragConfig: wizard.ragConfig as any,
+          selectedVideoTitle: body.selectedVideoTitle, // Pass selected video title for video content
         }
       );
 

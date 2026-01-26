@@ -74,8 +74,9 @@ export interface ZoryonCarousel {
 
 /**
  * Video duration options for v4.3 video script generation
+ * Formats: "2-5min" | "5-10min" | "+10min" | "+30min"
  */
-export type VideoDuration = "3-5min" | "5-10min" | "10min+" | "curto";
+export type VideoDuration = "2-5min" | "5-10min" | "+10min" | "+30min";
 
 /**
  * Development section types for v4.3
@@ -340,6 +341,8 @@ export interface WizardNarrativesInput extends WizardInputData {
   referenceVideoUrl?: string;
   extractedContent?: string;
   researchData?: string;
+  videoDuration?: VideoDuration; // NEW: Video duration for narratives
+  customInstructions?: string; // NEW: Custom instructions
 }
 
 export interface WizardGenerationInput extends WizardInputData {
@@ -352,4 +355,11 @@ export interface WizardGenerationInput extends WizardInputData {
   videoIntention?: string;
   generateThumbnail?: boolean;
   thumbnailConfig?: import("./image-types").ImageGenerationConfig;
+  // Selected video title for thumbnail generation
+  selectedVideoTitle?: {
+    id: string;
+    title: string;
+    hook_factor: number;
+    reason: string;
+  };
 }

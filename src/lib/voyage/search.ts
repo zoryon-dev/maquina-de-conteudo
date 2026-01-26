@@ -80,6 +80,7 @@ export async function semanticSearch(
 ): Promise<SemanticSearchResult[]> {
   const {
     categories = DOCUMENT_CATEGORIES,
+    documentIds,
     threshold = 0.5, // Lowered from 0.7 for better recall
     limit = 10,
     includeText = true,
@@ -87,6 +88,19 @@ export async function semanticSearch(
 
   // Generate query embedding
   const queryEmbedding = await generateEmbedding(query)
+
+  // Build conditions for query
+  const conditions = [
+    eq(documents.userId, userId),
+    eq(documents.embedded, true),
+    inArray(documents.category, [...categories]),
+    isNull(documents.deletedAt),
+  ]
+
+  // Add document ID filter if specified (for manual selection)
+  if (documentIds && documentIds.length > 0) {
+    conditions.push(inArray(documents.id, documentIds))
+  }
 
   // Get all embeddings for user's documents in specified categories
   const results = await db
@@ -102,14 +116,7 @@ export async function semanticSearch(
     })
     .from(documentEmbeddings)
     .innerJoin(documents, eq(documentEmbeddings.documentId, documents.id))
-    .where(
-      and(
-        eq(documents.userId, userId),
-        eq(documents.embedded, true),
-        inArray(documents.category, [...categories]),
-        isNull(documents.deletedAt)
-      )
-    )
+    .where(and(...conditions))
 
   // Calculate cosine similarity and filter
   const scored = results

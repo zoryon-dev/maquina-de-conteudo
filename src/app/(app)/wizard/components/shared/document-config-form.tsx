@@ -213,7 +213,7 @@ export function DocumentConfigForm({
                       variant="outline"
                       size="sm"
                       onClick={handleOpenSelector}
-                      className="w-full"
+                      className="w-full bg-white/5 text-white/80 border-white/20 hover:bg-white/10 hover:text-white"
                     >
                       {totalSelected > 0
                         ? "Alterar Seleção"

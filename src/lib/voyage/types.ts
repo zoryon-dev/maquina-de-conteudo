@@ -103,6 +103,8 @@ export interface DocumentChunk {
 export interface SemanticSearchOptions {
   /** Categories to filter by (default: all) */
   categories?: string[]
+  /** Specific document IDs to search within (default: all in categories) */
+  documentIds?: number[]
   /** Minimum similarity threshold (0-1, default: 0.5) */
   threshold?: number
   /** Maximum number of results (default: 10) */

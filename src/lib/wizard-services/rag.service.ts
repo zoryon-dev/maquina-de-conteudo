@@ -71,11 +71,12 @@ export async function generateWizardRagContext(
   config: RagConfig = {}
 ): Promise<ServiceResult<RagResult | null>> {
   try {
-    // Check if RAG should be used
-    const shouldUseRag = config.mode === "auto" || config.mode === undefined;
+    // Check if RAG should be disabled (only when mode is explicitly "off")
+    // Both "auto" and "manual" modes should use RAG
+    const isRagDisabled = config.mode === "off";
 
-    if (!shouldUseRag) {
-      // Manual mode disabled - return empty result
+    if (isRagDisabled) {
+      // RAG explicitly disabled - return empty result
       return {
         success: true,
         data: null,
@@ -89,6 +90,7 @@ export async function generateWizardRagContext(
 
     const assemblerOptions = {
       categories,
+      documentIds: config.documents, // Pass document IDs for manual selection
       threshold: config.threshold ?? WIZARD_DEFAULT_RAG_OPTIONS.threshold,
       maxChunks: config.maxChunks ?? WIZARD_DEFAULT_RAG_OPTIONS.maxChunks,
       maxTokens: WIZARD_DEFAULT_RAG_OPTIONS.maxTokens,
@@ -149,10 +151,8 @@ export async function generateWizardRagContextFromSelection(
   query: string,
   config: RagConfig
 ): Promise<ServiceResult<RagResult | null>> {
-  return generateWizardRagContext(userId, query, {
-    ...config,
-    mode: "manual",
-  });
+  // Use the config as-is - document IDs are already in config.documents
+  return generateWizardRagContext(userId, query, config);
 }
 
 // ============================================================================

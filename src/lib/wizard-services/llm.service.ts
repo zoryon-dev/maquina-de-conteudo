@@ -69,14 +69,30 @@ async function loadAndFormatUserVariables(
   inputTone?: string,
   inputNiche?: string,
   inputCta?: string,
-  inputNegativeTerms?: string[]
+  inputNegativeTerms?: string[],
+  userId?: string // Optional userId for worker context
 ): Promise<{
   variables: UserVariables
   variablesContext: string
   mergedNegativeTerms: string[]
 }> {
-  // Fetch saved variables from database
-  const savedVariables = await getUserVariables()
+  // Fetch saved variables from database (pass userId for worker context)
+  const savedVariables = await getUserVariables(userId)
+
+  // Debug: Log loaded variables
+  console.log(`[WIZARD-VARIABLES] ════════════════════════════════════════════════════════`)
+  console.log(`[WIZARD-VARIABLES] Carregando variáveis do usuário (userId: ${userId || "contexto auth"})`)
+  const variableKeys = Object.keys(savedVariables)
+  console.log(`[WIZARD-VARIABLES] Variáveis encontradas: ${variableKeys.length}`)
+  if (variableKeys.length > 0) {
+    variableKeys.forEach(key => {
+      const value = (savedVariables as any)[key]
+      console.log(`[WIZARD-VARIABLES]   • ${key}: ${value?.substring(0, 50) || "(vazio)"}${value?.length > 50 ? "..." : ""}`)
+    })
+  } else {
+    console.log(`[WIZARD-VARIABLES] ⚠️ Nenhuma variável salva encontrada no banco`)
+  }
+  console.log(`[WIZARD-VARIABLES] ════════════════════════════════════════════════════════`)
 
   // Merge: input values take precedence over saved variables
   const mergedVariables: UserVariables = {
@@ -93,11 +109,21 @@ async function loadAndFormatUserVariables(
   }
 
   // Format variables for prompt injection
-  const { context: variablesContext } = formatVariablesForPrompt(mergedVariables)
+  const { context: variablesContext, hasVariables } = formatVariablesForPrompt(mergedVariables)
+
+  if (hasVariables) {
+    console.log(`[WIZARD-VARIABLES] ✅ Contexto de variáveis gerado (${variablesContext.length} chars)`)
+  } else {
+    console.log(`[WIZARD-VARIABLES] ⚠️ Nenhuma variável para adicionar ao prompt`)
+  }
 
   // Merge negative terms (input + saved)
   const savedNegativeTerms = getNegativeTermsArray(savedVariables)
   const mergedNegativeTerms = [...new Set([...savedNegativeTerms, ...(inputNegativeTerms || [])])]
+
+  if (mergedNegativeTerms.length > 0) {
+    console.log(`[WIZARD-VARIABLES] Termos proibidos: ${mergedNegativeTerms.join(", ")}`)
+  }
 
   return {
     variables: mergedVariables,
@@ -136,7 +162,8 @@ async function loadAndFormatUserVariables(
  */
 export async function generateNarratives(
   input: WizardNarrativesInput,
-  model: string = WIZARD_DEFAULT_MODEL
+  model: string = WIZARD_DEFAULT_MODEL,
+  userId?: string // Optional userId for worker context (to fetch user variables)
 ): Promise<ServiceResult<NarrativeOption[]>> {
   // ==============================================================================
   // WIZARD DEBUG: INPUTS PARA GERAÇÃO DE NARRATIVAS
@@ -178,7 +205,8 @@ export async function generateNarratives(
       undefined, // tone
       undefined, // niche
       input.cta,
-      input.negativeTerms
+      input.negativeTerms,
+      userId // Pass userId for worker context
     )
 
     // Build the system prompt with all available context
@@ -191,6 +219,11 @@ export async function generateNarratives(
       cta: input.cta,
       extractedContent: input.extractedContent,
       researchData: input.researchData,
+      videoDuration: input.videoDuration,
+      referenceUrl: input.referenceUrl,
+      referenceVideoUrl: input.referenceVideoUrl,
+      numberOfSlides: input.numberOfSlides,
+      customInstructions: input.customInstructions,
     })
 
     // Append user variables context if available
@@ -432,7 +465,8 @@ export async function generateNarratives(
  */
 export async function generateContent(
   input: WizardGenerationInput,
-  model: string = WIZARD_DEFAULT_MODEL
+  model: string = WIZARD_DEFAULT_MODEL,
+  userId?: string // Optional userId for worker context (to fetch user variables)
 ): Promise<ServiceResult<GeneratedContent>> {
   // ==============================================================================
   // WIZARD DEBUG: INPUTS PARA GERAÇÃO DE CONTEÚDO
@@ -483,7 +517,8 @@ export async function generateContent(
       undefined, // tone
       undefined, // niche
       input.cta,
-      input.negativeTerms
+      input.negativeTerms,
+      userId // Pass userId for worker context
     )
 
     // Build the content-specific prompt
@@ -498,6 +533,7 @@ export async function generateContent(
       ragContext: input.ragContext,
       theme: input.theme,
       targetAudience: input.targetAudience,
+      selectedVideoTitle: input.selectedVideoTitle?.title, // Pass selected video title for videos
     })
 
     // Append user variables context if available
@@ -738,21 +774,43 @@ function structureGeneratedContent(
     }
 
     case "video": {
-      if (!("script" in response)) {
-        throw new Error("Video response missing 'script' field");
+      // Handle both legacy format (script field) and new v4.3 format (VideoScriptStructured)
+      if ("script" in response) {
+        // Legacy format: simple script field
+        const script = response.script;
+        return {
+          type: "video",
+          caption: response.caption ? String(response.caption) : undefined,
+          hashtags: response.hashtags ? StringArray(response.hashtags) : undefined,
+          cta: response.cta ? String(response.cta) : undefined,
+          script: Array.isArray(script) ? JSON.stringify(script) : String(script),
+          metadata: baseMetadata,
+        };
       }
 
-      // Script can be an array of scene objects or a string
-      const script = response.script;
+      // Check for VideoScriptStructured v4.3 format
+      if ("meta" in response && "roteiro" in response && "thumbnail" in response) {
+        // New v4.3 format: VideoScriptStructured
+        const videoScript = response as any;
 
-      return {
-        type: "video",
-        caption: response.caption ? String(response.caption) : undefined,
-        hashtags: response.hashtags ? StringArray(response.hashtags) : undefined,
-        cta: response.cta ? String(response.cta) : undefined,
-        script: Array.isArray(script) ? JSON.stringify(script) : String(script),
-        metadata: baseMetadata,
-      };
+        // Extract CTA from roteiro.cta or fallback to response-level cta
+        const ctaText = videoScript.roteiro?.cta?.texto || response.cta || "";
+
+        return {
+          type: "video",
+          caption: videoScript.caption ? String(videoScript.caption) : undefined,
+          hashtags: videoScript.hashtags ? StringArray(videoScript.hashtags) : undefined,
+          cta: ctaText ? String(ctaText) : undefined,
+          script: JSON.stringify(videoScript), // Store entire structured script
+          metadata: {
+            ...baseMetadata,
+            // Store structured metadata for easy access
+            script: videoScript, // VideoScriptStructured v4.3
+          } as any, // Using 'as any' because we're adding v4.3-specific 'script' property
+        };
+      }
+
+      throw new Error("Video response missing required fields (expected 'script' or VideoScriptStructured v4.3 format with 'meta', 'roteiro', 'thumbnail')");
     }
 
     default:

@@ -8,6 +8,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   FileText,
   Image as ImageIcon,
@@ -142,6 +143,7 @@ export function Step1Inputs({
   isSubmitting = false,
   className,
 }: Step1InputsProps) {
+  const router = useRouter();
   const [negativeTermInput, setNegativeTermInput] = useState("");
 
   // Default model if not set
@@ -197,6 +199,10 @@ export function Step1Inputs({
                 key={type.value}
                 type="button"
                 onClick={() => {
+                  if (type.value === "video") {
+                    router.push("/wizard?type=video");
+                    return;
+                  }
                   onChange({
                     ...data,
                     contentType: type.value,

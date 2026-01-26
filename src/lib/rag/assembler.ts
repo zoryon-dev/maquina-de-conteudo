@@ -68,20 +68,22 @@ export async function assembleRagContext(
 ): Promise<RagContextResult> {
   const opts = { ...DEFAULT_RAG_OPTIONS, ...options }
 
+  // Prepare search options - pass documentIds for manual selection
+  const baseSearchOptions = {
+    categories: opts.categories,
+    documentIds: opts.documentIds,
+    threshold: opts.threshold,
+    limit: opts.maxChunks * 2, // Get more to filter
+  }
+
   // Perform search (semantic or hybrid)
   const searchResults = opts.hybrid
     ? await hybridSearch(userId, query, {
-        categories: opts.categories,
-        threshold: opts.threshold,
-        limit: opts.maxChunks * 2, // Get more to filter
+        ...baseSearchOptions,
         semanticWeight: opts.semanticWeight ?? 0.7,
         keywordWeight: opts.keywordWeight ?? 0.3,
       })
-    : await semanticSearch(userId, query, {
-        categories: opts.categories,
-        threshold: opts.threshold,
-        limit: opts.maxChunks * 2,
-      })
+    : await semanticSearch(userId, query, baseSearchOptions)
 
   if (searchResults.length === 0) {
     return {

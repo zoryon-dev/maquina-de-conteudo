@@ -96,6 +96,9 @@ export async function PATCH(
       model,
       referenceUrl,
       referenceVideoUrl,
+      videoDuration,
+      videoIntention,
+      customVideoIntention,
       theme,
       context,
       objective,
@@ -108,6 +111,7 @@ export async function PATCH(
       researchResults,
       narratives,
       selectedNarrativeId,
+      customInstructions,
       generatedContent,
       imageGenerationConfig,
       generatedImages,
@@ -127,11 +131,18 @@ export async function PATCH(
     if (model !== undefined) updateData.model = model;
     if (referenceUrl !== undefined) updateData.referenceUrl = referenceUrl;
     if (referenceVideoUrl !== undefined) updateData.referenceVideoUrl = referenceVideoUrl;
+    if (videoDuration !== undefined) updateData.videoDuration = videoDuration;
     if (theme !== undefined) updateData.theme = theme;
     if (context !== undefined) updateData.context = context;
     if (objective !== undefined) updateData.objective = objective;
     if (cta !== undefined) updateData.cta = cta;
     if (targetAudience !== undefined) updateData.targetAudience = targetAudience;
+    // Handle customInstructions - can come from direct field or from videoIntention fields
+    if (customInstructions !== undefined) {
+      updateData.customInstructions = customInstructions;
+    } else if (customVideoIntention !== undefined || videoIntention !== undefined) {
+      updateData.customInstructions = customVideoIntention || videoIntention;
+    }
     if (ragConfig !== undefined) updateData.ragConfig = ragConfig as any;
     if (negativeTerms !== undefined) updateData.negativeTerms = negativeTerms as any;
     if (extractedContent !== undefined) updateData.extractedContent = extractedContent as any;

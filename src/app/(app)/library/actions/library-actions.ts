@@ -1468,3 +1468,146 @@ export async function getWizardTemplateDataAction(
     return null
   }
 }
+
+// ============================================================================
+// SAVE VIDEO FROM WIZARD
+// ============================================================================
+
+/**
+ * Save a generated video from wizard to library
+ *
+ * Creates a complete library item from wizard data including:
+ * - Selected title
+ * - Generated thumbnail
+ * - YouTube SEO metadata
+ * - Script/roteiro
+ * - All wizard context
+ *
+ * @param wizardId - Wizard ID to save video from
+ * @returns Action result with library item ID
+ */
+export async function saveWizardVideoToLibraryAction(
+  wizardId: number
+): Promise<ActionResult & { libraryItemId?: number }> {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return { success: false, error: "Não autenticado" }
+  }
+
+  try {
+    // Fetch wizard data
+    const [wizard] = await db
+      .select()
+      .from(contentWizards)
+      .where(eq(contentWizards.id, wizardId))
+      .limit(1)
+
+    if (!wizard) {
+      return { success: false, error: "Wizard não encontrado" }
+    }
+
+    if (wizard.userId !== userId) {
+      return { success: false, error: "Não autorizado" }
+    }
+
+    // Verify wizard has all required data
+    if (!wizard.selectedTitle || !wizard.generatedThumbnail) {
+      return { success: false, error: "Wizard incompleto: título ou thumbnail não gerado" }
+    }
+
+    // Extract thumbnail URL
+    const thumbnailData = wizard.generatedThumbnail as any
+    const thumbnailUrl = thumbnailData?.imageUrl || thumbnailData?.url
+
+    if (!thumbnailUrl) {
+      return { success: false, error: "Thumbnail sem URL" }
+    }
+
+    // Build video metadata
+    const videoMetadata = {
+      wizardId,
+      selectedTitle: {
+        id: wizard.selectedTitle.id || "default",
+        title: wizard.selectedTitle.title || "Sem título",
+        hook_factor: wizard.selectedTitle.hook_factor || 0,
+        word_count: wizard.selectedTitle.word_count,
+        formula_used: wizard.selectedTitle.formula_used,
+        triggers: wizard.selectedTitle.triggers,
+        tribal_angle: wizard.selectedTitle.tribal_angle,
+        reason: wizard.selectedTitle.reason,
+      },
+      thumbnail: {
+        imageUrl: thumbnailUrl,
+        promptUsed: thumbnailData.promptUsed || "",
+        negativePrompt: thumbnailData.negative_prompt,
+        especificacoes: thumbnailData.especificacoes,
+        reasoning: thumbnailData.reasoning,
+        variacoes: thumbnailData.variacoes,
+        config: {
+          estilo: wizard.thumbnailEstilo,
+          expressao: wizard.thumbnailExpressao,
+          contextoTematico: wizard.contextoTematico,
+          instrucoesCustomizadas: wizard.instrucoesCustomizadas,
+          tipoFundo: wizard.tipoFundo,
+          corTexto: wizard.corTexto,
+          posicaoTexto: wizard.posicaoTexto,
+          tipoIluminacao: wizard.tipoIluminacao,
+        },
+      },
+      youtubeSEO: wizard.generatedSEO || undefined,
+      script: wizard.generatedContent ? {
+        valorCentral: (wizard.generatedContent as any)?.valorCentral,
+        hookTexto: (wizard.generatedContent as any)?.hookTexto,
+        roteiro: wizard.generatedContent,
+        topicos: (wizard.generatedContent as any)?.topicos,
+        duracao: (wizard.generatedContent as any)?.duracao,
+      } : undefined,
+      wizardContext: {
+        duration: wizard.duration,
+        theme: wizard.theme,
+        niche: wizard.niche,
+        objective: wizard.objective,
+        targetAudience: wizard.targetAudience,
+        tone: wizard.tone,
+      },
+      narrativeContext: {
+        angle: wizard.narrativeAngle,
+        title: wizard.narrativeTitle,
+        description: wizard.narrativeDescription,
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+
+    // Build media URLs array (thumbnail URL + any additional URLs)
+    const mediaUrls = [thumbnailUrl]
+
+    // Create library item
+    const [libraryItem] = await db
+      .insert(libraryItems)
+      .values({
+        userId,
+        type: "video" as const,
+        status: "draft" as const,
+        title: wizard.selectedTitle.title || "Sem título",
+        content: wizard.generatedContent ? JSON.stringify(wizard.generatedContent) : null,
+        mediaUrl: JSON.stringify(mediaUrls),
+        metadata: JSON.stringify(videoMetadata),
+        updatedAt: new Date(),
+      })
+      .returning()
+
+    console.log(`[LIBRARY] Video saved to library: item ID ${libraryItem.id} from wizard ${wizardId}`)
+
+    revalidatePath("/library")
+
+    return { success: true, libraryItemId: libraryItem.id }
+  } catch (error) {
+    console.error("[LIBRARY] Error saving wizard video to library:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Erro ao salvar vídeo na biblioteca",
+    }
+  }
+}

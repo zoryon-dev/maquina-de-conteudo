@@ -31,6 +31,9 @@ export async function POST(request: Request) {
       model,
       referenceUrl,
       referenceVideoUrl,
+      videoDuration,
+      videoIntention,
+      customVideoIntention,
       theme,
       context,
       objective,
@@ -44,6 +47,9 @@ export async function POST(request: Request) {
       model?: string;
       referenceUrl?: string;
       referenceVideoUrl?: string;
+      videoDuration?: string;
+      videoIntention?: string;
+      customVideoIntention?: string;
       theme?: string;
       context?: string;
       objective?: string;
@@ -60,6 +66,9 @@ export async function POST(request: Request) {
     };
 
     // Create new wizard with initial step
+    // Combine video intention with custom instructions for storage
+    const customInstructions = customVideoIntention || videoIntention || undefined;
+
     const newWizard: NewContentWizard = {
       userId,
       currentStep: "input",
@@ -68,11 +77,13 @@ export async function POST(request: Request) {
       model,
       referenceUrl,
       referenceVideoUrl,
+      videoDuration,
       theme,
       context,
       objective,
       cta,
       targetAudience,
+      customInstructions,
       ragConfig,
       negativeTerms,
     };

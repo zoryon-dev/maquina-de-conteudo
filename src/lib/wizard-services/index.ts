@@ -198,6 +198,7 @@ export {
   getAvailableImageModels,
   getModelLabel,
   validateImageOptions,
+  generateVideoThumbnailNanoBanana,
 } from "./image-generation.service";
 
 export type {
@@ -216,6 +217,8 @@ export type {
   PromptGenerationResult,
   CoverPostsConfig,
   TemplateData,
+  NanoBananaThumbnailInput,
+  NanoBananaThumbnailOutput,
 } from "./image-types";
 
 // HTML Template Generation (ScreenshotOne)
@@ -237,6 +240,58 @@ export type {
 
 // Constants
 export { INSTAGRAM_DIMENSIONS } from "./image-types";
+
+// ============================================================================
+// VIDEO SPECIFIC SERVICES
+// ============================================================================
+
+export {
+  generateVideoTitles,
+} from "./video-titles.service";
+
+export type {
+  VideoTitleOption,
+  GenerateVideoTitlesParams,
+  GenerateVideoTitlesResult,
+} from "./video-titles.service";
+
+export {
+  generateVideoThumbnail,
+} from "./video-thumbnail.service";
+
+export type {
+  GenerateVideoThumbnailParams,
+  GenerateVideoThumbnailResult,
+} from "./video-thumbnail.service";
+
+export {
+  generateYouTubeSEO,
+} from "./youtube-seo.service";
+
+export type {
+  NarrativeAngle as YouTubeSEONarrativeAngle,
+  SearchIntent,
+  GenerateYouTubeSEOParams,
+  YouTubeSEOOutput,
+  GenerateYouTubeSEOResult,
+} from "./youtube-seo.service";
+
+// ============================================================================
+// VIDEO SCRIPT SERVICE
+// ============================================================================
+
+export {
+  generateVideoScript,
+  refactorVideoScript,
+} from "./video-script.service";
+
+export type {
+  VideoScriptInput,
+  VideoScriptRefactorInput,
+  VideoScriptOutput,
+  GenerateVideoScriptResult,
+  RefactorVideoScriptResult,
+} from "./video-script.service";
 
 // ============================================================================
 // USER VARIABLES SERVICE

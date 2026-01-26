@@ -460,8 +460,8 @@ export function Step4Generation({
               pollIntervalRef.current = null;
             }
 
-            // Notify parent component
-            onComplete?.(generatedContent);
+            // DON'T auto-call onComplete - let user review first
+            // onComplete?.(generatedContent);
           }
           return;
         }
@@ -967,21 +967,11 @@ export function Step4Generation({
                 Regenerar
               </Button>
               <Button
-                onClick={handleSaveToLibrary}
-                disabled={isSaving || savedToLibrary}
-                className="flex-1"
+                onClick={() => onComplete?.(content)}
+                className="flex-1 bg-primary hover:bg-primary/90"
               >
-                {savedToLibrary ? (
-                  <>
-                    <Check className="w-4 h-4 mr-2" />
-                    Salvo na biblioteca
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    {isSaving ? "Salvando..." : "Salvar na biblioteca"}
-                  </>
-                )}
+                <Check className="w-4 h-4 mr-2" />
+                Aprovar e Continuar
               </Button>
             </div>
           </motion.div>

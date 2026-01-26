@@ -82,18 +82,25 @@ const ARRAY_FORMAT_VARIABLES = new Set(["negativeTerms"])
  * This is a server-side function that retrieves all saved variables for the current user.
  * Returns empty object if no variables are set or user is not authenticated.
  *
+ * @param userId - Optional user ID (for use in workers/background jobs)
  * @returns Promise with user variables record
  *
  * @example
  * ```ts
+ * // In request context (uses Clerk auth)
  * const variables = await getUserVariables()
+ *
+ * // In worker/background job (pass userId from job payload)
+ * const variables = await getUserVariables(job.userId)
  * // { tone: "Profissional e acessível", niche: "Ecommerce de moda", ... }
  * ```
  */
-export async function getUserVariables(): Promise<UserVariables> {
-  const { userId } = await auth()
+export async function getUserVariables(userId?: string): Promise<UserVariables> {
+  // If userId is not provided, try to get it from Clerk auth
+  const resolvedUserId = userId || (await auth()).userId
 
-  if (!userId) {
+  if (!resolvedUserId) {
+    console.log(`[USER-VARIABLES] ⚠️ Nenhum userId disponível (auth falhou ou userId não passado)`)
     return {}
   }
 
@@ -104,7 +111,9 @@ export async function getUserVariables(): Promise<UserVariables> {
         variableValue: userVariables.variableValue,
       })
       .from(userVariables)
-      .where(eq(userVariables.userId, userId))
+      .where(eq(userVariables.userId, resolvedUserId))
+
+    console.log(`[USER-VARIABLES] 📊 Busca no banco: ${variables.length} variáveis encontradas para userId=${resolvedUserId.substring(0, 8)}...`)
 
     // Convert to record with proper typing
     const result: UserVariables = {}
@@ -117,7 +126,7 @@ export async function getUserVariables(): Promise<UserVariables> {
 
     return result
   } catch (error) {
-    console.error("Error fetching user variables:", error)
+    console.error(`[USER-VARIABLES] ❌ Erro ao buscar variáveis:`, error)
     return {}
   }
 }

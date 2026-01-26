@@ -18,6 +18,8 @@ import type { WizardStepValue } from "./shared/wizard-steps-indicator";
 import { WizardStepsIndicator } from "./shared/wizard-steps-indicator";
 import { Step1Inputs } from "./steps/step-1-inputs";
 import { Step2Processing } from "./steps/step-2-processing";
+import { StepVideoDuration } from "./steps/step-video-duration";
+import { StepContentApproval } from "./steps/step-content-approval";
 import type { PostType } from "@/db/schema";
 import {
   Step3Narratives,
@@ -30,10 +32,19 @@ import {
   type GeneratedContent,
 } from "./steps/step-4-generation";
 import {
+  StepTitlesSelection,
+  type VideoTitleOption,
+} from "./steps/step-titles-selection";
+import {
+  StepThumbnailConfig,
+  type GeneratedThumbnailData,
+} from "./steps/step-thumbnail-config";
+import {
   Step5ImageGeneration,
   type GeneratedContent as Step5GeneratedContent,
 } from "./steps/step-5-image-generation";
 import type { ImageGenerationConfig, GeneratedImage } from "@/lib/wizard-services/client";
+import type { VideoDuration } from "@/lib/wizard-services/types";
 
 // Combined form data type for the wizard
 export interface WizardFormData {
@@ -42,6 +53,9 @@ export interface WizardFormData {
   model?: string;
   referenceUrl?: string;
   referenceVideoUrl?: string;
+  videoDuration?: VideoDuration; // NEW: Video duration selection
+  videoIntention?: string; // NEW: Video intention (predefined)
+  customVideoIntention?: string; // NEW: Custom video intention
   theme?: string;
   context?: string;
   objective?: string;
@@ -54,6 +68,8 @@ export interface WizardFormData {
   generatedContent?: string;
   imageGenerationConfig?: ImageGenerationConfig;
   generatedImages?: GeneratedImage[];
+  selectedVideoTitle?: VideoTitleOption; // NEW: Selected title for video thumbnail
+  generatedThumbnailData?: GeneratedThumbnailData; // NEW: Generated thumbnail data
 }
 
 interface Wizard {
@@ -64,6 +80,9 @@ interface Wizard {
   model?: string;
   referenceUrl?: string;
   referenceVideoUrl?: string;
+  videoDuration?: string; // NEW: Video duration
+  videoIntention?: string; // NEW: Video intention
+  customVideoIntention?: string; // NEW: Custom video intention
   theme?: string;
   context?: string;
   objective?: string;
@@ -135,6 +154,9 @@ export function WizardPage({
             model: data.model,
             referenceUrl: data.referenceUrl,
             referenceVideoUrl: data.referenceVideoUrl,
+            videoDuration: data.videoDuration as VideoDuration | undefined,
+            videoIntention: data.videoIntention,
+            customVideoIntention: data.customVideoIntention,
             theme: data.theme,
             context: data.context,
             objective: data.objective,
@@ -241,6 +263,25 @@ export function WizardPage({
     }
   };
 
+  // Step 1.5: Handle video duration and intention selection
+  const handleVideoDurationSelected = async (
+    duration: VideoDuration,
+    intention?: string,
+    customIntention?: string
+  ) => {
+    // Save duration and intention to formData
+    setFormData((prev) => ({
+      ...prev,
+      videoDuration: duration,
+      videoIntention: intention,
+      customVideoIntention: customIntention,
+      contentType: "video", // Auto-set content type to video
+    }));
+
+    // Proceed to input step for additional configuration
+    setCurrentStep("input");
+  };
+
   // Step 2: Handle processing completion
   const handleProcessingComplete = async () => {
     if (!wizardId) return;
@@ -284,7 +325,7 @@ export function WizardPage({
         }),
       });
 
-      // Trigger generation job
+      // Trigger generation job for ALL content types (including video)
       await fetch(`/api/wizard/${wizardId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -307,29 +348,138 @@ export function WizardPage({
     }
   };
 
-  // Step 4: Handle generation completion - transition based on content type
-  const handleGenerationComplete = (content: GeneratedContent) => {
-    // Store generated content in formData for use in Step 5
+  // Step 3.5: Handle content approval
+  const handleContentApproval = async (approvedContent: string) => {
+    if (!wizardId) return;
+
+    // Save approved content to formData
     setFormData((prev) => ({
       ...prev,
-      generatedContent: typeof content === 'string' ? content : JSON.stringify(content),
+      generatedContent: approvedContent,
     }));
 
-    // Only auto-advance to image generation for carousel
-    // For text/image posts, let user choose if they want to generate images
+    // Determine next step based on content type
     const contentType = formData.contentType;
-    if (contentType === "carousel") {
-      // Carousels ALWAYS need image generation
+
+    if (contentType === "video") {
+      // Videos go to title selection
+      setCurrentStep("titles-selection");
+    } else if (contentType === "carousel") {
+      // Carousels go to image generation
       setCurrentStep("image-generation");
     } else if (contentType === "image") {
-      // Image posts can optionally have an image, but not required
-      // For now, go to image-generation step as optional
+      // Images go to image generation
       setCurrentStep("image-generation");
     } else {
-      // Text and video posts are complete after generation
-      // User can optionally add images later if needed
+      // Text posts go directly to completion
       setCurrentStep("completed");
     }
+  };
+
+  // Step 3.5: Handle title selection and proceed to thumbnail configuration
+  const handleTitleSelected = async (title: VideoTitleOption) => {
+    if (!wizardId) return;
+
+    // Save selected title to formData
+    setFormData((prev) => ({
+      ...prev,
+      selectedVideoTitle: title,
+    }));
+
+    // Proceed to thumbnail configuration (script already generated)
+    setCurrentStep("thumbnail-config");
+  };
+
+  // Step 6: Queue thumbnail generation (async via queue like carousels)
+  const handleQueueThumbnailGeneration = async (config: {
+    thumbnailTitle: string;
+    estilo: string;
+    contextoTematico: string;
+    expressao?: string;
+    referenciaImagem1?: string;
+    referenciaImagem2?: string;
+    roteiroContext?: Record<string, unknown>;
+    instrucoesCustomizadas?: string;
+    tipoFundo?: string;
+    corTexto?: string;
+    posicaoTexto?: string;
+    tipoIluminacao?: string;
+  }) => {
+    console.log("[WIZARD] handleQueueThumbnailGeneration called!", config);
+    if (!wizardId) return;
+    setError(null);
+
+    try {
+      // Parse roteiro context from generated content if available
+      let roteiroContext = config.roteiroContext || {};
+      if (!roteiroContext || Object.keys(roteiroContext).length === 0) {
+        if (formData.generatedContent) {
+          try {
+            const parsed = JSON.parse(formData.generatedContent);
+            if (parsed.meta && parsed.roteiro && parsed.thumbnail) {
+              roteiroContext = {
+                valorCentral: parsed.meta?.valor_central || "",
+                hookTexto: parsed.roteiro?.hook?.texto || "",
+                thumbnailTitulo: parsed.thumbnail?.titulo || "",
+                thumbnailEstilo: parsed.thumbnail?.estilo || "",
+              };
+            }
+          } catch {
+            console.warn("[WIZARD] Could not parse generatedContent");
+          }
+        }
+      }
+
+      // Queue thumbnail generation via API (returns immediately with jobId)
+      const response = await fetch(`/api/wizard/${wizardId}/queue-thumbnail-generation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...config,
+          roteiroContext,
+        }),
+      });
+
+      if (!response.ok) {
+        let errorMessage = "Failed to queue thumbnail generation";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch {
+          const errorText = await response.text();
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log("[WIZARD] Thumbnail job queued:", data.jobId);
+
+      // Store jobId for processing modal
+      setQueuedJobId(data.jobId);
+
+      // Show processing modal - it will auto-redirect to library
+      setShowProcessingModal(true);
+    } catch (err) {
+      console.error("Error queuing thumbnail generation:", err);
+      setError(err instanceof Error ? err.message : "Failed to queue thumbnail generation");
+    }
+  };
+
+  // Step 4: Handle generation completion - transition based on content type
+  const handleGenerationComplete = (content: GeneratedContent) => {
+    // Store generated content in formData for use in next steps
+    // Preserve structured content (object) when possible, only stringify if it's already a string
+    const contentToStore = typeof content === 'string' ? content : JSON.stringify(content);
+
+    setFormData((prev) => ({
+      ...prev,
+      generatedContent: contentToStore,
+    }));
+
+    // ALL content types go to content-approval FIRST
+    // The content-approval step will handle routing to the next appropriate step
+    setCurrentStep("content-approval");
   };
 
   // Step 5: Handle content editing
@@ -497,6 +647,7 @@ export function WizardPage({
       <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <WizardStepsIndicator
           currentStep={currentStep}
+          contentType={formData.contentType}
           onStepClick={handleStepClick}
         />
       </div>
@@ -525,6 +676,23 @@ export function WizardPage({
 
       {/* Step Content */}
       <AnimatePresence mode="wait">
+        {currentStep === "video-duration" && (
+          <motion.div
+            key="video-duration"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <StepVideoDuration
+              initialDuration={formData.videoDuration}
+              initialIntention={formData.videoIntention}
+              initialCustomIntention={formData.customVideoIntention}
+              onSelect={handleVideoDurationSelected}
+            />
+          </motion.div>
+        )}
+
         {currentStep === "input" && (
           <motion.div
             key="input"
@@ -577,6 +745,48 @@ export function WizardPage({
           </motion.div>
         )}
 
+        {currentStep === "content-approval" && wizardId && formData.generatedContent && (
+          <motion.div
+            key="content-approval"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <StepContentApproval
+              wizardId={wizardId}
+              contentType={formData.contentType ?? "text"}
+              generatedContent={formData.generatedContent}
+              onApprove={handleContentApproval}
+              onRegenerate={handleRegenerate}
+              onBack={() => setCurrentStep("narratives")}
+            />
+          </motion.div>
+        )}
+
+        {currentStep === "titles-selection" && wizardId && (
+          <motion.div
+            key="titles-selection"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <StepTitlesSelection
+              wizardId={wizardId}
+              generatedContent={formData.generatedContent || "{}"}
+              narrativeAngle={wizard?.narratives?.find(n => n.id === formData.selectedNarrativeId)?.angle || "tradutor"}
+              narrativeTitle={wizard?.narratives?.find(n => n.id === formData.selectedNarrativeId)?.title || ""}
+              narrativeDescription={wizard?.narratives?.find(n => n.id === formData.selectedNarrativeId)?.description || ""}
+              theme={formData.theme}
+              targetAudience={formData.targetAudience}
+              objective={formData.objective}
+              onTitleSelected={handleTitleSelected}
+              onBack={() => setCurrentStep("narratives")}
+            />
+          </motion.div>
+        )}
+
         {currentStep === "generation" && wizardId && (
           <motion.div
             key="generation"
@@ -592,6 +802,26 @@ export function WizardPage({
               onComplete={handleGenerationComplete}
               onSaveToLibrary={handleSaveToLibrary}
               onRegenerate={handleRegenerate}
+            />
+          </motion.div>
+        )}
+
+        {currentStep === "thumbnail-config" && wizardId && formData.selectedVideoTitle && (
+          <motion.div
+            key="thumbnail-config"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <StepThumbnailConfig
+              wizardId={wizardId}
+              selectedTitle={formData.selectedVideoTitle}
+              contextoTematico={formData.theme ?? ""}
+              theme={formData.theme}
+              generatedContent={formData.generatedContent}
+              onQueue={handleQueueThumbnailGeneration}
+              onBack={() => setCurrentStep("titles-selection")}
             />
           </motion.div>
         )}
@@ -665,11 +895,23 @@ export function WizardPage({
       {/* Processing Modal */}
       <ProcessingModal
         isOpen={showProcessingModal}
-        title="Gerando Imagens"
-        message="Suas imagens estão sendo geradas em segundo plano. Você será notificado quando estiverem prontas!"
-        redirectPath="/dashboard"
+        title={
+          formData.contentType === "video"
+            ? "Gerando Thumbnail e SEO"
+            : "Gerando Imagens"
+        }
+        message={
+          formData.contentType === "video"
+            ? "Estamos construindo sua thumbnail, gerando metadata de SEO e organizando tudo na Biblioteca. Você será redirecionado em instantes!"
+            : "Suas imagens estão sendo geradas em segundo plano. Você será notificado quando estiverem prontas!"
+        }
+        redirectPath={formData.contentType === "video" ? "/library" : "/dashboard"}
         jobId={queuedJobId ?? undefined}
-        jobType="wizard_image_generation"
+        jobType={
+          formData.contentType === "video"
+            ? "wizard_thumbnail_generation"
+            : "wizard_image_generation"
+        }
       />
     </div>
   );

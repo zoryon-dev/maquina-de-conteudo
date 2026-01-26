@@ -282,22 +282,57 @@ export interface NanoBananaThumbnailInput {
     targetAudience?: string;
     tone?: string;
   };
+  roteiroContext?: { // NOVO: Contexto do roteiro gerado
+    valorCentral?: string;
+    hookTexto?: string;
+    thumbnailTitulo?: string;
+    thumbnailEstilo?: string;
+  };
+  // NEW: Advanced configuration fields
+  instrucoesCustomizadas?: string; // Custom instructions for the thumbnail
+  tipoFundo?: string; // Background type (solid, gradient, blurred, etc.)
+  corTexto?: string; // Text color (white, yellow, red, etc.)
+  posicaoTexto?: string; // Text position (center, top-left, etc.)
+  tipoIluminacao?: string; // Lighting type (studio, natural, dramatic, etc.)
 }
 
 /**
- * Nano Banana output format with specifications
+ * Nano Banana output format with specifications (v5.0)
  */
 export interface NanoBananaThumbnailOutput {
-  prompt: string; // 5-line structured prompt
+  prompt: string | { // v5: object with line-by-line breakdown, v4: string
+    line1_format?: string;
+    line2_subject?: string;
+    line3_background?: string;
+    line4_lighting?: string;
+    line5_text?: string;
+    full_prompt: string;
+  };
   negative_prompt: string;
   especificacoes: {
-    texto: string; // Exact text that appears on thumbnail
+    texto: string; // Exact text that appears on thumbnail (texto_exato in v5)
     cor_texto: string; // Hex color
     cor_fundo: string; // Hex color of main background
-    posicao_texto: "centro" | "terco_superior" | "terco_inferior";
+    posicao_texto: "centro" | "terco_superior" | "terco_inferior" | string;
     expressao: string; // Facial expression
+    palavras?: number; // NOVO v5: Word count
+    cor_texto_nome?: string; // NOVO v5: Color name
+    cor_fundo_nome?: string; // NOVO v5: Background color name
+    estilo_texto?: string; // NOVO v5: Text style description
+    layout_usado?: string; // NOVO v5: Layout template used
+    psychological_triggers?: string[]; // NOVO v5: Triggers used
   };
-  variacoes: string[]; // Array of alternative suggestions
+  reasoning?: { // NOVO v5: Explanation of choices
+    why_this_expression?: string;
+    why_this_layout?: string;
+    why_these_colors?: string;
+    ctr_prediction?: string;
+  };
+  variacoes: string[] | Array<{ // v5: array of objects, v4: array of strings
+    variation_name?: string;
+    changes?: string;
+    full_prompt: string;
+  }>;
 }
 
 // ============================================================================

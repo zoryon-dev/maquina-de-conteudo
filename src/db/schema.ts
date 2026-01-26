@@ -40,6 +40,7 @@ export const jobTypeEnum = pgEnum("job_type", [
   "wizard_narratives",
   "wizard_generation",
   "wizard_image_generation",
+  "wizard_thumbnail_generation",
   "social_publish_instagram",
   "social_publish_facebook",
   "social_metrics_fetch",
@@ -456,11 +457,13 @@ export const contentWizards = pgTable(
     model: text("model"), // OpenRouter model ID
     referenceUrl: text("reference_url"), // Firecrawl URL
     referenceVideoUrl: text("reference_video_url"), // Apify transcription URL
+    videoDuration: text("video_duration"), // Video duration: 2-5min, 5-10min, +10min, +30min
     theme: text("theme"), // Tema do conteúdo
     context: text("context"), // Contexto adicional
     objective: text("objective"), // Objetivo do conteúdo
     cta: text("cta"), // Call to action
     targetAudience: text("target_audience"), // Público-alvo
+    customInstructions: text("custom_instructions"), // Instruções customizadas do usuário
 
     // RAG config
     ragConfig: jsonb("rag_config").$type<{

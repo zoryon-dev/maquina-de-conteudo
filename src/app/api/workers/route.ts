@@ -20,7 +20,7 @@ import { jobs, documents, documentEmbeddings, contentWizards, libraryItems } fro
 import { eq, and, desc } from "drizzle-orm";
 import { splitDocumentIntoChunks } from "@/lib/voyage/chunking";
 import { generateEmbeddingsBatch } from "@/lib/voyage/embeddings";
-import type { DocumentEmbeddingPayload, WizardNarrativesPayload, WizardGenerationPayload, WizardImageGenerationPayload } from "@/lib/queue/types";
+import type { DocumentEmbeddingPayload, WizardNarrativesPayload, WizardGenerationPayload, WizardImageGenerationPayload, WizardThumbnailGenerationPayload } from "@/lib/queue/types";
 import type { WizardProcessingProgress } from "@/db/schema";
 
 // Wizard services - background job processing
@@ -42,6 +42,8 @@ import {
   generateHtmlTemplateImage,
   isImageGenerationAvailable,
   isScreenshotOneAvailable,
+  generateVideoThumbnailNanoBanana,
+  generateYouTubeSEO,
 } from "@/lib/wizard-services";
 
 import type { SynthesizerInput, SynthesizedResearch, ResearchPlannerOutput, ResearchQuery } from "@/lib/wizard-services";
@@ -531,7 +533,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
    * 7. Updating wizard with narratives
    */
   wizard_narratives: async (payload: unknown) => {
-    const { wizardId, userId, contentType, referenceUrl, referenceVideoUrl, theme, context, objective, targetAudience, cta, ragConfig } =
+    const { wizardId, userId, contentType, referenceUrl, referenceVideoUrl, theme, context, objective, targetAudience, cta, videoDuration, numberOfSlides, customInstructions, ragConfig } =
       payload as WizardNarrativesPayload;
 
     // ==============================================================================
@@ -920,11 +922,18 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
 
       if (ragResult.success && ragResult.data) {
         const ragContext = formatRagForPrompt(ragResult.data);
+        // FIX: Add the actual RAG content to researchData (was missing before!)
+        if (ragContext) {
+          researchData += (researchData ? "\n\n" : "") + ragContext;
+        }
         // Store RAG source info in researchResults for reference
         const ragSourceInfo = formatRagSourcesForMetadata(ragResult.data);
         if (ragSourceInfo.length > 0) {
-          researchData += (researchData ? "\n\n" : "") + `RAG Sources: ${ragSourceInfo.map(s => s.title).join(", ")}`;
+          researchData += (researchData ? "\n\n" : "") + `FONTES RAG:\n${ragSourceInfo.map(s => `- ${s.title}`).join("\n")}`;
         }
+        console.log(`[WIZARD-DEBUG] RAG: Contexto adicionado ao researchData (${ragContext?.length || 0} chars)`);
+      } else {
+        console.log(`[WIZARD-DEBUG] RAG: Nenhum contexto encontrado ou erro na busca`);
       }
     }
 
@@ -946,7 +955,12 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       cta,
       extractedContent: extractedContent || undefined,
       researchData: researchData || undefined,
-    });
+      videoDuration,
+      referenceUrl,
+      referenceVideoUrl,
+      numberOfSlides,
+      customInstructions,
+    }, undefined, userId); // Pass userId for user variables
 
     if (!narrativesResult.success) {
       // Update wizard with error status
@@ -1110,7 +1124,8 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       cta: wizard.cta || undefined,
       negativeTerms: wizard.negativeTerms as string[] | undefined,
       ragContext: ragContextForPrompt,
-    }, model);
+      selectedVideoTitle: payload.selectedVideoTitle, // Pass selected video title for video content
+    }, model, userId); // Pass userId for user variables
 
     if (!contentResult.success) {
       // Update wizard with error status
@@ -1500,6 +1515,231 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       images: newImages,
       wizardId,
       libraryItemId: wizard.libraryItemId,
+    };
+  },
+
+  /**
+   * Wizard Thumbnail Generation Handler
+   *
+   * Generates YouTube thumbnail using Nano Banana format asynchronously.
+   *
+   * Process:
+   * 1. Generate thumbnail prompt using Nano Banana service
+   * 2. Generate thumbnail image using AI
+   * 3. Update wizard with generated thumbnail
+   * 4. Mark job as completed
+   */
+  wizard_thumbnail_generation: async (payload: unknown) => {
+    const {
+      wizardId,
+      userId,
+      thumbnailTitle,
+      estilo,
+      contextoTematico,
+      expressao,
+      referenciaImagem1,
+      referenciaImagem2,
+      roteiroContext,
+      instrucoesCustomizadas,
+      tipoFundo,
+      corTexto,
+      posicaoTexto,
+      tipoIluminacao,
+      model,
+    } = payload as WizardThumbnailGenerationPayload;
+
+    console.log(`[WIZARD-THUMBNAIL] JOB wizard_thumbnail_generation START - wizardId: ${wizardId}, userId: ${userId}`);
+
+    // 1. Fetch wizard to verify ownership
+    const [wizard] = await db
+      .select()
+      .from(contentWizards)
+      .where(eq(contentWizards.id, wizardId))
+      .limit(1);
+
+    if (!wizard) {
+      throw new Error(`Wizard not found: ${wizardId}`);
+    }
+
+    if (wizard.userId !== userId) {
+      throw new Error(`Unauthorized: wizard ${wizardId} belongs to different user`);
+    }
+
+    // 2. Update wizard progress
+    await updateWizardProgress(wizardId, {
+      jobStatus: "processing",
+      processingProgress: {
+        stage: "thumbnail",
+        percent: 50,
+        message: "Gerando thumbnail com IA...",
+      },
+    });
+
+    // 3. Generate thumbnail using Nano Banana service
+    const thumbnailResult = await generateVideoThumbnailNanoBanana(
+      {
+        thumbnailTitle,
+        estilo: estilo as any || "profissional",
+        contextoTematico,
+        expressao,
+        referenciaImagem1,
+        referenciaImagem2,
+        roteiroContext,
+        instrucoesCustomizadas,
+        tipoFundo,
+        corTexto,
+        posicaoTexto,
+        tipoIluminacao,
+      },
+      model as any // Optional model override
+    );
+
+    if (!thumbnailResult.success || !thumbnailResult.data) {
+      // Update wizard with error status
+      await updateWizardProgress(wizardId, {
+        jobStatus: "failed",
+        jobError: `Failed to generate thumbnail: ${thumbnailResult.error}`,
+      });
+      throw new Error(`Failed to generate thumbnail: ${thumbnailResult.error}`);
+    }
+
+    const { imageUrl, promptUsed } = thumbnailResult.data;
+
+    console.log(`[WIZARD-THUMBNAIL] Generated thumbnail for wizard ${wizardId}: ${imageUrl}`);
+
+    // 4. Update wizard with generated thumbnail
+    await db
+      .update(contentWizards)
+      .set({
+        generatedThumbnail: {
+          imageUrl,
+          promptUsed,
+          generatedAt: new Date().toISOString(),
+        } as any,
+        updatedAt: new Date(),
+      })
+      .where(eq(contentWizards.id, wizardId));
+
+    // 5. Generate YouTube SEO metadata
+    console.log(`[WIZARD-THUMBNAIL] Generating YouTube SEO for wizard ${wizardId}...`);
+
+    await updateWizardProgress(wizardId, {
+      jobStatus: "processing",
+      processingProgress: {
+        stage: "seo",
+        percent: 75,
+        message: "Gerando metadados SEO para YouTube...",
+      },
+    });
+
+    let generatedSEO: any = null;
+
+    try {
+      // Parse generated content to extract script context
+      let scriptContent: any = null;
+      try {
+        if (typeof wizard.generatedContent === "string") {
+          scriptContent = JSON.parse(wizard.generatedContent);
+        } else {
+          scriptContent = wizard.generatedContent;
+        }
+      } catch {
+        console.warn(`[WIZARD-THUMBNAIL] Could not parse generatedContent as JSON`);
+      }
+
+      // Extract development topics for timestamps
+      const topicos = scriptContent?.roteiro?.desenvolvimento?.map((d: any) => d.topico).filter(Boolean) || [];
+
+      // Get selected narrative
+      const selectedNarrative = wizard.narratives?.find(
+        (n: any) => n.id === wizard.selectedNarrativeId
+      );
+
+      // Build SEO parameters
+      const seoParams = {
+        thumbnailTitle: thumbnailTitle,
+        theme: wizard.theme || "",
+        targetAudience: wizard.targetAudience || "",
+        objective: wizard.objective,
+        niche: wizard.niche,
+        narrativeAngle: selectedNarrative?.angle,
+        narrativeTitle: selectedNarrative?.title,
+        narrativeDescription: selectedNarrative?.description,
+        roteiroContext: {
+          valorCentral: scriptContent?.meta?.valor_central,
+          hookTexto: scriptContent?.roteiro?.hook?.texto,
+          topicos,
+          duracao: scriptContent?.meta?.duracao_estimada,
+        },
+      };
+
+      const seoResult = await generateYouTubeSEO(seoParams);
+
+      if (seoResult.success && seoResult.data) {
+        generatedSEO = seoResult.data;
+        console.log(`[WIZARD-THUMBNAIL] SEO generated successfully for wizard ${wizardId}`);
+
+        // Update wizard with generated SEO
+        await db
+          .update(contentWizards)
+          .set({
+            generatedSEO: generatedSEO as any,
+            updatedAt: new Date(),
+          })
+          .where(eq(contentWizards.id, wizardId));
+      } else {
+        console.warn(`[WIZARD-THUMBNAIL] SEO generation failed: ${seoResult.error}`);
+        // Continue without SEO - don't fail the job
+      }
+    } catch (seoError) {
+      console.error(`[WIZARD-THUMBNAIL] Error generating SEO:`, seoError);
+      // Continue without SEO - don't fail the job
+    }
+
+    // 6. Update wizard as completed and save to library
+    await db
+      .update(contentWizards)
+      .set({
+        jobStatus: "completed",
+        processingProgress: {
+          stage: "completed",
+          percent: 100,
+          message: "Vídeo completo gerado com sucesso!",
+        },
+        jobError: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(contentWizards.id, wizardId));
+
+    // 7. Save video to library automatically
+    try {
+      const { saveWizardVideoToLibraryAction } = await import("@/app/(app)/library/actions/library-actions");
+      const libraryResult = await saveWizardVideoToLibraryAction(wizardId);
+
+      if (libraryResult.success) {
+        console.log(`[WIZARD-THUMBNAIL] Video automatically saved to library: item ID ${libraryResult.libraryItemId}`);
+
+        // Update wizard with library item ID
+        await db
+          .update(contentWizards)
+          .set({
+            libraryItemId: libraryResult.libraryItemId,
+          })
+          .where(eq(contentWizards.id, wizardId));
+      } else {
+        console.warn(`[WIZARD-THUMBNAIL] Failed to save video to library: ${libraryResult.error}`);
+      }
+    } catch (libraryError) {
+      console.error(`[WIZARD-THUMBNAIL] Error saving video to library:`, libraryError);
+      // Don't fail the job if library save fails - thumbnail is still successful
+    }
+
+    console.log(`[WIZARD-THUMBNAIL] JOB wizard_thumbnail_generation COMPLETED - wizardId: ${wizardId}`);
+
+    return {
+      success: true,
+      thumbnail: thumbnailResult.data,
+      wizardId,
     };
   },
 };

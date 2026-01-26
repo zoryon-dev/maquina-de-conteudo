@@ -555,6 +555,11 @@ export function getNarrativesSystemPrompt(params: {
   cta?: string;
   extractedContent?: string;
   researchData?: string;
+  videoDuration?: string; // NEW: Video duration for content depth
+  referenceUrl?: string; // NEW: Reference URL for additional context
+  referenceVideoUrl?: string; // NEW: Reference video URL
+  numberOfSlides?: number; // NEW: Number of slides for carousel
+  customInstructions?: string; // NEW: Custom user instructions
 }): string {
   const {
     contentType,
@@ -565,6 +570,11 @@ export function getNarrativesSystemPrompt(params: {
     cta,
     extractedContent,
     researchData,
+    videoDuration,
+    referenceUrl,
+    referenceVideoUrl,
+    numberOfSlides,
+    customInstructions,
   } = params;
 
   return `${getBaseTribalSystemPrompt()}
@@ -575,10 +585,17 @@ ${extractedContent || researchData || '(Nenhum documento adicional fornecido)'}
 </contexto_rag>
 
 <briefing>
+<tipo_conteudo>${contentType}</tipo_conteudo>
+${videoDuration ? `<duracao_video>${videoDuration}</duracao_video>` : ''}
+${numberOfSlides ? `<numero_slides>${numberOfSlides}</numero_slides>` : ''}
 <tema_central>${theme || ''}</tema_central>
 <contexto>${context || ''}</contexto>
 <objetivo>${objective || 'Gerar conexão tribal'}</objetivo>
 <publico_alvo>${targetAudience || 'Pessoas que compartilham valores e crenças similares ao criador'}</publico_alvo>
+${cta ? `<cta>${cta}</cta>` : ''}
+${referenceUrl ? `<referencia_url>${referenceUrl}</referencia_url>` : ''}
+${referenceVideoUrl ? `<referencia_video>${referenceVideoUrl}</referencia_video>` : ''}
+${customInstructions ? `<instrucoes_customizadas>${customInstructions}</instrucoes_customizadas>` : ''}
 </briefing>
 
 <tarefa>
@@ -587,6 +604,8 @@ Gere 4 narrativas tribais distintas para este tema. Cada narrativa deve:
 - Conectar a audiência a uma CRENÇA COMPARTILHADA
 - DESAFIAR algum status quo ou senso comum
 - Posicionar o criador como LÍDER DO MOVIMENTO, não professor
+${videoDuration ? `- Adaptar a profundidade do conteúdo para vídeo de ${videoDuration}` : ''}
+${numberOfSlides ? `- Considerar estrutura de ${numberOfSlides} slides para carrossel` : ''}
 </tarefa>
 
 <angulos_tribais>
@@ -631,11 +650,16 @@ Para cada narrativa, forneça:
 
 <consideracoes>
 • Tipo de conteúdo: ${contentType}
+${videoDuration ? `• Duração do vídeo: ${videoDuration} (define profundidade do conteúdo)` : ""}
+${numberOfSlides ? `• Número de slides: ${numberOfSlides}` : ""}
 ${theme ? `• Tema principal: ${theme}` : ""}
 ${context ? `• Contexto adicional: ${context}` : ""}
 ${objective ? `• Objetivo do conteúdo: ${objective}` : ""}
 ${targetAudience ? `• Público-alvo: ${targetAudience}` : ""}
 ${cta ? `• Call to Action desejado: ${cta}` : ""}
+${referenceUrl ? `• URL de referência: ${referenceUrl}` : ""}
+${referenceVideoUrl ? `• Vídeo de referência: ${referenceVideoUrl}` : ""}
+${customInstructions ? `• Instruções customizadas: ${customInstructions}` : ""}
 </consideracoes>
 
 <exemplo>
@@ -1185,8 +1209,8 @@ RETORNE APENAS O JSON, sem explicações.
  * **Model OBRIGATÓRIO:** Usar modelo do usuário OU fallback google/gemini-3-flash-preview
  * **Temperature:** 0.7
  *
- * VIDEO SCRIPT WRITER v3.0 — TRIBAL EDITION
- * Foco: Retenção, convite para movimento, caption generosa
+ * VIDEO SCRIPT WRITER v4.3 — TRIBAL + ACIONÁVEL
+ * Foco: Valor concreto, seções tipadas, transições, "Na prática"
  */
 export function getVideoPrompt(params: {
   narrativeAngle: NarrativeAngle;
@@ -1195,127 +1219,19 @@ export function getVideoPrompt(params: {
   cta?: string;
   negativeTerms?: string[];
   ragContext?: string;
+  selectedTitle?: string; // Selected title for video thumbnail
 }): string {
-  const {
-    narrativeAngle,
-    narrativeTitle,
-    narrativeDescription,
-    cta,
-    negativeTerms,
-    ragContext,
-  } = params;
-
-  return `${getBaseTribalSystemPrompt()}
-
-${getCaptionTribalTemplateInstructions()}
-
-<prompt id="video-script-tribal-v3">
-<identidade>
-Você é um roteirista de vídeos curtos tribais. Seu trabalho é criar retenção através de CONEXÃO, não clickbait. Cada vídeo deve ser um convite para fazer parte de um movimento.
-</identidade>
-
-<lei_retencao_tribal>
-## A LEI DOS 3 SEGUNDOS
-
-O algoritmo decide nos primeiros 3 segundos.
-O espectador decide nos primeiros 3 segundos.
-
-Hook tribal NÃO é:
-- "Não perca este vídeo!"
-- "O segredo que ninguém te conta"
-
-Hook tribal É:
-- Uma verdade que cria RECONHECIMENTO
-- Uma pergunta que gera REFLEXÃO
-- Um contraste que DESAFIA o status quo
-
-A pessoa deve pensar: "Isso é sobre mim" — não "Me enganaram com clickbait"
-</lei_retencao_tribal>
-
-<estrutura_video_tribal>
-## ESTRUTURA DE VÍDEO TRIBAL (30-60s)
-
-### ATO 1 — CAPTURA (0-7s)
-0:00-0:03  HOOK: Declaração que cria reconhecimento
-0:03-0:07  TENSÃO: "Por que aceitamos isso?"
-
-### ATO 2 — TRANSFORMAÇÃO (7-25s)
-0:07-0:15  REVELAÇÃO: A mudança de perspectiva
-0:15-0:25  APLICAÇÃO: Como usar na prática
-
-### ATO 3 — CONVITE (25-35s)
-0:25-0:30  VERDADE: A crença que une a tribo
-0:30-0:35  CTA: Convite para o movimento
-
-Cada transição cria CURIOSIDADE NATURAL, não artificial.
-</estrutura_video_tribal>
-
-<hooks_tribais_por_angulo>
-| Ângulo | Exemplo de Hook |
-|--------|-----------------|
-| HEREGE | "Todo mundo te diz para fazer X. Mas e se Y for o caminho?" |
-| VISIONÁRIO | "Imagine se você pudesse [transformação] em 30 dias..." |
-| TRADUTOR | "O que ninguém te explicou sobre [tópico]..." |
-| TESTEMUNHA | "Eu costumava acreditar em X. Até descobrir Y." |
-</hooks_tribais_por_angulo>
-
-<entradas>
-<narrativa_selecionada>
-  <angulo>${narrativeAngle}</angulo>
-  <titulo>${narrativeTitle}</titulo>
-  <descricao>${narrativeDescription}</descricao>
-</narrativa_selecionada>
-</entradas>
-
-${ragContext ? `
-<referencias_rag>
-${ragContext}
-</referencias_rag>
-` : ''}
-
-${negativeTerms ? `<proibicoes>TERMOS PROIBIDOS: ${negativeTerms.join(", ")}</proibicoes>` : ""}
-
-<proibicoes_video>
-❌ NO HOOK: "Oi gente", "Fala galera", "E aí pessoal"
-❌ NO CONTEÚDO: Promessas não entregues, tangentes, ritmo monótono
-❌ NO CTA: "Curte e comenta", "Segue para mais" (antes de entregar valor)
-❌ VISUAL: Mais de 10s sem corte, texto ilegível, música alta no início
-</proibicoes_video>
-
-═══════════════════════════════════════════════════════════════
-FORMATO DE SAÍDA
-═══════════════════════════════════════════════════════════════
-
-Retorne APENAS um JSON válido:
-
-{
-  "estrutura": "captura-transformacao-convite",
-  "duracao": "30-45 segundos",
-  "script": [
-    {
-      "time": "0:00",
-      "visual": "Descrição visual do enquadramento",
-      "audio": "Fala/narração",
-      "text": "Texto na tela (curto e legível)",
-      "direcao": "Direção para gravação"
-    }
-  ],
-  "caption": "Caption tribal generosa seguindo estrutura tribal (mínimo 200 palavras)",
-  "hashtags": ["#movimento1", "#comunidade2", "...até 7 hashtags"],
-  "cta": "Convite tribal para fazer parte do movimento"
-}
-
-REGRAS CRÍTICAS v3.0:
-1. Hook deve criar RECONHECIMENTO, não curiosidade vazia
-2. Cortes visuais a cada 2-4 segundos
-3. Caption segue TEMPLATE TRIBAL UNIVERSAL (mínimo 200 palavras)
-4. CTA é CONVITE para movimento, não pedido de engajamento
-5. hashtags: 5-7, sinalizando movimento/comunidade
-
-CTA Base: "${cta || "Salva pra quando precisar lembrar disso."}"
-
-RETORNE APENAS O JSON, sem explicações.
-</prompt>`;
+  // Use v4.3 prompt with default duration and pass selected title
+  return getVideoScriptV4Prompt({
+    narrativeAngle: params.narrativeAngle,
+    narrativeTitle: params.narrativeTitle,
+    narrativeDescription: params.narrativeDescription,
+    duration: "60s", // Default duration
+    cta: params.cta,
+    negativeTerms: params.negativeTerms,
+    ragContext: params.ragContext,
+    selectedTitle: params.selectedTitle, // Pass selected video title
+  });
 }
 
 // ============================================================================
@@ -1347,6 +1263,7 @@ export function getVideoScriptV4Prompt(params: {
   narrativeHook?: string;
   coreBelief?: string;
   statusQuoChallenged?: string;
+  selectedTitle?: string; // NEW: Selected thumbnail title for video
 }): string {
   const {
     narrativeAngle,
@@ -1363,6 +1280,7 @@ export function getVideoScriptV4Prompt(params: {
     narrativeHook,
     coreBelief,
     statusQuoChallenged,
+    selectedTitle,
   } = params;
 
   // Build negative terms string
@@ -1424,10 +1342,10 @@ Um vídeo de alto valor É:
 <configuracao_duracao>
 | Duração | Seções Desenvolvimento | Insights | Profundidade |
 |---------|------------------------|----------|--------------|
-| curto (30-60s) | 1-2 | 2-3 | Ultra-direto, 1 ideia forte |
-| 3-5min | 3-4 | 4-6 | Direto, sem enrolação |
+| 2-5min | 3-4 | 4-6 | Direto, sem enrolação |
 | 5-10min | 5-7 | 7-10 | Médio, com exemplos |
-| 10min+ | 8-12 | 10-15 | Profundo, storytelling |
+| +10min | 8-12 | 10-15 | Profundo, storytelling |
+| +30min | 12-18 | 15-20 | Muito profundo, casos |
 
 REGRA: Nunca force duração. Conteúdo dita tamanho.
 </configuracao_duracao>
@@ -1467,6 +1385,13 @@ REGRA: Nunca force duração. Conteúdo dita tamanho.
   <publico>${targetAudience || ""}</publico>
   <objetivo>${objective || ""}</objetivo>
 </contexto>
+
+${selectedTitle ? `
+<thumbnail>
+  <titulo_selecionado>${selectedTitle}</titulo_selecionado>
+  <instrucao>USE ESTE TÍTULO EXATO PARA O CAMPO "thumbnail.titulo" NO JSON DE RESPOSTA. Não altere as palavras, apenas use diretamente como está.</instrucao>
+</thumbnail>
+` : ""}
 
 <config>
   <duracao>${duration}</duracao>
@@ -1671,6 +1596,7 @@ export function getContentPrompt(params: {
   ragContext?: string;
   theme?: string;
   targetAudience?: string;
+  selectedVideoTitle?: string; // Selected title for video thumbnail
 }): string {
   const {
     contentType,
@@ -1683,6 +1609,7 @@ export function getContentPrompt(params: {
     ragContext,
     theme,
     targetAudience,
+    selectedVideoTitle,
   } = params;
 
   switch (contentType) {
@@ -1724,6 +1651,7 @@ export function getContentPrompt(params: {
         cta,
         negativeTerms,
         ragContext,
+        selectedTitle: selectedVideoTitle, // Pass selected video title
       });
     default:
       return getTextPrompt({

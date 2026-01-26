@@ -352,10 +352,19 @@ export function DocumentSelectorDialog({
                           initial={{ opacity: 0, y: -5 }}
                           animate={{ opacity: 1, y: 0 }}
                         >
-                          <button
+                          <div
+                            role="button"
+                            tabIndex={0}
                             onClick={() => handleToggleCollection(collection.id)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                handleToggleCollection(collection.id);
+                              }
+                            }}
+                            aria-pressed={isSelected}
                             className={cn(
-                              "w-full flex items-center gap-3 p-2 rounded-lg transition-colors text-left",
+                              "w-full flex items-center gap-3 p-2 rounded-lg transition-colors text-left cursor-pointer",
                               isSelected
                                 ? "bg-primary/10 border border-primary/30"
                                 : "bg-white/5 border border-transparent hover:bg-white/10 hover:border-white/10"
@@ -364,6 +373,7 @@ export function DocumentSelectorDialog({
                             <Checkbox
                               checked={isSelected}
                               onChange={() => handleToggleCollection(collection.id)}
+                              onClick={(event) => event.stopPropagation()}
                               className="border-white/20"
                             />
                             <Folder
@@ -381,7 +391,7 @@ export function DocumentSelectorDialog({
                             >
                               {collection._count.documents}
                             </Badge>
-                          </button>
+                          </div>
                         </motion.div>
                       );
                     })}
@@ -430,10 +440,19 @@ export function DocumentSelectorDialog({
                           initial={{ opacity: 0, y: -5 }}
                           animate={{ opacity: 1, y: 0 }}
                         >
-                          <button
+                          <div
+                            role="button"
+                            tabIndex={0}
                             onClick={() => handleToggleDocument(doc.id)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                handleToggleDocument(doc.id);
+                              }
+                            }}
+                            aria-pressed={isSelected}
                             className={cn(
-                              "w-full flex items-center gap-3 p-2 rounded-lg transition-colors text-left",
+                              "w-full flex items-center gap-3 p-2 rounded-lg transition-colors text-left cursor-pointer",
                               isSelected
                                 ? "bg-primary/10 border border-primary/30"
                                 : "bg-white/5 border border-transparent hover:bg-white/10 hover:border-white/10"
@@ -442,6 +461,7 @@ export function DocumentSelectorDialog({
                             <Checkbox
                               checked={isSelected}
                               onChange={() => handleToggleDocument(doc.id)}
+                              onClick={(event) => event.stopPropagation()}
                               className="border-white/20"
                             />
                             <FileText
@@ -468,7 +488,7 @@ export function DocumentSelectorDialog({
                             >
                               {doc._count.embeddings || 0}
                             </Badge>
-                          </button>
+                          </div>
                         </motion.div>
                       );
                     })}

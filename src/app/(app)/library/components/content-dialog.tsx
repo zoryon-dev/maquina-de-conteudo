@@ -24,6 +24,8 @@ import { CategoryPicker } from "./category-picker"
 import { TagPicker } from "./tag-picker"
 import type { LibraryItemWithRelations, Category, Tag } from "@/types/library"
 import { toast } from "sonner"
+import { VideoScriptViewer, isVideoScriptStructured } from "@/components/library/video-script-viewer"
+import type { VideoScriptStructured } from "@/lib/wizard-services/types"
 
 // ============================================================================
 // TYPES FOR CAROUSEL
@@ -89,6 +91,9 @@ export function ContentDialog({ open, item, onClose, onSave }: ContentDialogProp
   const [carouselHashtags, setCarouselHashtags] = useState<string[]>([])
   const [showCarouselView, setShowCarouselView] = useState(true)
 
+  // Video-specific state
+  const [showVideoScriptView, setShowVideoScriptView] = useState(true)
+
   // Categories and tags
   const [categories, setCategories] = useState<Category[]>([])
   const [tags, setTags] = useState<Tag[]>([])
@@ -110,6 +115,69 @@ export function ContentDialog({ open, item, onClose, onSave }: ContentDialogProp
 
   const carouselSlides = parsedCarousel?.slides ?? []
   const currentSlide = carouselSlides[currentSlideIndex] ?? null
+
+  // Parse video content from JSON
+  const parsedVideoScript = useMemo((): VideoScriptStructured | null => {
+    if (type !== "video") return null
+    try {
+      const parsed = JSON.parse(content)
+      if (isVideoScriptStructured(parsed)) {
+        return parsed as VideoScriptStructured
+      }
+    } catch {
+      // Not valid JSON or not structured, return null
+    }
+    return null
+  }, [content, type])
+
+  // Parse video metadata (SEO, thumbnail info, etc.)
+  interface VideoMetadata {
+    selectedTitle?: {
+      id: string;
+      title: string;
+      hook_factor: number;
+      word_count?: number;
+      formula_used?: string;
+      triggers?: string[];
+      tribal_angle?: string;
+      reason?: string;
+    };
+    thumbnail?: {
+      imageUrl: string;
+      promptUsed?: string;
+      especificacoes?: string;
+      reasoning?: string;
+      variacoes?: string[];
+    };
+    youtubeSEO?: {
+      title?: string;
+      description?: string;
+      tags?: string[];
+      hashtags?: string[];
+      timestamps?: Array<{ time: string; label: string }>;
+      chapters?: string;
+    };
+    script?: {
+      valorCentral?: string;
+      hookTexto?: string;
+      topicos?: string[];
+      duracao?: string;
+    };
+    wizardContext?: {
+      duration?: string;
+      theme?: string;
+      targetAudience?: string;
+    };
+  }
+
+  const parsedVideoMetadata = useMemo((): VideoMetadata | null => {
+    if (type !== "video" || !item?.metadata) return null
+    try {
+      return JSON.parse(item.metadata) as VideoMetadata
+    } catch {
+      return null
+    }
+  }, [type, item?.metadata])
 
   // Load categories and tags when dialog opens
   useEffect(() => {
@@ -152,6 +220,8 @@ export function ContentDialog({ open, item, onClose, onSave }: ContentDialogProp
       // Reset carousel state
       setCurrentSlideIndex(0)
       setShowCarouselView(true)
+      // Reset video state
+      setShowVideoScriptView(true)
     } else {
       setTitle("")
       setContent("")
@@ -162,6 +232,7 @@ export function ContentDialog({ open, item, onClose, onSave }: ContentDialogProp
       setMediaUrls([])
       setCurrentSlideIndex(0)
       setShowCarouselView(true)
+      setShowVideoScriptView(true)
     }
     setError(null)
   }, [item, open])
@@ -369,7 +440,7 @@ export function ContentDialog({ open, item, onClose, onSave }: ContentDialogProp
             />
           </div>
 
-          {/* Content - Regular or Carousel */}
+          {/* Content - Regular, Video, or Carousel */}
           {type === "carousel" && parsedCarousel ? (
             <div className="space-y-4">
               {/* Carousel Viewer */}
@@ -506,6 +577,146 @@ export function ContentDialog({ open, item, onClose, onSave }: ContentDialogProp
                   </div>
                 )}
               </div>
+            </div>
+          ) : type === "video" && parsedVideoScript ? (
+            <div className="space-y-4">
+              {/* Video Script Viewer */}
+              <div className="border border-white/10 rounded-xl overflow-hidden bg-white/[0.02]">
+                {/* Video Header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-red-500/10">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded bg-red-500 flex items-center justify-center">
+                      <span className="text-xs text-white font-bold">▶</span>
+                    </div>
+                    <span className="text-sm font-medium text-white">
+                      Roteiro de Vídeo - {parsedVideoScript.meta.duracao_estimada}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowVideoScriptView(!showVideoScriptView)}
+                    className="text-xs text-white/60 hover:text-white"
+                  >
+                    {showVideoScriptView ? "Editar JSON" : "Ver roteiro"}
+                  </button>
+                </div>
+
+                {showVideoScriptView ? (
+                  /* Video Script Structured View */
+                  <div className="p-4">
+                    <VideoScriptViewer script={parsedVideoScript} />
+                  </div>
+                ) : (
+                  /* JSON Editor Mode */
+                  <div className="p-4">
+                    <Textarea
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      placeholder='{"meta": {...}, "thumbnail": {...}, "roteiro": {...}}'
+                      rows={12}
+                      className="bg-white/[0.02] border-white/10 text-white placeholder:text-white/30 focus:border-primary/50 resize-none font-mono text-xs"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* YouTube SEO Section */}
+            {parsedVideoMetadata?.youtubeSEO && (
+              <div className="border border-white/10 rounded-xl overflow-hidden bg-white/[0.02]">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-blue-500/10">
+                  <div className="flex items-center gap-2">
+                    <Hash className="w-4 h-4 text-blue-400" />
+                    <span className="text-sm font-medium text-white">
+                      YouTube SEO
+                    </span>
+                  </div>
+                </div>
+                <div className="p-4 space-y-4">
+                  {/* Title */}
+                  {parsedVideoMetadata.youtubeSEO.title && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-white/60 mb-1">Título Otimizado</h4>
+                      <p className="text-sm text-white/90 bg-white/[0.02] rounded-lg p-2">
+                        {parsedVideoMetadata.youtubeSEO.title}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Description */}
+                  {parsedVideoMetadata.youtubeSEO.description && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-white/60 mb-1">Descrição</h4>
+                      <p className="text-sm text-white/70 bg-white/[0.02] rounded-lg p-2 max-h-32 overflow-y-auto">
+                        {parsedVideoMetadata.youtubeSEO.description}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Tags */}
+                  {parsedVideoMetadata.youtubeSEO.tags && parsedVideoMetadata.youtubeSEO.tags.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-white/60 mb-2">Tags</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {parsedVideoMetadata.youtubeSEO.tags.map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="text-xs bg-blue-500/10 text-blue-300 px-2 py-1 rounded-md"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hashtags */}
+                  {parsedVideoMetadata.youtubeSEO.hashtags && parsedVideoMetadata.youtubeSEO.hashtags.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-white/60 mb-2">Hashtags</h4>
+                      <p className="text-sm text-blue-300">
+                        {parsedVideoMetadata.youtubeSEO.hashtags.join(" ")}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Timestamps */}
+                  {parsedVideoMetadata.youtubeSEO.timestamps && parsedVideoMetadata.youtubeSEO.timestamps.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-white/60 mb-2">Timestamps</h4>
+                      <div className="space-y-1">
+                        {parsedVideoMetadata.youtubeSEO.timestamps.map((ts, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-sm">
+                            <span className="text-blue-300 font-mono">{ts.time}</span>
+                            <span className="text-white/70">{ts.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Thumbnail Preview */}
+            {parsedVideoMetadata?.thumbnail?.imageUrl && (
+              <div className="border border-white/10 rounded-xl overflow-hidden bg-white/[0.02]">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-purple-500/10">
+                  <div className="flex items-center gap-2">
+                    <ImagePlus className="w-4 h-4 text-purple-400" />
+                    <span className="text-sm font-medium text-white">
+                      Thumbnail Gerada
+                    </span>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <img
+                    src={parsedVideoMetadata.thumbnail.imageUrl}
+                    alt="Thumbnail"
+                    className="w-full rounded-lg"
+                  />
+                </div>
+              </div>
+            )}
             </div>
           ) : (
             <div className="space-y-2">

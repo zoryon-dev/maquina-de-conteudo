@@ -15,6 +15,7 @@ export enum JobType {
   WIZARD_NARRATIVES = "wizard_narratives",
   WIZARD_GENERATION = "wizard_generation",
   WIZARD_IMAGE_GENERATION = "wizard_image_generation",
+  WIZARD_THUMBNAIL_GENERATION = "wizard_thumbnail_generation", // NOVO
 }
 
 // Status dos jobs
@@ -134,6 +135,12 @@ export interface WizardNarrativesPayload {
   objective?: string;
   cta?: string;
   targetAudience?: string;
+  /** Video duration (for video content) */
+  videoDuration?: string;
+  /** Number of slides (for carousel content) */
+  numberOfSlides?: number;
+  /** Custom user instructions */
+  customInstructions?: string;
   /** RAG configuration */
   ragConfig?: {
     mode?: "auto" | "manual";
@@ -169,6 +176,51 @@ export interface WizardGenerationPayload {
     documents?: number[];
     collections?: number[];
   };
+  /** Selected video title for video content (optional) */
+  selectedVideoTitle?: {
+    id: string;
+    title: string;
+    hook_factor: number;
+    reason: string;
+  };
+}
+
+/**
+ * Payload for wizard thumbnail generation job
+ * Generates YouTube thumbnail using Nano Banana format asynchronously
+ */
+export interface WizardThumbnailGenerationPayload {
+  /** Wizard ID */
+  wizardId: number;
+  /** User ID for authorization */
+  userId: string;
+  /** Thumbnail title (4-6 words) */
+  thumbnailTitle: string;
+  /** Nano Banana style */
+  estilo?: string;
+  /** Thematic context */
+  contextoTematico: string;
+  /** Facial expression */
+  expressao?: string;
+  /** Reference image 1 (base64) */
+  referenciaImagem1?: string;
+  /** Reference image 2 (base64) */
+  referenciaImagem2?: string;
+  /** Script context */
+  roteiroContext?: {
+    valorCentral?: string;
+    hookTexto?: string;
+    thumbnailTitulo?: string;
+    thumbnailEstilo?: string;
+  };
+  /** Advanced configuration */
+  instrucoesCustomizadas?: string;
+  tipoFundo?: string;
+  corTexto?: string;
+  posicaoTexto?: string;
+  tipoIluminacao?: string;
+  /** Optional AI model override */
+  model?: string;
 }
 
 // Tipo union de todos os payloads
@@ -181,7 +233,8 @@ export type JobPayload =
   | DocumentEmbeddingPayload
   | WizardNarrativesPayload
   | WizardGenerationPayload
-  | WizardImageGenerationPayload;
+  | WizardImageGenerationPayload
+  | WizardThumbnailGenerationPayload;
 
 // Estrutura de um job
 export interface QueueJob {

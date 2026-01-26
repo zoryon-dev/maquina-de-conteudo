@@ -19,18 +19,37 @@ import {
   FileText,
   MoreHorizontal,
   ImagePlus,
-  Trash2
+  Trash2,
+  Download,
+  Film,
+  Copy
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { formatDate } from "@/lib/format"
 import type { LibraryItemWithRelations } from "@/types/library"
 import { CONTENT_TYPE_CONFIGS, STATUS_CONFIGS } from "@/types/calendar"
 import { clearMediaUrlAction } from "../../actions/library-actions"
 import { ScheduleDrawer } from "./schedule-drawer"
 import { toast } from "sonner"
+import {
+  deserializeVideoMetadata,
+  extractThumbnailUrl,
+  extractYouTubeHashtags,
+  extractYouTubeTags,
+  extractYouTubeTitle,
+} from "@/types/library-video"
+import type { VideoLibraryMetadata } from "@/types/library-video"
+import { isVideoScriptStructured } from "@/components/library/video-script-viewer"
+import type { VideoScriptStructured } from "@/lib/wizard-services/types"
 
 // ============================================================================
 // TYPES
@@ -60,6 +79,101 @@ export function ContentActionsSection({
 }: ContentActionsSectionProps) {
   const typeConfig = CONTENT_TYPE_CONFIGS[item.type]
   const statusConfig = STATUS_CONFIGS[item.status]
+  const parseJsonObject = (value: string): Record<string, unknown> | null => {
+    const safeParse = (input: string): unknown => {
+      try {
+        return JSON.parse(input)
+      } catch {
+        if (input.trim().startsWith("{")) {
+          try {
+            const normalized = input.replace(/\r?\n/g, "\\n")
+            return JSON.parse(normalized)
+          } catch {
+            return null
+          }
+        }
+        return null
+      }
+    }
+
+    let current: unknown = value
+    for (let i = 0; i < 3; i += 1) {
+      if (typeof current !== "string") {
+        return current && typeof current === "object"
+          ? (current as Record<string, unknown>)
+          : null
+      }
+      const parsed = safeParse(current)
+      if (parsed && typeof parsed === "object") {
+        return parsed as Record<string, unknown>
+      }
+      if (typeof parsed === "string") {
+        current = parsed
+        continue
+      }
+      return null
+    }
+    return null
+  }
+
+  const videoMetadata: VideoLibraryMetadata | null =
+    item.metadata
+      ? deserializeVideoMetadata(
+          typeof item.metadata === "string"
+            ? item.metadata
+            : JSON.stringify(item.metadata)
+        )
+      : null
+
+  const videoThumbnailUrl = videoMetadata ? extractThumbnailUrl(videoMetadata) : undefined
+  const seoTitle = videoMetadata ? extractYouTubeTitle(videoMetadata) : undefined
+  const seoHashtags = videoMetadata ? extractYouTubeHashtags(videoMetadata) : []
+  const seoTags = videoMetadata ? (extractYouTubeTags(videoMetadata) ?? []) : []
+  const seoDescription =
+    videoMetadata?.youtubeSEO?.descricao?.corpo_completo ||
+    videoMetadata?.youtubeSEO?.descricao?.above_the_fold
+
+  const parsedVideoContent = item.content ? parseJsonObject(item.content) : null
+  const hasVideoShape = Boolean(
+    parsedVideoContent &&
+      "meta" in parsedVideoContent &&
+      "thumbnail" in parsedVideoContent &&
+      "roteiro" in parsedVideoContent
+  )
+  const hasVideoShapeFromText = typeof item.content === "string" &&
+    /"meta"\s*:\s*\{/.test(item.content) &&
+    /"roteiro"\s*:\s*\{/.test(item.content)
+
+  const isVideo =
+    item.type === "video" ||
+    hasVideoShape ||
+    hasVideoShapeFromText ||
+    Boolean(videoMetadata?.youtubeSEO || videoMetadata?.thumbnail || videoMetadata?.script)
+
+  const structuredScript: VideoScriptStructured | null = (() => {
+    if (!parsedVideoContent) return null
+    if (isVideoScriptStructured(parsedVideoContent)) {
+      return parsedVideoContent
+    }
+    const nestedScript = parsedVideoContent.script
+    if (isVideoScriptStructured(nestedScript as Record<string, unknown>)) {
+      return nestedScript as VideoScriptStructured
+    }
+    if (typeof nestedScript === "string") {
+      const parsedNested = parseJsonObject(nestedScript)
+      return parsedNested && isVideoScriptStructured(parsedNested)
+        ? (parsedNested as VideoScriptStructured)
+        : null
+    }
+    return null
+  })()
+
+  const scriptText = (() => {
+    if (structuredScript) return JSON.stringify(structuredScript, null, 2)
+    if (typeof parsedVideoContent?.script === "string") return parsedVideoContent.script
+    if (typeof parsedVideoContent?.caption === "string") return parsedVideoContent.caption
+    return null
+  })()
 
   // Schedule drawer state
   const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false)
@@ -152,6 +266,57 @@ export function ContentActionsSection({
     }
   }
 
+  async function handleDownloadThumbnail() {
+    if (!videoThumbnailUrl) return
+    try {
+      const response = await fetch(videoThumbnailUrl)
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = blobUrl
+      link.download = videoThumbnailUrl.split("/").pop() || "thumbnail.jpg"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(blobUrl)
+    } catch {
+      toast.error("Erro ao baixar thumbnail")
+    }
+  }
+
+  async function handleCopyText(text?: string, successMessage?: string) {
+    if (!text) {
+      toast.error("Nada para copiar")
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success(successMessage || "Copiado!")
+    } catch {
+      toast.error("Erro ao copiar")
+    }
+  }
+
+  async function handleDownloadScript() {
+    if (!scriptText) {
+      toast.error("Roteiro indisponível")
+      return
+    }
+    try {
+      const blob = new Blob([scriptText], { type: "text/plain;charset=utf-8" })
+      const blobUrl = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = blobUrl
+      link.download = `roteiro-${item.id}.txt`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(blobUrl)
+    } catch {
+      toast.error("Erro ao baixar roteiro")
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Actions Card */}
@@ -162,59 +327,163 @@ export function ContentActionsSection({
         </h3>
 
         <div className="space-y-2">
-          {/* Schedule Post */}
-          <Button
-            variant="outline"
-            className="w-full justify-start border-white/10 text-white/70 hover:text-white hover:bg-white/5 h-10"
-            onClick={() => handleSchedule(item.id)}
-          >
-            <CalendarClock className="w-4 h-4 mr-2" />
-            Agendar Publicação
-          </Button>
+          {isVideo ? (
+            <>
+              {wizardId && (
+                <Link
+                  href={`/wizard?type=video&wizardId=${wizardId}`}
+                  className="w-full"
+                >
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start border-white/10 text-white/70 hover:text-white hover:bg-white/5 h-10"
+                  >
+                    <Film className="w-4 h-4 mr-2" />
+                    Abrir no Wizard
+                  </Button>
+                </Link>
+              )}
 
-          {/* Publish Now */}
-          <Button
-            variant="outline"
-            className="w-full justify-start border-white/10 text-white/70 hover:text-white hover:bg-white/5 h-10"
-            onClick={() => handlePublishNow(item.id)}
-          >
-            <Send className="w-4 h-4 mr-2" />
-            Publicar Agora
-          </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start border-white/10 text-white/70 hover:text-white hover:bg-white/5 h-10"
+                onClick={handleDownloadThumbnail}
+                disabled={!videoThumbnailUrl}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Baixar Thumbnail
+              </Button>
 
-          {/* Rebuild */}
-          <Button
-            variant="outline"
-            className="w-full justify-start border-white/10 text-white/70 hover:text-white hover:bg-white/5 h-10"
-            onClick={() => handleRebuild(item.id)}
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={cn("w-4 h-4 mr-2", isRefreshing && "animate-spin")} />
-            Reconstruir
-          </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start border-white/10 text-white/70 hover:text-white hover:bg-white/5 h-10"
+                  >
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copiar
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="w-56 bg-[#0f0f15] border-white/10"
+                >
+                  <DropdownMenuItem
+                    onClick={() => handleCopyText(seoTitle, "Título SEO copiado!")}
+                    className="text-white/80 hover:text-white hover:bg-white/5 focus:text-white focus:bg-white/5 cursor-pointer"
+                    disabled={!seoTitle}
+                  >
+                    Copiar Título
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleCopyText(seoDescription, "Descrição copiada!")}
+                    className="text-white/80 hover:text-white hover:bg-white/5 focus:text-white focus:bg-white/5 cursor-pointer"
+                    disabled={!seoDescription}
+                  >
+                    Copiar Descrição
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleCopyText(seoTags.join(", "), "Tags copiadas!")}
+                    className="text-white/80 hover:text-white hover:bg-white/5 focus:text-white focus:bg-white/5 cursor-pointer"
+                    disabled={seoTags.length === 0}
+                  >
+                    Copiar Tags
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleCopyText(seoHashtags.join(" "), "Hashtags copiadas!")}
+                    className="text-white/80 hover:text-white hover:bg-white/5 focus:text-white focus:bg-white/5 cursor-pointer"
+                    disabled={seoHashtags.length === 0}
+                  >
+                    Copiar Hashtags
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleCopyText(scriptText || undefined, "Roteiro copiado!")}
+                    className="text-white/80 hover:text-white hover:bg-white/5 focus:text-white focus:bg-white/5 cursor-pointer"
+                    disabled={!scriptText}
+                  >
+                    Copiar Roteiro
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-          {/* Generate Images */}
-          {(item.type === "carousel" || item.type === "image") && (
-            <Button
-              variant="outline"
-              className="w-full justify-start border-white/10 text-white/70 hover:text-white hover:bg-white/5 h-10"
-              onClick={() => handleGenerateImages(item.id)}
-            >
-              <ImagePlus className="w-4 h-4 mr-2" />
-              Gerar Imagens
-            </Button>
-          )}
+              <Button
+                variant="outline"
+                className="w-full justify-start border-white/10 text-white/70 hover:text-white hover:bg-white/5 h-10"
+                onClick={handleDownloadScript}
+                disabled={!scriptText}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Baixar Roteiro
+              </Button>
 
-          {/* Clear Invalid Media */}
-          {item.mediaUrl && (
-            <Button
-              variant="outline"
-              className="w-full justify-start border-red-500/20 text-red-400 hover:text-red-300 hover:bg-red-500/10 h-10"
-              onClick={() => handleClearMedia(item.id)}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Limpar Mídia
-            </Button>
+              {item.mediaUrl && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-red-500/20 text-red-400 hover:text-red-300 hover:bg-red-500/10 h-10"
+                  onClick={() => handleClearMedia(item.id)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Limpar Mídia
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Schedule Post */}
+              <Button
+                variant="outline"
+                className="w-full justify-start border-white/10 text-white/70 hover:text-white hover:bg-white/5 h-10"
+                onClick={() => handleSchedule(item.id)}
+              >
+                <CalendarClock className="w-4 h-4 mr-2" />
+                Agendar Publicação
+              </Button>
+
+              {/* Publish Now */}
+              <Button
+                variant="outline"
+                className="w-full justify-start border-white/10 text-white/70 hover:text-white hover:bg-white/5 h-10"
+                onClick={() => handlePublishNow(item.id)}
+              >
+                <Send className="w-4 h-4 mr-2" />
+                Publicar Agora
+              </Button>
+
+              {/* Rebuild */}
+              <Button
+                variant="outline"
+                className="w-full justify-start border-white/10 text-white/70 hover:text-white hover:bg-white/5 h-10"
+                onClick={() => handleRebuild(item.id)}
+                disabled={isRefreshing}
+              >
+                <RefreshCw className={cn("w-4 h-4 mr-2", isRefreshing && "animate-spin")} />
+                Reconstruir
+              </Button>
+
+              {/* Generate Images */}
+              {(item.type === "carousel" || item.type === "image") && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-white/10 text-white/70 hover:text-white hover:bg-white/5 h-10"
+                  onClick={() => handleGenerateImages(item.id)}
+                >
+                  <ImagePlus className="w-4 h-4 mr-2" />
+                  Gerar Imagens
+                </Button>
+              )}
+
+              {/* Clear Invalid Media */}
+              {item.mediaUrl && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-red-500/20 text-red-400 hover:text-red-300 hover:bg-red-500/10 h-10"
+                  onClick={() => handleClearMedia(item.id)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Limpar Mídia
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -253,7 +522,7 @@ export function ContentActionsSection({
 
           {wizardId && (
             <Link
-              href={`/wizard?id=${wizardId}`}
+              href={isVideo ? `/wizard?type=video&wizardId=${wizardId}` : `/wizard?wizardId=${wizardId}`}
               className="text-primary hover:text-primary/80 text-xs block mt-2"
             >
               Ver no Wizard →
@@ -263,7 +532,7 @@ export function ContentActionsSection({
       </div>
 
       {/* Hashtags Card */}
-      {hashtags.length > 0 && (
+      {!isVideo && hashtags.length > 0 && (
         <div className="bg-white/[0.02] border border-white/10 rounded-xl p-4 space-y-3">
           <h3 className="text-sm font-medium text-white/90 flex items-center gap-2">
             <Hash className="w-4 h-4 text-white/60" />

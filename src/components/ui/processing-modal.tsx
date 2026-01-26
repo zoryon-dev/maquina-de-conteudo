@@ -16,6 +16,7 @@ interface ProcessingModalProps {
   jobId?: number;
   jobType?: string;
   onComplete?: () => void;
+  buttonText?: string;
 }
 
 export function ProcessingModal({
@@ -26,6 +27,7 @@ export function ProcessingModal({
   jobId,
   jobType = "wizard_image_generation",
   onComplete,
+  buttonText,
 }: ProcessingModalProps) {
   const router = useRouter();
 
@@ -90,7 +92,7 @@ export function ProcessingModal({
           onClick={() => router.push(redirectPath)}
           className="w-full py-3 px-4 bg-primary hover:bg-primary/80 text-black font-medium rounded-lg transition-colors"
         >
-          Voltar ao Dashboard
+          {buttonText || (redirectPath === "/library" ? "Ir para a Biblioteca" : "Voltar ao Dashboard")}
         </button>
       </div>
     </div>

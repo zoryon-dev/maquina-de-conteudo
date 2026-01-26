@@ -31,6 +31,18 @@ interface GenerateThumbnailRequestBody {
   referenciaImagem2?: string;
   variacaoIndex?: number;
   model?: string; // Optional AI model override
+  roteiroContext?: {
+    valorCentral?: string;
+    hookTexto?: string;
+    thumbnailTitulo?: string;
+    thumbnailEstilo?: string;
+  };
+  // NEW: Advanced configuration fields
+  instrucoesCustomizadas?: string;
+  tipoFundo?: string;
+  corTexto?: string;
+  posicaoTexto?: string;
+  tipoIluminacao?: string;
 }
 
 interface GenerateThumbnailResponse {
@@ -52,17 +64,14 @@ interface GenerateThumbnailResponse {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const wizardId = parseInt(params.id);
+    // Await params in Next.js 15+
+    const { id: wizardId } = await params;
 
-    if (isNaN(wizardId)) {
-      return NextResponse.json(
-        { success: false, error: "Invalid wizard ID" },
-        { status: 400 }
-      );
-    }
+    // Note: wizardId is kept for route consistency but not validated
+    // The wizard system uses job queue pattern, not direct database records
 
     // Parse request body
     const body: GenerateThumbnailRequestBody = await request.json();
@@ -86,6 +95,12 @@ export async function POST(
       expressao: body.expressao,
       referenciaImagem1: body.referenciaImagem1,
       referenciaImagem2: body.referenciaImagem2,
+      roteiroContext: body.roteiroContext,
+      instrucoesCustomizadas: body.instrucoesCustomizadas,
+      tipoFundo: body.tipoFundo,
+      corTexto: body.corTexto,
+      posicaoTexto: body.posicaoTexto,
+      tipoIluminacao: body.tipoIluminacao,
     };
 
     // Call Nano Banana thumbnail generation

@@ -31,6 +31,12 @@ export interface RagContextOptions {
   categories?: RagCategory[]
 
   /**
+   * Specific document IDs to search within (for manual selection)
+   * @default all documents in categories
+   */
+  documentIds?: number[]
+
+  /**
    * Minimum similarity threshold for including chunks
    * @default 0.6 (lower than search for more context)
    */
