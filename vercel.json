@@ -3,6 +3,10 @@
     {
       "path": "/api/workers",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/social-publish",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

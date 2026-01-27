@@ -213,6 +213,10 @@ export function ContentActionsSection({
   const [isPublishing, setIsPublishing] = useState(false)
   const [publishItemId, setPublishItemId] = useState<number | null>(null)
 
+  // Rebuild state - SEPARATE from isRefreshing to avoid confusion
+  // isRefreshing is for data refresh, isRebuilding is for rebuild API call
+  const [isRebuilding, setIsRebuilding] = useState(false)
+
   // Extract caption for scheduling
   const caption = (() => {
     if (!item.content) return null
@@ -256,20 +260,33 @@ export function ContentActionsSection({
       const result = await response.json()
 
       if (response.ok && result.success) {
-        toast.success(`Publicado no ${selectedPlatform === "instagram" ? "Instagram" : "Facebook"}!`, {
-          description: result.platformPostUrl ? (
-            <a
-              href={result.platformPostUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary underline"
-            >
-              Ver publicação
-            </a>
-          ) : undefined,
-        })
-        setPublishDialogOpen(false)
-        onRefresh()
+        // Handle queued (async) publishing - new behavior
+        if (result.queued) {
+          toast.success(`Publicação enfileirada para ${selectedPlatform === "instagram" ? "Instagram" : "Facebook"}!`, {
+            description: "A publicação está sendo processada em segundo plano. Você será notificado quando concluída.",
+            duration: 5000,
+          })
+          setPublishDialogOpen(false)
+          console.log("[ContentActionsSection] Publish queued successfully, calling onRefresh()")
+          onRefresh()
+        } else {
+          // Handle immediate (synchronous) publishing - legacy support
+          toast.success(`Publicado no ${selectedPlatform === "instagram" ? "Instagram" : "Facebook"}!`, {
+            description: result.platformPostUrl ? (
+              <a
+                href={result.platformPostUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline"
+              >
+                Ver publicação
+              </a>
+            ) : undefined,
+          })
+          setPublishDialogOpen(false)
+          console.log("[ContentActionsSection] Publish successful (immediate), calling onRefresh()")
+          onRefresh()
+        }
       } else {
         // Handle token expired error with helpful message
         if (result.code === "TOKEN_EXPIRED") {
@@ -288,6 +305,7 @@ export function ContentActionsSection({
             duration: 8000,
           })
           setPublishDialogOpen(false)
+          console.log("[ContentActionsSection] Token expired, calling onRefresh() to update connection status")
           onRefresh() // Refresh to update connection status
         } else {
           toast.error(result.error || "Erro ao publicar")
@@ -302,6 +320,9 @@ export function ContentActionsSection({
   }
 
   async function handleRebuild(id: number) {
+    console.log("[ContentActionsSection] Rebuild button clicked for item:", id)
+    setIsRebuilding(true)
+
     try {
       toast.info("Reconstruindo conteúdo...")
       const response = await fetch(`/api/library/${id}/regenerate-images`, {
@@ -310,13 +331,17 @@ export function ContentActionsSection({
 
       if (response.ok) {
         toast.success("Conteúdo reconstruído!")
+        console.log("[ContentActionsSection] Rebuild successful, calling onRefresh()")
         onRefresh()
       } else {
         toast.error("Erro ao reconstruir")
+        console.error("[ContentActionsSection] Rebuild API failed:", response.status)
       }
     } catch (error) {
-      console.error("Error rebuilding:", error)
+      console.error("[ContentActionsSection] Error rebuilding:", error)
       toast.error("Erro ao reconstruir")
+    } finally {
+      setIsRebuilding(false)
     }
   }
 
@@ -556,9 +581,9 @@ export function ContentActionsSection({
                 variant="outline"
                 className="w-full justify-start border-white/10 text-white/70 hover:text-white hover:bg-white/5 h-10"
                 onClick={() => handleRebuild(item.id)}
-                disabled={isRefreshing}
+                disabled={isRebuilding}
               >
-                <RefreshCw className={cn("w-4 h-4 mr-2", isRefreshing && "animate-spin")} />
+                <RefreshCw className={cn("w-4 h-4 mr-2", isRebuilding && "animate-spin")} />
                 Reconstruir
               </Button>
 

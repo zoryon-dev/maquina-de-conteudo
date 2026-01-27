@@ -47,7 +47,9 @@ export async function GET(request: Request) {
   }
 
   try {
-    const now = new Date()
+    // IMPORTANT: Use UTC for comparison since scheduledFor is stored in UTC
+    // new Date() gives local time, so we use new Date().toISOString() for UTC
+    const nowUtc = new Date()
 
     // Find all scheduled posts that are due
     // Instagram: needs worker processing
@@ -58,7 +60,7 @@ export async function GET(request: Request) {
       .where(
         and(
           eq(publishedPosts.status, PublishedPostStatus.SCHEDULED),
-          lt(publishedPosts.scheduledFor!, now as any),
+          lt(publishedPosts.scheduledFor!, nowUtc as any),
           isNull(publishedPosts.deletedAt)
         )
       )

@@ -450,6 +450,8 @@ sequenceDiagram
 | `wizard_narratives` | Generate narrative options for Wizard | ⭐ Implemented (Jan 2026) |
 | `wizard_generation` | Generate final content from Wizard | ⭐ Implemented (Jan 2026) |
 | `wizard_image_gen` | Generate images for Wizard slides | ⭐ Implemented (Jan 2026) |
+| `social_publish_instagram` | Publish to Instagram (async) | ⭐ Implemented (Jan 2026) |
+| `social_publish_facebook` | Publish to Facebook (async) | ⭐ Implemented (Jan 2026) |
 
 ### Worker Triggering: Development vs Production
 
@@ -1016,6 +1018,355 @@ type Platform = 'youtube' | 'instagram' | 'perplexity';
 | Instagram | Apify | Instagram Scraper | Post/stats scraping |
 | Perplexity | Perplexity API | sonar | AI search with citations |
 | Theme Processing | OpenRouter | gemini-2.0-flash-exp:free | Theme refinement |
+
+## Social Media Integration (Instagram/Facebook)
+
+### Overview
+
+The Social Media Integration enables users to connect their Instagram Business and Facebook accounts, publish content immediately or schedule for future, and track published posts.
+
+### Async Publishing Architecture (Jan 2026)
+
+**Critical Change**: Immediate publishing now uses async job queue to prevent UI blocking. Instagram Content Publishing API takes 30-60 seconds to process.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as ContentActionsSection
+    participant API as /api/social/publish
+    participant DB as publishedPosts
+    participant Queue as Upstash Redis
+    participant Worker as /api/workers
+    participant IG as Instagram API
+
+    User->>UI: Click "Publicar Agora"
+    UI->>API: POST /api/social/publish
+    API->>DB: INSERT (status: PUBLISHING)
+    API->>Queue: LPUSH job (priority: 1)
+    API-->>UI: { queued: true, jobId }
+    UI->>User: Toast "Publicação enfileirada"
+
+    Note over Worker: Triggered by cron (1min)
+
+    Worker->>Queue: RPOP job
+    Worker->>IG: Create container
+    loop Polling (30-60s)
+        IG->>IG: Processing media
+    end
+    IG-->>Worker: FINISHED
+    Worker->>IG: POST media_publish
+    IG-->>Worker: { id: mediaId }
+    Worker->>DB: UPDATE status: PUBLISHED
+```
+
+**Status Flow**:
+```
+PUBLISHING → (worker processing 30-60s) → PUBLISHED
+                                      ↓
+                                   FAILED
+```
+
+**Client Response Pattern**:
+```typescript
+// POST /api/social/publish response
+{
+  success: true,
+  publishedPostId: 123,
+  jobId: 456,
+  queued: true,  // Indicates async processing
+  message: "Publicação enfileirada. Você será notificado quando concluída."
+}
+```
+
+### Integration Architecture
+
+```mermaid
+graph TD
+    User[User] --> Connect[Connect Account]
+    Connect --> OAuth[Meta OAuth Dialog]
+    OAuth --> Callback[Callback Handler]
+    Callback --> Session[Database Session]
+    Session --> Select[Page/Account Selection]
+    Select --> Save[Save Connection]
+
+    subgraph Database Tables
+        Session
+        Save --> Connections[socialConnections]
+        Publish[/api/social/publish]
+        Publish --> Published[publishedPosts]
+    end
+
+    subgraph Publishing Flow
+        Publish --> Immediate{Immediate?}
+        Immediate -->|Yes| API[Instagram/Facebook API]
+        Immediate -->|No| Scheduled[Scheduled Status]
+        Scheduled --> Cron[Cron Worker]
+        Cron --> API
+    end
+
+    API --> Result[Platform Post ID/URL]
+    Result --> Published
+```
+
+### Meta OAuth Flow
+
+**Database Session Storage** (Critical Pattern):
+
+Next.js `NextResponse.redirect()` does NOT send `Set-Cookie` headers. This is a known limitation. Solution: store OAuth data in database with 15-minute TTL.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant OAuth as /api/social/oauth
+    participant Meta as Facebook OAuth
+    participant Callback as /api/social/callback
+    participant DB as oauth_sessions
+    participant Select as /api/social/save-connection
+    participant Final as socialConnections
+
+    User->>OAuth: GET /api/social/oauth?platform=instagram
+    OAuth->>Meta: Redirect to facebook.com/v21.0/dialog/oauth
+    Meta-->>User: Authorization screen
+    User->>Callback: GET /api/social/callback?code=...
+    Callback->>Meta: Exchange code for short-lived token
+    Meta-->>Callback: { access_token: "EAA..." }
+    Callback->>Meta: Exchange for long-lived token (60 days)
+    Meta-->>Callback: { access_token: "EAAE..." }
+    Callback->>Meta: GET /me/accounts?access_token=...
+    Meta-->>Callback: [{ id, name, access_token, instagram_business_account }]
+    Callback->>DB: INSERT oauth_sessions (15min TTL)
+    Callback-->>User: Redirect to /settings?session_id=xxx
+    User->>Select: POST /api/social/save-connection
+    Select->>DB: SELECT * FROM oauth_sessions WHERE id=xxx
+    DB-->>Select: { longLivedToken, pagesData }
+    Select->>Final: INSERT socialConnections
+    Select->>DB: DELETE oauth_sessions
+```
+
+### Required OAuth Scopes
+
+```typescript
+const META_SCOPES = [
+  // Instagram
+  "instagram_basic",                    // Profile access
+  "instagram_content_publish",          // Publish media
+  "instagram_manage_insights",          // Metrics
+  "instagram_manage_comments",          // Comment moderation
+
+  // Facebook Page (required for IG Business)
+  "pages_show_list",                    // List pages
+  "pages_read_engagement",              // Engagement data
+  "pages_read_user_content",            // User content
+  "pages_manage_posts",                 // Create posts
+  "pages_manage_metadata",              // Page metadata
+  "business_management",                // Business account access
+]
+```
+
+### Database Schema
+
+**socialConnections** table:
+
+```typescript
+{
+  id: serial,
+  userId: string,                    // Clerk user ID
+  platform: "instagram" | "facebook",
+  accountId: string,                 // IG Business ID or FB Page ID
+  accountName: string,               // Display name
+  accountUsername: string,           // @username
+  accessToken: string,               // Long-lived User Access Token
+  pageId: string,                    // Facebook Page ID (for IG)
+  pageAccessToken: string,           // Page Access Token (PRIMARY for publishing)
+  pageName: string,                  // Facebook Page name
+  tokenExpiresAt: timestamp,         // Token expiration (60 days)
+  status: "active" | "expired" | "deleted",
+  metadata: JSONB,                   // { igUserId, followersCount, permissions }
+  lastVerifiedAt: timestamp,
+  deletedAt: timestamp,              // Soft delete
+  createdAt: timestamp,
+  updatedAt: timestamp,
+}
+```
+
+**oauthSessions** table (temporary, 15min TTL):
+
+```typescript
+{
+  id: text (UUID),                   // Primary key
+  userId: string,                    // Clerk user ID
+  platform: "instagram" | "facebook",
+  longLivedToken: string,            // User Access Token (60 days)
+  tokenExpiresAt: timestamp,
+  pagesData: JSONB,                  // { pages: PageWithInstagram[] }
+  expiresAt: timestamp,              // 15 minutes from creation
+  createdAt: timestamp,
+}
+```
+
+**publishedPosts** table:
+
+```typescript
+{
+  id: serial,
+  userId: string,
+  libraryItemId: integer | null,     // null for standalone posts
+  platform: "instagram" | "facebook",
+  mediaType: "image" | "video" | "carousel",
+  caption: string | null,
+  mediaUrl: string | null,           // JSON array of URLs
+  status: "scheduled" | "publishing" | "published" | "failed" | "cancelled",
+  scheduledFor: timestamp | null,
+  publishedAt: timestamp | null,
+  platformPostId: string | null,     // Platform's post ID
+  platformPostUrl: string | null,    // Permalink URL
+  errorMessage: string | null,
+  deletedAt: timestamp,              // Soft delete
+  createdAt: timestamp,
+  updatedAt: timestamp,
+}
+```
+
+### Instagram Publishing API
+
+**Critical Pattern**: Use `graph.facebook.com` NOT `graph.instagram.com` for Content Publishing API.
+
+**Token Usage**:
+- **Page Access Token** (prefix `EAF`) - Primary token for publishing
+- **User Access Token** (prefix `EAAE`) - For fetching pages/accounts
+
+**POST Request Format** (JSON body, NOT query params):
+
+```typescript
+// Single Image
+const response = await fetch(
+  `https://graph.facebook.com/v22.0/${igUserId}/media`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      image_url: "https://...",
+      caption: "Legenda #hashtag",
+      access_token: pageAccessToken,  // In BODY, not query param
+    }),
+  }
+)
+const { id: containerId } = await response.json()
+
+// Wait for processing (polling)
+while (attempts < maxAttempts) {
+  const status = await fetch(
+    `https://graph.facebook.com/v22.0/${containerId}?fields=status_code&access_token=${pageAccessToken}`
+  )
+  const { status_code } = await status.json()
+  if (status_code === "FINISHED") break
+  await sleep(2000)
+}
+
+// Publish
+const publish = await fetch(
+  `https://graph.facebook.com/v22.0/${igUserId}/media_publish`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      creation_id: containerId,
+      access_token: pageAccessToken,
+    }),
+  }
+)
+const { id: mediaId } = await publish.json()
+```
+
+**Carousel Publishing**:
+
+```typescript
+// 1. Create individual containers with is_carousel_item flag
+const itemContainerIds = await Promise.all(
+  imageUrls.map(url =>
+    fetch(
+      `https://graph.facebook.com/v22.0/${igUserId}/media`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image_url: url,
+          is_carousel_item: true,  // IMPORTANT: Mark as carousel item
+          access_token: pageAccessToken,
+        }),
+      }
+    ).then(r => r.json()).then(r => r.id)
+  )
+)
+
+// 2. Create carousel container
+const carousel = await fetch(
+  `https://graph.facebook.com/v22.0/${igUserId}/media`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      media_type: "CAROUSEL",
+      children: itemContainerIds.join(','),  // Comma-separated IDs
+      caption: "Legenda #hashtag",  // Caption on parent only
+      access_token: pageAccessToken,
+    }),
+  }
+)
+
+// 3. Poll + publish (same as single image)
+```
+
+### API Routes
+
+| Route | Method | Purpose |
+|------|--------|---------|
+| `/api/social/oauth` | GET | Initiate OAuth flow |
+| `/api/social/callback` | GET | OAuth callback handler |
+| `/api/social/save-connection` | POST | Save selected connection |
+| `/api/social/oauth-session` | GET | Fetch session pages |
+| `/api/social/publish` | POST | Publish content |
+| `/api/published-posts` | GET | List user's published posts |
+| `/api/published-posts/[id]` | GET/PATCH/DELETE | Manage published post |
+
+### Token Types
+
+| Prefix | Type | Duration | Usage |
+|---------|------|----------|-------|
+| `EAA` / `EAAB` | User Access Token (Short-lived) | 1-2 hours | Initial OAuth exchange |
+| `EAAE` | User Access Token (Long-lived) | 60 days | Fetch pages, debug |
+| `EAD` | User Access Token (Long-lived - Legacy) | 60 days | Older format |
+| `EAF` | Page Access Token | 60 days (effectively permanent) | **Content Publishing API** |
+
+**For Instagram Content Publishing API**: Use **Page Access Token**.
+
+### Common Errors
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| "Cannot parse access token" | Using `graph.instagram.com` endpoint | Use `graph.facebook.com` |
+| "Invalid OAuth access token" (code: 190) | Token expired or wrong token | Use Page Access Token, refresh connection |
+| "(#100) No matching user found" | Wrong IG Business Account ID | Verify `accountId` matches IG Business |
+| Rate Limited (code: 4) | Exceeded API quota | Implement backoff, check quota endpoint |
+
+### Debugging
+
+```typescript
+// Debug token endpoint
+const appAccessToken = `${META_APP_ID}|${META_APP_SECRET}`
+const debugUrl = `https://graph.facebook.com/v21.0/debug_token?input_token=${token}&access_token=${appAccessToken}`
+
+const debug = await fetch(debugUrl).then(r => r.json())
+console.log(debug.data)
+// {
+//   type: "USER" | "PAGE",
+//   is_valid: true,
+//   scopes: ["instagram_basic", "instagram_content_publish", ...],
+//   expires_at: 1234567890
+// }
+```
+
+---
 
 ## Phase 2: Synthesizer v3.1 and Image Generation
 

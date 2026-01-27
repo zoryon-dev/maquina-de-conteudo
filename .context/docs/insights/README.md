@@ -37,6 +37,10 @@ Documentação de insights e padrões aprendidos durante cada fase do desenvolvi
 ### Discovery Feature
 - **[016](./016-discovery-feature-implementation-jan2026.md)** - Trending Discovery Service ✨ NOVO
 
+### Instagram Integration
+- **[017](./017-instagram-integration-jan2026.md)** - Meta OAuth & Publishing API
+- **[018](./018-social-publishing-fixes-jan2026.md)** - Async Publishing + Bug Fixes ✨ NOVO
+
 ## Tópicos Recorrentes
 
 ### Padrões React

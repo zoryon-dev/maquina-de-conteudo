@@ -36,6 +36,15 @@ enum JobType {
   CAROUSEL_CREATION = "carousel_creation",
   SCHEDULED_PUBLISH = "scheduled_publish",
   WEB_SCRAPING = "web_scraping",
+  // Social Media (Jan 2026)
+  SOCIAL_PUBLISH_INSTAGRAM = "social_publish_instagram",
+  SOCIAL_PUBLISH_FACEBOOK = "social_publish_facebook",
+}
+  AI_TEXT_GENERATION = "ai_text_generation",
+  AI_IMAGE_GENERATION = "ai_image_generation",
+  CAROUSEL_CREATION = "carousel_creation",
+  SCHEDULED_PUBLISH = "scheduled_publish",
+  WEB_SCRAPING = "web_scraping",
 }
 
 enum JobStatus {

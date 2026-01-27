@@ -119,6 +119,11 @@ R2_ACCESS_KEY_ID=...
 R2_SECRET_ACCESS_KEY=...
 R2_BUCKET_NAME=maquina-de-conteudo
 R2_CUSTOM_DOMAIN=storage-mc.zoryon.org
+
+# Meta (Instagram & Facebook)
+META_APP_ID=your_meta_app_id
+META_APP_SECRET=your_meta_app_secret
+META_REDIRECT_URI=http://localhost:3000/api/social/callback  # Produção: https://yourdomain.com/api/social/callback
 ```
 
 ## Comandos Úteis
@@ -199,6 +204,17 @@ chore: dependências
 - **Modelo:** `voyage-4-large` (1024 dims)
 - **Threshold:** `0.4` (melhorado para tribal content)
 - **Chunking:** Category-specific via `getChunkingOptionsForCategory()`
+
+### Social Media (Instagram/Facebook)
+- **Memória Serena:** `social-integration-patterns`
+- **Arquivos:** `src/lib/social/`, `src/app/api/social/`
+- **Features:** Meta OAuth, Page Access Token, Content Publishing API
+- **Pattern:** Database session storage (15min TTL) - cookies don't work with Next.js redirect
+- **API:** `graph.facebook.com` (NOT `graph.instagram.com`) for Content Publishing
+- **Tokens:** Page Access Token (EAF) for publishing, User Access Token (EAAE) for fetching pages
+- **Async Publishing (Jan 2026):** Immediate publishing uses job queue to prevent UI blocking (30-60s IG processing)
+- **Status Flow:** PUBLISHING → (worker) → PUBLISHED/FAILED
+- **Cron Jobs:** `/api/workers` (1min), `/api/cron/social-publish` (5min)
 
 ---
 
@@ -282,3 +298,4 @@ Consulte via Serena para padrões detalhados:
 | `sources-page-refactor` | Página de fontes |
 | `prompt-system` | Sistema de prompts |
 | `wizard-patterns` | Wizard de criação (Prompts v4 Tribal, 4 ângulos tribais) |
+| `social-integration-patterns` | Integração Meta (Instagram/Facebook) - OAuth, Publishing API |

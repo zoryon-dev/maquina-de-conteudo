@@ -309,113 +309,77 @@ export async function POST(request: Request) {
       })
     }
 
-    // Immediate publishing
-    let platformPostId: string
-    let platformPostUrl: string
+    // Immediate publishing - now using async job queue
+    // Previously this was synchronous, causing UI to hang during Instagram processing
+    // Now we create a job and return immediately, letting the worker handle publishing
 
-    if (platform === "instagram") {
-      // Instagram publishing uses Page Access Token for Content Publishing API
-      // Reference: https://developers.facebook.com/docs/instagram-api/reference/ig-user/media
-
-      // Use pageAccessToken as the primary token for Instagram publishing
-      const tokenToUse = connection.pageAccessToken || connection.accessToken
-
-      console.log("[Publish] Using Instagram publishing token:", {
-        hasPageAccessToken: !!connection.pageAccessToken,
-        tokenPrefix: tokenToUse?.substring(0, 4),
-        accountId: connection.accountId,
-        mediaUrlsCount: mediaUrls.length,
-      })
-
-      const service = getInstagramService(
-        tokenToUse,
-        connection.accountId
-      )
-
-      // Detect if this is a carousel (multiple images)
-      const isCarousel = mediaUrls.length > 1
-
-      let result: PublishResult
-
-      if (isCarousel) {
-        console.log("[Publish] Publishing as CAROUSEL with", mediaUrls.length, "images")
-
-        // Convert media URLs to carousel items
-        const carouselItems = mediaUrls.map((url) => ({
-          imageUrl: url,
-          mediaType: SocialMediaType.IMAGE,
-        }))
-
-        result = await service.publishPost(
-          {
-            imageUrl: mediaUrls[0], // First image as reference
-            caption: postCaption,
-            mediaType: SocialMediaType.IMAGE,
-          },
-          true, // isCarousel
-          carouselItems
-        )
-      } else {
-        console.log("[Publish] Publishing as SINGLE image")
-
-        result = await service.publishPost({
-          imageUrl: mediaUrls[0],
-          caption: postCaption,
-          mediaType: SocialMediaType.IMAGE,
-        })
-      }
-
-      platformPostId = typeof result === "string" ? result : result.platformPostId
-      platformPostUrl = typeof result === "string"
-        ? `https://www.instagram.com/p/${result}/`
-        : result.platformPostUrl
-    } else {
-      // Facebook publishing
-      const service = getFacebookService(
-        connection.accessToken,
-        connection.accountId
-      )
-      const result = await service.publishPhoto({
-        imageUrl: mediaUrls[0],
-        caption: postCaption,
-        mediaType: SocialMediaType.IMAGE,
-      })
-
-      platformPostId = result.platformPostId
-      platformPostUrl = result.platformPostUrl
-    }
-
-    // Create published post record
+    // Create published post record with PUBLISHING status
     const [publishedPost] = await db
       .insert(publishedPosts)
       .values({
         userId,
         libraryItemId,
         platform: platform as "instagram" | "facebook",
-        platformPostId,
-        platformPostUrl,
         mediaType: libraryItem.type as any,
         caption: postCaption,
-        status: PublishedPostStatus.PUBLISHED,
-        publishedAt: new Date(),
+        status: PublishedPostStatus.PUBLISHING,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
       .returning()
 
-    // Update library item status
-    await db
-      .update(libraryItems)
-      .set({ status: "published", updatedAt: new Date() })
-      .where(eq(libraryItems.id, libraryItemId))
+    // Create job for worker to process
+    // Priority 1 = high priority for immediate publishing
+    const jobType = platform === "instagram" ? "social_publish_instagram" : "social_publish_facebook"
 
-    return NextResponse.json({
-      success: true,
-      publishedPostId: publishedPost.id,
-      platformPostId,
-      platformPostUrl,
-      scheduled: false,
-    })
+    try {
+      const jobId = await createJob(
+        userId,
+        jobType as any,
+        {
+          publishedPostId: publishedPost.id,
+          userId,
+        },
+        {
+          priority: 1, // High priority for immediate publishing
+        }
+      )
+
+      // In development, trigger worker immediately for faster feedback
+      if (process.env.NODE_ENV === "development") {
+        // Fire and forget - don't await
+        import("@/lib/queue/client").then(({ triggerWorker }) => {
+          triggerWorker().catch((err) => {
+            console.error("[Publish] Failed to trigger worker in development:", err)
+          })
+        })
+      }
+
+      console.log(`[Publish] Created job ${jobId} for immediate ${platform} publishing`)
+
+      return NextResponse.json({
+        success: true,
+        publishedPostId: publishedPost.id,
+        jobId,
+        queued: true,
+        platform,
+        message: "Publicação enfileirada. Você será notificado quando for publicada.",
+      })
+    } catch (jobError) {
+      // If job creation fails, clean up the published post
+      console.error("[Publish] Failed to create job, cleaning up:", jobError)
+      await db
+        .delete(publishedPosts)
+        .where(eq(publishedPosts.id, publishedPost.id))
+
+      return NextResponse.json(
+        {
+          error: "Falha ao enfileirar publicação. Tente novamente.",
+          code: "JOB_CREATION_FAILED",
+        },
+        { status: 500 }
+      )
+    }
   } catch (error) {
     console.error("Social publish error:", error)
 

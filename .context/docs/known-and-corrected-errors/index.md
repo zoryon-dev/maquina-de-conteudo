@@ -4,6 +4,29 @@ Documentação de erros encontrados durante o desenvolvimento e suas soluções.
 
 ## Erros Recentes
 
+### 35. Social Publishing Async Fixes (Janeiro 2026)
+
+**[Ver documento completo](./035-social-publishing-async-fixes-jan2026.md)**
+
+- UI Blocking during Instagram publishing - migrado para job queue assíncrono
+- Timezone validation error - comparação UTC vs local time corrigida
+- "Regenerar" button spinning after publish - estado isRebuilding separado
+- Cron jobs not configured - `/api/cron/social-publish` adicionado ao vercel.json
+
+**Mudança principal**: Publicação imediata agora retorna `queued: true` e processa em background via worker, evitando travamento da UI durante os 30-60s de processamento da API do Instagram.
+
+### 34. Instagram Publishing API Errors (Janeiro 2026)
+
+**[Ver documento completo](./034-instagram-publishing-api-errors-jan2026.md)**
+
+- "Cannot parse access token" - usando `graph.instagram.com` ao invés de `graph.facebook.com`
+- Carousel only publishing first image - falta implementar fluxo de carrossel
+- Token em query parameter vs JSON body - POST requests devem enviar token no body
+- OAuth Session Expired - Next.js redirect não envia Set-Cookie headers
+- Using wrong token type - Page Access Token (EAF) vs User Access Token (EAAE)
+
+**Padrão crítico:** Usar database session storage ao invés de cookies para OAuth, pois `NextResponse.redirect()` não envia headers `Set-Cookie`.
+
 ### 33. Discovery Implementation Errors (Janeiro 2026)
 
 **[Ver documento completo](./033-discovery-implementation-errors-jan2026.md)**
