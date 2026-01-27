@@ -164,6 +164,68 @@ Quando precisar de ajuda especializada, consulte os agentes em `.context/agents/
 - **"use client"**: Apenas quando necessário (interatividade, browser APIs)
 - **Isolar**: Criar componentes clientes pequenos e específicos
 
+### Error Handling
+
+**Arquivo:** `src/lib/errors.ts`
+
+O projeto usa uma hierarquia de erros específicos em vez de catch-all genéricos:
+
+```typescript
+// Importar helpers
+import { toAppError, getErrorMessage, hasErrorCode, isAppError } from "@/lib/errors"
+
+// Em API routes
+try {
+  await operation()
+} catch (error) {
+  const appError = toAppError(error, "OPERATION_FAILED")
+  console.error("[Context] Error:", appError)
+
+  // Verificar erros específicos
+  if (hasErrorCode(error) && error.code === "TOKEN_EXPIRED") {
+    return NextResponse.json({ error: "Sessão expirada" }, { status: 400 })
+  }
+
+  return NextResponse.json(
+    { error: getErrorMessage(appError) },
+    { status: appError.statusCode }
+  )
+}
+```
+
+**Tipos de Erro:**
+- `ValidationError` - Dados inválidos (400)
+- `AuthError` - Falha de autenticação (401)
+- `ForbiddenError` - Sem permissão (403)
+- `NotFoundError` - Recurso não encontrado (404)
+- `NetworkError` - Erro de rede/externo (503)
+- `RateLimitError` - Limite excedido (429)
+- `ConfigError` - Configuração incorreta (500)
+- `JobError` - Falha em job (com jobId context)
+
+**Padrão de Batch Operations:**
+```typescript
+const errors: Array<{ id: number; error: string }> = []
+let successCount = 0
+
+for (const item of items) {
+  try {
+    await processItem(item)
+    successCount++
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    console.error(`[Context] Error processing ${item.id}:`, errorMsg)
+    errors.push({ id: item.id, error: errorMsg })
+  }
+}
+
+if (errors.length > 0) {
+  console.warn(`[Context] ${errors.length}/${items.length} failed`)
+}
+
+return { success: true, successCount, errors: errors.length > 0 ? errors : undefined }
+```
+
 ### Commits
 ```
 feat: nova funcionalidade

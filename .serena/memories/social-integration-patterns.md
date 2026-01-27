@@ -501,6 +501,174 @@ disabled={isRebuilding}
 - `GET /api/workers?secret=dev-secret-change-in-production`
 - Ou `triggerWorker()` helper em desenvolvimento
 
+## Tratamento de Erros Melhorado (Jan 2026)
+
+### Padrão de Error Handling em `/api/social/publish`
+
+```typescript
+import { toAppError, getErrorMessage, isAuthError, hasErrorCode } from "@/lib/errors"
+
+export async function POST(request: Request) {
+  let connection: typeof socialConnections.$inferSelect | null = null
+  let platform: "instagram" | "facebook" | null = null
+
+  try {
+    // ... operações de publicação
+
+    // Verificar expiração de token antes de publicar
+    if (isTokenExpired(connection.tokenExpiresAt)) {
+      await markConnectionExpired(connection.id)
+      return NextResponse.json(
+        {
+          error: `Sua conexão com ${platform === "instagram" ? "Instagram" : "Facebook"} expirou. Por favor, reconecte sua conta em Configurações > Redes Sociais.`,
+          code: "TOKEN_EXPIRED",
+        },
+        { status: 400 }
+      )
+    }
+
+    // ... resto da lógica
+  } catch (error) {
+    const appError = toAppError(error, "PUBLISH_FAILED")
+    console.error("[SocialPublish] Error:", appError)
+
+    // Verificar erros de token específicos
+    const isTokenError =
+      error instanceof SocialApiError &&
+      (error.code === SocialErrorCode.TOKEN_EXPIRED ||
+        error.code === SocialErrorCode.AUTH_FAILED ||
+        error.message.includes("Invalid OAuth access token") ||
+        error.message.includes("Cannot parse access token") ||
+        (error.message.includes("token") && error.message.includes("expired")))
+
+    if (isTokenError && connection) {
+      await markConnectionExpired(connection.id)
+      return NextResponse.json(
+        {
+          error: `Sua conexão com ${platform === "instagram" ? "Instagram" : "Facebook"} expirou ou é inválida. Por favor, reconecte sua conta em Configurações > Redes Sociais.`,
+          code: "TOKEN_EXPIRED",
+        },
+        { status: 400 }
+      )
+    }
+
+    return NextResponse.json(
+      { error: getErrorMessage(appError) },
+      { status: 500 }
+    )
+  }
+}
+```
+
+### Marcar Conexão como Expirada
+
+```typescript
+async function markConnectionExpired(connectionId: number): Promise<void> {
+  await db
+    .update(socialConnections)
+    .set({
+      status: SocialConnectionStatus.EXPIRED,
+      updatedAt: new Date(),
+    })
+    .where(eq(socialConnections.id, connectionId))
+}
+
+function isTokenExpired(tokenExpiresAt: Date | null | undefined): boolean {
+  if (!tokenExpiresAt) return false
+  // Add 1 day buffer antes de considerar expirado
+  const bufferTime = 24 * 60 * 60 * 1000
+  return new Date(tokenExpiresAt).getTime() < Date.now() - bufferTime
+}
+```
+
+### Worker de Métricas com Agrupamento de Erros
+
+**Arquivo**: `src/lib/social/workers/fetch-metrics.ts`
+
+```typescript
+export interface MetricsFetchError {
+  postId: number
+  platform: string
+  error: string
+}
+
+export async function fetchSocialMetrics(
+  payload: MetricsFetchPayload = {}
+): Promise<{ success: boolean; updatedCount: number; errors?: MetricsFetchError[]; error?: string }> {
+  const errors: MetricsFetchError[] = []
+  let updatedCount = 0
+
+  for (const post of postsToUpdate) {
+    try {
+      // ... buscar métricas
+      updatedCount++
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      console.error(`[MetricsFetch] Error fetching metrics for post ${post.id}:`, errorMsg)
+      errors.push({
+        postId: post.id,
+        platform: post.platform,
+        error: errorMsg,
+      })
+    }
+  }
+
+  // Log summary se houver erros
+  if (errors.length > 0) {
+    console.warn(`[MetricsFetch] Completed with ${errors.length} errors out of ${postsToUpdate.length} posts`)
+    console.warn(`[MetricsFetch] Failed posts: ${errors.map((e) => `#${e.postId}`).join(", ")}`)
+  }
+
+  return { success: true, updatedCount, errors: errors.length > 0 ? errors : undefined }
+}
+```
+
+### Error Classes no Queue System
+
+**Arquivo**: `src/lib/queue/client.ts`
+
+```typescript
+import {
+  AppError,
+  ConfigError,
+  JobError,
+  NetworkError,
+  toAppError,
+  getErrorMessage,
+} from "@/lib/errors"
+
+// enqueueJob - erro específico com jobId
+export async function enqueueJob(jobId: number, priority = 0): Promise<void> {
+  if (!isQueueConfigured()) {
+    throw new QueueNotConfiguredError()
+  }
+
+  try {
+    const score = `${String(999999 - priority).padStart(6, "0")}:${Date.now()}:${jobId}`
+    await redis.lpush(JOB_QUEUE, score)
+  } catch (error) {
+    const appError = toAppError(error, "QUEUE_ENQUEUE_FAILED")
+    console.error("[Queue] Erro ao enfileirar job:", appError)
+    throw new JobError(`Failed to enqueue job ${jobId}`, jobId, appError)
+  }
+}
+
+// dequeueJob - log normalizado, retorna null em caso de erro
+export async function dequeueJob(): Promise<number | null> {
+  try {
+    const value = await redis.rpop<string>(JOB_QUEUE)
+    if (!value) return null
+    const parts = value.split(":")
+    const jobId = parseInt(parts[2] || "0", 10)
+    return jobId
+  } catch (error) {
+    const appError = toAppError(error, "QUEUE_DEQUEUE_FAILED")
+    console.error("[Queue] Erro ao desenfileirar job:", appError)
+    return null  // Aceitável para dequeue
+  }
+}
+```
+
 ## Logging Adicionado
 
 Para debug de problemas de publicação/regeneração:

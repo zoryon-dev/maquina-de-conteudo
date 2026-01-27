@@ -4,6 +4,20 @@ Documentação de erros encontrados durante o desenvolvimento e suas soluções.
 
 ## Erros Recentes
 
+### 36. PR Review Error Handling Improvements (Janeiro 2026)
+
+**[Ver documento completo](./036-pr-review-error-handling-jan2026.md)**
+
+- Catch-all error handling substituído por hierarquia de erros type-safe
+- Queue operations agora incluem jobId no contexto do erro
+- Batch operations agrupam e reportam falhas individuais
+- JSON.parse seguro com try-catch em workers
+- Upload failures agora são tracked e reportados
+- Token expiry marca conexão como expirada no banco
+- Tipo `any` substituído por `VideoScriptStructured`
+
+**Arquivo NOVO**: `src/lib/errors.ts` com AppError base class e tipos específicos (ValidationError, AuthError, JobError, etc.)
+
 ### 35. Social Publishing Async Fixes (Janeiro 2026)
 
 **[Ver documento completo](./035-social-publishing-async-fixes-jan2026.md)**

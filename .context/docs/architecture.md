@@ -480,6 +480,136 @@ if (isDevelopment()) {
 
 **Worker Authentication:** The `/api/workers` endpoint bypasses Clerk auth and uses `WORKER_SECRET` instead (configured in `src/proxy.ts`).
 
+## Error Handling Architecture (Jan 2026)
+
+### Overview
+
+The application uses a **type-safe error handling system** with specific error types instead of catch-all patterns. This provides better debugging, user-friendly error messages, and consistent error logging.
+
+### Error Class Hierarchy
+
+**File:** `src/lib/errors.ts`
+
+```mermaid
+classDiagram
+    Error <|-- AppError
+    AppError <|-- ValidationError
+    AppError <|-- AuthError
+    AppError <|-- ForbiddenError
+    AppError <|-- NotFoundError
+    AppError <|-- NetworkError
+    AppError <|-- RateLimitError
+    AppError <|-- ConfigError
+    AppError <|-- JobError
+
+    class AppError {
+        +string message
+        +string code
+        +number statusCode
+        +unknown details
+        +toJSON()
+    }
+
+    class JobError {
+        +number? jobId
+    }
+```
+
+### Helper Functions
+
+| Function | Purpose |
+|----------|---------|
+| `toAppError(error, code)` | Normalize unknown error to AppError |
+| `getErrorMessage(error)` | Safely extract error message |
+| `getErrorCode(error)` | Safely extract error code |
+| `isAppError(error)` | Type guard for AppError |
+| `hasErrorCode(error)` | Type guard for objects with code property |
+| `isRetryableError(error)` | Check if error is retryable |
+
+### Error Handling Patterns
+
+#### 1. API Route Pattern
+
+```typescript
+import { toAppError, getErrorMessage, isAuthError, hasErrorCode } from "@/lib/errors"
+
+export async function POST(request: Request) {
+  try {
+    // ... operations
+  } catch (error) {
+    const appError = toAppError(error, "OPERATION_FAILED")
+    console.error("[Context] Error:", appError)
+
+    // Handle specific error types
+    if (hasErrorCode(error) && error.code === "TOKEN_EXPIRED") {
+      return NextResponse.json(
+        { error: "Sessão expirada. Por favor, reconecte." },
+        { status: 400 }
+      )
+    }
+
+    return NextResponse.json(
+      { error: getErrorMessage(appError) },
+      { status: appError.statusCode }
+    )
+  }
+}
+```
+
+#### 2. Batch Operations Pattern
+
+Used in workers where individual failures shouldn't stop entire batch:
+
+```typescript
+const errors: Array<{ id: number; error: string }> = []
+let successCount = 0
+
+for (const item of items) {
+  try {
+    await processItem(item)
+    successCount++
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    console.error(`[Context] Error processing ${item.id}:`, errorMsg)
+    errors.push({ id: item.id, error: errorMsg })
+  }
+}
+
+// Log summary
+if (errors.length > 0) {
+  console.warn(`[Context] ${errors.length}/${items.length} failed`)
+}
+
+return { success: true, successCount, errors: errors.length > 0 ? errors : undefined }
+```
+
+#### 3. Safe JSON Parsing
+
+```typescript
+function parseJsonSafely<T = unknown>(
+  json: string | null | undefined,
+  fallback: T = {} as T
+): T {
+  if (!json) return fallback
+  try {
+    const parsed = JSON.parse(json)
+    return typeof parsed === "object" && parsed !== null ? parsed as T : fallback
+  } catch (error) {
+    console.error("[Context] Failed to parse JSON:", error)
+    return fallback
+  }
+}
+```
+
+### Error Handling by Module
+
+| Module | Error Pattern | File |
+|--------|---------------|------|
+| **Queue** | JobError with jobId context | `src/lib/queue/client.ts` |
+| **Social Publish** | Token expiry detection + connection marking | `src/app/api/social/publish/route.ts` |
+| **Metrics Fetch** | Error grouping + summary logging | `src/lib/social/workers/fetch-metrics.ts` |
+| **Workers** | Safe metadata parsing | `src/app/api/workers/route.ts` |
+
 ## Authentication Flow
 
 ### Clerk Integration

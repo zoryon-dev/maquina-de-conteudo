@@ -41,6 +41,9 @@ Documentação de insights e padrões aprendidos durante cada fase do desenvolvi
 - **[017](./017-instagram-integration-jan2026.md)** - Meta OAuth & Publishing API
 - **[018](./018-social-publishing-fixes-jan2026.md)** - Async Publishing + Bug Fixes ✨ NOVO
 
+### PR Reviews
+- **[019](./019-pr-review-improvements-jan2026.md)** - Error Handling Improvements ✨ NOVO
+
 ## Tópicos Recorrentes
 
 ### Padrões React
