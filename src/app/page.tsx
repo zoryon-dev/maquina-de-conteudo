@@ -1,9 +1,11 @@
+import Image from "next/image"
 import Link from "next/link"
 import { MessageSquare, Sparkles, Calendar, Globe, ArrowRight } from "lucide-react"
 import { QuickChatInput } from "@/components/home/quick-chat-input"
+import { Footer } from "@/components/footer"
 
 /**
- * Landing Page - Máquina de Conteúdo
+ * Landing Page - contentMachine
  *
  * Página pública com CTAs para login/cadastro.
  */
@@ -21,12 +23,34 @@ export default function HomePage() {
       <div className="relative z-10">
         {/* Header */}
         <header className="border-b border-white/10">
-          <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
-                <MessageSquare className="h-4 w-4 text-primary" strokeWidth={2.5} />
+          <div className="container mx-auto px-4 sm:px-6 py-5 flex items-center justify-between min-h-[80px]">
+            <Link href="/" className="flex items-center gap-2.5 group">
+              {/* Logo completo para desktop - responsivo */}
+              <div className="relative w-auto hidden sm:block h-9 sm:h-9 md:h-10 lg:h-11 xl:h-12">
+                <Image
+                  src="/img/logo_full_content.png"
+                  alt="contentMachine powered by zoryon"
+                  width={180}
+                  height={36}
+                  className="object-contain w-auto h-full transition-all duration-200"
+                  priority
+                />
+                {/* Glow effect no logo */}
+                <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity -z-10" />
               </div>
-              <span className="font-bold text-white">Máquina de Conteúdo</span>
+              {/* Logo ícone para mobile */}
+              <div className="relative h-9 w-9 sm:hidden">
+                <Image
+                  src="/img/favi_contentmachine.jpg"
+                  alt="contentMachine"
+                  width={36}
+                  height={36}
+                  className="object-contain rounded-lg w-full h-full"
+                  priority
+                />
+                {/* Glow effect no logo */}
+                <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity -z-10" />
+              </div>
             </Link>
 
             <nav className="flex items-center gap-4">
@@ -44,7 +68,7 @@ export default function HomePage() {
         </header>
 
         {/* Hero */}
-        <main className="container mx-auto px-4 py-24 text-center">
+        <main className="container mx-auto px-4 sm:px-6 py-32 md:py-40 text-center">
           <div className="max-w-3xl mx-auto space-y-8">
             {/* Badge */}
             <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-4 py-1.5 text-sm text-primary">
@@ -108,11 +132,7 @@ export default function HomePage() {
         </main>
 
         {/* Footer */}
-        <footer className="border-t border-white/10 py-8">
-          <div className="container mx-auto px-4 text-center text-white/40 text-sm">
-            © 2026 Máquina de Conteúdo. Todos os direitos reservados.
-          </div>
-        </footer>
+        <Footer showNewsletter />
       </div>
     </div>
   )

@@ -13,10 +13,12 @@ import {
   Lightbulb,
   Search,
 } from "lucide-react"
+import Image from "next/image"
+import Link from "next/link"
 import { NavBar } from "@/components/ui/tubelight-navbar"
 import { UserMenu } from "@/components/auth/user-menu"
+import { Footer } from "@/components/footer"
 import { cn } from "@/lib/utils"
-import Link from "next/link"
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -87,16 +89,32 @@ export function AppLayout({ children, className }: AppLayoutProps) {
                 href="/dashboard"
                 className="flex items-center gap-2.5 group justify-start"
               >
-                <div className="relative">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 group-hover:from-primary/30 group-hover:to-primary/10 transition-all">
-                    <LayoutDashboard className="h-5 w-5 text-primary" strokeWidth={2.5} />
-                  </div>
+                {/* Logo completo para desktop - responsivo */}
+                <div className="relative w-auto hidden sm:block h-9 sm:h-9 md:h-10 lg:h-11 xl:h-12">
+                  <Image
+                    src="/img/logo_full_content.png"
+                    alt="contentMachine powered by zoryon"
+                    width={180}
+                    height={36}
+                    className="object-contain w-auto h-full transition-all duration-200"
+                    priority
+                  />
                   {/* Glow effect no logo */}
                   <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity -z-10" />
                 </div>
-                <span className="text-lg font-semibold text-white group-hover:text-primary transition-colors hidden sm:inline">
-                  Máquina de Conteúdo
-                </span>
+                {/* Logo ícone para mobile */}
+                <div className="relative h-9 w-9 sm:hidden">
+                  <Image
+                    src="/img/favi_contentmachine.jpg"
+                    alt="contentMachine"
+                    width={36}
+                    height={36}
+                    className="object-contain rounded-lg w-full h-full"
+                    priority
+                  />
+                  {/* Glow effect no logo */}
+                  <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity -z-10" />
+                </div>
               </Link>
 
               {/* Menu central - sempre no centro */}
@@ -122,6 +140,9 @@ export function AppLayout({ children, className }: AppLayoutProps) {
       >
         {children}
       </main>
+
+      {/* Footer */}
+      <Footer showNewsletter={false} />
     </div>
   )
 }

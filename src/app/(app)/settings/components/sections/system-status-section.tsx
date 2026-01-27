@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { DevWorkerStatus } from "@/components/dev-worker-poller"
 import type {
   SystemStatusResult,
   ServiceStatus,
@@ -288,6 +289,12 @@ export function SystemStatusSection({
           </div>
         </div>
       )}
+
+      {/* Worker Status (Development Only) */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-medium text-white/80">Sistema de Filas</h3>
+        <DevWorkerStatus />
+      </div>
     </div>
   )
 }

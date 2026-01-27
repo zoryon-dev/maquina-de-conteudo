@@ -133,7 +133,7 @@ export class ThemeProcessorService {
         'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-        'X-Title': 'Máquina de Conteúdo',
+        'X-Title': process.env.NEXT_PUBLIC_APP_NAME || 'contentMachine',
       },
       body: JSON.stringify({
         model: this.model,
