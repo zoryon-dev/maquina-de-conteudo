@@ -22,7 +22,12 @@ import {
   Trash2,
   Download,
   Film,
-  Copy
+  Copy,
+  Instagram,
+  Facebook,
+  Check,
+  Loader2,
+  X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -34,6 +39,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { formatDate } from "@/lib/format"
 import type { LibraryItemWithRelations } from "@/types/library"
 import { CONTENT_TYPE_CONFIGS, STATUS_CONFIGS } from "@/types/calendar"
@@ -65,6 +81,18 @@ export interface ContentActionsSectionProps {
   isRefreshing: boolean
   onRefresh: () => void
 }
+
+interface Platform {
+  id: "instagram" | "facebook"
+  name: string
+  icon: typeof Instagram
+  color: string
+}
+
+const PLATFORMS: Platform[] = [
+  { id: "instagram", name: "Instagram", icon: Instagram, color: "text-pink-500" },
+  { id: "facebook", name: "Facebook", icon: Facebook, color: "text-blue-500" },
+]
 
 // ============================================================================
 // COMPONENT
@@ -128,7 +156,7 @@ export function ContentActionsSection({
   const videoThumbnailUrl = videoMetadata ? extractThumbnailUrl(videoMetadata) : undefined
   const seoTitle = videoMetadata ? extractYouTubeTitle(videoMetadata) : undefined
   const seoHashtags = videoMetadata ? extractYouTubeHashtags(videoMetadata) : []
-  const seoTags = videoMetadata ? (extractYouTubeTags(videoMetadata) ?? []) : []
+  const seoTags = videoMetadata ? extractYouTubeTags(videoMetadata) : []
   const seoDescription =
     videoMetadata?.youtubeSEO?.descricao?.corpo_completo ||
     videoMetadata?.youtubeSEO?.descricao?.above_the_fold
@@ -178,6 +206,13 @@ export function ContentActionsSection({
   // Schedule drawer state
   const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false)
 
+  // Publish dialog state
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false)
+  const [selectedPlatform, setSelectedPlatform] = useState<"instagram" | "facebook">("instagram")
+  const [publishCaption, setPublishCaption] = useState("")
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [publishItemId, setPublishItemId] = useState<number | null>(null)
+
   // Extract caption for scheduling
   const caption = (() => {
     if (!item.content) return null
@@ -194,9 +229,76 @@ export function ContentActionsSection({
     setScheduleDrawerOpen(true)
   }
 
-  async function handlePublishNow(id: number) {
-    toast.info("Publicação direta será implementada em breve.")
-    console.log("Publish now:", id)
+  function handlePublishNow(id: number) {
+    setPublishItemId(id)
+    setPublishDialogOpen(true)
+    // Reset to default platform and caption
+    setSelectedPlatform("instagram")
+    setPublishCaption(caption || "")
+  }
+
+  async function handleConfirmPublish() {
+    if (!publishItemId) return
+
+    setIsPublishing(true)
+
+    try {
+      const response = await fetch("/api/social/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          libraryItemId: publishItemId,
+          platform: selectedPlatform,
+          caption: publishCaption || undefined,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.success) {
+        toast.success(`Publicado no ${selectedPlatform === "instagram" ? "Instagram" : "Facebook"}!`, {
+          description: result.platformPostUrl ? (
+            <a
+              href={result.platformPostUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline"
+            >
+              Ver publicação
+            </a>
+          ) : undefined,
+        })
+        setPublishDialogOpen(false)
+        onRefresh()
+      } else {
+        // Handle token expired error with helpful message
+        if (result.code === "TOKEN_EXPIRED") {
+          toast.error(result.error || "Sessão expirada", {
+            description: (
+              <div className="flex flex-col gap-2">
+                <span>Vá em Configurações &gt; Redes Sociais e reconecte sua conta.</span>
+                <a
+                  href="/settings?tab=social"
+                  className="text-primary underline hover:text-primary/80"
+                >
+                  Ir para Configurações →
+                </a>
+              </div>
+            ),
+            duration: 8000,
+          })
+          setPublishDialogOpen(false)
+          onRefresh() // Refresh to update connection status
+        } else {
+          toast.error(result.error || "Erro ao publicar")
+        }
+      }
+    } catch (error) {
+      console.error("Error publishing:", error)
+      toast.error("Erro ao publicar. Tente novamente.")
+    } finally {
+      setIsPublishing(false)
+    }
   }
 
   async function handleRebuild(id: number) {
@@ -602,6 +704,118 @@ export function ContentActionsSection({
         itemType={item.type}
         caption={caption}
       />
+
+      {/* Publish Dialog */}
+      <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
+        <DialogContent className="bg-[#0a0a0f] border-white/10 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="w-5 h-5 text-primary" />
+              Publicar Agora
+            </DialogTitle>
+            <DialogDescription className="text-white/60">
+              Selecione a plataforma para publicar este conteúdo
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Platform Selection */}
+            <div className="space-y-3">
+              <Label className="text-white/70 text-sm">Plataforma</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {PLATFORMS.map((platform) => {
+                  const Icon = platform.icon
+                  return (
+                    <button
+                      key={platform.id}
+                      type="button"
+                      onClick={() => setSelectedPlatform(platform.id)}
+                      className={cn(
+                        "relative flex flex-col items-center gap-2 p-4 rounded-lg border transition-all",
+                        selectedPlatform === platform.id
+                          ? "bg-primary/20 border-primary"
+                          : "bg-white/[0.02] border-white/10 hover:border-white/20"
+                      )}
+                    >
+                      <Icon className={cn("w-6 h-6", platform.color)} />
+                      <span className="text-sm text-white/90">{platform.name}</span>
+                      {selectedPlatform === platform.id && (
+                        <Check className="w-4 h-4 text-primary absolute top-2 right-2" />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Caption */}
+            <div className="space-y-2">
+              <Label className="text-white/70 text-sm">
+                Legenda <span className="text-white/30">(opcional)</span>
+              </Label>
+              <Textarea
+                value={publishCaption}
+                onChange={(e) => setPublishCaption(e.target.value)}
+                placeholder="Adicione uma legenda para esta publicação..."
+                rows={4}
+                className="bg-white/[0.02] border-white/10 text-white placeholder:text-white/30 resize-none"
+                maxLength={2200}
+              />
+              <p className="text-xs text-white/30 text-right">
+                {publishCaption.length} / 2200 caracteres
+              </p>
+            </div>
+
+            {/* Preview */}
+            <div className="bg-white/[0.02] border border-white/10 rounded-lg p-3 space-y-2">
+              <div className="text-xs text-white/60">Preview</div>
+              <div className="flex items-center gap-2">
+                {selectedPlatform === "instagram" ? (
+                  <Instagram className="w-4 h-4 text-pink-500" />
+                ) : (
+                  <Facebook className="w-4 h-4 text-blue-500" />
+                )}
+                <span className="text-sm text-white/90">
+                  {item.type === "carousel" ? "Carrossel" : item.type === "image" ? "Imagem" : "Post"}
+                </span>
+              </div>
+              {item.title && (
+                <div className="text-xs text-white/40 truncate">
+                  "{item.title}"
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setPublishDialogOpen(false)}
+              disabled={isPublishing}
+              className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmPublish}
+              disabled={isPublishing}
+              className="bg-primary text-black hover:bg-primary/90 min-w-[120px]"
+            >
+              {isPublishing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Publicando...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  Publicar
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

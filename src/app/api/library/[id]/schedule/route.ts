@@ -2,18 +2,20 @@
  * POST /api/library/[id]/schedule
  *
  * Agenda uma publicação de rede social para um item da biblioteca.
+ * Atualizado para usar publishedPosts com suporte a caption e mediaUrl.
  */
 
 import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { db } from "@/db"
-import { libraryItems, scheduledPosts } from "@/db/schema"
+import { libraryItems, publishedPosts } from "@/db/schema"
 import { eq } from "drizzle-orm"
 
 interface ScheduleRequest {
   platform: string
   scheduledFor: string // ISO datetime
-  message?: string // Currently not stored - schema needs metadata field
+  message?: string // Custom caption/message - NOW SAVED!
+  mediaUrls?: string[] // Media URLs for standalone posts
 }
 
 export async function POST(
@@ -35,17 +37,23 @@ export async function POST(
 
   try {
     const body = await request.json() as ScheduleRequest
-    const { platform, scheduledFor } = body
+    const { platform, scheduledFor, message, mediaUrls } = body
 
     // Validate required fields
     if (!platform || !scheduledFor) {
-      return NextResponse.json({ success: false, error: "Platform and scheduledFor are required" }, { status: 400 })
+      return NextResponse.json(
+        { success: false, error: "Platform and scheduledFor are required" },
+        { status: 400 }
+      )
     }
 
     // Validate the date is in the future
     const scheduledDate = new Date(scheduledFor)
     if (scheduledDate < new Date()) {
-      return NextResponse.json({ success: false, error: "Scheduled date must be in the future" }, { status: 400 })
+      return NextResponse.json(
+        { success: false, error: "Scheduled date must be in the future" },
+        { status: 400 }
+      )
     }
 
     // Check if the library item exists and belongs to the user
@@ -56,17 +64,24 @@ export async function POST(
       .limit(1)
 
     if (!item || item.userId !== userId) {
-      return NextResponse.json({ success: false, error: "Library item not found" }, { status: 404 })
+      return NextResponse.json(
+        { success: false, error: "Library item not found" },
+        { status: 404 }
+      )
     }
 
-    // Create the scheduled post
-    const [scheduledPost] = await db
-      .insert(scheduledPosts)
+    // Create the published post (NEW: uses publishedPosts instead of scheduledPosts)
+    const [publishedPost] = await db
+      .insert(publishedPosts)
       .values({
+        userId,
         libraryItemId,
-        platform,
+        platform: platform as "instagram" | "facebook", // Cast to satisfy enum
+        status: "scheduled",
         scheduledFor: scheduledDate,
-        status: "pending",
+        caption: message || null, // NEW: Saves custom message
+        mediaUrl: mediaUrls && mediaUrls.length > 0 ? JSON.stringify(mediaUrls) : null, // NEW: Saves media URLs
+        mediaType: item.type, // Inherit type from library item
       })
       .returning()
 
@@ -78,10 +93,13 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      scheduledPost,
+      publishedPost,
     })
   } catch (error) {
     console.error("[SCHEDULE] Error:", error)
-    return NextResponse.json({ success: false, error: "Failed to schedule post" }, { status: 500 })
+    return NextResponse.json(
+      { success: false, error: "Failed to schedule post" },
+      { status: 500 }
+    )
   }
 }

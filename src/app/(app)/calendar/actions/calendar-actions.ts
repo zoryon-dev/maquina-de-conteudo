@@ -1,8 +1,10 @@
 /**
  * Server Actions for Calendar Page
  *
- * Handles CRUD operations for scheduled posts and library items.
+ * Handles CRUD operations for published posts and library items.
  * All actions are authenticated and protected.
+ *
+ * UPDATED: Now uses publishedPosts instead of scheduledPosts
  */
 
 "use server"
@@ -10,7 +12,7 @@
 import { auth } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
 import { db } from "@/db"
-import { libraryItems, scheduledPosts } from "@/db/schema"
+import { libraryItems, publishedPosts } from "@/db/schema"
 import { eq, and, gte, lte, isNull, inArray } from "drizzle-orm"
 import type {
   CalendarPost,
@@ -23,8 +25,10 @@ import type { ContentStatus } from "@/db/schema"
 /**
  * Fetch calendar posts with filters
  *
- * Combines library_items and scheduled_posts tables to get all scheduled posts
+ * Combines library_items and published_posts tables to get all scheduled/published posts
  * within a date range, with optional filtering by platform, status, and type.
+ *
+ * UPDATED: Now uses publishedPosts instead of scheduledPosts
  *
  * @param dateRange - Start and end dates for the query
  * @param filters - Optional filters for platform, status, and type
@@ -33,7 +37,7 @@ import type { ContentStatus } from "@/db/schema"
  * @example
  * const posts = await getCalendarPostsAction(
  *   { start: new Date('2026-01-01'), end: new Date('2026-01-31') },
- *   { platforms: ['instagram', 'twitter'], statuses: ['scheduled'] }
+ *   { platforms: ['instagram', 'facebook'], statuses: ['scheduled'] }
  * )
  */
 export async function getCalendarPostsAction(
@@ -47,55 +51,69 @@ export async function getCalendarPostsAction(
   }
 
   try {
-    // Build query conditions
+    // Build query conditions - using publishedPosts now
     const conditions = [
-      eq(libraryItems.userId, userId),
-      gte(libraryItems.scheduledFor, dateRange.start),
-      lte(libraryItems.scheduledFor, dateRange.end),
-      isNull(libraryItems.deletedAt),
+      eq(publishedPosts.userId, userId),
+      gte(publishedPosts.scheduledFor!, dateRange.start),
+      lte(publishedPosts.scheduledFor!, dateRange.end),
+      isNull(publishedPosts.deletedAt),
     ]
 
-    // Add platform filter if provided
+    // Add platform filter if provided (only instagram/facebook are valid for publishedPosts)
     if (filters.platforms && filters.platforms.length > 0) {
-      conditions.push(inArray(scheduledPosts.platform, filters.platforms))
+      const validPlatforms = filters.platforms.filter(
+        (p) => (p as string) === "instagram" || (p as string) === "facebook"
+      ) as ("instagram" | "facebook")[]
+      if (validPlatforms.length > 0) {
+        conditions.push(inArray(publishedPosts.platform, validPlatforms))
+      }
     }
 
-    // Add status filter if provided
+    // Add status filter if provided (map library status to published post status)
     if (filters.statuses && filters.statuses.length > 0) {
-      conditions.push(inArray(libraryItems.status, filters.statuses))
-    }
-
-    // Add type filter if provided
-    if (filters.types && filters.types.length > 0) {
-      conditions.push(inArray(libraryItems.type, filters.types))
+      // Map library statuses to published post statuses
+      // Only "scheduled" and "published" exist in publishedPosts enum
+      const validStatuses: ("scheduled" | "published")[] = []
+      if (filters.statuses.includes("scheduled")) {
+        validStatuses.push("scheduled")
+      }
+      if (filters.statuses.includes("published")) {
+        validStatuses.push("published")
+      }
+      if (validStatuses.length > 0) {
+        conditions.push(inArray(publishedPosts.status, validStatuses))
+      }
     }
 
     // Execute query with join
     const posts = await db
       .select({
-        // Library item fields
-        id: libraryItems.id,
-        libraryItemId: libraryItems.id,
+        // Published post fields
+        id: publishedPosts.id,
+        scheduledPostId: publishedPosts.id,
+        platform: publishedPosts.platform,
+        scheduledPostStatus: publishedPosts.status,
+        scheduledFor: publishedPosts.scheduledFor,
+        postedAt: publishedPosts.publishedAt,
+        platformPostId: publishedPosts.platformPostId,
+        mediaType: publishedPosts.mediaType,
+        createdAt: publishedPosts.createdAt,
+        updatedAt: publishedPosts.updatedAt,
+
+        // Library item fields (via left join)
+        libraryItemId: publishedPosts.libraryItemId,
         type: libraryItems.type,
         status: libraryItems.status,
         title: libraryItems.title,
         content: libraryItems.content,
-        scheduledFor: libraryItems.scheduledFor,
-        mediaUrl: libraryItems.mediaUrl,
+        // Use publishedPosts.mediaUrl if available, otherwise fall back to libraryItems.mediaUrl
+        mediaUrl: publishedPosts.mediaUrl, // Prioritize published post media URL (custom override)
         metadata: libraryItems.metadata,
-        createdAt: libraryItems.createdAt,
-        updatedAt: libraryItems.updatedAt,
-        // Scheduled post fields
-        scheduledPostId: scheduledPosts.id,
-        platform: scheduledPosts.platform,
-        scheduledPostStatus: scheduledPosts.status,
-        postedAt: scheduledPosts.postedAt,
-        platformPostId: scheduledPosts.platformPostId,
       })
-      .from(libraryItems)
-      .innerJoin(scheduledPosts, eq(libraryItems.id, scheduledPosts.libraryItemId))
+      .from(publishedPosts)
+      .leftJoin(libraryItems, eq(publishedPosts.libraryItemId, libraryItems.id))
       .where(and(...conditions))
-      .orderBy(libraryItems.scheduledFor)
+      .orderBy(publishedPosts.scheduledFor)
 
     return posts as CalendarPost[]
   } catch (error) {
@@ -119,15 +137,16 @@ export async function getCalendarStatsAction() {
   }
 
   try {
+    // Now uses publishedPosts instead of scheduledPosts
     const allPosts = await db
       .select({
-        platform: scheduledPosts.platform,
-        status: libraryItems.status,
-        scheduledFor: libraryItems.scheduledFor,
+        platform: publishedPosts.platform,
+        status: publishedPosts.status,
+        scheduledFor: publishedPosts.scheduledFor,
       })
-      .from(libraryItems)
-      .innerJoin(scheduledPosts, eq(libraryItems.id, scheduledPosts.libraryItemId))
-      .where(and(eq(libraryItems.userId, userId), isNull(libraryItems.deletedAt)))
+      .from(publishedPosts)
+      .leftJoin(libraryItems, eq(publishedPosts.libraryItemId, libraryItems.id))
+      .where(and(eq(publishedPosts.userId, userId), isNull(publishedPosts.deletedAt)))
 
     // Calculate statistics
     const now = new Date()
@@ -189,6 +208,8 @@ export async function getCalendarStatsAction() {
 /**
  * Create a new library item and schedule posts for platforms
  *
+ * UPDATED: Now uses publishedPosts instead of scheduledPosts
+ *
  * @param data - Post form data
  * @returns Action result with library item ID on success
  *
@@ -197,7 +218,7 @@ export async function getCalendarStatsAction() {
  *   title: "New Post",
  *   content: "Post content here...",
  *   type: "text",
- *   platforms: ["instagram", "twitter"],
+ *   platforms: ["instagram", "facebook"],
  *   scheduledFor: new Date("2026-01-15T14:00:00")
  * })
  */
@@ -226,16 +247,18 @@ export async function createPostAction(
       })
       .returning()
 
-    // Create scheduled posts for each platform
+    // Create published posts for each platform (NEW: uses publishedPosts)
     if (data.platforms && data.platforms.length > 0) {
       const scheduledFor = data.scheduledFor || new Date()
 
-      await db.insert(scheduledPosts).values(
+      await db.insert(publishedPosts).values(
         data.platforms.map((platform) => ({
+          userId,
           libraryItemId: libraryItem.id,
-          platform,
+          platform: platform as "instagram" | "facebook",
           scheduledFor,
-          status: "pending",
+          status: "scheduled" as const,
+          mediaType: data.type,
         }))
       )
     }
@@ -303,21 +326,23 @@ export async function updatePostAction(
       })
       .where(eq(libraryItems.id, id))
 
-    // Update or recreate scheduled posts if platforms changed
+    // Update or recreate published posts if platforms changed
     if (data.platforms) {
-      // Delete existing scheduled posts
+      // Delete existing published posts for this library item
       await db
-        .delete(scheduledPosts)
-        .where(eq(scheduledPosts.libraryItemId, id))
+        .delete(publishedPosts)
+        .where(eq(publishedPosts.libraryItemId, id))
 
-      // Create new scheduled posts
+      // Create new published posts
       if (data.platforms.length > 0 && data.scheduledFor) {
-        await db.insert(scheduledPosts).values(
+        await db.insert(publishedPosts).values(
           data.platforms.map((platform) => ({
+            userId,
             libraryItemId: id,
-            platform,
+            platform: platform as "instagram" | "facebook",
             scheduledFor: data.scheduledFor!,
-            status: "pending",
+            status: "scheduled" as const,
+            mediaType: data.type || "text",
           }))
         )
       }
@@ -381,7 +406,7 @@ export async function deletePostAction(id: number): Promise<ActionResult> {
 /**
  * Reschedule a post to a new date (drag & drop action)
  *
- * Updates both libraryItems.scheduledFor and all related scheduled_posts.
+ * Updates both libraryItems.scheduledFor and all related published_posts.
  *
  * @param id - Library item ID
  * @param newDate - New scheduled date/time
@@ -422,11 +447,11 @@ export async function reschedulePostAction(
       })
       .where(eq(libraryItems.id, id))
 
-    // Update all scheduled posts for this library item
+    // Update all published posts for this library item (NEW: uses publishedPosts)
     await db
-      .update(scheduledPosts)
+      .update(publishedPosts)
       .set({ scheduledFor: newDate })
-      .where(eq(scheduledPosts.libraryItemId, id))
+      .where(eq(publishedPosts.libraryItemId, id))
 
     revalidatePath("/calendar")
 
@@ -441,7 +466,7 @@ export async function reschedulePostAction(
 }
 
 /**
- * Duplicate a library item and its scheduled posts
+ * Duplicate a library item and its published posts
  *
  * Creates a copy with "(cópia)" appended to the title.
  *
@@ -471,11 +496,11 @@ export async function duplicatePostAction(
       return { success: false, error: "Post não encontrado" }
     }
 
-    // Fetch scheduled posts to get platforms
+    // Fetch published posts to get platforms (NEW: uses publishedPosts)
     const scheduled = await db
-      .select({ platform: scheduledPosts.platform })
-      .from(scheduledPosts)
-      .where(eq(scheduledPosts.libraryItemId, id))
+      .select({ platform: publishedPosts.platform })
+      .from(publishedPosts)
+      .where(eq(publishedPosts.libraryItemId, id))
 
     const platforms = scheduled.map((s) => s.platform)
 
@@ -494,16 +519,18 @@ export async function duplicatePostAction(
       })
       .returning()
 
-    // Duplicate scheduled posts if they exist
+    // Duplicate published posts if they exist (NEW: uses publishedPosts)
     if (platforms.length > 0) {
       const scheduledFor = newScheduledFor || new Date()
 
-      await db.insert(scheduledPosts).values(
+      await db.insert(publishedPosts).values(
         platforms.map((platform) => ({
+          userId,
           libraryItemId: newLibraryItem.id,
-          platform,
+          platform: platform as "instagram" | "facebook",
           scheduledFor,
-          status: "pending",
+          status: "scheduled" as const,
+          mediaType: original.type,
         }))
       )
     }
@@ -521,7 +548,7 @@ export async function duplicatePostAction(
 }
 
 /**
- * Get a single post with its scheduled posts
+ * Get a single post with its published posts
  *
  * @param id - Library item ID
  * @returns Post data or null if not found
@@ -544,11 +571,11 @@ export async function getPostAction(id: number) {
       return null
     }
 
-    // Get scheduled posts for this library item
+    // Get published posts for this library item (NEW: uses publishedPosts)
     const scheduled = await db
       .select()
-      .from(scheduledPosts)
-      .where(eq(scheduledPosts.libraryItemId, id))
+      .from(publishedPosts)
+      .where(eq(publishedPosts.libraryItemId, id))
 
     return {
       ...post,
