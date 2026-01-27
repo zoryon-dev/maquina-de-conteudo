@@ -315,6 +315,21 @@ export function SocialSection() {
         </Button>
       </div>
 
+      {/* Expired connection warning */}
+      {connections.some((c) => c.status === "expired") && (
+        <div className="flex items-start gap-3 p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+          <AlertCircle className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-yellow-200">
+            <p className="font-medium text-yellow-100 mb-1">
+              Conexão expirada detectada
+            </p>
+            <p className="text-yellow-200/80">
+              Sua conexão com {connections.find((c) => c.status === "expired")?.platform === "instagram" ? "Instagram" : "Facebook"} expirou. Reconecte sua conta para continuar publicando.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Info banner */}
       <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
         <Info className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
@@ -334,7 +349,7 @@ export function SocialSection() {
           const config = PLATFORMS[platform]
           const Icon = config.icon
           const connection = getConnectionForPlatform(platform)
-          const isConnected = connection?.status === "active"
+          const hasConnection = connection && (connection.status === "active" || connection.status === "expired")
           const isConnecting = connecting === platform
           const isDeleting = deleting === connection?.id
 
@@ -343,7 +358,7 @@ export function SocialSection() {
               key={platform}
               className={cn(
                 "p-5 rounded-lg border bg-white/[0.02]",
-                isConnected
+                hasConnection
                   ? `bg-gradient-to-br ${config.bgGradient} border-white/10`
                   : "border-white/5"
               )}
@@ -360,7 +375,7 @@ export function SocialSection() {
                   <div>
                     <h4 className="font-semibold text-white">{config.label}</h4>
                     <p className="text-xs text-white/50 mt-0.5">
-                      {isConnected
+                      {hasConnection
                         ? `@${connection?.accountUsername || connection?.accountName || "Conta conectada"}`
                         : "Não conectado"
                       }
@@ -373,14 +388,14 @@ export function SocialSection() {
               </div>
 
               {/* Description */}
-              {!isConnected && (
+              {!hasConnection && (
                 <p className="text-sm text-white/60 mb-4">
                   {config.description}
                 </p>
               )}
 
               {/* Connection details */}
-              {isConnected && (
+              {hasConnection && (
                 <div className="space-y-2 mb-4">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-white/50">Conectado em</span>
@@ -400,26 +415,46 @@ export function SocialSection() {
               )}
 
               {/* Action button */}
-              {isConnected ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                  onClick={() => handleDisconnect(connection.id)}
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Desconectando...
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Desconectar
-                    </>
-                  )}
-                </Button>
+              {hasConnection ? (
+                connection.status === "expired" ? (
+                  <Button
+                    className="w-full bg-yellow-500 text-black hover:bg-yellow-400"
+                    onClick={() => handleConnect(platform)}
+                    disabled={isConnecting}
+                  >
+                    {isConnecting ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Conectando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Reconectar {config.label}
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                    onClick={() => handleDisconnect(connection.id)}
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Desconectando...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Desconectar
+                      </>
+                    )}
+                  </Button>
+                )
               ) : (
                 <Button
                   className="w-full bg-white text-black hover:bg-white/90"

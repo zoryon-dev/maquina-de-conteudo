@@ -162,6 +162,14 @@ async function saveInstagramConnection(
     )
   }
 
+  // DEBUG: Log token type being saved
+  const tokenPrefix = longLivedToken ? longLivedToken.substring(0, 4) : "EMPTY"
+  console.log("[Save Connection] Token being saved:", {
+    prefix: tokenPrefix,
+    length: longLivedToken?.length || 0,
+    endsWith: longLivedToken?.slice(-10) || "EMPTY",
+  })
+
   // Find selected page
   let selectedPage: PageWithInstagramData | undefined
   if (pageId) {
@@ -362,21 +370,21 @@ async function upsertConnection(data: {
   status: SocialConnectionStatus
   metadata: Record<string, unknown>
 }) {
-  // Check for existing connection
+  // Check for existing connection (including soft deleted)
   const existing = await db
     .select()
     .from(socialConnections)
     .where(eq(socialConnections.userId, data.userId))
 
-  // Filter by platform
+  // Filter by platform - include soft deleted to handle reconnection
   const existingByPlatform = existing.find(
-    (c) => c.platform === data.platform && c.deletedAt === null
+    (c) => c.platform === data.platform
   )
 
   const now = new Date()
 
   if (existingByPlatform) {
-    // Update existing connection
+    // Update existing connection (reactivate if soft deleted)
     await db
       .update(socialConnections)
       .set({
@@ -392,9 +400,11 @@ async function upsertConnection(data: {
         metadata: data.metadata as any,
         lastVerifiedAt: now,
         updatedAt: now,
-        deletedAt: null,
+        deletedAt: null, // Clear soft delete flag
       })
       .where(eq(socialConnections.id, existingByPlatform.id))
+
+    console.log("[Save Connection] Updated existing connection:", existingByPlatform.id)
   } else {
     // Create new connection
     await db.insert(socialConnections).values({
@@ -414,5 +424,7 @@ async function upsertConnection(data: {
       createdAt: now,
       updatedAt: now,
     })
+
+    console.log("[Save Connection] Created new connection")
   }
 }

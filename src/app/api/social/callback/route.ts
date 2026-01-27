@@ -39,6 +39,26 @@ const META_API_VERSION = "v21.0"
 const META_GRAPH_API_URL = `https://graph.facebook.com/${META_API_VERSION}`
 
 /**
+ * Identify Meta token type from prefix
+ * Reference: https://developers.facebook.com/docs/facebook-login/guides/access-tokens
+ */
+function getTokenTypeFromPrefix(prefix: string): string {
+  switch (prefix) {
+    case "EAA":
+    case "EAAB":
+      return "User Access Token (Short-lived)"
+    case "EAAE":
+      return "User Access Token (Long-lived - Current format)"
+    case "EAD":
+      return "User Access Token (Long-lived - Legacy format)"
+    case "EAF":
+      return "Page Access Token"
+    default:
+      return `Unknown token type (prefix: ${prefix})`
+  }
+}
+
+/**
  * GET /api/social/callback
  *
  * Query params:
@@ -188,6 +208,14 @@ async function handleInstagramCallback(userId: string, code: string, baseUrl: st
 
   const shortLivedToken = tokenData.access_token
 
+  // DEBUG: Log short-lived token type
+  const shortLivedPrefix = shortLivedToken ? shortLivedToken.substring(0, 4) : "EMPTY"
+  console.log("[Instagram OAuth] Short-lived token details:", {
+    prefix: shortLivedPrefix,
+    length: shortLivedToken?.length || 0,
+    type: getTokenTypeFromPrefix(shortLivedPrefix),
+  })
+
   const permissions = await fetchUserPermissions(shortLivedToken)
   const hasPagesReadEngagement = permissions.some(
     (permission) =>
@@ -248,6 +276,15 @@ async function handleInstagramCallback(userId: string, code: string, baseUrl: st
   const longLivedToken = longLivedData.access_token
   const expiresInSeconds = longLivedData.expires_in || 5184000 // ~60 days default
 
+  // DEBUG: Log token type based on prefix
+  const tokenPrefix = longLivedToken ? longLivedToken.substring(0, 4) : "EMPTY"
+  const tokenLength = longLivedToken?.length || 0
+  console.log("[Instagram OAuth] Long-lived token details:", {
+    prefix: tokenPrefix,
+    length: tokenLength,
+    type: getTokenTypeFromPrefix(tokenPrefix),
+  })
+
   // Step 4: Store long-lived token temporarily for final connection
   const tokenExpiresAt = new Date(Date.now() + expiresInSeconds * 1000)
 
@@ -279,6 +316,10 @@ async function handleInstagramCallback(userId: string, code: string, baseUrl: st
   })
 
   console.log("[Instagram OAuth] Session saved to database:", sessionId)
+  console.log("[Instagram OAuth] Token saved in session:", {
+    prefix: longLivedToken?.substring(0, 4),
+    firstPageAccessTokenPrefix: pagesWithInstagram[0]?.pageAccessToken?.substring(0, 4),
+  })
 
   // Step 6: Redirect with session_id (not pages data in URL)
   // Frontend will fetch pages using the session_id

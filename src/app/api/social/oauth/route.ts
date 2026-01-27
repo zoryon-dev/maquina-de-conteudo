@@ -12,24 +12,74 @@
 
 import { redirect } from "next/navigation"
 import { auth } from "@clerk/nextjs/server"
+import { cookies } from "next/headers"
 
 // Environment variables with defaults
 const META_APP_ID = process.env.META_APP_ID
+const META_APP_SECRET = process.env.META_APP_SECRET
 const META_REDIRECT_URI = process.env.META_REDIRECT_URI
 
-// OAuth scopes for each platform
+// Meta Graph API version
+const META_API_VERSION = "v21.0"
+
+// IMPORTANT: OAuth Dialog uses www.facebook.com, NOT graph.facebook.com
+// Graph API is for API calls, OAuth Dialog is for user authorization
+const META_OAUTH_DIALOG_URL = `https://www.facebook.com/${META_API_VERSION}`
+const META_GRAPH_API_URL = `https://graph.facebook.com/${META_API_VERSION}`
+
+/**
+ * OAuth scopes for Instagram Business Login
+ *
+ * NOTE: We use Facebook OAuth Dialog for Instagram, so we need both
+ * Instagram and Facebook Page scopes.
+ *
+ * Instagram scopes:
+ * - instagram_basic: Basic profile data
+ * - instagram_content_publish: Publish media
+ * - instagram_manage_insights: Access metrics
+ * - instagram_manage_comments: Manage comments
+ *
+ * Facebook Page scopes (required because IG Business is linked to FB Page):
+ * - pages_show_list: List user's managed pages
+ * - pages_read_engagement: Read page insights and engagement
+ * - pages_read_user_content: Read posts and comments on page
+ * - pages_manage_posts: Create and manage page posts
+ * - pages_manage_metadata: Read page metadata
+ * - business_management: Manage business assets
+ */
 const INSTAGRAM_SCOPES = [
-  "instagram_business_basic",
-  "instagram_business_content_publish",
+  // Instagram scopes
+  "instagram_basic",
+  "instagram_content_publish",
   "instagram_manage_insights",
   "instagram_manage_comments",
+  // Facebook Page scopes (required for IG Business)
+  "pages_show_list",
+  "pages_read_engagement",
+  "pages_read_user_content",
+  "pages_manage_posts",
+  "pages_manage_metadata",
+  "business_management",
 ]
 
+/**
+ * OAuth scopes for Facebook Pages
+ *
+ * These scopes allow:
+ * - Listing user's pages
+ * - Reading page content and insights
+ * - Publishing posts
+ * - Managing page metadata
+ */
 const FACEBOOK_SCOPES = [
-  "pages_manage_posts",
-  "pages_manage_engagement",
-  "pages_read_engagement",
   "public_profile",
+  "pages_show_list",
+  "pages_read_engagement",
+  "pages_read_user_content",
+  "read_insights",
+  "pages_manage_metadata",
+  "pages_manage_posts",
+  "business_management",
 ]
 
 /**
@@ -61,9 +111,12 @@ export async function GET(request: Request) {
     return new Response("Invalid platform", { status: 400 })
   }
 
-  // Generate state for CSRF protection
-  // In production, this should be stored in Redis/DB with expiration
-  const state = crypto.randomUUID()
+  // Generate state for CSRF protection that includes userId
+  // Format: base64({userId}:{platform}:{randomUUID})
+  // This allows us to recover userId after OAuth redirect when Clerk session may not be available
+  const stateId = crypto.randomUUID()
+  const stateData = `${userId}:${platform}:${stateId}`
+  const state = Buffer.from(stateData).toString('base64')
 
   // Build OAuth URL based on platform
   const oauthUrl =
@@ -78,8 +131,19 @@ export async function GET(request: Request) {
 /**
  * Build Instagram OAuth URL
  *
- * Instagram uses Instagram Basic Display for OAuth,
- * then we exchange for long-lived token and get Business Account info.
+ * IMPORTANT: Uses Facebook OAuth Dialog, NOT Instagram OAuth endpoint.
+ *
+ * Instagram Business Accounts are linked to Facebook Pages, so the OAuth flow
+ * must go through Facebook to:
+ * 1. Get the user's access token
+ * 2. List their managed Facebook Pages
+ * 3. Find pages with Instagram Business accounts linked
+ * 4. Allow user to select which page/IG account to connect
+ *
+ * Docs: https://developers.facebook.com/docs/facebook-login/guides/advanced-oauth
+ *
+ * NOTE: OAuth Dialog URL uses www.facebook.com, NOT graph.facebook.com
+ * The 'extras' parameter with JSON is NOT supported and causes errors
  */
 function buildInstagramOAuthUrl(state: string): string {
   const params = new URLSearchParams({
@@ -90,14 +154,16 @@ function buildInstagramOAuthUrl(state: string): string {
     state: `${state}_instagram`,
   })
 
-  return `https://api.instagram.com/oauth/authorize?${params}`
+  // Use Facebook OAuth Dialog (www.facebook.com) for Instagram Business Login
+  return `${META_OAUTH_DIALOG_URL}/dialog/oauth?${params}`
 }
 
 /**
  * Build Facebook OAuth URL
  *
- * Facebook uses Facebook Login for Pages.
- * After user authorizes, we get the Page Access Token.
+ * Facebook Login for Pages with proper scopes.
+ * After user authorizes, we get the User Access Token which can be
+ * exchanged for Page Access Tokens.
  */
 function buildFacebookOAuthUrl(state: string): string {
   const params = new URLSearchParams({
@@ -106,13 +172,7 @@ function buildFacebookOAuthUrl(state: string): string {
     scope: FACEBOOK_SCOPES.join(","),
     response_type: "code",
     state: `${state}_facebook`,
-    // Enable popup for better UX
-    display: "popup",
-    // Prompt for page selection if user has multiple pages
-    extras: JSON.stringify({
-      setup: {},
-    }),
   })
 
-  return `https://www.facebook.com/v22.0/dialog/oauth?${params}`
+  return `${META_OAUTH_DIALOG_URL}/dialog/oauth?${params}`
 }
