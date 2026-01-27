@@ -208,35 +208,51 @@ export function validateCarouselResponse(
       console.warn(`⚠️ Slide ${index + 1}: Campo 'corpo' tem ${corpoLength} caracteres (excede 220, mas aceitaremos)`);
     }
 
-    // Validate conexao_proximo (v4.3 NEW - can be empty for last slide)
-    if (slideObj.conexao_proximo !== undefined && typeof slideObj.conexao_proximo !== "string") {
+    // Validate conexao_proximo (v4.3 NEW - optional field, can be null/undefined/empty for last slide)
+    // Aceita string, null, undefined, ou string vazia - qualquer outro tipo é inválido
+    if (
+      slideObj.conexao_proximo !== undefined &&
+      slideObj.conexao_proximo !== null &&
+      typeof slideObj.conexao_proximo !== "string"
+    ) {
       throw new ValidationError(
-        `Slide ${index + 1}: Campo 'conexao_proximo' deve ser string quando presente.`,
+        `Slide ${index + 1}: Campo 'conexao_proximo' deve ser string, null ou undefined quando presente.`,
         `slides[${index}].conexao_proximo`,
-        "string",
+        "string | null | undefined",
         typeof slideObj.conexao_proximo
       );
     }
   });
 
-  // Validate legenda (v4.3: 250+ words)
+  // Validate legenda (v4.3: mínimo flexível com warnings)
   if (!carousel.legenda || typeof carousel.legenda !== "string") {
     throw new ValidationError(
       `Campo 'legenda' está faltando ou inválido.`,
       "legenda",
-      "string (mínimo 250 palavras)",
+      "string (mínimo 150 palavras)",
       typeof carousel.legenda
     );
   }
 
   const wordCount = carousel.legenda.trim().split(/\s+/).length;
-  if (wordCount < 250) {
+
+  // Mínimo absoluto: 150 palavras (abaixo disso rejeita)
+  const MIN_ABSOLUTE = 150;
+  // Ideal: 250 palavras (abaixo disso avisa, mas aceita)
+  const MIN_IDEAL = 250;
+
+  if (wordCount < MIN_ABSOLUTE) {
     throw new ValidationError(
-      `Campo 'legenda' tem ${wordCount} palavras, mas mínimo v4.3 é 250. A IA deve ser mais generosa na caption.`,
+      `Campo 'legenda' tem ${wordCount} palavras, mas mínimo absoluto é ${MIN_ABSOLUTE}. A caption deve ter mais substância.`,
       "legenda",
-      "250+ palavras",
-      `${wordCount} palavras (muito curto)`
+      `${MIN_ABSOLUTE}+ palavras`,
+      `${wordCount} palavras`
     );
+  }
+
+  if (wordCount < MIN_IDEAL) {
+    // Warning mas ACEITA - não trava a geração
+    console.warn(`⚠️ Legenda tem ${wordCount} palavras (ideal seria ${MIN_IDEAL}+). Aceitando mesmo assim.`);
   }
 
   // If we got here, validation passed!

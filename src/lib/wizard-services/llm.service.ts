@@ -847,7 +847,11 @@ async function llmCallWithRetry(
   maxRetries: number,
   attempt: number = 0
 ): Promise<string> {
+  const attemptNum = attempt + 1;
+
   try {
+    console.log(`[LLM] Attempt ${attemptNum}/${maxRetries + 1} with model: ${model}`);
+
     const result = await generateText({
       model: openrouter!(model),
       system: systemPrompt,
@@ -855,16 +859,50 @@ async function llmCallWithRetry(
       temperature: 0.7,
     });
 
+    // Verifica se a resposta está vazia (pode indicar problema com o modelo)
+    if (!result.text || result.text.trim().length === 0) {
+      console.error(`[LLM] Empty response from model ${model} (attempt ${attemptNum})`);
+      console.error(`[LLM] System prompt length: ${systemPrompt.length}, User message: "${userMessage}"`);
+
+      // Se não for a última tentativa, tenta novamente
+      if (attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000;
+        console.log(`[LLM] Retrying after ${delay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return llmCallWithRetry(model, systemPrompt, userMessage, maxRetries, attempt + 1);
+      }
+
+      throw new Error(`LLM returned empty response after ${attemptNum} attempts. Model: ${model}. This may indicate a content filter, rate limit, or model availability issue.`);
+    }
+
+    console.log(`[LLM] Success! Response length: ${result.text.length} chars`);
     return result.text;
   } catch (error) {
     const isLastAttempt = attempt >= maxRetries;
 
+    // Log detalhado do erro para debugging
+    console.error(`[LLM] Error on attempt ${attemptNum}/${maxRetries + 1}:`, error instanceof Error ? error.message : String(error));
+
+    // Extrai mais informações do erro se disponível
+    if (error && typeof error === "object") {
+      const errObj = error as Record<string, unknown>;
+      if ("cause" in errObj) {
+        console.error(`[LLM] Root cause:`, errObj.cause);
+      }
+      if ("statusCode" in errObj) {
+        console.error(`[LLM] Status code:`, errObj.statusCode);
+      }
+    }
+
     if (isLastAttempt) {
-      throw error;
+      throw new Error(
+        `LLM call failed after ${attemptNum} attempt(s). ${error instanceof Error ? error.message : String(error)}`
+      );
     }
 
     // Exponential backoff
     const delay = Math.pow(2, attempt) * 1000;
+    console.log(`[LLM] Retrying after ${delay}ms...`);
     await new Promise((resolve) => setTimeout(resolve, delay));
 
     return llmCallWithRetry(model, systemPrompt, userMessage, maxRetries, attempt + 1);

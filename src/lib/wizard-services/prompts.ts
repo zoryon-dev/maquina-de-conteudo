@@ -990,7 +990,7 @@ Retorne APENAS um JSON válido:
       "conexao_proximo": "Como esse slide conecta com o próximo (interno, não aparece)"
     }
   ],
-  "legenda": "Caption completa seguindo estrutura de valor tribal (mínimo 250 palavras)"
+  "legenda": "Caption completa seguindo estrutura de valor tribal (150-250+ palavras)"
 }
 
 REGRAS CRÍTICAS v4.3:
@@ -999,7 +999,7 @@ REGRAS CRÍTICAS v4.3:
 3. Corpo: 180-220 caracteres (espaço para substância real)
 4. Cada slide deve ter "tipo" identificado
 5. Campo "conexao_proximo" ajuda coerência (não aparece no output final)
-6. Caption: mínimo 250 palavras com valor adicional
+6. Caption: mínimo 150 palavras (ideal 200+)
 7. TODO slide de conteúdo deve ENSINAR algo específico
 
 CTA Final: "${cta || "Salva pra quando precisar lembrar disso."}"
@@ -1696,16 +1696,37 @@ export function getContentTypeName(contentType: ContentType): string {
 
 /**
  * Helper para extrair JSON da resposta do LLM.
+ *
+ * Tenta encontrar o JSON mesmo se a resposta contiver texto antes/depois.
+ * Lança erro descritivo se não conseguir extrair JSON válido.
  */
 export function extractJSONFromResponse(text: string): object {
+  // Verifica se a resposta está vazia
+  if (!text || text.trim().length === 0) {
+    throw new Error("LLM returned empty response. This may indicate a model error, timeout, or content filter issue.");
+  }
+
   // Tenta encontrar o primeiro { e o último }
   const firstBrace = text.indexOf("{");
   const lastBrace = text.lastIndexOf("}");
 
   if (firstBrace === -1 || lastBrace === -1) {
-    throw new Error("No JSON found in response");
+    // Dá mais contexto no erro para debugging
+    const preview = text.length > 200 ? text.substring(0, 200) + "..." : text;
+    console.error("[extractJSONFromResponse] No JSON found in response:");
+    console.error("Response preview:", preview);
+    console.error("Response length:", text.length);
+    throw new Error(`No JSON found in response. Response starts with: ${preview.substring(0, 50)}...`);
   }
 
   const jsonStr = text.slice(firstBrace, lastBrace + 1);
-  return JSON.parse(jsonStr);
+
+  try {
+    return JSON.parse(jsonStr);
+  } catch (parseError) {
+    // Se falhar o parse, dá contexto do JSON extraído
+    console.error("[extractJSONFromResponse] Failed to parse extracted JSON:");
+    console.error("Extracted JSON preview:", jsonStr.substring(0, 500));
+    throw parseError;
+  }
 }
