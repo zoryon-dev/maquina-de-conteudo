@@ -30,6 +30,16 @@ export interface SaveSettingsResult {
 }
 
 /**
+ * API key status (for display purposes, never returns the actual key)
+ */
+export interface ApiKeyStatus {
+  provider: string
+  hasKey: boolean
+  isValid: boolean | null
+  lastValidatedAt: Date | null
+}
+
+/**
  * API key data to save
  */
 export interface ApiKeyData {
@@ -571,5 +581,85 @@ export async function getDocumentsAction() {
   } catch (error) {
     console.error("Get documents error:", error)
     return []
+  }
+}
+
+/**
+ * Fetches API key status for all providers
+ *
+ * Returns only status information (hasKey, isValid), never the actual key value.
+ * This is safe to use in Client Components.
+ *
+ * @returns Promise with API key statuses
+ */
+export async function getApiKeysStatusAction(): Promise<Record<string, ApiKeyStatus>> {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return {}
+  }
+
+  try {
+    const keys = await db
+      .select({
+        provider: userApiKeys.provider,
+        isValid: userApiKeys.isValid,
+        lastValidatedAt: userApiKeys.lastValidatedAt,
+      })
+      .from(userApiKeys)
+      .where(eq(userApiKeys.userId, userId))
+
+    // Convert to record with hasKey flag
+    const result: Record<string, ApiKeyStatus> = {}
+    for (const key of keys) {
+      result[key.provider] = {
+        provider: key.provider,
+        hasKey: true,
+        isValid: key.isValid,
+        lastValidatedAt: key.lastValidatedAt,
+      }
+    }
+
+    return result
+  } catch (error) {
+    console.error("Get API keys status error:", error)
+    return {}
+  }
+}
+
+/**
+ * Fetches all user variables for the current user
+ *
+ * Returns a record of variableKey -> variableValue for all saved variables.
+ * This is safe to use in Client Components.
+ *
+ * @returns Promise with user variables record
+ */
+export async function getUserVariablesAction(): Promise<Record<string, string>> {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return {}
+  }
+
+  try {
+    const variables = await db
+      .select({
+        variableKey: userVariables.variableKey,
+        variableValue: userVariables.variableValue,
+      })
+      .from(userVariables)
+      .where(eq(userVariables.userId, userId))
+
+    // Convert to record for easier consumption
+    const result: Record<string, string> = {}
+    for (const variable of variables) {
+      result[variable.variableKey] = variable.variableValue
+    }
+
+    return result
+  } catch (error) {
+    console.error("Get user variables error:", error)
+    return {}
   }
 }

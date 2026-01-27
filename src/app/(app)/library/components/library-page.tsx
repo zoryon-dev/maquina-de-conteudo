@@ -7,7 +7,8 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Library, Plus, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -28,15 +29,14 @@ import { LibraryGrid } from "./library-grid"
 import { LibraryList } from "./library-list"
 import { EmptyLibraryState } from "./empty-library-state"
 import { ContentDialog } from "./content-dialog"
-import {
-  deleteLibraryItemAction,
-  batchDeleteAction,
-  batchUpdateStatusAction,
-} from "../actions/library-actions"
+import { Pagination } from "@/components/ui/pagination"
 import type { LibraryItemWithRelations } from "@/types/library"
 import type { ContentStatus } from "@/db/schema"
 
 export function LibraryPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
   // View mode (grid/list + sorting)
   const { viewMode, toggleViewMode, setSortBy, toggleSortOrder } = useLibraryView()
 
@@ -51,10 +51,23 @@ export function LibraryPage() {
     toggleStatus,
     toggleCategory,
     toggleTag,
+    toggleDatePreset,
+    clearDateFilter,
   } = useLibraryFilters()
 
-  // Data fetching
-  const { items, isLoading, error, refetch } = useLibraryData(filters, viewMode)
+  // Data fetching with pagination
+  const {
+    items,
+    isLoading,
+    error,
+    refetch,
+    total,
+    page,
+    limit,
+    totalPages,
+    setPage,
+    setLimit,
+  } = useLibraryData({ filters, viewMode })
 
   // Selection state (for batch actions)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -67,6 +80,21 @@ export function LibraryPage() {
   // Delete confirmation dialog state
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<number | null>(null)
+
+  // Handle ?edit=ID parameter to open edit dialog
+  useEffect(() => {
+    const editId = searchParams.get("edit")
+    if (editId && !isLoading && items.length > 0) {
+      const id = parseInt(editId)
+      if (!isNaN(id)) {
+        const itemToEdit = items.find((item) => item.id === id)
+        if (itemToEdit && !dialogOpen) {
+          setEditingItem(itemToEdit)
+          setDialogOpen(true)
+        }
+      }
+    }
+  }, [searchParams, items, isLoading, dialogOpen])
 
   // Selection handlers
   const toggleSelection = (id: number) => {
@@ -120,7 +148,11 @@ export function LibraryPage() {
   const confirmDelete = async () => {
     if (!itemToDelete) return
 
-    const result = await deleteLibraryItemAction(itemToDelete)
+    const response = await fetch(`/api/library/${itemToDelete}`, {
+      method: "DELETE",
+    })
+
+    const result = await response.json()
 
     if (result.success) {
       toast.success("Conteúdo excluído com sucesso")
@@ -137,7 +169,13 @@ export function LibraryPage() {
     const ids = Array.from(selectedIds)
     if (ids.length === 0) return
 
-    const result = await batchDeleteAction(ids)
+    const response = await fetch("/api/library", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    })
+
+    const result = await response.json()
 
     if (result.success) {
       toast.success(`${ids.length} ${ids.length === 1 ? "conteúdo excluído" : "conteúdos excluídos"} com sucesso`)
@@ -152,7 +190,13 @@ export function LibraryPage() {
     const ids = Array.from(selectedIds)
     if (ids.length === 0) return
 
-    const result = await batchUpdateStatusAction(ids, status as ContentStatus)
+    const response = await fetch("/api/library/batch-status", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, status: status as ContentStatus }),
+    })
+
+    const result = await response.json()
 
     if (result.success) {
       const statusLabels: Record<ContentStatus, string> = {
@@ -174,12 +218,28 @@ export function LibraryPage() {
   const handleDialogClose = () => {
     setDialogOpen(false)
     setEditingItem(null)
+    // Limpar o parâmetro ?edit= da URL
+    if (searchParams.get("edit")) {
+      router.push("/library")
+    }
   }
 
   const handleDialogSave = () => {
     setDialogOpen(false)
     setEditingItem(null)
     refetch()
+  }
+
+  // Pagination handlers
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage)
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
+  const handleLimitChange = (newLimit: number) => {
+    setLimit(newLimit)
+    setPage(1) // Reset to first page when changing items per page
+    window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
   return (
@@ -209,6 +269,8 @@ export function LibraryPage() {
         onToggleStatus={toggleStatus}
         onToggleCategory={toggleCategory}
         onToggleTag={toggleTag}
+        onToggleDatePreset={toggleDatePreset}
+        onClearDateFilter={clearDateFilter}
       />
 
       {/* Content Area */}
@@ -244,6 +306,19 @@ export function LibraryPage() {
           sortBy={viewMode.sortBy}
           sortOrder={viewMode.sortOrder}
           onSortBy={setSortBy}
+        />
+      )}
+
+      {/* Pagination - show when there are items */}
+      {!isLoading && !error && items.length > 0 && totalPages > 1 && (
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          total={total}
+          limit={limit}
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+          isLoading={isLoading}
         />
       )}
 

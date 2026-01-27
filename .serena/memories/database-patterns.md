@@ -154,17 +154,25 @@ await db.update(jobs)
 
 ## Schema do Projeto
 
-### 8 Tabelas Principais
+### 10+ Tabelas Principais
 
 ```
-users          → Sincronizado com Clerk (soft delete)
-chats          → Threads de conversa AI
-messages       → Mensagens (role: user/assistant/system)
-library_items  → Biblioteca de conteúdo (type, status, JSON content)
-documents      → Base de conhecimento (RAG)
-sources        → Fontes para scraping (unique: userId+url)
-scheduled_posts→ Fila de publicação (platform, scheduledFor)
-jobs           → Background jobs (type, status, retry logic)
+users                    → Sincronizado com Clerk (soft delete)
+chats                    → Threads de conversa AI
+messages                 → Mensagens (role: user/assistant/system)
+library_items            → Biblioteca de conteúdo (type, status, JSON content)
+scheduled_posts          → Fila de publicação (platform, scheduledFor)
+jobs                     → Background jobs (type, status, retry logic)
+
+# Documentos e RAG (Fase 8) ⭐
+documents                → Documentos para RAG (title, content, category, fileType)
+document_embeddings      → Embeddings (1024 dims JSON, chunkText, chunkIndex)
+document_collections     → Coleções/pastas de documentos (name, description)
+document_collection_items→ Junção many-to-many (collectionId, documentId)
+categories               → Categorias de conteúdo (name, color, icon)
+tags                     → Tags de conteúdo (name, color)
+calendar_events          → Eventos do calendário (date, type, recurrence)
+sources                  → Fontes para scraping (unique: userId+url)
 ```
 
 ## Enums Padrão
@@ -183,8 +191,58 @@ export const jobTypeEnum = pgEnum("job_type", [
   "carousel_creation",
   "scheduled_publish",
   "web_scraping",
+  "document_embedding",  // ⭐ FASE 8 - Gera embeddings RAG
 ]);
 ```
+
+## Padrão Many-to-Many (Coleções)
+
+Quando um documento pode estar em múltiplas coleções:
+
+```typescript
+// Tabela principal
+export const documentCollections = pgTable("document_collections", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  userId: text("user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"), // Soft delete
+});
+
+// Tabela de junção
+export const documentCollectionItems = pgTable("document_collection_items", {
+  id: serial("id").primaryKey(),
+  collectionId: integer("collection_id")
+    .references(() => documentCollections.id, { onDelete: "cascade" })
+    .notNull(),
+  documentId: integer("document_id")
+    .references(() => documents.id, { onDelete: "cascade" })
+    .notNull(),
+  addedAt: timestamp("added_at").defaultNow(),
+});
+```
+
+**Query com innerJoin:**
+```typescript
+const docs = await db
+  .select()
+  .from(documents)
+  .innerJoin(
+    documentCollectionItems,
+    eq(documentCollectionItems.documentId, documents.id)
+  )
+  .where(
+    and(
+      eq(documents.userId, userId),
+      eq(documentCollectionItems.collectionId, collectionId)
+    )
+  );
+```
+
+**Vantagens:**
+- Documento em múltiplas coleções sem duplicar conteúdo
+- `onDelete: "cascade"` limpa junction automaticamente
+- Índices nas FKs aceleram queries
 
 ## Type Inference
 
@@ -242,8 +300,38 @@ await complete_database_migration({ migrationId: "xxx" });
 DATABASE_URL=postgresql://user:pass@host-pooler.region.neon.tech/db?sslmode=require
 ```
 
-### Direto (Não recomendado para serverless)
+### Connection String (Não recomendado para serverless)
 
 ```env
 DATABASE_URL=postgresql://user:pass@host.region.neon.tech/db?sslmode=require
 ```
+
+## JSONB Parsing Pattern
+
+**Problema:** PostgreSQL JSONB columns podem ser retornados como objetos JavaScript pelo Drizzle ORM, não como strings.
+
+**Quando isso acontece:**
+- `response.json()` já faz o parse da resposta HTTP
+- Drizzle ORM retorna JSONB como objetos JavaScript
+- JSON armazenado como string vem como string
+
+**Solução:** Sempre verificar tipo antes de `JSON.parse()`:
+
+```typescript
+// ❌ ERRADO - Assumiu que sempre é string
+const content = JSON.parse(wizard.generatedContent)
+
+// ✅ CORRETO - Verifica tipo antes
+const content = typeof wizard.generatedContent === 'string'
+  ? JSON.parse(wizard.generatedContent)
+  : wizard.generatedContent
+
+// Ou com uma função helper
+function parseJSONB<T>(value: string | T): T {
+  return typeof value === 'string' ? JSON.parse(value) : value;
+}
+
+const content = parseJSONB<GeneratedContent>(wizard.generatedContent);
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/032-json-parse-object-error.md`

@@ -36,6 +36,15 @@ enum JobType {
   CAROUSEL_CREATION = "carousel_creation",
   SCHEDULED_PUBLISH = "scheduled_publish",
   WEB_SCRAPING = "web_scraping",
+  // Social Media (Jan 2026)
+  SOCIAL_PUBLISH_INSTAGRAM = "social_publish_instagram",
+  SOCIAL_PUBLISH_FACEBOOK = "social_publish_facebook",
+}
+  AI_TEXT_GENERATION = "ai_text_generation",
+  AI_IMAGE_GENERATION = "ai_image_generation",
+  CAROUSEL_CREATION = "carousel_creation",
+  SCHEDULED_PUBLISH = "scheduled_publish",
+  WEB_SCRAPING = "web_scraping",
 }
 
 enum JobStatus {
@@ -144,7 +153,7 @@ export async function GET(
 ```env
 UPSTASH_REDIS_REST_URL=https://xxx.upstash.io
 UPSTASH_REDIS_REST_TOKEN=xxx
-WORKER_SECRET=dev-secret  # Para autenticar worker
+WORKER_SECRET=dev-secret-change-in-production  # Para autenticar worker
 ```
 
 ## Chaves do Redis
@@ -154,23 +163,65 @@ jobs:pending      - Lista de jobs pendentes (LPUSH/RPOP)
 jobs:processing   - Lista de jobs em processamento
 ```
 
+## Error Handling (Jan 2026)
+
+**Novo sistema de erros específicos:** `src/lib/errors.ts`
+
+```typescript
+// Erros base
+AppError - Classe base com code, statusCode, details
+ValidationError - Erro de validação (400)
+AuthError - Erro de autenticação (401)
+ForbiddenError - Erro de permissão (403)
+NotFoundError - Recurso não encontrado (404)
+NetworkError - Erro de rede/conexão (503)
+RateLimitError - Rate limit excedido (429)
+ConfigError - Erro de configuração
+JobError - Erro de processamento de job
+
+// Helpers
+toAppError(error) - Normaliza unknown para AppError
+getErrorMessage(error) - Extrai mensagem segura
+getErrorCode(error) - Extrai código do erro
+isRetryableError(error) - Verifica se erro é retryável
+```
+
+### Padrão de Tratamento de Erro
+
+```typescript
+// ANTES - catch genérico
+} catch (error) {
+  console.error("Error:", error)
+  return { error: error instanceof Error ? error.message : "Unknown" }
+}
+
+// DEPOIS - tipos específicos
+} catch (error) {
+  const appError = toAppError(error, "SPECIFIC_CODE")
+  console.error("[Context] Error:", appError)
+  return { error: getErrorMessage(appError), code: appError.code }
+}
+```
+
+### Métricas de Sucesso/Falha
+
+Jobs agora retornam informações detalhadas sobre falhas:
+
+```typescript
+// fetch-metrics.ts
+return { 
+  success: true, 
+  updatedCount, 
+  errors?: MetricsFetchError[] // Array de posts que falharam
+}
+
+// workers/route.ts (image upload)
+return {
+  success: true,
+  uploadFallbacks?: Array<{ slideNumber: number; error: string }>
+}
+```
+
 ## Considerações Importantes
 
 1. **Idempotência**: Workers devem ser idempotentes para processar jobs duplicados
-2. **Timeout**: Jobs longos devem usar estratégias de checkpoint
-3. **Prioridade**: Maior número = maior prioridade (invertido no score)
-4. **Agendamento**: Jobs com `scheduledFor` não são enfileirados imediatamente
-
-## Integrando com Agendadores
-
-### Cron Job
-```bash
-# Executar worker a cada minuto
-* * * * * curl -X POST https://api.example.com/api/workers \
-  -H "Authorization: Bearer $WORKER_SECRET"
-```
-
-### Upstash QStash
-```typescript
-// Configurar schedule no QStash para chamar worker
-```

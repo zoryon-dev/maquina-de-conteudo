@@ -21,7 +21,9 @@ import {
   Check,
   ChevronRight,
   RotateCcw,
+  Loader2,
 } from "lucide-react"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -31,6 +33,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  getUserVariablesAction,
+  saveVariableAction,
+  deleteVariableAction,
+} from "@/app/(app)/settings/actions"
 
 /**
  * Variable field configuration
@@ -216,21 +223,38 @@ interface VariableEditDialogProps {
   key: string
   config: VariableFieldConfig
   value: string
-  onSave: (value: string) => void
+  onSave: (value: string) => Promise<void>
+  isLoading?: boolean
 }
 
-function VariableEditDialog({ open, onOpenChange, key: varKey, config, value, onSave }: VariableEditDialogProps) {
+function VariableEditDialog({
+  open,
+  onOpenChange,
+  key: varKey,
+  config,
+  value,
+  onSave,
+  isLoading
+}: VariableEditDialogProps) {
   const [tempValue, setTempValue] = React.useState(value)
   const [showExamples, setShowExamples] = React.useState(false)
+  const [isSaving, setIsSaving] = React.useState(false)
   const Icon = config.icon
 
   React.useEffect(() => {
     setTempValue(value)
   }, [value])
 
-  const handleSave = () => {
-    onSave(tempValue)
-    onOpenChange(false)
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      await onSave(tempValue)
+      onOpenChange(false)
+    } catch (error) {
+      // Error handling is done in the parent component
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleExampleClick = (example: string) => {
@@ -306,11 +330,13 @@ function VariableEditDialog({ open, onOpenChange, key: varKey, config, value, on
               onChange={(e) => setTempValue(e.target.value)}
               placeholder={config.placeholder}
               rows={4}
+              disabled={isSaving}
               className={cn(
                 "w-full px-4 py-3 rounded-xl border text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 resize-none",
                 config.warning
                   ? "bg-red-950/30 border-red-500/20 focus:ring-red-500/50"
-                  : "bg-[#0a0a0f] border-white/10 focus:ring-primary/50"
+                  : "bg-[#0a0a0f] border-white/10 focus:ring-primary/50",
+                isSaving && "opacity-50 cursor-not-allowed"
               )}
             />
           </div>
@@ -322,6 +348,7 @@ function VariableEditDialog({ open, onOpenChange, key: varKey, config, value, on
             type="button"
             variant="ghost"
             onClick={() => onOpenChange(false)}
+            disabled={isSaving}
             className="text-white/60 hover:text-white hover:bg-white/5"
           >
             Cancelar
@@ -329,9 +356,17 @@ function VariableEditDialog({ open, onOpenChange, key: varKey, config, value, on
           <Button
             type="button"
             onClick={handleSave}
+            disabled={isSaving || tempValue === value}
             className="bg-primary text-black hover:bg-primary/90"
           >
-            Salvar
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              "Salvar"
+            )}
           </Button>
         </div>
       </DialogContent>
@@ -357,15 +392,45 @@ export function VariablesSection({ onChange, className }: VariablesSectionProps)
   const [values, setValues] = React.useState<Record<string, string>>({})
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [selectedKey, setSelectedKey] = React.useState<string | null>(null)
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [isSaving, setIsSaving] = React.useState(false)
+
+  // Load variables from database on mount
+  React.useEffect(() => {
+    const loadVariables = async () => {
+      setIsLoading(true)
+      try {
+        const savedVariables = await getUserVariablesAction()
+        setValues(savedVariables)
+      } catch (error) {
+        console.error("Failed to load variables:", error)
+        toast.error("Erro ao carregar variáveis")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadVariables()
+  }, [])
 
   const handleValueChange = (key: string, value: string) => {
     setValues((prev) => ({ ...prev, [key]: value }))
     onChange?.()
   }
 
-  const handleReset = () => {
-    setValues({})
-    onChange?.()
+  const handleReset = async () => {
+    // Delete all variables
+    try {
+      await Promise.all(
+        Object.keys(values).map((key) => deleteVariableAction(key))
+      )
+      setValues({})
+      onChange?.()
+      toast.success("Variáveis resetadas com sucesso!")
+    } catch (error) {
+      console.error("Failed to reset variables:", error)
+      toast.error("Erro ao resetar variáveis")
+    }
   }
 
   const openDialog = (key: string) => {
@@ -373,9 +438,35 @@ export function VariablesSection({ onChange, className }: VariablesSectionProps)
     setDialogOpen(true)
   }
 
-  const handleDialogSave = (value: string) => {
-    if (selectedKey) {
-      handleValueChange(selectedKey, value)
+  const handleDialogSave = async (value: string) => {
+    if (!selectedKey) return
+
+    setIsSaving(true)
+    try {
+      if (value.trim()) {
+        // Save or update variable
+        const result = await saveVariableAction(selectedKey, value)
+        if (result.success) {
+          handleValueChange(selectedKey, value)
+          toast.success(`${VARIABLES_CONFIG[selectedKey].label} salva com sucesso!`)
+        } else {
+          throw new Error(result.error)
+        }
+      } else {
+        // Delete if value is empty
+        const result = await deleteVariableAction(selectedKey)
+        if (result.success) {
+          handleValueChange(selectedKey, "")
+          toast.success(`${VARIABLES_CONFIG[selectedKey].label} removida.`)
+        } else {
+          throw new Error(result.error)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to save variable:", error)
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar variável")
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -404,6 +495,7 @@ export function VariablesSection({ onChange, className }: VariablesSectionProps)
             size="sm"
             variant="ghost"
             onClick={handleReset}
+            disabled={isLoading}
             className="text-white/60 hover:text-white hover:bg-white/5"
           >
             <RotateCcw className="h-4 w-4 mr-1" />
@@ -431,24 +523,30 @@ export function VariablesSection({ onChange, className }: VariablesSectionProps)
       </div>
 
       {/* Variables Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {VARIABLE_ORDER.map((key) => {
-          const config = VARIABLES_CONFIG[key]
-          const value = values[key] || ""
-          const hasValue = value.trim().length > 0
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 text-primary animate-spin" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {VARIABLE_ORDER.map((key) => {
+            const config = VARIABLES_CONFIG[key]
+            const value = values[key] || ""
+            const hasValue = value.trim().length > 0
 
-          return (
-            <VariableCard
-              key={key}
-              varKey={key}
-              config={config}
-              value={value}
-              hasValue={hasValue}
-              onClick={() => openDialog(key)}
-            />
-          )
-        })}
-      </div>
+            return (
+              <VariableCard
+                key={key}
+                varKey={key}
+                config={config}
+                value={value}
+                hasValue={hasValue}
+                onClick={() => openDialog(key)}
+              />
+            )
+          })}
+        </div>
+      )}
 
       {/* Tips */}
       <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
@@ -470,6 +568,7 @@ export function VariablesSection({ onChange, className }: VariablesSectionProps)
           config={selectedConfig}
           value={selectedValue}
           onSave={handleDialogSave}
+          isLoading={isSaving}
         />
       )}
     </div>

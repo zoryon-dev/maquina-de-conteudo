@@ -2,11 +2,15 @@
  * API Route for validating API keys
  *
  * Validates API keys by calling the provider's endpoint.
- * Returns validation result without storing the key.
+ * When valid, automatically saves the encrypted key to the database.
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
+import { db } from "@/db"
+import { userApiKeys } from "@/db/schema"
+import { eq, and } from "drizzle-orm"
+import { encryptApiKey } from "@/lib/encryption"
 
 /**
  * Supported API providers
@@ -25,10 +29,11 @@ type Provider = (typeof VALID_PROVIDERS)[number]
 /**
  * POST /api/settings/validate-api-key
  *
- * Validates an API key for a specific provider
+ * Validates an API key for a specific provider.
+ * When valid, automatically saves the encrypted key to the database.
  *
  * @body { provider: string, apiKey: string }
- * @returns { valid: boolean, error?: string }
+ * @returns { valid: boolean, saved: boolean, error?: string }
  */
 export async function POST(request: NextRequest) {
   const { userId } = await auth()
@@ -60,7 +65,49 @@ export async function POST(request: NextRequest) {
     // Validate with specific provider
     const result = await validateProviderApiKey(provider as Provider, apiKey)
 
-    return NextResponse.json(result)
+    // If valid, save the encrypted key to database
+    if (result.valid && userId) {
+      try {
+        const { encryptedKey, nonce } = encryptApiKey(apiKey)
+
+        // Check if key exists for this provider
+        const existing = await db
+          .select()
+          .from(userApiKeys)
+          .where(and(eq(userApiKeys.userId, userId), eq(userApiKeys.provider, provider)))
+          .limit(1)
+
+        if (existing.length > 0) {
+          // Update existing
+          await db
+            .update(userApiKeys)
+            .set({
+              encryptedKey,
+              nonce,
+              isValid: true,
+              lastValidatedAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(and(eq(userApiKeys.userId, userId), eq(userApiKeys.provider, provider)))
+        } else {
+          // Insert new
+          await db.insert(userApiKeys).values({
+            userId,
+            provider,
+            encryptedKey,
+            nonce,
+            isValid: true,
+            lastValidatedAt: new Date(),
+          })
+        }
+      } catch (saveError) {
+        console.error("Failed to save API key:", saveError)
+        // Return valid but indicate save failed
+        return NextResponse.json({ ...result, saved: false })
+      }
+    }
+
+    return NextResponse.json({ ...result, saved: result.valid })
   } catch (error) {
     console.error("API key validation error:", error)
     return NextResponse.json(

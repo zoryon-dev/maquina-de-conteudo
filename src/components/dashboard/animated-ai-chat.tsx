@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useCallback, useTransition, useState } from "react"
+import { useEffect, useRef, useCallback, useState, useMemo } from "react"
+import { useChat } from "@ai-sdk/react"
 import { cn } from "@/lib/utils"
 import {
   ImageIcon,
@@ -15,10 +16,16 @@ import {
   LoaderIcon,
   MessageSquare,
   Bot,
+  StopCircle,
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ModelSelector, useModelSelector } from "@/components/chat/model-selector"
-import { DEFAULT_TEXT_MODEL } from "@/lib/models"
+import { RagContextSelector, useRagCategories } from "@/components/chat/rag-context-selector"
+import { ChatMessageSources, type ChatSource } from "@/components/chat"
+import { AgentPalette } from "@/components/chat/agent-palette"
+import { AgentSelector } from "@/components/chat/agent-selector"
+import { AGENTS, type AgentType } from "@/lib/agents"
+import type { RagCategory } from "@/lib/rag"
 
 interface UseAutoResizeTextareaProps {
   minHeight: number
@@ -79,7 +86,14 @@ interface CommandSuggestion {
 }
 
 interface AnimatedAIChatProps {
-  onSendMessage?: (message: string, model?: string) => void
+  /** Initial agent to use (default: "zory") */
+  initialAgent?: AgentType
+  /** Callback when agent changes */
+  onAgentChange?: (agent: AgentType) => void
+  /** Initial RAG categories */
+  initialCategories?: RagCategory[]
+  /** Whether to use RAG by default */
+  useRagByDefault?: boolean
 }
 
 /**
@@ -90,11 +104,14 @@ interface AnimatedAIChatProps {
  *
  * Cores adaptadas para Lime Green do sistema.
  */
-export function AnimatedAIChat({ onSendMessage }: AnimatedAIChatProps) {
+export function AnimatedAIChat({
+  initialAgent = "zory",
+  onAgentChange,
+  initialCategories,
+  useRagByDefault = true,
+}: AnimatedAIChatProps) {
   const [value, setValue] = useState("")
   const [attachments, setAttachments] = useState<string[]>([])
-  const [isTyping, setIsTyping] = useState(false)
-  const [, startTransition] = useTransition()
   const [activeSuggestion, setActiveSuggestion] = useState<number>(-1)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
@@ -105,8 +122,46 @@ export function AnimatedAIChat({ onSendMessage }: AnimatedAIChatProps) {
   const [inputFocused, setInputFocused] = useState(false)
   const commandPaletteRef = useRef<HTMLDivElement>(null)
 
+  // Agent selection state
+  const [currentAgent, setCurrentAgent] = useState<AgentType>(initialAgent)
+  const [showAgentPalette, setShowAgentPalette] = useState(false)
+  const [agentQuery, setAgentQuery] = useState("")
+
   // Model selection state
   const { selectedModel, setSelectedModel } = useModelSelector()
+
+  // RAG context selection state
+  const { selected: ragCategories } = useRagCategories()
+
+  // Use Vercel AI SDK v3 useChat hook for streaming
+  const { messages, status, error, sendMessage, stop } = useChat()
+
+  const isTyping = status === "streaming"
+
+  // Log errors for debugging
+  useEffect(() => {
+    if (error) {
+      console.error("Chat error:", error)
+    }
+  }, [error])
+
+  // Extract text from message
+  const getMessageText = useCallback((message: { parts?: Array<{ type: string; text?: string }> }): string => {
+    if (!message.parts) return ""
+    return message.parts
+      .filter((part) => part.type === "text" && part.text)
+      .map((part) => part.text)
+      .join("")
+  }, [])
+
+  // Get last assistant message for display (memoized to prevent re-renders)
+  const lastResponseText = useMemo(() => {
+    const lastAssistantMessage = messages.filter((m) => m.role === "assistant").pop()
+    return lastAssistantMessage ? getMessageText(lastAssistantMessage) : null
+  }, [messages, getMessageText])
+
+  // Extract RAG sources from response headers (if available)
+  const [sources, setSources] = useState<ChatSource[] | null>(null)
 
   // Comandos específicos para Máquina de Conteúdo
   const commandSuggestions: CommandSuggestion[] = [
@@ -149,8 +204,10 @@ export function AnimatedAIChat({ onSendMessage }: AnimatedAIChatProps) {
   ]
 
   useEffect(() => {
+    // Detect /command trigger
     if (value.startsWith("/") && !value.includes(" ")) {
       setShowCommandPalette(true)
+      setShowAgentPalette(false) // Close agent palette when command palette opens
 
       const matchingSuggestionIndex = commandSuggestions.findIndex((cmd) =>
         cmd.prefix.startsWith(value)
@@ -161,8 +218,15 @@ export function AnimatedAIChat({ onSendMessage }: AnimatedAIChatProps) {
       } else {
         setActiveSuggestion(-1)
       }
+    } else if (value.startsWith("@") && !value.includes(" ")) {
+      // Detect @agent trigger
+      setShowAgentPalette(true)
+      setShowCommandPalette(false) // Close command palette when agent palette opens
+      setAgentQuery(value.slice(1)) // Query is text after @
     } else {
       setShowCommandPalette(false)
+      setShowAgentPalette(false)
+      setAgentQuery("")
     }
   }, [value])
 
@@ -188,6 +252,7 @@ export function AnimatedAIChat({ onSendMessage }: AnimatedAIChatProps) {
         !commandButton?.contains(target)
       ) {
         setShowCommandPalette(false)
+        setShowAgentPalette(false)
       }
     }
 
@@ -220,6 +285,25 @@ export function AnimatedAIChat({ onSendMessage }: AnimatedAIChatProps) {
         e.preventDefault()
         setShowCommandPalette(false)
       }
+    } else if (showAgentPalette) {
+      if (e.key === "Escape") {
+        e.preventDefault()
+        setShowAgentPalette(false)
+      } else if (e.key === "Tab" || e.key === "Enter") {
+        e.preventDefault()
+        // Select first matching agent
+        const matchedAgent = Object.values(AGENTS).find(
+          (agent) =>
+            agent.handle.toLowerCase() === `@${agentQuery.toLowerCase()}` ||
+            agent.id.toLowerCase() === agentQuery.toLowerCase()
+        )
+        if (matchedAgent) {
+          setValue(`${matchedAgent.handle} `)
+          setCurrentAgent(matchedAgent.id)
+          onAgentChange?.(matchedAgent.id)
+          setShowAgentPalette(false)
+        }
+      }
     } else if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       if (value.trim()) {
@@ -230,17 +314,50 @@ export function AnimatedAIChat({ onSendMessage }: AnimatedAIChatProps) {
 
   const handleSendMessage = () => {
     if (value.trim()) {
-      startTransition(() => {
-        onSendMessage?.(value, selectedModel)
-        setIsTyping(true)
+      // Check if message starts with @agent and handle agent switching
+      let messageToSend = value
+      let agentToSend = currentAgent
+
+      if (value.startsWith("@")) {
+        const parts = value.slice(1).split(/\s+/)
+        const potentialHandle = `@${parts[0].toLowerCase()}`
+
+        // Find agent by handle
+        const matchedAgent = Object.values(AGENTS).find(
+          (agent) => agent.handle.toLowerCase() === potentialHandle
+        )
+
+        if (matchedAgent) {
+          agentToSend = matchedAgent.id
+          setCurrentAgent(matchedAgent.id)
+          onAgentChange?.(matchedAgent.id)
+
+          // Remove the @handle from the message
+          messageToSend = value.slice(potentialHandle.length).trim()
+        }
+      }
+
+      if (messageToSend) {
+        // Send via Vercel AI SDK
+        // Use parts format which is the correct SDK message format
+        sendMessage(
+          { parts: [{ type: "text", text: messageToSend }] },
+          {
+            body: {
+              agent: agentToSend,
+              model: selectedModel,
+              categories: ragCategories,
+              useRag: useRagByDefault,
+            },
+          }
+        )
         setValue("")
         adjustHeight(true)
-
-        // Simular resposta da IA
-        setTimeout(() => {
-          setIsTyping(false)
-        }, 2000)
-      })
+      } else {
+        // Just switch agent without sending message
+        setValue("")
+        adjustHeight(true)
+      }
     }
   }
 
@@ -257,6 +374,15 @@ export function AnimatedAIChat({ onSendMessage }: AnimatedAIChatProps) {
     const selectedCommand = commandSuggestions[index]
     setValue(selectedCommand.prefix + " ")
     setShowCommandPalette(false)
+    textareaRef.current?.focus()
+  }
+
+  const handleAgentSelect = (agentId: AgentType) => {
+    const agent = AGENTS[agentId]
+    setValue(`${agent.handle} `)
+    setCurrentAgent(agentId)
+    onAgentChange?.(agentId)
+    setShowAgentPalette(false)
     textareaRef.current?.focus()
   }
 
@@ -346,6 +472,80 @@ export function AnimatedAIChat({ onSendMessage }: AnimatedAIChatProps) {
                         </div>
                       </motion.div>
                     ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Agent Palette */}
+            <AnimatePresence>
+              {showAgentPalette && (
+                <motion.div
+                  ref={commandPaletteRef}
+                  className="absolute left-4 right-4 bottom-full mb-2 backdrop-blur-xl bg-black/90 rounded-lg z-50 shadow-lg border border-white/10 overflow-hidden"
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 5 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <div className="py-1 bg-black/95">
+                    <div className="px-3 py-2 border-b border-white/[0.05]">
+                      <p className="text-xs text-white/50 font-medium">
+                        {agentQuery ? `Agente: "@${agentQuery}"` : "Selecione um agente"}
+                      </p>
+                    </div>
+                    {Object.values(AGENTS)
+                      .filter(
+                        (agent) =>
+                          !agentQuery ||
+                          agent.handle.toLowerCase().includes(`@${agentQuery.toLowerCase()}`) ||
+                          agent.id.toLowerCase().includes(agentQuery.toLowerCase()) ||
+                          agent.name.toLowerCase().includes(agentQuery.toLowerCase())
+                      )
+                      .map((agent, index) => {
+                        const AgentIcon = agent.icon === "Bot" ? Bot :
+                          agent.icon === "Target" ? Command :
+                          agent.icon === "Sparkles" ? Sparkles :
+                          agent.icon === "Calendar" ? Calendar : Bot
+
+                        return (
+                          <motion.div
+                            key={agent.id}
+                            className={cn(
+                              "flex items-center gap-3 px-3 py-2.5 text-xs transition-colors cursor-pointer",
+                              "hover:bg-white/5 text-white/70"
+                            )}
+                            onClick={() => handleAgentSelect(agent.id)}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: index * 0.03 }}
+                          >
+                            {/* Color indicator */}
+                            <span
+                              className="w-1 h-8 rounded-full"
+                              style={{ backgroundColor: agent.color }}
+                            />
+                            {/* Agent icon */}
+                            <span
+                              className="flex items-center justify-center rounded-full w-8 h-8 bg-white/5"
+                            >
+                              <span
+                                className="w-4 h-4 flex items-center justify-center"
+                                style={{ color: agent.color }}
+                              >
+                                <AgentIcon className="w-full h-full" />
+                              </span>
+                            </span>
+                            {/* Agent info */}
+                            <div className="flex-1 text-left">
+                              <div className="font-medium text-white/90">{agent.name}</div>
+                              <div className="text-white/40 text-xs">
+                                {agent.handle} · {agent.shortDescription}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )
+                      })}
                   </div>
                 </motion.div>
               )}
@@ -447,8 +647,19 @@ export function AnimatedAIChat({ onSendMessage }: AnimatedAIChatProps) {
                 {/* Model Selector */}
                 <ModelSelector
                   value={selectedModel}
-                  onValueChange={setSelectedModel}
+                  onChange={setSelectedModel}
                 />
+                {/* Agent Selector */}
+                <AgentSelector
+                  value={currentAgent}
+                  onValueChange={(agent) => {
+                    setCurrentAgent(agent)
+                    onAgentChange?.(agent)
+                  }}
+                  size="sm"
+                />
+                {/* RAG Context Selector */}
+                <RagContextSelector compact />
               </div>
 
               <motion.button
@@ -523,6 +734,67 @@ export function AnimatedAIChat({ onSendMessage }: AnimatedAIChatProps) {
                 <span>Digitando</span>
                 <TypingDots />
               </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Response Display */}
+      <AnimatePresence>
+        {(lastResponseText || isTyping) && (
+          <motion.div
+            className="fixed bottom-8 left-1/2 right-4 sm:right-auto -translate-x-1/2 sm:w-full sm:max-w-2xl backdrop-blur-2xl bg-white/[0.02] rounded-xl border border-white/[0.05] shadow-lg overflow-hidden"
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.98 }}
+          >
+            <div className="p-4">
+              {/* Response header */}
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Bot className="w-4 h-4 text-primary" />
+                </div>
+                <span className="text-sm font-medium text-white/90">Assistente</span>
+              </div>
+
+              {/* Response text */}
+              <div className="text-sm text-white/80 whitespace-pre-wrap mb-4">
+                {lastResponseText}
+              </div>
+
+              {/* RAG Sources */}
+              {sources && sources.length > 0 && (
+                <ChatMessageSources
+                  sources={sources}
+                  chunksIncluded={sources.length}
+                  className="border-t border-white/10 pt-3"
+                />
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Error Display */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            className="fixed bottom-8 left-1/2 right-4 sm:right-auto -translate-x-1/2 sm:w-full sm:max-w-2xl backdrop-blur-2xl bg-red-500/10 rounded-xl border border-red-500/20 shadow-lg overflow-hidden"
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.98 }}
+          >
+            <div className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm font-medium text-red-400">Erro no chat</span>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="text-xs text-red-300 hover:text-red-200 underline"
+                >
+                  Recarregar
+                </button>
+              </div>
+              <p className="text-sm text-red-300/80">{error.message || "Erro desconhecido"}</p>
             </div>
           </motion.div>
         )}

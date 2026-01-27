@@ -11,6 +11,11 @@ export enum JobType {
   CAROUSEL_CREATION = "carousel_creation",
   SCHEDULED_PUBLISH = "scheduled_publish",
   WEB_SCRAPING = "web_scraping",
+  DOCUMENT_EMBEDDING = "document_embedding",
+  WIZARD_NARRATIVES = "wizard_narratives",
+  WIZARD_GENERATION = "wizard_generation",
+  WIZARD_IMAGE_GENERATION = "wizard_image_generation",
+  WIZARD_THUMBNAIL_GENERATION = "wizard_thumbnail_generation", // NOVO
 }
 
 // Status dos jobs
@@ -35,6 +40,47 @@ export interface AiImageGenerationPayload {
   aspectRatio?: string;
 }
 
+/**
+ * Payload for wizard image generation job
+ * Generates images for wizard content and syncs to library
+ */
+export interface WizardImageGenerationPayload {
+  /** Wizard ID */
+  wizardId: number;
+  /** User ID for authorization */
+  userId: string;
+  /** Image generation configuration */
+  config: {
+    method: "ai" | "html-template";
+    aiOptions?: {
+      model: string;
+      color: string;
+      style: string;
+      composition?: string;
+      mood?: string;
+      customColor?: string;
+      additionalContext?: string;
+    };
+    htmlOptions?: {
+      template: string;
+      title?: string;
+      body?: string;
+      cta?: string;
+      backgroundColor?: string;
+      textColor?: string;
+      accentColor?: string;
+    };
+    coverPosts?: {
+      coverMethod: "ai" | "html-template";
+      coverAiOptions?: any;
+      coverHtmlOptions?: any;
+      postsMethod: "ai" | "html-template";
+      postsAiOptions?: any;
+      postsHtmlOptions?: any;
+    };
+  };
+}
+
 export interface CarouselCreationPayload {
   slides: Array<{
     image?: string;
@@ -53,13 +99,142 @@ export interface WebScrapingPayload {
   selector?: string;
 }
 
+/**
+ * Payload for document embedding job
+ * Processes a document through chunking and generates Voyage AI embeddings
+ */
+export interface DocumentEmbeddingPayload {
+  /** Document ID to process */
+  documentId: number;
+  /** User ID for authorization */
+  userId: string;
+  /** Optional: force re-embedding even if already embedded */
+  force?: boolean;
+  /** Optional: specific model to use (default: voyage-4-large) */
+  model?: "voyage-4-large" | "voyage-4";
+}
+
+/**
+ * Payload for wizard narratives job
+ * Generates 3 narrative options based on user input
+ */
+export interface WizardNarrativesPayload {
+  /** Wizard ID */
+  wizardId: number;
+  /** User ID for authorization */
+  userId: string;
+  /** Content type (carousel, text, etc.) */
+  contentType: string;
+  /** Reference URL for Firecrawl extraction */
+  referenceUrl?: string;
+  /** Reference video URL for Apify transcription */
+  referenceVideoUrl?: string;
+  /** Theme/context from user input */
+  theme?: string;
+  context?: string;
+  objective?: string;
+  cta?: string;
+  targetAudience?: string;
+  /** Video duration (for video content) */
+  videoDuration?: string;
+  /** Number of slides (for carousel content) */
+  numberOfSlides?: number;
+  /** Custom user instructions */
+  customInstructions?: string;
+  /** RAG configuration */
+  ragConfig?: {
+    mode?: "auto" | "manual";
+    threshold?: number;
+    maxChunks?: number;
+    documents?: number[];
+    collections?: number[];
+  };
+}
+
+/**
+ * Payload for wizard generation job
+ * Generates final content based on selected narrative
+ */
+export interface WizardGenerationPayload {
+  /** Wizard ID */
+  wizardId: number;
+  /** User ID for authorization */
+  userId: string;
+  /** Selected narrative ID */
+  selectedNarrativeId: string;
+  /** Content type (carousel, text, etc.) */
+  contentType: string;
+  /** Number of slides (for carousels) */
+  numberOfSlides?: number;
+  /** AI model to use */
+  model?: string;
+  /** RAG configuration */
+  ragConfig?: {
+    mode?: "auto" | "manual";
+    threshold?: number;
+    maxChunks?: number;
+    documents?: number[];
+    collections?: number[];
+  };
+  /** Selected video title for video content (optional) */
+  selectedVideoTitle?: {
+    id: string;
+    title: string;
+    hook_factor: number;
+    reason: string;
+  };
+}
+
+/**
+ * Payload for wizard thumbnail generation job
+ * Generates YouTube thumbnail using Nano Banana format asynchronously
+ */
+export interface WizardThumbnailGenerationPayload {
+  /** Wizard ID */
+  wizardId: number;
+  /** User ID for authorization */
+  userId: string;
+  /** Thumbnail title (4-6 words) */
+  thumbnailTitle: string;
+  /** Nano Banana style */
+  estilo?: string;
+  /** Thematic context */
+  contextoTematico: string;
+  /** Facial expression */
+  expressao?: string;
+  /** Reference image 1 (base64) */
+  referenciaImagem1?: string;
+  /** Reference image 2 (base64) */
+  referenciaImagem2?: string;
+  /** Script context */
+  roteiroContext?: {
+    valorCentral?: string;
+    hookTexto?: string;
+    thumbnailTitulo?: string;
+    thumbnailEstilo?: string;
+  };
+  /** Advanced configuration */
+  instrucoesCustomizadas?: string;
+  tipoFundo?: string;
+  corTexto?: string;
+  posicaoTexto?: string;
+  tipoIluminacao?: string;
+  /** Optional AI model override */
+  model?: string;
+}
+
 // Tipo union de todos os payloads
 export type JobPayload =
   | AiTextGenerationPayload
   | AiImageGenerationPayload
   | CarouselCreationPayload
   | ScheduledPublishPayload
-  | WebScrapingPayload;
+  | WebScrapingPayload
+  | DocumentEmbeddingPayload
+  | WizardNarrativesPayload
+  | WizardGenerationPayload
+  | WizardImageGenerationPayload
+  | WizardThumbnailGenerationPayload;
 
 // Estrutura de um job
 export interface QueueJob {

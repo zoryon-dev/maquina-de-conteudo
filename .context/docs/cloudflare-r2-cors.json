@@ -1,0 +1,18 @@
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://maquina-de-conteudo.vercel.app",
+      "https://storage-mc.zoryon.org",
+      "https://*.zoryon.org"
+    ],
+    "AllowedMethods": [
+      "GET",
+      "HEAD"
+    ],
+    "AllowedHeaders": [
+      "*"
+    ],
+    "MaxAgeSeconds": 3600
+  }
+]

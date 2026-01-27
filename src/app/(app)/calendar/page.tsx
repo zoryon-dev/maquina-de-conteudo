@@ -15,7 +15,6 @@ import { useCalendarNavigation } from "./hooks/use-calendar-navigation"
 import { useCalendarFilters } from "./hooks/use-calendar-filters"
 import { useCalendarPosts } from "./hooks/use-calendar-posts"
 import { getDateRange } from "@/lib/calendar-utils"
-import { createPostAction, updatePostAction, reschedulePostAction, duplicatePostAction, deletePostAction } from "./actions/calendar-actions"
 import type { CalendarPost, PostFormData } from "@/types/calendar"
 
 /**
@@ -69,7 +68,7 @@ function CalendarClient() {
     if (!confirm("Tem certeza que deseja excluir este post?")) return
 
     try {
-      await deletePostAction(postId)
+      await fetch(`/api/calendar/posts/${postId}`, { method: "DELETE" })
       refetch()
     } catch (error) {
       console.error("Failed to delete post:", error)
@@ -79,7 +78,11 @@ function CalendarClient() {
   // Handle post duplicate
   const handlePostDuplicate = async (postId: number) => {
     try {
-      await duplicatePostAction(postId)
+      await fetch(`/api/calendar/posts/${postId}/duplicate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      })
       refetch()
     } catch (error) {
       console.error("Failed to duplicate post:", error)
@@ -89,7 +92,11 @@ function CalendarClient() {
   // Handle post drop (reschedule)
   const handlePostDrop = async (postId: number, newDate: Date) => {
     try {
-      await reschedulePostAction(postId, newDate)
+      await fetch(`/api/calendar/posts/${postId}/reschedule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newDate: newDate.toISOString() }),
+      })
       refetch()
     } catch (error) {
       console.error("Failed to reschedule post:", error)
@@ -101,9 +108,17 @@ function CalendarClient() {
     setIsSaving(true)
     try {
       if (editingPost) {
-        await updatePostAction(editingPost.id, data)
+        await fetch(`/api/calendar/posts/${editingPost.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        })
       } else {
-        await createPostAction(data)
+        await fetch("/api/calendar/posts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        })
       }
       refetch()
     } catch (error) {
@@ -168,13 +183,13 @@ function CalendarClient() {
  */
 export default function CalendarPage() {
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="space-y-6">
       {/* Page Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">
+      <div>
+        <h1 className="text-2xl font-semibold text-white mb-1">
           Calendário Editorial
         </h1>
-        <p className="text-white/60">
+        <p className="text-sm text-white/60">
           Planeje e agende seus posts para redes sociais
         </p>
       </div>

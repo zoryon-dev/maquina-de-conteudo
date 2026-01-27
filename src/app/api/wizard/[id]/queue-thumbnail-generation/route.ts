@@ -1,0 +1,176 @@
+/**
+ * API Route: Queue Thumbnail Generation (Async)
+ *
+ * POST /api/wizard/[id]/queue-thumbnail-generation
+ *
+ * Creates a job for asynchronous YouTube thumbnail generation using Nano Banana format.
+ * This prevents timeouts by processing the thumbnail generation in the background.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { createJob } from "@/lib/queue/jobs";
+import { JobType } from "@/lib/queue/types";
+import { db } from "@/db";
+import { contentWizards } from "@/db/schema";
+import { eq } from "drizzle-orm";
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface QueueThumbnailGenerationRequestBody {
+  thumbnailTitle: string;
+  estilo?: string;
+  contextoTematico: string;
+  expressao?: string;
+  referenciaImagem1?: string;
+  referenciaImagem2?: string;
+  roteiroContext?: {
+    valorCentral?: string;
+    hookTexto?: string;
+    thumbnailTitulo?: string;
+    thumbnailEstilo?: string;
+  };
+  instrucoesCustomizadas?: string;
+  tipoFundo?: string;
+  corTexto?: string;
+  posicaoTexto?: string;
+  tipoIluminacao?: string;
+  model?: string;
+}
+
+interface QueueThumbnailGenerationResponse {
+  success: boolean;
+  jobId?: number;
+  message?: string;
+  error?: string;
+}
+
+// ============================================================================
+// HANDLER
+// ============================================================================
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    // Await params in Next.js 15+
+    const { id: wizardId } = await params;
+
+    // Authenticate user
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized",
+        },
+        { status: 401 }
+      );
+    }
+
+    // Parse request body
+    const body: QueueThumbnailGenerationRequestBody = await request.json();
+
+    // Validate required fields
+    if (!body.thumbnailTitle || !body.contextoTematico) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing required fields: thumbnailTitle and contextoTematico",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Verify wizard ownership
+    const [wizard] = await db
+      .select()
+      .from(contentWizards)
+      .where(eq(contentWizards.id, parseInt(wizardId)))
+      .limit(1);
+
+    if (!wizard) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Wizard not found",
+        },
+        { status: 404 }
+      );
+    }
+
+    if (wizard.userId !== userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized: wizard belongs to different user",
+        },
+        { status: 403 }
+      );
+    }
+
+    // Update wizard status to processing
+    await db
+      .update(contentWizards)
+      .set({
+        jobStatus: "processing" as any,
+        processingProgress: {
+          stage: "thumbnail",
+          percent: 10,
+          message: "Thumbnail enfileirada para geração assíncrona...",
+        },
+        jobError: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(contentWizards.id, parseInt(wizardId)));
+
+    // Create job for thumbnail generation
+    const jobId = await createJob(
+      userId,
+      JobType.WIZARD_THUMBNAIL_GENERATION,
+      {
+        wizardId: parseInt(wizardId),
+        userId,
+        thumbnailTitle: body.thumbnailTitle,
+        estilo: body.estilo,
+        contextoTematico: body.contextoTematico,
+        expressao: body.expressao,
+        referenciaImagem1: body.referenciaImagem1,
+        referenciaImagem2: body.referenciaImagem2,
+        roteiroContext: body.roteiroContext,
+        instrucoesCustomizadas: body.instrucoesCustomizadas,
+        tipoFundo: body.tipoFundo,
+        corTexto: body.corTexto,
+        posicaoTexto: body.posicaoTexto,
+        tipoIluminacao: body.tipoIluminacao,
+        model: body.model,
+      }
+    );
+
+    console.log(`[QUEUE-THUMBNAIL] Created job ${jobId} for wizard ${wizardId}`);
+
+    const response: QueueThumbnailGenerationResponse = {
+      success: true,
+      jobId,
+      message: "Thumbnail generation job created successfully",
+    };
+
+    return NextResponse.json(response);
+  } catch (error) {
+    console.error("[QUEUE-THUMBNAIL] Error creating job:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unknown error creating thumbnail generation job",
+      },
+      { status: 500 }
+    );
+  }
+}

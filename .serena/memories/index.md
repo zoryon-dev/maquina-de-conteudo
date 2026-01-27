@@ -13,12 +13,17 @@
 - **[settings-page](serena:read?memory=settings-page.md)** - Página de configurações completa ⭐
 
 ### Features
+- **[discovery-patterns](serena:read?memory=discovery-patterns.md)** - Trending Discovery Service ⭐ NOVO
 - **[calendar-patterns](serena:read?memory=calendar-patterns.md)** - Calendário editorial ⭐
 - **[library-patterns](serena:read?memory=library-patterns.md)** - Biblioteca de conteúdo ⭐
 - **[sources-page-refactor](serena:read?memory=sources-page-refactor.md)** - Página de fontes com RAG
 
 ### Backend & Features
 - **[prompt-system](serena:read?memory=prompt-system.md)** - Sistema de prompts em 4 camadas ⭐
+- **[vercel-ai-sdk-patterns](serena:read?memory=vercel-ai-sdk-patterns.md)** - Vercel AI SDK + OpenRouter ⭐
+- **[rag-embedding-patterns](serena:read?memory=rag-embedding-patterns.md)** - RAG com Voyage AI embeddings ⭐
+- **[ai-processing-patterns](serena:read?memory=ai-processing-patterns.md)** - Uso de IA no sistema (Theme Processing, Narratives, etc.) ⭐ NOVO
+- **[wizard-patterns](serena:read?memory=wizard-patterns.md)** - Wizard de criação com Synthesizer v3.1 e Image Generation ⭐
 
 ### Padrões de Código
 - **[component-patterns](serena:read?memory=component-patterns.md)** - Padrões de componentes React e Radix UI
@@ -32,8 +37,7 @@
 - **[queue-patterns](serena:read?memory=queue-patterns.md)** - Sistema de filas com Upstash Redis ⭐
 - **[database-patterns](serena:read?memory=database-patterns.md)** - Banco de dados com Drizzle ORM ⭐
 - **[auth-patterns](serena:read?memory=auth-patterns.md)** - Autenticação com Clerk ⭐
-- **[calendar-patterns](serena:read?memory=calendar-patterns.md)** - Calendário editorial ⭐
-- **[library-patterns](serena:read?memory=library-patterns.md)** - Biblioteca de conteúdo ⭐
+- **[zep-multi-agent-status](serena:read?memory=zep-multi-agent-status.md)** - Sistema Multi-Agent ZEP
 
 ## Stack Tecnológica
 
@@ -49,6 +53,9 @@
 | Database | Neon (PostgreSQL) | - |
 | ORM | Drizzle ORM | 0.45.x |
 | State Management | Zustand | 5.x |
+| **AI SDK** | **Vercel AI SDK** | **1.x** ⭐ |
+| **LLM Provider** | **OpenRouter** | **-** ⭐ |
+| **Embeddings** | **Voyage AI** | **voyage-4-large** ⭐ |
 
 ## Dependências Principais
 
@@ -82,6 +89,11 @@
 - `@clerk/nextjs` - Autenticação
 - `@neondatabase/serverless` - Client PostgreSQL serverless
 - `drizzle-orm` - ORM type-safe
+
+### AI & ML
+- `ai` - Vercel AI SDK core
+- `@ai-sdk/openai` - OpenAI adapter para OpenRouter
+- `@ai-sdk/react` - React hooks (useChat)
 
 ### Utilitários
 - `lucide-react` - Ícones

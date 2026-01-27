@@ -1,7 +1,8 @@
 /**
  * Document Card Component
  *
- * Card para exibir um documento com ações de editar, excluir e reindexar.
+ * Card para exibir um documento com ações de editar, excluir, reindexar,
+ * visualizar conteúdo e embeddings.
  */
 
 "use client"
@@ -14,6 +15,10 @@ import {
   Edit,
   Trash2,
   RefreshCw,
+  Eye,
+  Database,
+  FolderOpen,
+  Check,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -31,10 +36,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
+import type {
+  DocumentWithEmbeddings,
+  UpdateDocumentResult,
+  ReembedResult,
+  ActionResult,
+} from "../types/sources-types"
 import {
-  deleteDocumentWithEmbeddingsAction,
-  updateDocumentAction,
-} from "../actions/sources-actions"
+  EmbeddingStatusBadge,
+  EmbeddingProgressMini,
+} from "@/components/embeddings"
+import { DocumentViewDialog } from "./document-view-dialog"
+import { EmbeddingsViewDialog } from "./embeddings-view-dialog"
+import { MoveToCollectionDialog } from "./move-to-collection-dialog"
 
 /**
  * Category configuration
@@ -46,24 +60,11 @@ const CATEGORIES: Record<string, { label: string; color: string }> = {
   brand: { label: "Marca", color: "bg-purple-500/10 text-purple-400" },
   audience: { label: "Público", color: "bg-green-500/10 text-green-400" },
   competitors: { label: "Concorrentes", color: "bg-red-500/10 text-red-400" },
-  content: { label: "Conteúdo", color: "bg-amber-500/10 text-amber-400" },
+  content: { label: "Conteúdo", color: "bg-amber-500/10 text-amber-400" }
 }
 
-/**
- * Document with embedding count - exported for use in documents-tab
- */
-export interface DocumentWithEmbeddings {
-  id: number
-  title: string
-  content: string
-  fileType: string | null
-  category: string | null
-  embedded: boolean
-  embeddingModel: string | null
-  createdAt: Date
-  updatedAt: Date
-  embeddingCount?: number
-}
+// Re-export DocumentWithEmbeddings for use in documents-tab
+export type { DocumentWithEmbeddings } from "../types/sources-types"
 
 /**
  * Document Card Props
@@ -71,6 +72,9 @@ export interface DocumentWithEmbeddings {
 export interface DocumentCardProps {
   document: DocumentWithEmbeddings
   onUpdate?: () => void
+  selected?: boolean
+  onSelectChange?: (selected: boolean) => void
+  showSelection?: boolean
 }
 
 /**
@@ -121,11 +125,17 @@ function EditDocumentDialog({
 
     setIsSaving(true)
     try {
-      const result = await updateDocumentAction(document.id, {
-        title: title.trim(),
-        content: content.trim(),
-        category,
+      const response = await fetch(`/api/sources/documents/${document.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          content: content.trim(),
+          category,
+        }),
       })
+
+      const result: UpdateDocumentResult = await response.json()
 
       if (result.success) {
         toast.success("Documento atualizado com sucesso")
@@ -265,7 +275,11 @@ function DeleteDocumentDialog({
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
-      const result = await deleteDocumentWithEmbeddingsAction(document.id)
+      const response = await fetch(`/api/sources/documents/${document.id}`, {
+        method: "DELETE",
+      })
+
+      const result: ActionResult = await response.json()
 
       if (result.success) {
         toast.success("Documento excluído com sucesso")
@@ -338,15 +352,70 @@ function DeleteDocumentDialog({
 /**
  * Main Document Card Component
  */
-export function DocumentCard({ document, onUpdate }: DocumentCardProps) {
+export function DocumentCard({
+  document,
+  onUpdate,
+  selected = false,
+  onSelectChange,
+  showSelection = false,
+}: DocumentCardProps) {
   const [editOpen, setEditOpen] = React.useState(false)
   const [deleteOpen, setDeleteOpen] = React.useState(false)
+  const [viewOpen, setViewOpen] = React.useState(false)
+  const [embeddingsOpen, setEmbeddingsOpen] = React.useState(false)
+  const [moveOpen, setMoveOpen] = React.useState(false)
+  const [isReembedding, setIsReembedding] = React.useState(false)
 
   const isIndexed = document.embedded && document.embeddingCount && document.embeddingCount > 0
 
+  const handleReembed = async () => {
+    setIsReembedding(true)
+    try {
+      const response = await fetch(`/api/sources/documents/${document.id}/reembed`, {
+        method: "POST",
+      })
+
+      const result: ReembedResult = await response.json()
+
+      if (result.success) {
+        toast.success("Documento enviado para reindexação")
+        onUpdate?.()
+      } else {
+        toast.error(result.error || "Falha ao iniciar reindexação")
+      }
+    } catch (error) {
+      toast.error("Erro ao iniciar reindexação")
+    } finally {
+      setIsReembedding(false)
+    }
+  }
+
   return (
     <>
-      <div className="group flex items-start gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all">
+      <div
+        className={cn(
+          "group flex items-start gap-4 p-4 rounded-xl border transition-all",
+          selected
+            ? "bg-primary/10 border-primary/30"
+            : "bg-white/[0.02] border-white/5 hover:border-white/10"
+        )}
+      >
+        {/* Selection Checkbox */}
+        {showSelection && (
+          <button
+            type="button"
+            onClick={() => onSelectChange?.(!selected)}
+            className={cn(
+              "mt-1 w-5 h-5 rounded border flex items-center justify-center transition-all shrink-0",
+              selected
+                ? "bg-primary border-primary"
+                : "border-white/20 hover:border-white/40"
+            )}
+          >
+            {selected && <Check className="h-3.5 w-3.5 text-black" />}
+          </button>
+        )}
+
         {/* Icon */}
         <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-cyan-500/10 shrink-0">
           {isIndexed ? (
@@ -358,11 +427,19 @@ export function DocumentCard({ document, onUpdate }: DocumentCardProps) {
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <h3 className="text-sm font-medium text-white truncate">
               {document.title}
             </h3>
             <CategoryBadge category={document.category} />
+            {/* Embedding Status Badge */}
+            <EmbeddingStatusBadge
+              embedded={document.embedded}
+              status={document.embeddingStatus}
+              progress={document.embeddingProgress ?? undefined}
+              total={document.chunksCount ?? undefined}
+              compact
+            />
           </div>
 
           <p className="text-xs text-white/50 line-clamp-2 mb-2">
@@ -371,55 +448,133 @@ export function DocumentCard({ document, onUpdate }: DocumentCardProps) {
 
           <div className="flex items-center gap-3 text-xs text-white/40">
             <span className="uppercase">{document.fileType || "TXT"}</span>
-            {isIndexed && (
+            {isIndexed ? (
               <>
                 <span className="text-white/20">•</span>
                 <span className="text-green-500 flex items-center gap-1">
-                  ✓ {document.embeddingCount} chunks
+                  ✓ {document.embeddingCount || document.chunksCount} {document.chunksCount === 1 ? "chunk" : "chunks"}
                 </span>
                 <span className="text-white/20">•</span>
                 <span className="text-cyan-400">
                   {document.embeddingModel}
                 </span>
               </>
+            ) : (
+              <span className="text-white/30">Aguardando indexação</span>
             )}
-            {!isIndexed && (
+            {/* Show progress if processing */}
+            {document.embeddingStatus === "processing" && document.chunksCount && (
               <>
                 <span className="text-white/20">•</span>
-                <span className="text-amber-500">Pendente de indexação</span>
+                <EmbeddingProgressMini
+                  current={document.embeddingProgress ?? 0}
+                  total={document.chunksCount}
+                />
               </>
             )}
           </div>
         </div>
 
-        {/* Actions Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        {/* Quick Action Buttons */}
+        <div className="flex items-center gap-1">
+          {/* View Document */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setViewOpen(true)}
+            className="h-8 w-8 p-0 text-white/40 hover:text-white hover:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Ver documento"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+
+          {/* View Embeddings */}
+          {isIndexed && (
             <Button
+              type="button"
               variant="ghost"
               size="sm"
+              onClick={() => setEmbeddingsOpen(true)}
               className="h-8 w-8 p-0 text-white/40 hover:text-white hover:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Ver embeddings"
             >
-              <MoreVertical className="h-4 w-4" />
+              <Database className="h-4 w-4" />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-[#1a1a2e] border-white/10">
-            <DropdownMenuItem
-              onClick={() => setEditOpen(true)}
-              className="text-white/70 hover:text-white hover:bg-white/5 cursor-pointer"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Editar
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setDeleteOpen(true)}
-              className="text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Excluir
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          )}
+
+          {/* Move to Collection */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setMoveOpen(true)}
+            className="h-8 w-8 p-0 text-white/40 hover:text-white hover:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Mover para coleção"
+          >
+            <FolderOpen className="h-4 w-4" />
+          </Button>
+
+          {/* More Options Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-white/40 hover:text-white hover:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-[#1a1a2e] border-white/10">
+              <DropdownMenuItem
+                onClick={() => setViewOpen(true)}
+                className="text-white/70 hover:text-white hover:bg-white/5 cursor-pointer"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Ver documento
+              </DropdownMenuItem>
+              {isIndexed && (
+                <DropdownMenuItem
+                  onClick={() => setEmbeddingsOpen(true)}
+                  className="text-white/70 hover:text-white hover:bg-white/5 cursor-pointer"
+                >
+                  <Database className="h-4 w-4 mr-2" />
+                  Ver embeddings
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                onClick={() => setMoveOpen(true)}
+                className="text-white/70 hover:text-white hover:bg-white/5 cursor-pointer"
+              >
+                <FolderOpen className="h-4 w-4 mr-2" />
+                Mover para coleção
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setEditOpen(true)}
+                className="text-white/70 hover:text-white hover:bg-white/5 cursor-pointer"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleReembed}
+                disabled={isReembedding || document.embeddingStatus === "processing"}
+                className="text-white/70 hover:text-white hover:bg-white/5 cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isReembedding ? "animate-spin" : ""}`} />
+                {isReembedding ? "Reindexando..." : "Reindexar"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setDeleteOpen(true)}
+                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Dialogs */}
@@ -434,6 +589,23 @@ export function DocumentCard({ document, onUpdate }: DocumentCardProps) {
         onOpenChange={setDeleteOpen}
         document={document}
         onDelete={onUpdate || (() => {})}
+      />
+      <DocumentViewDialog
+        open={viewOpen}
+        onOpenChange={setViewOpen}
+        document={document}
+      />
+      <EmbeddingsViewDialog
+        open={embeddingsOpen}
+        onOpenChange={setEmbeddingsOpen}
+        document={document}
+      />
+      <MoveToCollectionDialog
+        open={moveOpen}
+        onOpenChange={setMoveOpen}
+        documentIds={[document.id]}
+        documentTitle={document.title}
+        onSuccess={onUpdate || (() => {})}
       />
     </>
   )

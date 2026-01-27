@@ -1,7 +1,18 @@
 "use client"
 
 import * as React from "react"
-import { MessageSquare, Library, Calendar, Globe, Settings } from "lucide-react"
+import {
+  Library,
+  Calendar,
+  Globe,
+  Settings,
+  Sparkles,
+  LayoutDashboard,
+  TrendingUp,
+  Wand2,
+  Lightbulb,
+  Search,
+} from "lucide-react"
 import { NavBar } from "@/components/ui/tubelight-navbar"
 import { UserMenu } from "@/components/auth/user-menu"
 import { cn } from "@/lib/utils"
@@ -20,11 +31,44 @@ interface AppLayoutProps {
 export function AppLayout({ children, className }: AppLayoutProps) {
   const navItems = React.useMemo(
     () => [
-      { name: "Chat", url: "/dashboard", icon: MessageSquare },
-      { name: "Biblioteca", url: "/library", icon: Library },
-      { name: "Calendário", url: "/calendar", icon: Calendar },
-      { name: "Fontes", url: "/sources", icon: Globe },
-      { name: "Configurações", url: "/settings", icon: Settings },
+      {
+        name: "Dash",
+        url: "/dashboard",
+        icon: LayoutDashboard,
+      },
+      {
+        name: "Descoberta",
+        url: "/discover",
+        icon: TrendingUp,
+        children: [
+          { name: "Discovery", url: "/discover", icon: Search },
+          { name: "Temas", url: "/themes", icon: Lightbulb },
+        ],
+      },
+      {
+        name: "Criar",
+        url: "/wizard",
+        icon: Wand2,
+        children: [
+          { name: "Wizard", url: "/wizard", icon: Wand2 },
+          { name: "ZoryAI", url: "/chat", icon: Sparkles },
+        ],
+      },
+      {
+        name: "Gestão",
+        url: "/library",
+        icon: Library,
+        children: [
+          { name: "Biblioteca", url: "/library", icon: Library },
+          { name: "Calendário", url: "/calendar", icon: Calendar },
+          { name: "Fontes", url: "/sources", icon: Globe },
+        ],
+      },
+      {
+        name: "Configurações",
+        url: "/settings",
+        icon: Settings,
+      },
     ],
     []
   )
@@ -45,7 +89,7 @@ export function AppLayout({ children, className }: AppLayoutProps) {
               >
                 <div className="relative">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 group-hover:from-primary/30 group-hover:to-primary/10 transition-all">
-                    <MessageSquare className="h-5 w-5 text-primary" strokeWidth={2.5} />
+                    <LayoutDashboard className="h-5 w-5 text-primary" strokeWidth={2.5} />
                   </div>
                   {/* Glow effect no logo */}
                   <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity -z-10" />
@@ -57,7 +101,7 @@ export function AppLayout({ children, className }: AppLayoutProps) {
 
               {/* Menu central - sempre no centro */}
               <div className="flex justify-center">
-                <NavBar items={navItems} defaultActive="Chat" />
+                <NavBar items={navItems} defaultActive="Dash" />
               </div>
 
               {/* Espaçador vazio à direita para equilibrar o grid */}
@@ -72,7 +116,7 @@ export function AppLayout({ children, className }: AppLayoutProps) {
       {/* Main Content */}
       <main
         className={cn(
-          "max-w-6xl mx-auto px-4 pt-24 pb-8",
+          "max-w-6xl mx-auto px-4 pt-32 pb-12",
           className
         )}
       >

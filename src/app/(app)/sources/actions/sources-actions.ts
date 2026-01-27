@@ -9,8 +9,11 @@
 import { auth } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
 import { db } from "@/db"
-import { documents, documentEmbeddings } from "@/db/schema"
-import { eq, and, desc, count, sql } from "drizzle-orm"
+import { documents, documentEmbeddings, documentCollectionItems } from "@/db/schema"
+import { eq, and, desc, count, sql, isNull, or } from "drizzle-orm"
+import { createJob } from "@/lib/queue/jobs"
+import { JobType, type DocumentEmbeddingPayload } from "@/lib/queue/types"
+import { getStorageProviderForDocument } from "@/lib/storage"
 
 /**
  * Result of a source operation
@@ -95,6 +98,71 @@ export async function getDocumentsWithEmbeddingsAction(): Promise<DocumentWithEm
     return result
   } catch (error) {
     console.error("Get documents with embeddings error:", error)
+    return []
+  }
+}
+
+/**
+ * Fetches documents in a specific collection with embedding count
+ */
+export async function getDocumentsByCollectionAction(
+  collectionId: number | null
+): Promise<DocumentWithEmbeddings[]> {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return []
+  }
+
+  try {
+    // If collectionId is null, return all documents (same as getDocumentsWithEmbeddingsAction)
+    if (collectionId === null) {
+      return await getDocumentsWithEmbeddingsAction()
+    }
+
+    // Get documents in the specified collection
+    const docs = await db
+      .select({
+        id: documents.id,
+        title: documents.title,
+        content: documents.content,
+        fileType: documents.fileType,
+        category: documents.category,
+        embedded: documents.embedded,
+        embeddingModel: documents.embeddingModel,
+        createdAt: documents.createdAt,
+        updatedAt: documents.updatedAt,
+      })
+      .from(documents)
+      .innerJoin(
+        documentCollectionItems,
+        eq(documentCollectionItems.documentId, documents.id)
+      )
+      .where(
+        and(
+          eq(documents.userId, userId),
+          eq(documentCollectionItems.collectionId, collectionId)
+        )
+      )
+      .orderBy(desc(documents.createdAt))
+
+    // Get embedding counts for each document
+    const result: DocumentWithEmbeddings[] = []
+    for (const doc of docs) {
+      const embeddingCount = await db
+        .select({ count: count() })
+        .from(documentEmbeddings)
+        .where(eq(documentEmbeddings.documentId, doc.id))
+
+      result.push({
+        ...doc,
+        embeddingCount: embeddingCount[0]?.count || 0,
+      })
+    }
+
+    return result
+  } catch (error) {
+    console.error("Get documents by collection error:", error)
     return []
   }
 }
@@ -194,6 +262,7 @@ export async function updateDocumentAction(
 
 /**
  * Deletes a document and its embeddings
+ * Also removes the file from storage (local or R2)
  */
 export async function deleteDocumentWithEmbeddingsAction(
   documentId: number
@@ -205,6 +274,28 @@ export async function deleteDocumentWithEmbeddingsAction(
   }
 
   try {
+    // Fetch document first to get storage information
+    const [doc] = await db
+      .select()
+      .from(documents)
+      .where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
+      .limit(1)
+
+    if (!doc) {
+      return { success: false, error: "Document not found" }
+    }
+
+    // Delete file from storage if it has a storage key
+    if (doc.storageKey) {
+      try {
+        const storage = getStorageProviderForDocument(doc)
+        await storage.deleteFile(doc.storageKey)
+      } catch (storageError) {
+        // Log storage error but don't fail the delete operation
+        console.error("Failed to delete file from storage:", storageError)
+      }
+    }
+
     // Delete embeddings first (foreign key constraint)
     await db
       .delete(documentEmbeddings)
@@ -327,5 +418,199 @@ export async function searchDocumentsAction(
   } catch (error) {
     console.error("Search documents error:", error)
     return []
+  }
+}
+
+/**
+ * Queue a document for re-embedding
+ *
+ * Creates a job to regenerate embeddings for a document.
+ * Useful after content changes or model updates.
+ */
+export async function reembedDocumentAction(
+  documentId: number,
+  force: boolean = true
+): Promise<SourceResult & { jobId?: number }> {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return { success: false, error: "Unauthorized" }
+  }
+
+  try {
+    // Verify document exists and belongs to user
+    const [doc] = await db
+      .select()
+      .from(documents)
+      .where(and(eq(documents.id, documentId), eq(documents.userId, userId), isNull(documents.deletedAt)))
+      .limit(1)
+
+    if (!doc) {
+      return { success: false, error: "Document not found" }
+    }
+
+    // Check if already embedding
+    if (doc.embeddingStatus === "processing") {
+      return { success: false, error: "Document is already being processed" }
+    }
+
+    // Queue the embedding job
+    const payload: DocumentEmbeddingPayload = {
+      documentId,
+      userId,
+      force,
+    }
+
+    const jobId = await createJob(userId, JobType.DOCUMENT_EMBEDDING, payload)
+
+    revalidatePath("/sources")
+    return { success: true, jobId }
+  } catch (error) {
+    console.error("Re-embed document error:", error)
+    return { success: false, error: "Failed to queue re-embedding job" }
+  }
+}
+
+/**
+ * Batch delete documents with their embeddings
+ * Also removes files from storage (local or R2)
+ */
+export async function batchDeleteDocumentsAction(
+  documentIds: number[]
+): Promise<SourceResult> {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return { success: false, error: "Unauthorized" }
+  }
+
+  if (documentIds.length === 0) {
+    return { success: false, error: "No documents to delete" }
+  }
+
+  try {
+    // Fetch documents first to get storage information
+    const docsToDelete = await db
+      .select({
+        id: documents.id,
+        storageKey: documents.storageKey,
+        storageProvider: documents.storageProvider,
+      })
+      .from(documents)
+      .where(
+        and(
+          sql`${documents.id} = ANY(${documentIds})`,
+          eq(documents.userId, userId)
+        )
+      )
+
+    // Group storage keys by provider for batch deletion
+    const localKeys: string[] = []
+    const r2Keys: string[] = []
+
+    for (const doc of docsToDelete) {
+      if (doc.storageKey) {
+        if (doc.storageProvider === "r2") {
+          r2Keys.push(doc.storageKey)
+        } else {
+          localKeys.push(doc.storageKey)
+        }
+      }
+    }
+
+    // Delete files from storage providers
+    const { LocalStorageProvider, R2StorageProvider } = await import("@/lib/storage")
+
+    // Delete from local storage if any
+    if (localKeys.length > 0) {
+      try {
+        const localStorage = new LocalStorageProvider()
+        if (typeof localStorage.deleteFiles === "function") {
+          await localStorage.deleteFiles(localKeys)
+        } else {
+          // Fallback to individual deletes
+          await Promise.all(
+            localKeys.map((key) => localStorage.deleteFile(key))
+          )
+        }
+      } catch (storageError) {
+        console.error("Failed to delete files from local storage:", storageError)
+      }
+    }
+
+    // Delete from R2 if any
+    if (r2Keys.length > 0) {
+      try {
+        const r2Storage = new R2StorageProvider()
+        if (typeof r2Storage.deleteFiles === "function") {
+          await r2Storage.deleteFiles(r2Keys)
+        } else {
+          // Fallback to individual deletes
+          await Promise.all(
+            r2Keys.map((key) => r2Storage.deleteFile(key))
+          )
+        }
+      } catch (storageError) {
+        console.error("Failed to delete files from R2 storage:", storageError)
+      }
+    }
+
+    // Delete embeddings first (foreign key constraint)
+    await db
+      .delete(documentEmbeddings)
+      .where(sql`${documentEmbeddings.documentId} = ANY(${documentIds})`)
+
+    // Delete document collection items
+    await db
+      .delete(documentCollectionItems)
+      .where(sql`${documentCollectionItems.documentId} = ANY(${documentIds})`)
+
+    // Delete documents
+    await db
+      .delete(documents)
+      .where(
+        and(
+          sql`${documents.id} = ANY(${documentIds})`,
+          eq(documents.userId, userId)
+        )
+      )
+
+    revalidatePath("/sources")
+    return { success: true }
+  } catch (error) {
+    console.error("Batch delete documents error:", error)
+    return { success: false, error: "Failed to delete documents" }
+  }
+}
+
+/**
+ * Get embedding status for a document
+ */
+export async function getEmbeddingStatusAction(documentId: number) {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return null
+  }
+
+  try {
+    const [doc] = await db
+      .select({
+        id: documents.id,
+        embedded: documents.embedded,
+        embeddingStatus: documents.embeddingStatus,
+        embeddingProgress: documents.embeddingProgress,
+        chunksCount: documents.chunksCount,
+        lastEmbeddedAt: documents.lastEmbeddedAt,
+        embeddingModel: documents.embeddingModel,
+      })
+      .from(documents)
+      .where(and(eq(documents.id, documentId), eq(documents.userId, userId), isNull(documents.deletedAt)))
+      .limit(1)
+
+    return doc || null
+  } catch (error) {
+    console.error("Get embedding status error:", error)
+    return null
   }
 }

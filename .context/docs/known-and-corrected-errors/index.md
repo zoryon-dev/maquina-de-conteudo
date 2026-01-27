@@ -2,6 +2,57 @@
 
 Documentação de erros encontrados durante o desenvolvimento e suas soluções.
 
+## Erros Recentes
+
+### 36. PR Review Error Handling Improvements (Janeiro 2026)
+
+**[Ver documento completo](./036-pr-review-error-handling-jan2026.md)**
+
+- Catch-all error handling substituído por hierarquia de erros type-safe
+- Queue operations agora incluem jobId no contexto do erro
+- Batch operations agrupam e reportam falhas individuais
+- JSON.parse seguro com try-catch em workers
+- Upload failures agora são tracked e reportados
+- Token expiry marca conexão como expirada no banco
+- Tipo `any` substituído por `VideoScriptStructured`
+
+**Arquivo NOVO**: `src/lib/errors.ts` com AppError base class e tipos específicos (ValidationError, AuthError, JobError, etc.)
+
+### 35. Social Publishing Async Fixes (Janeiro 2026)
+
+**[Ver documento completo](./035-social-publishing-async-fixes-jan2026.md)**
+
+- UI Blocking during Instagram publishing - migrado para job queue assíncrono
+- Timezone validation error - comparação UTC vs local time corrigida
+- "Regenerar" button spinning after publish - estado isRebuilding separado
+- Cron jobs not configured - `/api/cron/social-publish` adicionado ao vercel.json
+
+**Mudança principal**: Publicação imediata agora retorna `queued: true` e processa em background via worker, evitando travamento da UI durante os 30-60s de processamento da API do Instagram.
+
+### 34. Instagram Publishing API Errors (Janeiro 2026)
+
+**[Ver documento completo](./034-instagram-publishing-api-errors-jan2026.md)**
+
+- "Cannot parse access token" - usando `graph.instagram.com` ao invés de `graph.facebook.com`
+- Carousel only publishing first image - falta implementar fluxo de carrossel
+- Token em query parameter vs JSON body - POST requests devem enviar token no body
+- OAuth Session Expired - Next.js redirect não envia Set-Cookie headers
+- Using wrong token type - Page Access Token (EAF) vs User Access Token (EAAE)
+
+**Padrão crítico:** Usar database session storage ao invés de cookies para OAuth, pois `NextResponse.redirect()` não envia headers `Set-Cookie`.
+
+### 33. Discovery Implementation Errors (Janeiro 2026)
+
+**[Ver documento completo](./033-discovery-implementation-errors-jan2026.md)**
+
+- Multiple primary keys em tabela junction
+- Type exports faltando
+- useRef sem valor inicial
+- Spinner size prop incorreto
+- E muito mais...
+
+---
+
 ## Erros de TypeScript
 
 ### 1. "Duplicate identifier" em imports
@@ -423,6 +474,501 @@ useEffect(() => {
 - `.context/docs/known-and-corrected-errors/004-infinite-loop-hooks.md`
 - `src/app/(app)/calendar/hooks/use-calendar-posts.ts` (Fase 6)
 - `src/app/(app)/library/hooks/use-library-data.ts` (Fase 7)
+
+### 20. pdf-parse v2.4.5 Import Pattern
+
+**Erro:** Multiple TypeScript errors when using pdf-parse:
+```
+Property 'default' does not exist on 'typeof import("pdf-parse")'
+Value of type 'typeof PDFParse' is not callable
+Property 'parse' does not exist on type 'PDFParse'
+```
+
+**Causa:** O pacote `pdf-parse` v2.4.5 mudou sua API. A importação antiga não funciona mais.
+
+**Solução:** Usar named import com construtor que recebe `{ data: Uint8Array }`:
+```typescript
+// ❌ ERRADO - Não funciona mais
+import pdf from 'pdf-parse'
+const data = await pdf(buffer)
+
+// ✅ CORRETO
+const { PDFParse } = await import("pdf-parse")
+const uint8Array = new Uint8Array(buffer)
+const parser = new PDFParse({ data: uint8Array })
+const data = await parser.getText()
+return data.text || ""
+```
+
+**Contexto de Uso:** `/src/app/api/documents/upload/route.ts`
+
+**Documentação:** `.context/docs/known-and-corrected-errors/005-pdf-parse-import.md`
+
+---
+
+**Erro:** Componente React faz requests POST infinitas para o servidor.
+
+**Sintoma:**
+```
+POST /calendar 200 in 93ms
+POST /calendar 200 in 93ms
+POST /calendar 200 in 101ms
+... (repeating infinitely)
+```
+
+**Causa:** Usar `useCallback` com dependências de objeto (`dateRange`, `filters`) que criam nova referência a cada render:
+```typescript
+// ❌ ERRADO
+const fetchPosts = useCallback(async () => {
+  const result = await getCalendarPostsAction(dateRange, filters)
+  setPosts(result)
+}, [dateRange, filters])  // Nova referência a cada render!
+```
+
+**Solução:** Usar `useRef` para comparação de estabilidade:
+```typescript
+// ✅ CORRETO
+const prevDepsRef = useRef<string>("")
+
+useEffect(() => {
+  const deps = JSON.stringify({ dateRange, filters })
+  if (deps !== prevDepsRef.current) {
+    prevDepsRef.current = deps
+    fetchPosts()
+  }
+}, [dateRange, filters])
+```
+
+**Arquivos:**
+- `.context/docs/known-and-corrected-errors/004-infinite-loop-hooks.md`
+- `src/app/(app)/calendar/hooks/use-calendar-posts.ts` (Fase 6)
+- `src/app/(app)/library/hooks/use-library-data.ts` (Fase 7)
+
+---
+
+### 21. DATABASE_URL no Browser - Import de Banco em Client Component
+
+**Erro:**
+```
+Runtime Error: DATABASE_URL environment variable is not set
+    at module evaluation (src/db/index.ts:5:9)
+```
+
+**Contexto:** O erro ocorre no **browser**, não no servidor. Stack trace mostra:
+```
+rag-context-selector.tsx (client) → lib/rag/index.ts → lib/rag/assembler.ts → db/index.ts
+```
+
+**Causa:** Código que acessa banco de dados foi importado por um Client Component. No Next.js, quando um Client Component importa um módulo, todo o código é enviado ao browser - incluindo código server-side como `process.env.DATABASE_URL`.
+
+**Solução:** Separar exports do módulo RAG:
+```typescript
+// lib/rag/index.ts - Apenas tipos e constantes (safe for client)
+export type { RagCategory, RagContextOptions } from "./types"
+export { RAG_CATEGORIES } from "./types"
+// NOTA: assembleRagContext NÃO é re-exportado (usa db)
+
+// API routes importam diretamente
+import { assembleRagContext } from "@/lib/rag/assembler"
+```
+
+**Padrão:**
+```
+Client Component → lib/rag/index.ts (tipos/constantes) ✅
+Server/API Route → lib/rag/assembler.ts (funções com db) ✅
+Client Component → lib/rag/assembler.ts ❌
+```
+
+**Arquivos:**
+- `.context/docs/known-and-corrected-errors/006-db-import-client-component.md`
+- `src/lib/rag/index.ts`
+- `src/app/api/rag/route.ts`
+- `src/app/api/chat/route.ts`
+
+---
+
+### 22. Vercel AI SDK Migration - API incorreta do useChat
+
+**Erros:** Múltiplos TypeScript errors ao implementar chat com Vercel AI SDK
+
+**Documentação completa:** `.context/docs/known-and-corrected-errors/007-vercel-ai-sdk-migration.md`
+
+**Resumo dos erros:**
+1. **API incorreta do `useChat`**: Assumi propriedades `input`, `handleInputChange`, `handleSubmit`, `isLoading` que não existem
+2. **Tipo `CoreMessage` não existe**: Usar `UIMessage` em vez disso
+3. **Propriedade `initialMessages` não existe**: Remover das opções
+4. **Variável `initialMessage` não utilizada**: Remover das props
+5. **Build failure**: `openrouter` lançando erro durante import - fazer nullable
+6. **Turbopack + Clerk**: Incompatibilidade pré-existente, usar `tsc --noEmit` para validação
+
+**Solução - API correta do useChat:**
+```typescript
+import { useChat } from "@ai-sdk/react"
+import type { UIMessage } from "ai"
+
+const {
+  messages,
+  status,
+  error,
+  sendMessage,
+  stop,
+  clearError,
+} = useChat({
+  onFinish: ({ message }) => {
+    const text = getMessageText(message)
+    onComplete?.(text)
+  },
+})
+
+const isLoading = status === "streaming"
+```
+
+**Arquivos:**
+- `.context/docs/known-and-corrected-errors/023-clerk-middleware-immutable.md`
+- `src/proxy.ts`
+
+---
+
+### 23. TypeError: immutable - Clerk Middleware
+
+**Erro:** Runtime `TypeError: immutable` no middleware do Clerk ao acessar qualquer rota.
+
+**Causa:** O `clerkMiddleware` não estava retornando nada no caso base, fazendo o Clerk tentar manipular headers de `undefined`.
+
+**Solução:** Sempre retornar `NextResponse.next()` no final do middleware:
+```typescript
+// ❌ ERRADO
+export default clerkMiddleware(async (auth, request) => {
+  if (isProtectedRoute(request)) {
+    await auth.protect();
+  }
+  // Sem return - causa erro "immutable"
+});
+
+// ✅ CORRETO
+import { NextResponse } from "next/server"
+export default clerkMiddleware(async (auth, request) => {
+  if (isProtectedRoute(request)) {
+    await auth.protect();
+  }
+  return NextResponse.next(); // ← SEMPRE retornar algo
+});
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/023-clerk-middleware-immutable.md`
+
+---
+
+### 24. JSON Parsing Error - Vercel AI SDK v3 Chat Streaming
+
+**Erro:**
+```
+⨯ SyntaxError: Unexpected token 'O', "Oi! Para e"... is not valid JSON
+    at JSON.parse (<anonymous>)
+```
+
+**Causa:** O componente `ai-chat-sdk.tsx` tinha uma implementação customizada de streaming que não era compatível com o formato do Vercel AI SDK v3. O código esperava um formato de SSE específico com `data: ` prefixo, mas o SDK retorna um formato diferente.
+
+**Solução:** Usar o hook oficial `useChat` do pacote `@ai-sdk/react`:
+```typescript
+// ❌ ERRADO - Implementação manual com parse customizado
+const reader = response.body?.getReader()
+const decoder = new TextDecoder()
+while (true) {
+  const { done, value } = await reader.read()
+  if (done) break
+  const chunk = decoder.decode(value, { stream: true })
+  const lines = chunk.split("\n")
+  for (const line of lines) {
+    if (line.startsWith("data: ")) {
+      const parsed = JSON.parse(line.slice(6).trim()) // ❌ Falhava aqui
+    }
+  }
+}
+
+// ✅ CORRETO - Usar hook useChat do SDK
+import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport } from "ai"
+
+const { messages, status, error, sendMessage, stop } = useChat({
+  transport: new DefaultChatTransport({
+    api: "/api/chat",
+    body: { agent: currentAgent, zepThreadId },
+  }),
+})
+
+const handleSend = () => {
+  sendMessage({ text: content }, { body: { agent: currentAgent } })
+}
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/024-ai-sdk-streaming-json-parse.md`
+
+**Arquivos modificados:**
+- `src/components/chat/ai-chat-sdk.tsx` - Reescrito para usar `useChat`
+- `src/app/api/chat/route.ts` - Atualizado para aceitar formato SDK v3
+
+---
+
+### 25. Parâmetro `encoding_format` depreciado na API da Voyage AI
+
+**Erro:** Erro ao processar embeddings na aba Fontes, mesmo com a API key da Voyage configurada corretamente.
+
+**Causa:** A API da Voyage AI atualizou seus parâmetros, e `encoding_format` foi renomeado para `output_dtype`.
+
+**Solução:** Substituir `encoding_format` por `output_dtype`:
+```typescript
+// ❌ ERRADO - depreciado
+body: JSON.stringify({
+  input: text,
+  model,
+  encoding_format: "float",
+})
+
+// ✅ CORRETO
+body: JSON.stringify({
+  input: text,
+  model,
+  output_dtype: "float",
+})
+```
+
+**Valores aceitos para `output_dtype`:**
+- `float` - 32-bit floating point (padrão)
+- `int8` - 8-bit inteiros (-128 a 127)
+- `uint8` - 8-bit unsigned (0 a 255)
+- `binary` / `ubinary` - bit-packed quantized single-bit
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/025-voyage-api-parameter-deprecated.md`
+
+**Arquivos modificados:**
+- `src/lib/voyage/embeddings.ts` - 2 ocorrências (funções `generateEmbedding` e `generateEmbeddingsBatch`)
+- `src/lib/voyage/index.ts` - 1 ocorrência (função `validateVoyageApiKey`)
+
+---
+
+### 26. Otimização de Chunk Size e Threshold para RAG
+
+**Problema:** Busca semântica retornando poucos resultados, contexto RAG muito longo com chunks grandes (4000 tokens), precisão baixa na recuperação.
+
+**Causa:** Configuração original de chunking (4000 tokens) era muito grande para conteúdo de redes sociais, e threshold de similaridade (0.6-0.7) era muito alto.
+
+**Solução:**
+1. **Category-specific chunking:** 800-1300 tokens ao invés de 4000 fixo
+2. **Threshold unificado:** 0.5 em toda a pipeline (antes 0.6-0.7)
+3. **RAG options ajustadas:** maxChunks: 15 (↑), maxTokens: 3000 (↓)
+
+```typescript
+// ❌ ANTES - chunks muito grandes
+const DEFAULT_OPTIONS = {
+  maxChunkSize: 4000,  // muito grande
+  overlap: 200,
+}
+
+// ✅ DEPOIS - category-specific
+const DEFAULT_OPTIONS = {
+  maxChunkSize: 1000,  // padrão reduzido
+  overlap: 150,
+}
+
+// Com categoria específica
+getChunkingOptionsForCategory("products")  // { maxChunkSize: 800, overlap: 100 }
+getChunkingOptionsForCategory("brand")     // { maxChunkSize: 1300, overlap: 200 }
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/026-rag-chunk-size-optimization.md`
+
+**Arquivos modificados:**
+- `src/lib/voyage/chunking.ts` - Category-specific options
+- `src/lib/voyage/search.ts` - Threshold 0.5
+- `src/lib/rag/assembler.ts` - Threshold 0.5, maxChunks 15
+- `src/lib/rag/filters.ts` - minScore 0.5
+- `src/app/api/chat/route.ts` - RAG_THRESHOLD 0.5
+- `src/app/api/workers/route.ts` - Category-specific chunking
+
+---
+
+### 27. Infinite Loop Pattern - useEffect com Computed Values
+
+**Erro:** Console mostra logs repetidos infinitamente:
+```
+Messages updated: 3
+Last response: Olá! Para eu te ajudar...
+Is typing: true
+... (repeating infinitely)
+```
+
+**Causa:** Usar um valor computado (`lastResponseText`) diretamente nas dependências de `useEffect` sem memoização:
+```typescript
+// ❌ ERRADO
+const lastAssistantMessage = messages.filter((m) => m.role === "assistant").pop()
+const lastResponseText = lastAssistantMessage ? getMessageText(lastAssistantMessage) : null
+
+useEffect(() => {
+  console.log("Last response:", lastResponseText?.slice(0, 100))
+}, [messages, lastResponseText, isTyping])  // lastResponseText causa loop!
+```
+
+**Solução:** Mover a computação para `useMemo` com dependências estáveis:
+```typescript
+// ✅ CORRETO
+const lastResponseText = useMemo(() => {
+  const lastAssistantMessage = messages.filter((m) => m.role === "assistant").pop()
+  return lastAssistantMessage ? getMessageText(lastAssistantMessage) : null
+}, [messages, getMessageText])
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/027-infinite-loop-useeffect-usememo.md`
+
+**Arquivo modificado:**
+- `src/components/dashboard/animated-ai-chat.tsx` - Linhas 157-161
+
+---
+
+### 28. TypeError - sendMessage Format Error (Vercel AI SDK v3)
+
+**Erro:**
+```
+TypeError: Cannot read properties of undefined (reading 'state')
+    at Chat.makeRequest (chat.ts:688:41)
+```
+
+**Causa:** Usar formato de mensagem incorreto no `sendMessage` do Vercel AI SDK v3:
+```typescript
+// ❌ ERRADO - formato { text } não é suportado
+sendMessage(
+  { text: messageToSend },
+  { body: { agent, model, categories, useRag } }
+)
+```
+
+**Solução:** Usar o formato `parts` array:
+```typescript
+// ✅ CORRETO - formato { parts: [{ type: "text", text }] }
+sendMessage(
+  { parts: [{ type: "text", text: messageToSend }] },
+  { body: { agent, model, categories, useRag } }
+)
+```
+
+**Helper para extrair texto:**
+```typescript
+function getMessageText(message: { parts?: Array<{ type: string; text?: string }> }): string {
+  if (!message.parts) return ""
+  return message.parts
+    .filter((part) => part.type === "text" && part.text)
+    .map((part) => part.text)
+    .join("")
+}
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/028-usechat-sendmessage-format.md`
+
+**Arquivo modificado:**
+- `src/components/dashboard/animated-ai-chat.tsx` - Linhas 341-353
+
+---
+
+### 29. Cloudflare R2 CORS Configuration Invalid
+
+**Erro:**
+```
+Policy not valid - Cloudflare R2
+```
+
+**Causa:** Usar formato AWS S3 com objeto wrapper que R2 não suporta, e incluir métodos/cabeçalhos não suportados.
+
+**Solução:** R2 requer formato de array e não suporta `OPTIONS` ou `ExposeHeaders`:
+```json
+// ❌ ERRADO - formato AWS S3 com wrapper
+{
+  "CORSConfiguration": {
+    "AllowedOrigins": [...],
+    "AllowedMethods": ["GET", "HEAD", "OPTIONS"],
+    "ExposeHeaders": ["Content-Length"],
+    ...
+  }
+}
+
+// ✅ CORRETO - formato R2 (array)
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://maquina-de-conteudo.vercel.app",
+      "https://storage-mc.zoryon.org",
+      "https://*.zoryon.org"
+    ],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/029-r2-cors-configuration.md`
+
+**Importante:**
+- R2 não suporta método `OPTIONS`
+- R2 não suporta `ExposeHeaders`
+- Formato deve ser array `[...]`, não objeto `{ ... }`
+
+---
+
+### 30. Vercel AI SDK - maxTokens Parameter Error
+
+**Erro:**
+```
+Object literal may only specify known properties, and 'maxTokens' does not exist in type...
+```
+
+**Causa:** A função `generateText()` do Vercel AI SDK v3+ não suporta o parâmetro `maxTokens`.
+
+**Solução:** Remover o parâmetro `maxTokens` das opções de `generateText()`:
+```typescript
+// ❌ ERRADO
+const result = await generateText({
+  model: openrouter(model),
+  prompt,
+  temperature: 0.7,
+  maxTokens: 4000, // Error!
+});
+
+// ✅ CORRETO
+const result = await generateText({
+  model: openrouter(model),
+  prompt,
+  temperature: 0.7,
+});
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/031-vercel-ai-sdk-maxtokens-param.md`
+
+---
+
+### 32. JSON.parse Error - "[object Object]" is not valid JSON
+
+**Erro:**
+```
+SyntaxError: "[object Object]" is not valid JSON
+    at JSON.parse (<anonymous>)
+    at Step4Generation.useEffect.pollWizardStatus (step-4-generation.tsx:129:59)
+```
+
+**Causa:** PostgreSQL JSONB columns podem ser retornados como objetos JavaScript pelo Drizzle ORM, não como strings. `response.json()` já faz o parse do JSON da resposta HTTP.
+
+**Solução:** Verificar o tipo antes de tentar fazer parse:
+```typescript
+// ❌ ERRADO - Assumiu que generatedContent é sempre string
+const generatedContent: GeneratedContent = JSON.parse(wizard.generatedContent)
+
+// ✅ CORRETO - Verifica se é string ou objeto
+const generatedContent: GeneratedContent = typeof wizard.generatedContent === 'string'
+  ? JSON.parse(wizard.generatedContent)
+  : wizard.generatedContent
+```
+
+**Arquivo:** `.context/docs/known-and-corrected-errors/032-json-parse-object-error.md`
 
 ---
 

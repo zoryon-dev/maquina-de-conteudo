@@ -271,3 +271,62 @@ function FormInput({ label, ...props }) {
   )
 }
 ```
+
+---
+
+## Padrão useMemo + useCallback para Streaming (EVITA INFINITE LOOPS)
+
+**Problema:** Em componentes com streaming (useChat), valores derivados de `messages` podem causar infinite loops se não forem memoizados.
+
+### Padrão Correto
+
+```typescript
+function StreamingChat() {
+  const { messages, status } = useChat()
+
+  // 1. Helper com useCallback (função estável)
+  const getMessageText = useCallback((message: { parts?: Array<{ type: string; text?: string }> }): string => {
+    if (!message.parts) return ""
+    return message.parts
+      .filter((part) => part.type === "text" && part.text)
+      .map((part) => part.text)
+      .join("")
+  }, [])
+
+  // 2. Valor derivado com useMemo
+  const lastResponseText = useMemo(() => {
+    const lastAssistantMessage = messages.filter((m) => m.role === "assistant").pop()
+    return lastAssistantMessage ? getMessageText(lastAssistantMessage) : null
+  }, [messages, getMessageText])
+
+  // 3. Agora seguro usar em useEffect
+  useEffect(() => {
+    console.log("Response:", lastResponseText?.slice(0, 100))
+  }, [lastResponseText]) // ✅ Não causa loop
+}
+```
+
+### O Que NÃO Fazer
+
+```typescript
+// ❌ ERRADO - Causa infinite loop
+const lastAssistantMessage = messages.filter((m) => m.role === "assistant").pop()
+const lastResponseText = lastAssistantMessage ? getMessageText(lastAssistantMessage) : null
+
+useEffect(() => {
+  console.log("Response:", lastResponseText?.slice(0, 100))
+}, [lastResponseText]) // ❌ Nova referência a cada render!
+```
+
+### Por Que Acontece
+
+1. `lastResponseText` é recalculado em cada render (nova referência)
+2. `useEffect` detecta mudança em `lastResponseText`
+3. Efeito executa → pode causar re-render
+4. Volta para passo 1 → loop infinito
+
+### Solução
+
+- `useCallback`: Garante mesma referência de função
+- `useMemo`: Garante mesma referência de valor computado
+- Dependências estáveis → sem re-execuções desnecessárias

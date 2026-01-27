@@ -3,13 +3,16 @@
  *
  * Card individual para visualização em grid da biblioteca.
  * Exibe thumbnail, título, badges e ações.
+ * Clicar no card abre a página de detalhes (com legenda, agendamento, etc).
+ * Botão de galeria abre o drawer de imagens (modo slide lateral).
  * Suporta edição inline de título com duplo clique.
  */
 
 "use client"
 
-import { Check, Type, Image, Layers, Video, Camera, MoreVertical, Copy, Trash2, Edit2, Loader2 } from "lucide-react"
-import { useState, useRef, useEffect } from "react"
+import Link from "next/link"
+import { Check, Type, Image, Layers, Video, Camera, MoreVertical, Copy, Trash2, Edit2, Loader2, Images } from "lucide-react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,10 +24,10 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
+import { ImageGalleryDrawer, type GalleryImage } from "@/components/ui/image-gallery-drawer"
 import type { LibraryItemWithRelations } from "@/types/library"
 import { CONTENT_TYPE_CONFIGS, STATUS_CONFIGS } from "@/types/calendar"
 import { formatDate } from "@/lib/format"
-import { inlineUpdateLibraryItemAction } from "../actions/library-actions"
 import { toast } from "sonner"
 
 interface ContentCardProps {
@@ -56,12 +59,42 @@ export function ContentCard({
   const [isSaving, setIsSaving] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Gallery drawer state
+  const [galleryOpen, setGalleryOpen] = useState(false)
+
   const typeConfig = CONTENT_TYPE_CONFIGS[item.type]
   const statusConfig = STATUS_CONFIGS[item.status]
   const TypeIcon = TYPE_ICONS[item.type] || Type
 
+  // Parse metadata to check if images are being processed
+  const metadata = useMemo(() => {
+    try {
+      return typeof item.metadata === "string"
+        ? JSON.parse(item.metadata)
+        : item.metadata || {}
+    } catch {
+      return {}
+    }
+  }, [item.metadata])
+
+  const imageProcessing = metadata.imageProcessing
+  const isImageProcessing = imageProcessing?.status === "processing" ||
+                           imageProcessing?.status === "pending"
+
   // Get preview URL or placeholder
-  const mediaUrls = item.mediaUrl ?? []
+  // Parse mediaUrl if it's a JSON string (stored as JSON in DB)
+  const mediaUrls: string[] = useMemo(() => {
+    if (!item.mediaUrl) return []
+    try {
+      const parsed = typeof item.mediaUrl === "string"
+        ? JSON.parse(item.mediaUrl)
+        : item.mediaUrl
+      return Array.isArray(parsed) ? parsed : [item.mediaUrl]
+    } catch {
+      // If not valid JSON, treat as single URL
+      return [item.mediaUrl]
+    }
+  }, [item.mediaUrl])
   const hasMedia = mediaUrls.length > 0
   const previewUrl = hasMedia ? mediaUrls[0] : null
 
@@ -88,7 +121,15 @@ export function ContentCard({
 
     setIsSaving(true)
     try {
-      const result = await inlineUpdateLibraryItemAction(item.id, "title", editedTitle.trim() || "Sem título")
+      const response = await fetch(`/api/library/${item.id}/inline`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          field: "title",
+          value: editedTitle.trim() || "Sem título",
+        }),
+      })
+      const result = await response.json()
       if (result.success) {
         toast.success("Título atualizado")
         // Update local item title for immediate feedback
@@ -121,18 +162,57 @@ export function ContentCard({
     }
   }
 
+  // Converter URLs para o formato do drawer
+  const galleryImages: GalleryImage[] = useMemo(() => {
+    if (!hasMedia) return []
+
+    return mediaUrls.map((url, index) => ({
+      url,
+      index,
+      isHtmlTemplate: url.startsWith("http"), // Assume HTTP URLs are from storage (regenerable)
+    }))
+  }, [mediaUrls, hasMedia])
+
+  // Handler para abrir a galeria
+  const handleOpenGallery = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    if (hasMedia) {
+      setGalleryOpen(true)
+    }
+  }
+
+  // Handler para quando uma imagem é atualizada
+  const handleImageUpdated = (_index: number, newUrl: string) => {
+    // Force refresh para atualizar a visualização
+    window.location.reload()
+  }
+
   return (
-    <div
-      className={cn(
-        "group relative bg-white/[0.02] border border-white/10 rounded-lg overflow-hidden transition-all hover:bg-white/[0.04] hover:border-white/15",
-        selected && "ring-2 ring-primary ring-offset-2 ring-offset-[#0a0a0f]"
-      )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {/* Selection Checkbox */}
+    <>
+      <div
+        className={cn(
+          "group relative bg-white/[0.02] border border-white/10 rounded-lg overflow-hidden transition-all hover:bg-white/[0.04] hover:border-white/15",
+          selected && "ring-2 ring-primary ring-offset-2 ring-offset-[#0a0a0f]",
+          isImageProcessing && "border-yellow-500/30 bg-yellow-500/5"
+        )}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+      {/* Link wrapper for opening detail page */}
+      <Link
+        href={`/library/${item.id}`}
+        className="absolute inset-0 z-0"
+        aria-label="Ver detalhes"
+      />
+
+      {/* Selection Checkbox - higher z-index to catch clicks before link */}
       <button
-        onClick={onSelect}
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          onSelect();
+        }}
         className={cn(
           "absolute top-3 left-3 z-10 w-5 h-5 rounded border flex items-center justify-center transition-all",
           selected
@@ -145,7 +225,7 @@ export function ContentCard({
       </button>
 
       {/* Preview/Thumbnail */}
-      <div className="aspect-video bg-white/5 flex items-center justify-center overflow-hidden">
+      <div className="aspect-video bg-white/5 flex items-center justify-center overflow-hidden pointer-events-none relative">
         {previewUrl ? (
           <img
             src={previewUrl}
@@ -158,10 +238,29 @@ export function ContentCard({
             <TypeIcon className="w-12 h-12" />
           </div>
         )}
+
+        {/* Gallery Button - aparece ao hover se há múltiplas imagens */}
+        {hasMedia && mediaUrls.length > 0 && (
+          <button
+            onClick={handleOpenGallery}
+            className={cn(
+              "absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity pointer-events-auto",
+              isHovered && "opacity-100"
+            )}
+            aria-label="Abrir galeria de imagens"
+          >
+            <div className="flex items-center gap-2 bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full">
+              <Images className="w-4 h-4 text-white" />
+              <span className="text-white text-sm font-medium">
+                {mediaUrls.length} {mediaUrls.length === 1 ? "imagem" : "imagens"}
+              </span>
+            </div>
+          </button>
+        )}
       </div>
 
       {/* Content */}
-      <div className="p-3 space-y-2">
+      <div className="p-3 space-y-2 pointer-events-none">
         {/* Title */}
         {isEditing ? (
           <div className="flex items-center gap-1">
@@ -191,6 +290,13 @@ export function ContentCard({
 
         {/* Badges */}
         <div className="flex flex-wrap gap-1.5">
+          {/* Processing Badge */}
+          {isImageProcessing && (
+            <Badge className="text-xs px-1.5 py-0 bg-yellow-500/20 text-yellow-300 border-yellow-500/30 flex items-center gap-1">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Gerando imagens...
+            </Badge>
+          )}
           <Badge className={cn("text-xs px-1.5 py-0", statusConfig.color)}>
             {statusConfig.label}
           </Badge>
@@ -247,7 +353,7 @@ export function ContentCard({
       {/* Actions Menu */}
       <div
         className={cn(
-          "absolute top-3 right-3 z-10 transition-opacity",
+          "absolute top-3 right-3 z-10 transition-opacity pointer-events-auto",
           isHovered || selected ? "opacity-100" : "opacity-0"
         )}
       >
@@ -266,11 +372,15 @@ export function ContentCard({
             className="w-48 bg-[#1a1a2e] border-white/10"
           >
             <DropdownMenuItem
-              onClick={onEdit}
-              className="text-white/80 hover:text-white hover:bg-white/5 focus:text-white focus:bg-white/5 cursor-pointer"
+              onClick={isImageProcessing ? undefined : onEdit}
+              disabled={isImageProcessing}
+              className={cn(
+                "text-white/80 hover:text-white hover:bg-white/5 focus:text-white focus:bg-white/5",
+                isImageProcessing && "opacity-50 cursor-not-allowed"
+              )}
             >
               <Edit2 className="w-4 h-4 mr-2" />
-              Editar
+              {isImageProcessing ? "Processando..." : "Editar"}
             </DropdownMenuItem>
             <DropdownMenuItem
               className="text-white/80 hover:text-white hover:bg-white/5 focus:text-white focus:bg-white/5 cursor-pointer"
@@ -290,13 +400,16 @@ export function ContentCard({
         </DropdownMenu>
       </div>
 
-      {/* Overlay on hover for hint */}
-      <div
-        className={cn(
-          "absolute inset-0 bg-primary/5 pointer-events-none transition-opacity",
-          isHovered ? "opacity-100" : "opacity-0"
-        )}
+      </div>
+
+      {/* Image Gallery Drawer */}
+      <ImageGalleryDrawer
+        open={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        images={galleryImages}
+        libraryItemId={item.id}
+        onImageUpdated={handleImageUpdated}
       />
-    </div>
+    </>
   )
 }

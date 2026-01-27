@@ -44,8 +44,21 @@ export async function createJob<T extends JobPayload>(
     .returning({ id: jobs.id });
 
   // Se não for agendado, enfileirar imediatamente
+  // Se a fila não estiver configurada (Redis não disponível),
+  // o job fica no banco com status pending mas não é enfileirado
   if (!options?.scheduledFor) {
-    await enqueueJob(newJob.id, options?.priority);
+    try {
+      const { enqueueJob, isQueueConfigured } = await import("./client");
+      if (isQueueConfigured()) {
+        await enqueueJob(newJob.id, options?.priority);
+      } else {
+        // Fila não configurada: job fica no banco mas não é enfileirado
+        console.warn(`[Queue] Redis not configured, job ${newJob.id} created in DB only`);
+      }
+    } catch (error) {
+      // Se falhar ao enfileirar, logar mas não falhar a criação do job
+      console.error(`[Queue] Failed to enqueue job ${newJob.id}:`, error);
+    }
   }
 
   return newJob.id;
@@ -134,4 +147,43 @@ export async function listUserJobs(
     .orderBy(desc(jobs.createdAt))
     .limit(filters?.limit ?? 20)
     .offset(filters?.offset ?? 0);
+}
+
+/**
+ * Reserva atomicamente o próximo job pendente para processamento.
+ *
+ * Usa UPDATE com RETURNING para garantir atomicidade - apenas uma
+ * transação consegue reservar cada job, evitando condições de corrida
+ * quando múltiplos workers processam jobs simultaneamente.
+ *
+ * @returns O job reservado ou null se nenhum disponível
+ */
+export async function reserveNextJob() {
+  const now = new Date();
+
+  // Usar CTE para UPDATE com ORDER BY - garante que pegamos o job
+  // de maior prioridade de forma atômica
+  const result = await db.execute(sql`
+    WITH next_job AS (
+      SELECT id
+      FROM jobs
+      WHERE status = 'pending'
+      ORDER BY priority DESC, created_at DESC
+      LIMIT 1
+      FOR UPDATE SKIP LOCKED
+    )
+    UPDATE jobs
+    SET status = 'processing',
+        started_at = ${now},
+        updated_at = ${now}
+    WHERE id = (SELECT id FROM next_job)
+    RETURNING *
+  `);
+
+  if (!result.rows[0]) {
+    return null;
+  }
+
+  // Converter row para objeto no formato do schema
+  return result.rows[0] as unknown as Awaited<ReturnType<typeof getJob>>;
 }

@@ -1,4 +1,5 @@
 # Project Structure
+**Última atualização:** Jan 16, 2026
 
 Estrutura completa do projeto Máquina de Conteúdo.
 
@@ -33,14 +34,40 @@ maquina-de-conteudo/
 │   │   ├── layout.tsx       # Root layout + ClerkProvider
 │   │   ├── page.tsx         # Home page
 │   │   ├── globals.css      # CSS global + design tokens
-│   │   ├── sign-in/[[...sign-in]]/page.tsx  ⭐
-│   │   ├── sign-up/[[...sign-up]]/page.tsx  ⭐
-│   │   ├── styleguide/      # Página de styleguide
-│   │   └── api/             # API Routes ⭐
-│   │       ├── jobs/        # Job CRUD
-│   │       ├── jobs/[id]/   # Job status
-│   │       ├── workers/     # Queue processor
-│   │       └── webhooks/    # Clerk webhook
+│   │   │
+│   │   ├── (auth)/          # Route group: autenticação
+│   │   │   ├── sign-in/[[...sign-in]]/page.tsx
+│   │   │   └── sign-up/[[...sign-up]]/page.tsx
+│   │   │
+│   │   ├── (app)/           # Route group: app autenticada
+│   │   │   ├── layout.tsx   # AppLayout com navbar
+│   │   │   ├── page.tsx     # Dashboard
+│   │   │   ├── settings/    # Página de configurações
+│   │   │   ├── sources/     # Página de fontes/documentos ⭐ FASE 8
+│   │   │   │   ├── page.tsx
+│   │   │   │   ├── components/
+│   │   │   │   │   ├── sources-page.tsx
+│   │   │   │   │   ├── collections-sidebar.tsx
+│   │   │   │   │   ├── documents-tab.tsx
+│   │   │   │   │   ├── upload-dialog.tsx
+│   │   │   │   │   ├── collection-card.tsx
+│   │   │   │   │   └── document-card.tsx
+│   │   │   │   ├── actions/
+│   │   │   │   │   ├── sources-actions.ts
+│   │   │   │   │   └── collections-actions.ts
+│   │   │   │   └── hooks/
+│   │   │   │       └── use-sources-data.ts
+│   │   │   ├── library/     # Biblioteca de conteúdo
+│   │   │   └── calendar/    # Calendário editorial
+│   │   │
+│   │   ├── api/             # API Routes
+│   │   │   ├── jobs/        # Job CRUD
+│   │   │   ├── jobs/[id]/   # Job status
+│   │   │   ├── workers/     # Queue processor
+│   │   │   ├── webhooks/    # Clerk webhook
+│   │   │   └── documents/   # Upload de documentos ⭐ FASE 8
+│   │   │       └── upload/
+│   │   │           └── route.ts  # FormData + PDF parse
 │   │
 │   ├── components/          # Componentes React
 │   │   ├── ui/              # Componentes UI base (shadcn)
@@ -63,9 +90,12 @@ maquina-de-conteudo/
 │   │       ├── client.ts     # Upstash Redis client
 │   │       └── jobs.ts       # Job CRUD functions
 │   │
-│   ├── db/                  # Database (Drizzle) ⭐
+│   ├── db/                  # Database (Drizzle)
 │   │   ├── index.ts         # Conexão Neon (HTTP adapter)
-│   │   └── schema.ts        # Schema 8 tabelas + types
+│   │   └── schema.ts        # Schema +10 tabelas + types ⭐
+│   │       # users, jobs, libraryItems, scheduledPosts
+│   │       # documents, documentEmbeddings, documentCollections, documentCollectionItems
+│   │       # categories, tags, calendarEvents
 │   │
 │   ├── stores/              # Zustand stores
 │   │   └── *.ts             # State management

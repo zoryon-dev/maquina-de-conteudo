@@ -17,10 +17,19 @@ import {
   PieChart,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import {
-  getDocumentStatsAction,
-  type DocumentStats,
-} from "../actions/sources-actions"
+
+// Type definition (client-safe)
+export interface DocumentStats {
+  totalDocuments: number
+  embeddedDocuments: number
+  totalChunks: number
+  categories: CategoryCount[]
+}
+
+export interface CategoryCount {
+  category: string | null
+  count: number
+}
 
 /**
  * Stat Card Component
@@ -103,8 +112,11 @@ export function StatsTab() {
   React.useEffect(() => {
     const fetchStats = async () => {
       try {
-        const data = await getDocumentStatsAction()
-        setStats(data)
+        const response = await fetch("/api/sources/stats")
+        if (response.ok) {
+          const data = await response.json()
+          setStats(data)
+        }
       } catch (error) {
         console.error("Failed to fetch stats:", error)
       } finally {

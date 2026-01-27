@@ -228,6 +228,193 @@ if (isSuccess(result)) {
 }
 ```
 
+## Error Handling Patterns
+
+### Hierarquia de Erros (Jan 2026)
+
+**Arquivo**: `src/lib/errors.ts`
+
+O projeto usa uma hierarquia de erros específicos em vez de catch-all genéricos:
+
+```typescript
+// Base error class
+export class AppError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public statusCode: number = 500,
+    public details?: unknown
+  ) {
+    super(message)
+    this.name = this.constructor.name
+    Error.captureStackTrace?.(this, this.constructor)
+  }
+
+  toJSON() {
+    return { name: this.name, message: this.message, code: this.code, statusCode: this.statusCode, details: this.details }
+  }
+}
+
+// Error types específicos
+export class ValidationError extends AppError {
+  constructor(message: string, details?: unknown) {
+    super(message, "VALIDATION_ERROR", 400, details)
+    this.name = "ValidationError"
+  }
+}
+
+export class AuthError extends AppError {
+  constructor(message: string = "Authentication failed", details?: unknown) {
+    super(message, "AUTH_ERROR", 401, details)
+    this.name = "AuthError"
+  }
+}
+
+export class JobError extends AppError {
+  constructor(message: string, public jobId?: number, details?: unknown) {
+    super(message, "JOB_ERROR", 500, { jobId, ...details })
+    this.name = "JobError"
+  }
+}
+// ... ForbiddenError, NotFoundError, NetworkError, RateLimitError, ConfigError
+```
+
+### Type Guards para Erros
+
+```typescript
+// Verificar se é AppError
+export function isAppError(error: unknown): error is AppError {
+  return error instanceof AppError
+}
+
+// Verificar se tem propriedade code (como SocialApiError)
+export function hasErrorCode(error: unknown): error is { code: string; message: string } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    "message" in error &&
+    typeof error.code === "string" &&
+    typeof error.message === "string"
+  )
+}
+
+// Verificar erro específico
+export function isAuthError(error: unknown): error is AuthError {
+  return error instanceof AuthError
+}
+```
+
+### Normalização de Erros
+
+```typescript
+// Converter unknown para AppError
+export function toAppError(error: unknown, defaultCode: string = "UNKNOWN_ERROR"): AppError {
+  if (isAppError(error)) return error
+  if (error instanceof Error) {
+    return new AppError(error.message, defaultCode, 500, error)
+  }
+  if (typeof error === "string") {
+    return new AppError(error, defaultCode, 500)
+  }
+  return new AppError("An unknown error occurred", defaultCode, 500, error)
+}
+
+// Extrair mensagem de erro safely
+export function getErrorMessage(error: unknown): string {
+  if (typeof error === "string") return error
+  if (error instanceof Error) return error.message
+  if (hasErrorCode(error)) return error.message
+  if (isAppError(error)) return error.message
+  return "An unknown error occurred"
+}
+```
+
+### Padrão de Error Handling em APIs
+
+```typescript
+// ❌ ERRADO - catch-all genérico
+try {
+  await operation()
+} catch (error) {
+  console.error(error)
+  return { error: "Something went wrong" }
+}
+
+// ✅ CORRETO - tratamento específico
+try {
+  await operation()
+} catch (error) {
+  const appError = toAppError(error, "OPERATION_FAILED")
+  console.error("[Operation] Error:", appError)
+
+  // Verificar tipo específico
+  if (isAuthError(appError)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  if (hasErrorCode(error) && error.code === "TOKEN_EXPIRED") {
+    // Handle token expired
+  }
+
+  return NextResponse.json(
+    { error: getErrorMessage(appError) },
+    { status: appError.statusCode }
+  )
+}
+```
+
+### Agrupamento de Erros em Loops
+
+```typescript
+// Para operações em lote, agrupar erros em vez de falhar totalmente
+interface BatchError {
+  id: number
+  error: string
+}
+
+const errors: BatchError[] = []
+let successCount = 0
+
+for (const item of items) {
+  try {
+    await processItem(item)
+    successCount++
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    console.error(`[Batch] Error processing item ${item.id}:`, errorMsg)
+    errors.push({ id: item.id, error: errorMsg })
+  }
+}
+
+// Log summary se houver erros
+if (errors.length > 0) {
+  console.warn(`[Batch] ${errors.length}/${items.length} failed`)
+  console.warn(`[Batch] Failed: ${errors.map(e => `#${e.id}`).join(", ")}`)
+}
+
+return { success: true, successCount, errors: errors.length > 0 ? errors : undefined }
+```
+
+### Safe JSON Parsing
+
+```typescript
+// Evitar crashes com JSON malformado
+function parseJsonSafely<T = unknown>(json: string | null | undefined, fallback: T = {} as T): T {
+  if (!json) return fallback
+  try {
+    const parsed = JSON.parse(json)
+    return typeof parsed === "object" && parsed !== null ? parsed as T : fallback
+  } catch (error) {
+    console.error("[Parse] Failed to parse JSON:", error)
+    return fallback
+  }
+}
+
+// Uso
+const metadata = parseJsonSafely<Record<string, unknown>>(item.metadata, {})
+```
+
 ## Enums vs Union Types
 
 ```typescript
