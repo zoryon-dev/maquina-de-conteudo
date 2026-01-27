@@ -5,6 +5,14 @@
  */
 
 import { Redis } from "@upstash/redis";
+import {
+  AppError,
+  ConfigError,
+  JobError,
+  NetworkError,
+  toAppError,
+  getErrorMessage,
+} from "@/lib/errors";
 
 // Verificar se as variáveis de ambiente estão configuradas
 const url = process.env.UPSTASH_REDIS_REST_URL;
@@ -62,14 +70,16 @@ export async function enqueueJob(jobId: number, priority = 0): Promise<void> {
     const score = `${String(999999 - priority).padStart(6, "0")}:${Date.now()}:${jobId}`;
     await redis.lpush(JOB_QUEUE, score);
   } catch (error) {
-    console.error("Erro ao enfileirar job:", error);
-    throw new Error(`Failed to enqueue job: ${error instanceof Error ? error.message : "Unknown error"}`);
+    const appError = toAppError(error, "QUEUE_ENQUEUE_FAILED");
+    console.error("[Queue] Erro ao enfileirar job:", appError);
+    throw new JobError(`Failed to enqueue job ${jobId}`, jobId, appError);
   }
 }
 
 /**
  * Remove e retorna o próximo job da fila
  * @returns ID do job ou null se fila vazia
+ * @throws {JobError} Se houver erro de comunicação com o Redis
  */
 export async function dequeueJob(): Promise<number | null> {
   try {
@@ -81,7 +91,10 @@ export async function dequeueJob(): Promise<number | null> {
     const jobId = parseInt(parts[2] || "0", 10);
     return jobId;
   } catch (error) {
-    console.error("Erro ao desenfileirar job:", error);
+    const appError = toAppError(error, "QUEUE_DEQUEUE_FAILED");
+    console.error("[Queue] Erro ao desenfileirar job:", appError);
+    // Retornar null é aceitável aqui (fila vazia ou erro temporário)
+    // mas logamos com contexto para debug
     return null;
   }
 }
@@ -215,10 +228,11 @@ export async function triggerWorker(options?: { waitForJobId?: number; timeoutMs
       result: data.result,
     };
   } catch (error) {
-    console.error("Error triggering worker:", error);
+    const appError = toAppError(error, "WORKER_TRIGGER_FAILED");
+    console.error("[Queue] Error triggering worker:", appError);
     return {
       success: false,
-      message: `Failed to trigger worker: ${error instanceof Error ? error.message : "Unknown error"}`,
+      message: `Failed to trigger worker: ${getErrorMessage(appError)}`,
     };
   }
 }

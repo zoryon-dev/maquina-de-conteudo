@@ -28,6 +28,7 @@ import {
 } from "@/lib/social/types"
 import { getInstagramService, getFacebookService } from "@/lib/social/api"
 import { SocialMediaType, SocialApiError } from "@/lib/social/types"
+import { toAppError, getErrorMessage, isAuthError, hasErrorCode } from "@/lib/errors"
 
 /**
  * Check if a connection's token is expired
@@ -411,34 +412,31 @@ export async function POST(request: Request) {
       )
     }
   } catch (error) {
-    console.error("Social publish error:", error)
+    const appError = toAppError(error, "PUBLISH_FAILED")
+    console.error("[SocialPublish] Error:", appError)
 
     // Handle SocialApiError with token errors
-    if (error instanceof SocialApiError) {
-      const isTokenError =
-        error.code === SocialErrorCode.TOKEN_EXPIRED ||
+    const isTokenError =
+      error instanceof SocialApiError &&
+      (error.code === SocialErrorCode.TOKEN_EXPIRED ||
         error.code === SocialErrorCode.AUTH_FAILED ||
         error.message.includes("Invalid OAuth access token") ||
         error.message.includes("Cannot parse access token") ||
-        error.message.includes("token") && error.message.includes("expired")
+        (error.message.includes("token") && error.message.includes("expired")))
 
-      if (isTokenError && connection) {
-        await markConnectionExpired(connection.id)
-        return NextResponse.json(
-          {
-            error: `Sua conexão com ${platform === "instagram" ? "Instagram" : "Facebook"} expirou ou é inválida. Por favor, reconecte sua conta em Configurações > Redes Sociais.`,
-            code: "TOKEN_EXPIRED",
-          },
-          { status: 400 }
-        )
-      }
+    if (isTokenError && connection) {
+      await markConnectionExpired(connection.id)
+      return NextResponse.json(
+        {
+          error: `Sua conexão com ${platform === "instagram" ? "Instagram" : "Facebook"} expirou ou é inválida. Por favor, reconecte sua conta em Configurações > Redes Sociais.`,
+          code: "TOKEN_EXPIRED",
+        },
+        { status: 400 }
+      )
     }
 
-    const errorMessage =
-      error instanceof Error ? error.message : "Erro ao publicar"
-
     return NextResponse.json(
-      { error: errorMessage },
+      { error: getErrorMessage(appError) },
       { status: 500 }
     )
   }
