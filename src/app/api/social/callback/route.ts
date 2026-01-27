@@ -1,22 +1,31 @@
 /**
  * Instagram & Facebook OAuth Callback Endpoint
  *
- * Handles the OAuth callback from Meta.
- * Exchanges authorization code for access token and stores connection.
+ * Handles the OAuth callback from Meta (Facebook/Instagram).
  *
- * Flow:
- * 1. Receive authorization code from Meta
- * 2. Exchange code for short-lived token
- * 3. Exchange short-lived token for long-lived token (60 days)
- * 4. Get user/page info
- * 5. Store connection in database
- * 6. Redirect to settings page
+ * IMPORTANT: This implementation uses Facebook OAuth Dialog for BOTH platforms
+ * because Instagram Business Accounts are linked to Facebook Pages.
+ *
+ * NEW FLOW (Database Session Storage):
+ * 1. Exchange code for short-lived user access token
+ * 2. Exchange short-lived for long-lived token (60 days)
+ * 3. Get user's Facebook Pages
+ * 4. For each page, check if it has an Instagram Business account linked
+ * 5. Save OAuth data to database with 15-minute expiration
+ * 6. Redirect with session_id in URL (not cookies - they don't work with Next.js redirects)
+ * 7. Frontend fetches pages from API using session_id
+ * 8. User selects which page/account to connect
+ *
+ * Environment variables required:
+ * - META_APP_ID: Meta App ID
+ * - META_APP_SECRET: Meta App Secret
+ * - META_REDIRECT_URI: OAuth redirect URI
  */
 
 import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { db } from "@/db"
-import { socialConnections } from "@/db/schema"
+import { socialConnections, oauthSessions } from "@/db/schema"
 import { eq } from "drizzle-orm"
 import { SocialPlatform, SocialConnectionStatus } from "@/lib/social/types"
 
@@ -25,29 +34,53 @@ const META_APP_ID = process.env.META_APP_ID
 const META_APP_SECRET = process.env.META_APP_SECRET
 const META_REDIRECT_URI = process.env.META_REDIRECT_URI
 
+// Meta Graph API version
+const META_API_VERSION = "v21.0"
+const META_GRAPH_API_URL = `https://graph.facebook.com/${META_API_VERSION}`
+
 /**
  * GET /api/social/callback
  *
  * Query params:
  * - code: Authorization code from Meta
- * - state: CSRF protection state (format: {uuid}_{platform})
+ * - state: CSRF protection state (base64 of {userId}:{platform}:{randomUUID})
  * - error: Error code if user denied
  *
- * Redirects to /settings?tab=social after processing
+ * Response:
+ * - On error: Redirects to /settings?tab=social&error=...
+ * - On success: Redirects to /settings?tab=social&action=select-{platform}&session_id={uuid}
+ *
+ * Note: userId is embedded in state parameter (base64 encoded) to handle cases where
+ * Clerk session is not available after OAuth redirect (e.g., when using ngrok or
+ * different domains).
+ *
+ * IMPORTANT: We use database sessions instead of cookies because Next.js redirects
+ * do NOT send Set-Cookie headers properly (see GitHub Discussion #48434).
  */
+/**
+ * Helper function to build a redirect URL with the correct protocol
+ * In development, always uses HTTP to avoid SSL errors
+ */
+function buildRedirectUrl(path: string, requestUrl: string): URL {
+  let baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL_LOCAL
+
+  // Fallback: use localhost with HTTP in development to avoid SSL errors
+  if (!baseUrl && process.env.NODE_ENV === "development") {
+    baseUrl = "http://localhost:3000"
+  } else if (!baseUrl) {
+    // Last resort: use the origin from the request, but force HTTP if needed
+    const requestOrigin = new URL(requestUrl).origin
+    baseUrl = requestOrigin.replace(/^https:/, "http:")
+  }
+
+  return new URL(path, baseUrl)
+}
+
 export async function GET(request: Request) {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return new Response("Unauthorized", { status: 401 })
-  }
-
-  if (!META_APP_ID || !META_APP_SECRET || !META_REDIRECT_URI) {
-    return new Response("Meta OAuth not configured", { status: 500 })
-  }
+  // Try to get userId from Clerk auth first
+  let userId = (await auth()).userId
 
   const { searchParams } = new URL(request.url)
-  const code = searchParams.get("code")
   const state = searchParams.get("state")
   const error = searchParams.get("error")
 
@@ -59,36 +92,61 @@ export async function GET(request: Request) {
         : `Erro no OAuth: ${error}`
 
     return NextResponse.redirect(
-      new URL(`/settings?tab=social&error=${encodeURIComponent(errorMessage)}`, request.url)
+      buildRedirectUrl(`/settings?tab=social&error=${encodeURIComponent(errorMessage)}`, request.url)
     )
   }
+
+  const code = searchParams.get("code")
 
   if (!code || !state) {
     return new Response("Missing required parameters", { status: 400 })
   }
 
-  // Extract platform from state
-  const platform = state.split("_").pop()
+  // Decode state from base64 format: {userId}:{platform}:{randomUUID}
+  let platform = ""
+  try {
+    const stateData = Buffer.from(state, 'base64').toString('utf-8')
+    const stateParts = stateData.split(":")
+    if (stateParts.length >= 3) {
+      // If Clerk auth failed, extract userId from state
+      if (!userId) {
+        userId = stateParts[0]
+      }
+      // Platform is the second element
+      platform = stateParts[1]
+    }
+  } catch (e) {
+    console.error("Failed to decode state:", e)
+  }
+
+  if (!userId) {
+    return new Response("Unauthorized: Unable to verify user session", { status: 401 })
+  }
+
+  if (!META_APP_ID || !META_APP_SECRET || !META_REDIRECT_URI) {
+    return new Response("Meta OAuth not configured", { status: 500 })
+  }
+
+  if (platform !== "instagram" && platform !== "facebook") {
+    return NextResponse.redirect(
+      buildRedirectUrl(`/settings?tab=social&error=${encodeURIComponent("Invalid platform")}`, request.url)
+    )
+  }
 
   try {
     if (platform === "instagram") {
-      await handleInstagramCallback(userId, code)
+      return await handleInstagramCallback(userId, code, request.url)
     } else if (platform === "facebook") {
-      await handleFacebookCallback(userId, code)
+      return await handleFacebookCallback(userId, code, request.url)
     } else {
       throw new Error("Invalid platform in state")
     }
-
-    // Success - redirect to settings
-    return NextResponse.redirect(
-      new URL("/settings?tab=social&success=1", request.url)
-    )
   } catch (err) {
     const errorMessage =
       err instanceof Error ? err.message : "Erro ao conectar conta"
 
     return NextResponse.redirect(
-      new URL(`/settings?tab=social&error=${encodeURIComponent(errorMessage)}`, request.url)
+      buildRedirectUrl(`/settings?tab=social&error=${encodeURIComponent(errorMessage)}`, request.url)
     )
   }
 }
@@ -96,41 +154,87 @@ export async function GET(request: Request) {
 /**
  * Handle Instagram OAuth callback
  *
- * Flow:
- * 1. Exchange code for short-lived token
- * 2. Exchange for long-lived token (60 days)
- * 3. Get Instagram Business Account info
- * 4. Store connection
+ * Instagram Business Login flow using Facebook OAuth:
+ * 1. Exchange code for short-lived user access token
+ * 2. Exchange short-lived for long-lived token (60 days)
+ * 3. Get user's Facebook Pages (from 3 sources)
+ * 4. For each page, check if it has Instagram Business linked
+ * 5. Save OAuth data to database (oauth_sessions table)
+ * 6. Redirect with session_id for frontend to fetch pages
+ *
+ * Sources for Facebook Pages:
+ * - /me/accounts - User's personal pages
+ * - /me/businesses - Business Manager businesses
+ * - /{business_id}/owned_pages - Pages owned by business
+ * - /{business_id}/client_pages - Pages managed by business (client pages)
  */
-async function handleInstagramCallback(userId: string, code: string) {
-  // Step 1: Exchange code for short-lived token
+async function handleInstagramCallback(userId: string, code: string, baseUrl: string) {
+  // Step 1: Exchange code for short-lived user access token
   const tokenResponse = await fetch(
-    `https://api.instagram.com/oauth/access_token`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
+    `${META_GRAPH_API_URL}/oauth/access_token?` +
+      new URLSearchParams({
         client_id: META_APP_ID!,
         client_secret: META_APP_SECRET!,
-        grant_type: "authorization_code",
         redirect_uri: META_REDIRECT_URI!,
         code,
-      }),
-    }
+      })
   )
 
   const tokenData = await tokenResponse.json()
 
   if (tokenData.error) {
-    throw new Error(tokenData.error?.message || "Failed to get access token")
+    throw new Error(tokenData.error?.message || tokenData.error_description || "Failed to get access token")
   }
 
   const shortLivedToken = tokenData.access_token
-  const igUserId = tokenData.user_id
 
-  // Step 2: Exchange short-lived token for long-lived token (60 days)
+  const permissions = await fetchUserPermissions(shortLivedToken)
+  const hasPagesReadEngagement = permissions.some(
+    (permission) =>
+      permission.permission === "pages_read_engagement" &&
+      permission.status === "granted"
+  )
+
+  // Step 2: Get user's Facebook Pages using SHORT-LIVED token
+  // IMPORTANT: Must use short-lived token to get page access tokens
+  // Long-lived tokens don't include page access tokens anymore (Facebook API change)
+  const cacheKey = `${userId}:instagram-pages`
+  const cachedPages = pagesCache.get(cacheKey)
+  const now = Date.now()
+
+  const pagesWithInstagram = cachedPages && cachedPages.expiresAt > now
+    ? cachedPages.pages
+    : await fetchAllPagesWithInstagram(shortLivedToken, {
+        includeBusinessPages: true,
+        includeClientPages: hasPagesReadEngagement,
+      })
+
+  if (!cachedPages || cachedPages.expiresAt <= now) {
+    pagesCache.set(cacheKey, {
+      expiresAt: now + PAGES_CACHE_TTL_MS,
+      pages: pagesWithInstagram,
+    })
+  }
+
+  console.log(`Total pages with Instagram found: ${pagesWithInstagram.length}`)
+
+  if (pagesWithInstagram.length === 0) {
+    throw new Error(
+      "Nenhuma página com Instagram Business encontrada. " +
+      "Você precisa vincular uma conta Instagram Business a uma página do Facebook."
+    )
+  }
+
+  // Step 3: Exchange short-lived token for long-lived token (60 days)
+  // This long-lived token is for future API calls, not for getting page tokens
   const longLivedResponse = await fetch(
-    `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${META_APP_SECRET}&access_token=${shortLivedToken}`
+    `${META_GRAPH_API_URL}/oauth/access_token?` +
+      new URLSearchParams({
+        grant_type: "fb_exchange_token",
+        client_id: META_APP_ID!,
+        client_secret: META_APP_SECRET!,
+        fb_exchange_token: shortLivedToken,
+      })
   )
 
   const longLivedData = await longLivedResponse.json()
@@ -142,43 +246,49 @@ async function handleInstagramCallback(userId: string, code: string) {
   }
 
   const longLivedToken = longLivedData.access_token
-  const expiresInSeconds = longLivedData.expires_in // ~60 days
+  const expiresInSeconds = longLivedData.expires_in || 5184000 // ~60 days default
 
-  // Step 3: Get Instagram Business Account info
-  // First get user's Instagram Business Accounts
-  const accountsResponse = await fetch(
-    `https://graph.instagram.com/${igUserId}?fields=id,username,account_type,media_count&access_token=${longLivedToken}`
-  )
-
-  const accountsData = await accountsResponse.json()
-
-  if (accountsData.error) {
-    throw new Error(
-      accountsData.error?.message || "Failed to get account info"
-    )
-  }
-
-  const username = accountsData.username
-  const accountId = accountsData.id // This is the IG User ID (use as account_id)
-
-  // Calculate token expiration
+  // Step 4: Store long-lived token temporarily for final connection
   const tokenExpiresAt = new Date(Date.now() + expiresInSeconds * 1000)
 
-  // Step 4: Store or update connection
-  await upsertConnection({
+  // Step 5: Save OAuth data to database instead of cookie
+  // Cookies don't work with NextResponse.redirect() - see GitHub Discussion #48434
+  const sessionId = crypto.randomUUID()
+  const sessionExpiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
+
+  console.log("[Instagram OAuth] Saving session to database:", {
+    sessionId,
     userId,
-    platform: SocialPlatform.INSTAGRAM,
-    accountId,
-    accountName: username,
-    accountUsername: username,
-    accessToken: longLivedToken,
-    tokenExpiresAt,
-    status: SocialConnectionStatus.ACTIVE,
-    metadata: {
-      igUserId,
-      permissions: ["instagram_business_basic", "instagram_business_content_publish"],
-    },
+    pagesCount: pagesWithInstagram.length,
+    tokenExpiresAt: tokenExpiresAt.toISOString(),
+    firstPage: pagesWithInstagram[0] ? {
+      pageId: pagesWithInstagram[0].pageId,
+      pageName: pagesWithInstagram[0].pageName,
+      igUsername: pagesWithInstagram[0].instagramBusinessAccount?.username,
+    } : null,
   })
+
+  await db.insert(oauthSessions).values({
+    id: sessionId,
+    userId,
+    platform: "instagram",
+    longLivedToken,
+    tokenExpiresAt,
+    pagesData: { pages: pagesWithInstagram },
+    expiresAt: sessionExpiresAt,
+  })
+
+  console.log("[Instagram OAuth] Session saved to database:", sessionId)
+
+  // Step 6: Redirect with session_id (not pages data in URL)
+  // Frontend will fetch pages using the session_id
+  const redirectUrl = buildRedirectUrl(
+    `/settings?tab=social&action=select-instagram&session_id=${sessionId}`,
+    baseUrl
+  )
+  console.log("[Instagram OAuth] Redirecting to:", redirectUrl.toString())
+
+  return NextResponse.redirect(redirectUrl)
 }
 
 /**
@@ -187,13 +297,13 @@ async function handleInstagramCallback(userId: string, code: string) {
  * Flow:
  * 1. Exchange code for user access token
  * 2. Get user's managed pages
- * 3. Get page access token for each page
- * 4. Store connections for each page
+ * 3. Save OAuth data to database (oauth_sessions table)
+ * 4. Redirect with session_id for frontend to fetch pages
  */
-async function handleFacebookCallback(userId: string, code: string) {
+async function handleFacebookCallback(userId: string, code: string, baseUrl: string) {
   // Step 1: Exchange code for user access token
   const tokenResponse = await fetch(
-    `https://graph.facebook.com/v22.0/oauth/access_token?` +
+    `${META_GRAPH_API_URL}/oauth/access_token?` +
       new URLSearchParams({
         client_id: META_APP_ID!,
         client_secret: META_APP_SECRET!,
@@ -212,7 +322,7 @@ async function handleFacebookCallback(userId: string, code: string) {
 
   // Step 2: Get user's managed pages
   const pagesResponse = await fetch(
-    `https://graph.facebook.com/v22.0/me/accounts?access_token=${userAccessToken}`
+    `${META_GRAPH_API_URL}/me/accounts?access_token=${userAccessToken}`
   )
 
   const pagesData = await pagesResponse.json()
@@ -229,47 +339,330 @@ async function handleFacebookCallback(userId: string, code: string) {
     throw new Error("Nenhuma página encontrada. Você precisa gerenciar pelo menos uma página do Facebook.")
   }
 
-  // Step 3 & 4: Store connection for each page
-  // In production, you might want to let user select which page(s)
-  for (const page of pages) {
-    const pageAccessToken = page.access_token
-    const pageId = page.id
-    const pageName = page.name
+  // Step 3: Fetch additional info for each page
+  // Filter out pages without valid access tokens first
+  const pagesWithValidTokens = pages.filter((page: any) =>
+    page.access_token && page.access_token.length >= 10
+  )
 
-    // Get page info
-    const pageResponse = await fetch(
-      `https://graph.facebook.com/v22.0/${pageId}?fields=name,username,picture&access_token=${pageAccessToken}`
+  if (pagesWithValidTokens.length === 0) {
+    throw new Error("Nenhuma página com token válido encontrada. Verifique se você tem permissão de administrador nas páginas.")
+  }
+
+  const pagesWithInfo = await Promise.all(
+    pagesWithValidTokens.map(async (page: any) => {
+      const pageId = page.id
+      const pageAccessToken = page.access_token
+
+      // Get page info with picture
+      const pageResponse = await fetch(
+        `${META_GRAPH_API_URL}/${pageId}?fields=name,username,picture&access_token=${pageAccessToken}`
+      )
+
+      const pageInfo = await pageResponse.json()
+
+      return {
+        pageId,
+        pageName: pageInfo.name || page.name,
+        username: pageInfo.username,
+        picture: pageInfo.picture?.data?.url,
+        pageAccessToken,
+        category: pageInfo.category,
+      }
+    })
+  )
+
+  // Step 3: Save OAuth data to database instead of cookie
+  // Cookies don't work with NextResponse.redirect() - see GitHub Discussion #48434
+  const sessionId = crypto.randomUUID()
+  const sessionExpiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
+
+  console.log("[Facebook OAuth] Saving session to database:", {
+    sessionId,
+    userId,
+    pagesCount: pagesWithInfo.length,
+  })
+
+  await db.insert(oauthSessions).values({
+    id: sessionId,
+    userId,
+    platform: "facebook",
+    longLivedToken: userAccessToken,
+    pagesData: { pages: pagesWithInfo },
+    expiresAt: sessionExpiresAt,
+  })
+
+  console.log("[Facebook OAuth] Session saved to database:", sessionId)
+
+  // Step 4: Redirect with session_id (not pages data in URL)
+  // Frontend will fetch pages using the session_id
+  const redirectUrl = buildRedirectUrl(
+    `/settings?tab=social&action=select-facebook&session_id=${sessionId}`,
+    baseUrl
+  )
+  console.log("[Facebook OAuth] Redirecting to:", redirectUrl.toString())
+
+  return NextResponse.redirect(redirectUrl)
+}
+
+interface PageFetchOptions {
+  includeBusinessPages: boolean
+  includeClientPages: boolean
+}
+
+interface UserPermission {
+  permission: string
+  status: "granted" | "declined" | "expired"
+}
+
+interface PageFetchResult {
+  pages: PageWithInstagram[]
+  rateLimited: boolean
+}
+
+const PAGES_CACHE_TTL_MS = 10 * 60 * 1000
+const pagesCache = new Map<string, { expiresAt: number; pages: PageWithInstagram[] }>()
+
+async function sleep(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function fetchJsonWithRetry(url: string, retries = 3, baseDelayMs = 500) {
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const response = await fetch(url)
+    const data = await response.json()
+    if (!data?.error) {
+      return data
+    }
+
+    if (data.error?.code === 4 && attempt < retries) {
+      const delay = baseDelayMs * Math.pow(2, attempt)
+      await sleep(delay)
+      continue
+    }
+
+    return data
+  }
+
+  return { error: { message: "Retry exhausted", code: 4 } }
+}
+
+async function fetchUserPermissions(accessToken: string): Promise<UserPermission[]> {
+  const url = new URL(`${META_GRAPH_API_URL}/me/permissions`)
+  url.searchParams.set("access_token", accessToken)
+  const data = await fetchJsonWithRetry(url.toString())
+  return data?.data || []
+}
+
+/**
+ * Fetch all Facebook Pages that have Instagram Business accounts linked
+ */
+async function fetchAllPagesWithInstagram(
+  accessToken: string,
+  options: PageFetchOptions
+): Promise<PageWithInstagram[]> {
+  const pagesWithIg: PageWithInstagram[] = []
+
+  // Source 1: User's personal pages (primary source)
+  console.log("Fetching personal pages from /me/accounts...")
+  const personalPagesResult = await fetchPages(accessToken, "/me/accounts")
+  pagesWithIg.push(...personalPagesResult.pages)
+
+  console.log(`Found ${pagesWithIg.length} pages with Instagram from personal pages`)
+
+  if (!options.includeBusinessPages || personalPagesResult.rateLimited) {
+    const uniquePages = Array.from(
+      new Map(pagesWithIg.map((page) => [page.pageId, page])).values()
+    )
+    return uniquePages
+  }
+
+  try {
+    let rateLimited = false
+    const businessesResponse = await fetchJsonWithRetry(
+      `${META_GRAPH_API_URL}/me/businesses?access_token=${accessToken}&fields=name,id`
     )
 
-    const pageInfo = await pageResponse.json()
+    if (!businessesResponse.error && businessesResponse.data) {
+      for (const business of businessesResponse.data) {
+        const businessId = business.id
 
-    const accountUsername = pageInfo.username || pageId
+        const ownedPagesResult = await fetchPages(
+          accessToken,
+          `/${businessId}/owned_pages`,
+          business.name
+        )
+        pagesWithIg.push(...ownedPagesResult.pages)
+        rateLimited = ownedPagesResult.rateLimited
 
-    // Calculate token expiration (page access tokens don't expire unless refreshed)
-    const tokenExpiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) // 60 days default
+        if (rateLimited) {
+          console.warn("Rate limit hit. Skipping remaining Business Manager pages.")
+          break
+        }
 
-    await upsertConnection({
-      userId,
-      platform: SocialPlatform.FACEBOOK,
-      accountId: pageId,
-      accountName: pageName,
-      accountUsername,
-      accessToken: pageAccessToken,
-      tokenExpiresAt,
-      status: SocialConnectionStatus.ACTIVE,
-      metadata: {
-        pageId,
-        permissions: page.tasks || ["pages_manage_posts"],
-      },
-    })
+        if (options.includeClientPages) {
+          const clientPagesResult = await fetchPages(
+            accessToken,
+            `/${businessId}/client_pages`,
+            business.name
+          )
+          pagesWithIg.push(...clientPagesResult.pages)
+          rateLimited = clientPagesResult.rateLimited
+
+          if (rateLimited) {
+            console.warn("Rate limit hit while fetching client pages. Skipping remaining Business Manager pages.")
+            break
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("Failed to fetch Business Manager pages:", e)
   }
+
+  // Remove duplicates by page ID
+  const uniquePages = Array.from(
+    new Map(pagesWithIg.map((page) => [page.pageId, page])).values()
+  )
+
+  return uniquePages
+}
+
+/**
+ * Fetch pages from a specific endpoint and filter for Instagram Business
+ */
+async function fetchPages(
+  accessToken: string,
+  endpoint: string,
+  businessName?: string
+): Promise<PageFetchResult> {
+  const pagesWithIg: PageWithInstagram[] = []
+
+  const baseUrl = new URL(`${META_GRAPH_API_URL}${endpoint}`)
+  baseUrl.searchParams.set("access_token", accessToken)
+  baseUrl.searchParams.set(
+    "fields",
+    endpoint === "/me/accounts"
+      ? "id,name,access_token,category,tasks"
+      : "id,name,access_token"
+  )
+  baseUrl.searchParams.set("limit", "50")
+
+  let url = baseUrl.toString()
+
+  while (url) {
+    const data = await fetchJsonWithRetry(url)
+
+    if (data.error) {
+      console.warn(`Error fetching pages from ${endpoint}:`, data.error)
+      if (data.error?.code === 4) {
+        return { pages: pagesWithIg, rateLimited: true }
+      }
+      break
+    }
+
+    const pages = data.data || []
+
+    // Debug: Log first page to see what fields are returned
+    if (pages.length > 0 && endpoint === "/me/accounts") {
+      console.log("Sample page data from /me/accounts:", JSON.stringify(pages[0], null, 2))
+    }
+
+    // Check each page for Instagram Business account
+    for (const page of pages) {
+      const pageId = page.id
+      const pageAccessToken = page.access_token
+
+      // Debug: Log token length for first page
+      if (endpoint === "/me/accounts" && pageId === "533347516517806") {
+        console.log(`Page ${pageId} token:`, pageAccessToken ? `"${pageAccessToken.substring(0, 20)}..." (length: ${pageAccessToken.length})` : "MISSING")
+      }
+
+      // Skip pages without valid access token
+      if (!pageAccessToken || pageAccessToken === "" || pageAccessToken.length < 10) {
+        console.warn(`Skipping page ${pageId}: No valid access token (token=${pageAccessToken ? `"${pageAccessToken.substring(0, 20)}..." (len=${pageAccessToken.length})` : "null/empty"})`)
+        continue
+      }
+
+      // Get page details with Instagram Business Account
+      const pageDetailsResponse = await fetch(
+        `${META_GRAPH_API_URL}/${pageId}?` +
+          `fields=id,name,username,picture,instagram_business_account{name,username}&` +
+          `access_token=${pageAccessToken}`
+      )
+
+      const pageDetails = await pageDetailsResponse.json()
+
+      // Debug: Log page details for Voar Digital
+      if (pageId === "533347516517806") {
+        console.log(`Page ${pageId} details:`, JSON.stringify(pageDetails, null, 2))
+      }
+
+      if (pageDetails.error) {
+        console.warn(`Error fetching page ${pageId} details:`, pageDetails.error)
+        continue
+      }
+
+      const igBusinessAccount = pageDetails.instagram_business_account
+
+      // Debug: Log if IG Business Account exists
+      if (pageId === "533347516517806") {
+        console.log(`Page ${pageId} instagram_business_account:`, igBusinessAccount ? "FOUND" : "NOT FOUND")
+      }
+
+      if (igBusinessAccount) {
+        // Get IG user ID (different from IG Business Account ID)
+        const igUserResponse = await fetch(
+          `${META_GRAPH_API_URL}/${igBusinessAccount.id}?` +
+          `fields=id,username,followers_count,media_count&` +
+          `access_token=${pageAccessToken}`
+        )
+
+        const igUserData = await igUserResponse.json()
+
+        // Debug: Log IG user data for Voar Digital
+        if (pageId === "533347516517806") {
+          console.log(`Page ${pageId} IG user data:`, JSON.stringify(igUserData, null, 2))
+        }
+
+        if (igUserData.error) {
+          console.warn(`Error fetching IG user data for ${pageId}:`, igUserData.error)
+          // Continue anyway - use basic IG Business Account data
+        }
+
+        const finalIgData = igUserData.error ? null : igUserData
+
+        pagesWithIg.push({
+          pageId: pageDetails.id,
+          pageName: pageDetails.name,
+          username: pageDetails.username,
+          picture: pageDetails.picture?.data?.url,
+          pageAccessToken,
+          businessName,
+          instagramBusinessAccount: {
+            id: finalIgData?.id || igBusinessAccount.id,
+            username: finalIgData?.username || igBusinessAccount.username,
+            followersCount: finalIgData?.followers_count || 0,
+            mediaCount: finalIgData?.media_count || 0,
+          },
+        })
+
+        // Debug: Log successful page addition
+        if (pageId === "533347516517806") {
+          console.log(`Page ${pageId} (@${igBusinessAccount.username}) ADDED to pagesWithIg`)
+        }
+      }
+    }
+
+    // Check for pagination
+    url = data.paging?.next || null
+  }
+
+  return { pages: pagesWithIg, rateLimited: false }
 }
 
 /**
  * Upsert social connection
- *
- * Updates existing connection or creates new one.
- * One connection per platform per user.
  */
 async function upsertConnection(data: {
   userId: string
@@ -278,7 +671,10 @@ async function upsertConnection(data: {
   accountName: string
   accountUsername: string
   accessToken: string
-  tokenExpiresAt: Date
+  tokenExpiresAt?: Date
+  pageId?: string
+  pageAccessToken?: string
+  pageName?: string
   status: SocialConnectionStatus
   metadata: Record<string, unknown>
 }) {
@@ -286,11 +682,9 @@ async function upsertConnection(data: {
   const existing = await db
     .select()
     .from(socialConnections)
-    .where(
-      eq(socialConnections.userId, data.userId)
-    )
+    .where(eq(socialConnections.userId, data.userId))
 
-  // Filter by platform (since we can't use multiple eq in Drizzle yet)
+  // Filter by platform
   const existingByPlatform = existing.find(
     (c) => c.platform === data.platform && c.deletedAt === null
   )
@@ -307,11 +701,14 @@ async function upsertConnection(data: {
         accountUsername: data.accountUsername,
         accessToken: data.accessToken,
         tokenExpiresAt: data.tokenExpiresAt,
+        pageId: data.pageId,
+        pageAccessToken: data.pageAccessToken,
+        pageName: data.pageName,
         status: data.status,
         metadata: data.metadata as any,
         lastVerifiedAt: now,
         updatedAt: now,
-        deletedAt: null, // Restore if soft-deleted
+        deletedAt: null,
       })
       .where(eq(socialConnections.id, existingByPlatform.id))
   } else {
@@ -324,11 +721,32 @@ async function upsertConnection(data: {
       accountUsername: data.accountUsername,
       accessToken: data.accessToken,
       tokenExpiresAt: data.tokenExpiresAt,
+      pageId: data.pageId,
+      pageAccessToken: data.pageAccessToken,
+      pageName: data.pageName,
       status: data.status,
       metadata: data.metadata as any,
       lastVerifiedAt: now,
       createdAt: now,
       updatedAt: now,
     })
+  }
+}
+
+/**
+ * Page with Instagram Business Account
+ */
+interface PageWithInstagram {
+  pageId: string
+  pageName: string
+  username?: string
+  picture?: string
+  pageAccessToken: string
+  businessName?: string
+  instagramBusinessAccount: {
+    id: string
+    username: string
+    followersCount: number
+    mediaCount: number
   }
 }

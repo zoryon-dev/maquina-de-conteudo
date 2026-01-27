@@ -81,6 +81,16 @@ export const socialConnectionStatusEnum = pgEnum("social_connection_status", [
   "error",
 ]);
 
+// Published post status enum
+export const publishedPostStatusEnum = pgEnum("published_post_status", [
+  "scheduled",
+  "pending",
+  "processing",
+  "published",
+  "failed",
+  "cancelled",
+]);
+
 // 1. USERS - Sincronizado com Clerk
 export const users = pgTable(
   "users",
@@ -581,7 +591,30 @@ export const jobs = pgTable(
 // SOCIAL MEDIA INTEGRATION TABLES
 // ========================================
 
-// 10. SOCIAL_CONNECTIONS - Conexões com Instagram e Facebook
+// 10. OAUTH_SESSIONS - Sessões temporárias para OAuth flow
+export const oauthSessions = pgTable(
+  "oauth_sessions",
+  {
+    id: text("id").primaryKey(), // UUID
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    platform: socialPlatformEnum("platform").notNull(), // "instagram" | "facebook"
+    longLivedToken: text("long_lived_token"), // User access token (60 days)
+    tokenExpiresAt: timestamp("token_expires_at"), // Token expiration
+    pagesData: jsonb("pages_data").notNull(), // { pages: PageWithInstagram[] }
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at").notNull(), // 15 minutos
+  },
+  (table) => [
+    index("oauth_sessions_user_id_idx").on(table.userId),
+    index("oauth_sessions_platform_idx").on(table.platform),
+    index("oauth_sessions_expires_at_idx").on(table.expiresAt),
+    index("oauth_sessions_id_expires_at_idx").on(table.id, table.expiresAt),
+  ]
+);
+
+// 11. SOCIAL_CONNECTIONS - Conexões com Instagram e Facebook
 export const socialConnections = pgTable(
   "social_connections",
   {
@@ -594,8 +627,12 @@ export const socialConnections = pgTable(
     accountName: text("account_name"), // Display name
     accountUsername: text("account_username"), // @username
     accountProfilePic: text("account_profile_pic"), // Profile picture URL
-    accessToken: text("access_token").notNull(), // Long-lived access token
-    tokenExpiresAt: timestamp("token_expires_at"), // Token expiration (60 days for Instagram)
+    accessToken: text("access_token").notNull(), // Long-lived access token (user token for IG, page token for FB)
+    tokenExpiresAt: timestamp("token_expires_at"), // Token expiration (60 days for Instagram user token)
+    // Facebook Page related fields (for Instagram Business connections)
+    pageId: text("page_id"), // Facebook Page ID linked to Instagram Business Account
+    pageAccessToken: text("page_access_token"), // Facebook Page Access Token (never expires)
+    pageName: text("page_name"), // Facebook Page name
     status: socialConnectionStatusEnum("status").default("active").notNull(),
     metadata: jsonb("metadata"), // Additional data (permissions, scopes, etc.)
     lastVerifiedAt: timestamp("last_verified_at"), // Last time connection was verified
@@ -607,6 +644,7 @@ export const socialConnections = pgTable(
     index("social_connections_user_id_idx").on(table.userId),
     index("social_connections_platform_idx").on(table.platform),
     index("social_connections_status_idx").on(table.status),
+    index("social_connections_page_id_idx").on(table.pageId),
     unique("social_connections_user_platform_unique").on(table.userId, table.platform),
   ]
 );
@@ -628,7 +666,8 @@ export const publishedPosts = pgTable(
     platformPostUrl: text("platform_post_url"), // URL to the published post
     mediaType: postTypeEnum("media_type"), // IMAGE, VIDEO, CAROUSEL, etc.
     caption: text("caption"), // Post caption/text
-    status: text("status").notNull(), // "publishing", "published", "failed", "scheduled"
+    mediaUrl: text("media_url"), // Stored media URLs (JSON array) for standalone posts
+    status: publishedPostStatusEnum("status").notNull(), // scheduled, pending, processing, published, failed, cancelled
     scheduledFor: timestamp("scheduled_for"), // When to publish (for server-side scheduling)
     publishedAt: timestamp("published_at"), // When it was actually published
     failureReason: text("failure_reason"), // Error message if failed
@@ -1234,6 +1273,8 @@ export type ContentStatus = typeof contentStatusEnum.enumValues[number];
 
 export type SocialPlatform = typeof socialPlatformEnum.enumValues[number];
 export type SocialConnectionStatus = typeof socialConnectionStatusEnum.enumValues[number];
+export type OAuthSession = typeof oauthSessions.$inferSelect;
+export type NewOAuthSession = typeof oauthSessions.$inferInsert;
 export type SocialConnection = typeof socialConnections.$inferSelect;
 export type NewSocialConnection = typeof socialConnections.$inferInsert;
 export type PublishedPost = typeof publishedPosts.$inferSelect;
