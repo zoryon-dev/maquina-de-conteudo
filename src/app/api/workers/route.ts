@@ -1466,6 +1466,9 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       newImagesCount: newImages.length
     });
 
+    // Initialize upload fallbacks array (will be populated if libraryItemId exists)
+    const uploadFallbacks: Array<{ slideNumber: number; error: string }> = [];
+
     if (wizard.libraryItemId) {
       // First, upload all base64 images to storage
       console.log(`[WIZARD-IMAGE] Uploading ${newImages.length} images to storage...`);
@@ -1482,14 +1485,22 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
             uploadedImageUrls.push(storageUrl);
             console.log(`[WIZARD-IMAGE] Uploaded image ${slideNumber}/${newImages.length} to storage`);
           } catch (uploadError) {
-            console.error(`[WIZARD-IMAGE] Failed to upload image ${slideNumber}:`, uploadError);
+            const errorMsg = uploadError instanceof Error ? uploadError.message : String(uploadError);
+            console.error(`[WIZARD-IMAGE] Failed to upload image ${slideNumber}:`, errorMsg);
             // Fall back to base64 URL if upload fails
             uploadedImageUrls.push(img.imageUrl);
+            uploadFallbacks.push({ slideNumber, error: errorMsg });
           }
         } else {
           // Already a regular URL, use as-is
           uploadedImageUrls.push(img.imageUrl);
         }
+      }
+
+      // Log summary if there were fallbacks
+      if (uploadFallbacks.length > 0) {
+        console.warn(`[WIZARD-IMAGE] ⚠️ ${uploadFallbacks.length} images fell back to base64 (slides: ${uploadFallbacks.map((f) => f.slideNumber).join(", ")})`);
+        console.warn(`[WIZARD-IMAGE] ⚠️ Base64 images may fail later if too large. Consider checking storage configuration.`);
       }
 
       // Now update the library item with the storage URLs
@@ -1536,6 +1547,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       images: newImages,
       wizardId,
       libraryItemId: wizard.libraryItemId,
+      uploadFallbacks: uploadFallbacks.length > 0 ? uploadFallbacks : undefined,
     };
   },
 

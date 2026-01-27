@@ -19,14 +19,23 @@ export interface MetricsFetchPayload {
 }
 
 /**
+ * Error details for a failed post
+ */
+export interface MetricsFetchError {
+  postId: number
+  platform: string
+  error: string
+}
+
+/**
  * Fetch metrics for a published post
  *
  * @param payload - Job payload
- * @returns Result with number of posts updated
+ * @returns Result with number of posts updated and any errors
  */
 export async function fetchSocialMetrics(
   payload: MetricsFetchPayload = {}
-): Promise<{ success: boolean; updatedCount: number; error?: string }> {
+): Promise<{ success: boolean; updatedCount: number; errors?: MetricsFetchError[]; error?: string }> {
   const { userId, publishedPostId } = payload
 
   try {
@@ -73,6 +82,7 @@ export async function fetchSocialMetrics(
     }
 
     let updatedCount = 0
+    const errors: MetricsFetchError[] = []
 
     for (const post of postsToUpdate) {
       try {
@@ -90,6 +100,11 @@ export async function fetchSocialMetrics(
         const connection = connectionResult[0]
 
         if (!connection || !post.platformPostId) {
+          errors.push({
+            postId: post.id,
+            platform: post.platform,
+            error: !connection ? "No connection found" : "No platformPostId",
+          })
           continue
         }
 
@@ -117,12 +132,23 @@ export async function fetchSocialMetrics(
 
         updatedCount++
       } catch (error) {
-        console.error(`Error fetching metrics for post ${post.id}:`, error)
-        // Continue with next post
+        const errorMsg = error instanceof Error ? error.message : String(error)
+        console.error(`[MetricsFetch] Error fetching metrics for post ${post.id}:`, errorMsg)
+        errors.push({
+          postId: post.id,
+          platform: post.platform,
+          error: errorMsg,
+        })
       }
     }
 
-    return { success: true, updatedCount }
+    // Log summary if there were errors
+    if (errors.length > 0) {
+      console.warn(`[MetricsFetch] Completed with ${errors.length} errors out of ${postsToUpdate.length} posts`)
+      console.warn(`[MetricsFetch] Failed posts: ${errors.map((e) => `#${e.postId}`).join(", ")}`)
+    }
+
+    return { success: true, updatedCount, errors: errors.length > 0 ? errors : undefined }
   } catch (error) {
     console.error("Metrics fetch worker error:", error)
     return {
