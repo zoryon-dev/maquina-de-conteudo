@@ -84,6 +84,7 @@ export interface MediaConfig {
   mediaType: SocialMediaType
   locationId?: string // For location tagging (Instagram)
   userTags?: UserTag[] // Tag users in post
+  isCarouselItem?: boolean // Mark as a carousel item (for Instagram carousel publishing)
 }
 
 /**

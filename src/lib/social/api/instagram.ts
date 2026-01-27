@@ -61,7 +61,13 @@ export class InstagramAPIService {
       access_token: this.accessToken,
     }
 
-    if (config.caption) {
+    // For carousel items, mark with is_carousel_item flag
+    if (config.isCarouselItem) {
+      body.is_carousel_item = true
+    }
+
+    // Only add caption for non-carousel items (carousel caption is set on the parent container)
+    if (config.caption && !config.isCarouselItem) {
       body.caption = config.caption
     }
 
@@ -83,6 +89,7 @@ export class InstagramAPIService {
       url,
       image_url: body.image_url,
       has_caption: !!body.caption,
+      is_carousel_item: !!body.is_carousel_item,
       token_prefix: this.accessToken.substring(0, 10) + "...",
     })
 
@@ -124,8 +131,17 @@ export class InstagramAPIService {
       body.caption = caption
     }
 
+    const url = `${this.baseUrl}/${this.apiVersion}/${this.accountId}/media`
+    console.log("[Instagram API] Creating CAROUSEL container with POST body:", {
+      url,
+      children_count: children.length,
+      children: children,
+      has_caption: !!caption,
+      token_prefix: this.accessToken.substring(0, 10) + "...",
+    })
+
     const response = await fetch(
-      `${this.baseUrl}/${this.apiVersion}/${this.accountId}/media`,
+      url,
       {
         method: "POST",
         headers: {
@@ -141,6 +157,7 @@ export class InstagramAPIService {
       throw this.handleError(data.error)
     }
 
+    console.log("[Instagram API] Carousel container created:", data.id)
     return data.id
   }
 
@@ -327,15 +344,20 @@ export class InstagramAPIService {
     let containerId: string
 
     if (isCarousel && carouselItems && carouselItems.length > 0) {
+      console.log("[Instagram API] Creating carousel with", carouselItems.length, "items")
+
       // Create individual containers for each item
       const itemContainerIds = await Promise.all(
         carouselItems.map((item) =>
           this.createContainer({
             imageUrl: item.imageUrl,
             mediaType: item.mediaType,
+            isCarouselItem: true, // Mark as carousel item
           })
         )
       )
+
+      console.log("[Instagram API] Carousel item containers created:", itemContainerIds)
 
       // Create carousel container
       containerId = await this.createCarouselContainer(

@@ -324,17 +324,46 @@ export async function POST(request: Request) {
         hasPageAccessToken: !!connection.pageAccessToken,
         tokenPrefix: tokenToUse?.substring(0, 4),
         accountId: connection.accountId,
+        mediaUrlsCount: mediaUrls.length,
       })
 
       const service = getInstagramService(
         tokenToUse,
         connection.accountId
       )
-      const result = await service.publishPost({
-        imageUrl: mediaUrls[0],
-        caption: postCaption,
-        mediaType: SocialMediaType.IMAGE,
-      })
+
+      // Detect if this is a carousel (multiple images)
+      const isCarousel = mediaUrls.length > 1
+
+      let result: PublishResult
+
+      if (isCarousel) {
+        console.log("[Publish] Publishing as CAROUSEL with", mediaUrls.length, "images")
+
+        // Convert media URLs to carousel items
+        const carouselItems = mediaUrls.map((url) => ({
+          imageUrl: url,
+          mediaType: SocialMediaType.IMAGE,
+        }))
+
+        result = await service.publishPost(
+          {
+            imageUrl: mediaUrls[0], // First image as reference
+            caption: postCaption,
+            mediaType: SocialMediaType.IMAGE,
+          },
+          true, // isCarousel
+          carouselItems
+        )
+      } else {
+        console.log("[Publish] Publishing as SINGLE image")
+
+        result = await service.publishPost({
+          imageUrl: mediaUrls[0],
+          caption: postCaption,
+          mediaType: SocialMediaType.IMAGE,
+        })
+      }
 
       platformPostId = typeof result === "string" ? result : result.platformPostId
       platformPostUrl = typeof result === "string"
