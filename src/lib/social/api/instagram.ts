@@ -31,7 +31,12 @@ import {
  * Instagram Graph API Service
  */
 export class InstagramAPIService {
-  private readonly baseUrl = "https://graph.instagram.com"
+  // NOTE: Using graph.facebook.com instead of graph.instagram.com
+  // The Instagram Content Publishing API is accessible via both endpoints,
+  // but graph.facebook.com is more compatible with Page Access Tokens
+  // and has better token parsing support.
+  // Reference: https://developers.facebook.com/docs/instagram-api/reference/ig-user/media
+  private readonly baseUrl = "https://graph.facebook.com"
   private readonly apiVersion = "v22.0"
 
   constructor(
@@ -43,41 +48,51 @@ export class InstagramAPIService {
    * Create a media container for a single image/video
    * POST /{ig-user-id}/media
    *
+   * Reference: https://developers.facebook.com/docs/instagram-api/reference/ig-user/media
+   * Note: access_token should be in request body for POST requests
+   *
    * @param config - Media configuration
    * @returns Container ID
    */
   async createContainer(config: MediaConfig): Promise<string> {
-    const params = new URLSearchParams({
+    // Build request body as JSON (access_token in body, not query param)
+    const body: Record<string, any> = {
       image_url: config.imageUrl,
       access_token: this.accessToken,
-    })
+    }
 
     if (config.caption) {
-      params.append("caption", config.caption)
+      body.caption = config.caption
     }
 
     if (config.locationId) {
-      params.append("location_id", config.locationId)
+      body.location_id = config.locationId
     }
 
     // Add user tags if provided
     if (config.userTags && config.userTags.length > 0) {
-      const userTagsJson = JSON.stringify(
-        config.userTags.map((tag) => ({
-          username: tag.username,
-          x: tag.x,
-          y: tag.y,
-        }))
-      )
-      params.append("user_tags", userTagsJson)
+      body.user_tags = config.userTags.map((tag) => ({
+        username: tag.username,
+        x: tag.x,
+        y: tag.y,
+      }))
     }
 
-    const response = await fetch(
-      `${this.baseUrl}/${this.apiVersion}/${this.accountId}/media?${params}`,
-      {
-        method: "POST",
-      }
-    )
+    const url = `${this.baseUrl}/${this.apiVersion}/${this.accountId}/media`
+    console.log("[Instagram API] Creating container with POST body:", {
+      url,
+      image_url: body.image_url,
+      has_caption: !!body.caption,
+      token_prefix: this.accessToken.substring(0, 10) + "...",
+    })
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    })
 
     const data = await response.json()
 
@@ -99,20 +114,24 @@ export class InstagramAPIService {
     children: string[],
     caption?: string
   ): Promise<string> {
-    const params = new URLSearchParams({
+    const body: Record<string, any> = {
       media_type: "CAROUSEL",
       children: children.join(","),
       access_token: this.accessToken,
-    })
+    }
 
     if (caption) {
-      params.append("caption", caption)
+      body.caption = caption
     }
 
     const response = await fetch(
-      `${this.baseUrl}/${this.apiVersion}/${this.accountId}/media?${params}`,
+      `${this.baseUrl}/${this.apiVersion}/${this.accountId}/media`,
       {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
       }
     )
 
@@ -133,15 +152,25 @@ export class InstagramAPIService {
    * @returns Published media ID
    */
   async publish(containerId: string): Promise<string> {
-    const params = new URLSearchParams({
+    const body = {
       creation_id: containerId,
       access_token: this.accessToken,
+    }
+
+    console.log("[Instagram API] Publishing container:", {
+      url: `${this.baseUrl}/${this.apiVersion}/${this.accountId}/media_publish`,
+      creation_id: containerId,
+      token_prefix: this.accessToken.substring(0, 10) + "...",
     })
 
     const response = await fetch(
-      `${this.baseUrl}/${this.apiVersion}/${this.accountId}/media_publish?${params}`,
+      `${this.baseUrl}/${this.apiVersion}/${this.accountId}/media_publish`,
       {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
       }
     )
 
@@ -151,6 +180,7 @@ export class InstagramAPIService {
       throw this.handleError(data.error)
     }
 
+    console.log("[Instagram API] Publish succeeded, media_id:", data.id)
     return data.id
   }
 
@@ -378,6 +408,9 @@ export class InstagramAPIService {
     type?: string
   }): SocialApiError {
     let code = SocialErrorCode.PUBLISH_FAILED
+
+    // Log full error details for debugging
+    console.error("[Instagram API] Full error details:", JSON.stringify(error, null, 2))
 
     // Map Instagram error codes to our error types
     if (error.code === 190) {
