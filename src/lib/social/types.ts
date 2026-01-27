@@ -25,12 +25,24 @@ export enum SocialConnectionStatus {
 
 /**
  * Published post status
+ *
+ * Mantido em sincronia com pgEnum "published_post_status" do schema:
+ * "scheduled" | "pending" | "processing" | "published" | "failed" | "cancelled"
  */
 export enum PublishedPostStatus {
-  PUBLISHING = "publishing",
+  SCHEDULED = "scheduled",
+  PENDING = "pending",
+  PROCESSING = "processing",
   PUBLISHED = "published",
   FAILED = "failed",
-  SCHEDULED = "scheduled",
+  CANCELLED = "cancelled",
+}
+
+/**
+ * Type guard para validar se um valor é um PublishedPostStatus válido
+ */
+export function isValidPublishedPostStatus(status: string): status is PublishedPostStatus {
+  return Object.values(PublishedPostStatus).includes(status as PublishedPostStatus);
 }
 
 /**

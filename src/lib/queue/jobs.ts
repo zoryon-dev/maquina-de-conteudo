@@ -148,3 +148,42 @@ export async function listUserJobs(
     .limit(filters?.limit ?? 20)
     .offset(filters?.offset ?? 0);
 }
+
+/**
+ * Reserva atomicamente o próximo job pendente para processamento.
+ *
+ * Usa UPDATE com RETURNING para garantir atomicidade - apenas uma
+ * transação consegue reservar cada job, evitando condições de corrida
+ * quando múltiplos workers processam jobs simultaneamente.
+ *
+ * @returns O job reservado ou null se nenhum disponível
+ */
+export async function reserveNextJob() {
+  const now = new Date();
+
+  // Usar CTE para UPDATE com ORDER BY - garante que pegamos o job
+  // de maior prioridade de forma atômica
+  const result = await db.execute(sql`
+    WITH next_job AS (
+      SELECT id
+      FROM jobs
+      WHERE status = 'pending'
+      ORDER BY priority DESC, created_at DESC
+      LIMIT 1
+      FOR UPDATE SKIP LOCKED
+    )
+    UPDATE jobs
+    SET status = 'processing',
+        started_at = ${now},
+        updated_at = ${now}
+    WHERE id = (SELECT id FROM next_job)
+    RETURNING *
+  `);
+
+  if (!result.rows[0]) {
+    return null;
+  }
+
+  // Converter row para objeto no formato do schema
+  return result.rows[0] as unknown as Awaited<ReturnType<typeof getJob>>;
+}

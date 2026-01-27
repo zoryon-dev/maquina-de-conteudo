@@ -29,6 +29,55 @@ import { socialConnections, oauthSessions } from "@/db/schema"
 import { eq } from "drizzle-orm"
 import { SocialPlatform, SocialConnectionStatus } from "@/lib/social/types"
 
+/**
+ * Decoded OAuth state with type narrowing
+ */
+interface DecodedOAuthState {
+  userId: string
+  platform: "instagram" | "facebook"
+  stateId: string
+}
+
+/**
+ * Decodes and validates the OAuth state parameter.
+ *
+ * State format: {userId}:{platform}:{stateId}
+ * - userId: Clerk user ID
+ * - platform: "instagram" or "facebook"
+ * - stateId: Random UUID for CSRF protection
+ *
+ * @returns Decoded state or null if invalid
+ */
+function decodeOAuthState(state: string): DecodedOAuthState | null {
+  try {
+    const stateData = Buffer.from(state, 'base64').toString('utf-8')
+    const parts = stateData.split(":")
+
+    if (parts.length !== 3) {
+      console.warn("[OAuth] Invalid state format: expected 3 parts")
+      return null
+    }
+
+    const [userId, platform, stateId] = parts
+
+    if (!userId || !stateId) {
+      console.warn("[OAuth] Missing required state fields")
+      return null
+    }
+
+    // Type guard - valida platform
+    if (platform !== "instagram" && platform !== "facebook") {
+      console.warn(`[OAuth] Invalid platform: ${platform}`)
+      return null
+    }
+
+    return { userId, platform, stateId }
+  } catch (e) {
+    console.error("[OAuth] Failed to decode state:", e)
+    return null
+  }
+}
+
 // Environment variables
 const META_APP_ID = process.env.META_APP_ID
 const META_APP_SECRET = process.env.META_APP_SECRET
@@ -122,24 +171,20 @@ export async function GET(request: Request) {
     return new Response("Missing required parameters", { status: 400 })
   }
 
-  // Decode state from base64 format: {userId}:{platform}:{randomUUID}
-  let platform = ""
-  try {
-    const stateData = Buffer.from(state, 'base64').toString('utf-8')
-    const stateParts = stateData.split(":")
-    if (stateParts.length >= 3) {
-      // If Clerk auth failed, extract userId from state
-      if (!userId) {
-        userId = stateParts[0]
-      }
-      // Platform is the second element
-      platform = stateParts[1]
-    }
-  } catch (e) {
-    console.error("Failed to decode state:", e)
+  // Decode and validate OAuth state
+  const decodedState = decodeOAuthState(state)
+
+  if (!decodedState) {
+    return NextResponse.redirect(
+      buildRedirectUrl(`/settings?tab=social&error=${encodeURIComponent("Invalid OAuth state. Please try again.")}`, request.url)
+    )
   }
 
-  if (!userId) {
+  // Use userId from decoded state if Clerk auth failed
+  const finalUserId = userId || decodedState.userId
+  const platform = decodedState.platform
+
+  if (!finalUserId) {
     return new Response("Unauthorized: Unable to verify user session", { status: 401 })
   }
 
@@ -147,19 +192,11 @@ export async function GET(request: Request) {
     return new Response("Meta OAuth not configured", { status: 500 })
   }
 
-  if (platform !== "instagram" && platform !== "facebook") {
-    return NextResponse.redirect(
-      buildRedirectUrl(`/settings?tab=social&error=${encodeURIComponent("Invalid platform")}`, request.url)
-    )
-  }
-
   try {
     if (platform === "instagram") {
-      return await handleInstagramCallback(userId, code, request.url)
+      return await handleInstagramCallback(finalUserId, code, request.url)
     } else if (platform === "facebook") {
-      return await handleFacebookCallback(userId, code, request.url)
-    } else {
-      throw new Error("Invalid platform in state")
+      return await handleFacebookCallback(finalUserId, code, request.url)
     }
   } catch (err) {
     const errorMessage =

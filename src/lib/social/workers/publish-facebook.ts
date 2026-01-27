@@ -60,9 +60,21 @@ export async function publishToFacebook(
     }
 
     // Parse media URLs from JSON
-    const mediaUrls: string[] = libraryItem.mediaUrl
-      ? JSON.parse(libraryItem.mediaUrl)
-      : []
+    let mediaUrls: string[] = []
+    if (libraryItem.mediaUrl) {
+      try {
+        const parsed = JSON.parse(libraryItem.mediaUrl)
+        // Validate that parsed value is an array
+        if (!Array.isArray(parsed)) {
+          return { success: false, error: "Invalid media URL format: expected array" }
+        }
+        // Validate each URL is a string
+        mediaUrls = parsed.filter((url): url is string => typeof url === "string" && url.length > 0)
+      } catch (parseError) {
+        console.error("[Facebook] Failed to parse mediaUrl JSON:", parseError)
+        return { success: false, error: "Invalid media URL format in database. Please re-create the library item." }
+      }
+    }
 
     if (mediaUrls.length === 0) {
       return { success: false, error: "No media URLs found" }

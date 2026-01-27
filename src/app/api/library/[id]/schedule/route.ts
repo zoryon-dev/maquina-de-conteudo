@@ -48,12 +48,12 @@ export async function POST(
     }
 
     // Validate the date is in the future
-    // IMPORTANT: scheduledFor is in UTC (ISO string from client), so we must compare with UTC now
-    // Using new Date() without params gives LOCAL time, which causes incorrect comparisons
+    // Date objects internally store UTC timestamps, so comparison is correct
+    // regardless of timezone. Both scheduledFor (ISO string) and now() are UTC-aware.
     const scheduledDate = new Date(scheduledFor)
-    const nowUtc = new Date().toISOString() // Get current time in UTC for comparison
+    const now = new Date()
 
-    if (scheduledDate < new Date(nowUtc)) {
+    if (scheduledDate <= now) {
       return NextResponse.json(
         { success: false, error: "A data de agendamento deve ser futura" },
         { status: 400 }

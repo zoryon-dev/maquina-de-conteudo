@@ -38,9 +38,11 @@ export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization")
   const secret = authHeader?.replace("Bearer ", "")
 
-  // Allow test mode in development
+  // Allow test mode ONLY in development AND from localhost (previne bypass em prod)
   const { searchParams } = new URL(request.url)
-  const testMode = searchParams.get("test") === "true" && process.env.NODE_ENV === "development"
+  const host = request.headers.get("host") || ""
+  const isLocalhost = host.startsWith("localhost:") || host.startsWith("127.0.0.1:") || host.startsWith("[::1]:")
+  const testMode = searchParams.get("test") === "true" && process.env.NODE_ENV === "development" && isLocalhost
 
   if (secret !== CRON_SECRET && !testMode) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -101,8 +103,8 @@ export async function GET(request: Request) {
             .update(publishedPosts)
             .set({
               status: PublishedPostStatus.PUBLISHED,
-              publishedAt: now,
-              updatedAt: now,
+              publishedAt: nowUtc,
+              updatedAt: nowUtc,
             })
             .where(eq(publishedPosts.id, post.id))
 
@@ -115,8 +117,8 @@ export async function GET(request: Request) {
           .update(publishedPosts)
           .set({
             status: PublishedPostStatus.PUBLISHED,
-            publishedAt: now,
-            updatedAt: now,
+            publishedAt: nowUtc,
+            updatedAt: nowUtc,
           })
           .where(eq(publishedPosts.id, post.id))
 
@@ -128,7 +130,7 @@ export async function GET(request: Request) {
       processed: enqueuedCount + facebookCount,
       instagramEnqueued: enqueuedCount,
       facebookMarked: facebookCount,
-      timestamp: now.toISOString(),
+      timestamp: nowUtc.toISOString(),
     })
   } catch (error) {
     console.error("Cron social publish error:", error)

@@ -176,10 +176,26 @@ export async function POST(request: Request) {
       )
     }
 
-    // Parse media URLs
-    const mediaUrls: string[] = libraryItem.mediaUrl
-      ? JSON.parse(libraryItem.mediaUrl)
-      : []
+    // Parse media URLs with validation
+    let mediaUrls: string[] = []
+    if (libraryItem.mediaUrl) {
+      try {
+        const parsed = JSON.parse(libraryItem.mediaUrl)
+        if (!Array.isArray(parsed)) {
+          return NextResponse.json(
+            { error: "Invalid media URL format: expected array" },
+            { status: 400 }
+          )
+        }
+        mediaUrls = parsed.filter((url): url is string => typeof url === "string" && url.length > 0)
+      } catch (parseError) {
+        console.error("[Publish] Failed to parse mediaUrl JSON:", parseError)
+        return NextResponse.json(
+          { error: "Invalid media URL format in library item. Please re-create the content." },
+          { status: 400 }
+        )
+      }
+    }
 
     if (mediaUrls.length === 0) {
       return NextResponse.json(
@@ -268,6 +284,9 @@ export async function POST(request: Request) {
         })
         .returning()
 
+      // Track if native scheduling failed
+      let usedFallback = false
+
       // For Facebook, we can use native scheduling
       if (platform === "facebook") {
         try {
@@ -294,7 +313,7 @@ export async function POST(request: Request) {
         } catch (error) {
           // If Facebook scheduling fails, fall back to server-side scheduling
           console.error("Facebook native scheduling failed, using cron:", error)
-          // The cron system will handle this
+          usedFallback = true
         }
       }
 
@@ -306,6 +325,9 @@ export async function POST(request: Request) {
         publishedPostId: publishedPost.id,
         scheduled: true,
         scheduledFor: scheduledDate.toISOString(),
+        warning: platform === "facebook" && usedFallback
+          ? "Agendamento nativo do Facebook falhou. Usando cron do servidor - a publicação será processada nos próximos minutos."
+          : undefined,
       })
     }
 
@@ -313,7 +335,7 @@ export async function POST(request: Request) {
     // Previously this was synchronous, causing UI to hang during Instagram processing
     // Now we create a job and return immediately, letting the worker handle publishing
 
-    // Create published post record with PUBLISHING status
+    // Create published post record with PROCESSING status
     const [publishedPost] = await db
       .insert(publishedPosts)
       .values({
@@ -322,7 +344,7 @@ export async function POST(request: Request) {
         platform: platform as "instagram" | "facebook",
         mediaType: libraryItem.type as any,
         caption: postCaption,
-        status: PublishedPostStatus.PUBLISHING,
+        status: PublishedPostStatus.PROCESSING,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -346,12 +368,17 @@ export async function POST(request: Request) {
       )
 
       // In development, trigger worker immediately for faster feedback
+      let workerTriggerFailed = false
       if (process.env.NODE_ENV === "development") {
-        // Fire and forget - don't await
-        import("@/lib/queue/client").then(({ triggerWorker }) => {
-          triggerWorker().catch((err) => {
+        // Try to trigger worker, but continue if it fails
+        // The cron job will pick up the job within 1 minute anyway
+        await import("@/lib/queue/client").then(async ({ triggerWorker }) => {
+          try {
+            await triggerWorker()
+          } catch (err) {
             console.error("[Publish] Failed to trigger worker in development:", err)
-          })
+            workerTriggerFailed = true
+          }
         })
       }
 
@@ -364,6 +391,9 @@ export async function POST(request: Request) {
         queued: true,
         platform,
         message: "Publicação enfileirada. Você será notificado quando for publicada.",
+        developmentWarning: process.env.NODE_ENV === "development" && workerTriggerFailed
+          ? "Worker trigger falhou em desenvolvimento. O job será processado pelo cron em até 1 minuto."
+          : undefined,
       })
     } catch (jobError) {
       // If job creation fails, clean up the published post

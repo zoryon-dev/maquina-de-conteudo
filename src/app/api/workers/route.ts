@@ -14,7 +14,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { dequeueJob, markAsProcessing, removeFromProcessing } from "@/lib/queue/client";
-import { getJob, incrementJobAttempts, updateJobStatus } from "@/lib/queue/jobs";
+import { getJob, incrementJobAttempts, reserveNextJob, updateJobStatus } from "@/lib/queue/jobs";
 import { db } from "@/db";
 import { jobs, documents, documentEmbeddings, contentWizards, libraryItems } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
@@ -1758,22 +1758,22 @@ export async function POST(request: Request) {
   const authHeader = request.headers.get("authorization");
   const bearerSecret = authHeader?.replace("Bearer ", "");
 
-  // 4. Query parameter (para compatibilidade)
+  // 4. Parse URL (NOTA: não aceitamos mais secret via query param por segurança)
   const { searchParams } = new URL(request.url);
-  const querySecret = searchParams.get("secret");
 
-  // 5. Test mode in development
-  const testMode = searchParams.get("test") === "true" && process.env.NODE_ENV === "development";
+  // 5. Test mode ONLY in development AND from localhost (previne bypass em prod)
+  const host = request.headers.get("host") || "";
+  const isLocalhost = host.startsWith("localhost:") || host.startsWith("127.0.0.1:") || host.startsWith("[::1]:");
+  const testMode = searchParams.get("test") === "true" && process.env.NODE_ENV === "development" && isLocalhost;
 
   // Validar autenticação
+  // SEGURANÇA: Removido query parameter - secrets em query params ficam em logs de acesso
   const isValidSecret =
     isVercelCron || // Vercel Cron autenticado pelo header
     vercelCronSecret === configuredCronSecret || // Vercel Cron com secret
     bearerSecret === CRON_SECRET || // Authorization header
     bearerSecret === WORKER_SECRET ||
-    querySecret === CRON_SECRET || // Query parameter
-    querySecret === WORKER_SECRET ||
-    testMode; // Development test mode
+    testMode; // Development test mode (localhost apenas)
 
   if (!isValidSecret) {
     // Alternativamente, aceitar autenticação Clerk para testes manuais
@@ -1786,25 +1786,21 @@ export async function POST(request: Request) {
   try {
     // Desenfileirar próximo job
     let jobId = await dequeueJob();
+    let job = null;
 
     // Fallback: se Redis não estiver configurado ou fila vazia,
-    // buscar jobs pendentes diretamente do banco
+    // reservar atomicamente o próximo job do banco
     if (!jobId) {
       const { isQueueConfigured } = await import("@/lib/queue/client");
       if (!isQueueConfigured()) {
         console.warn("[Worker] Redis not configured, falling back to direct database polling");
 
-        // Buscar jobs pendentes do banco ordenados por prioridade e data de criação
-        const [fallbackJob] = await db
-          .select({ id: jobs.id })
-          .from(jobs)
-          .where(eq(jobs.status, "pending"))
-          .orderBy(desc(jobs.priority), desc(jobs.createdAt))
-          .limit(1);
+        // reserveNextJob() é atômico e já marca como 'processing'
+        job = await reserveNextJob();
 
-        if (fallbackJob) {
-          jobId = fallbackJob.id;
-          console.log(`[Worker] Processing job ${jobId} from database (Redis fallback)`);
+        if (job) {
+          jobId = job.id;
+          console.log(`[Worker] Processing job ${jobId} from database (atomic reservation, no race condition)`);
         }
       }
     }
@@ -1816,20 +1812,26 @@ export async function POST(request: Request) {
       });
     }
 
-    // Buscar job no banco
-    const job = await getJob(jobId);
-
+    // Se não temos o job objeto ainda (veio do Redis), buscar no banco
     if (!job) {
-      return NextResponse.json({ error: "Job not found" }, { status: 404 });
-    }
+      job = await getJob(jobId);
 
-    // Verificar se o job ainda está pendente
-    if (job.status !== "pending") {
-      return NextResponse.json({
-        message: "Job already processed",
-        jobId,
-        status: job.status,
-      });
+      if (!job) {
+        return NextResponse.json({ error: "Job not found" }, { status: 404 });
+      }
+
+      // Verificar se o job ainda está pendente (pode ter sido pego por outro worker)
+      if (job.status !== "pending") {
+        return NextResponse.json({
+          message: "Job already processed",
+          jobId,
+          status: job.status,
+        });
+      }
+
+      // Marcar como processando (para jobs do Redis)
+      await markAsProcessing(jobId);
+      await updateJobStatus(jobId, "processing");
     }
 
     // Validate required API keys for this job type
@@ -1841,10 +1843,6 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
-
-    // Marcar como processando
-    await markAsProcessing(jobId);
-    await updateJobStatus(jobId, "processing");
 
     // Buscar handler para o tipo de job
     const handler = jobHandlers[job.type];
@@ -1945,9 +1943,11 @@ export async function POST(request: Request) {
  * - includeJobs=true: Inclui lista de jobs pendentes
  */
 export async function GET(request: Request) {
-  // Allow test mode in development
+  // Allow test mode ONLY in development AND from localhost (previne bypass em prod)
   const { searchParams } = new URL(request.url);
-  const testMode = searchParams.get("test") === "true" && process.env.NODE_ENV === "development";
+  const host = request.headers.get("host") || "";
+  const isLocalhost = host.startsWith("localhost:") || host.startsWith("127.0.0.1:") || host.startsWith("[::1]:");
+  const testMode = searchParams.get("test") === "true" && process.env.NODE_ENV === "development" && isLocalhost;
 
   if (!testMode) {
     const { userId } = await auth();
