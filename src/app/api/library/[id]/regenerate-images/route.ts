@@ -62,8 +62,19 @@ export async function POST(
       return NextResponse.json({ error: "Invalid content format" }, { status: 400 });
     }
 
-    // Check if there's a wizardId in metadata
-    const metadata = typeof item.metadata === "string" ? JSON.parse(item.metadata || "{}") : item.metadata || {};
+    // Parse metadata safely to extract wizardId
+    let metadata: Record<string, unknown> = {};
+    if (item.metadata) {
+      try {
+        metadata = typeof item.metadata === "string" ? JSON.parse(item.metadata) : item.metadata;
+        if (typeof metadata !== "object" || metadata === null) {
+          metadata = {};
+        }
+      } catch (error) {
+        console.error("[RegenerateImages] Failed to parse metadata:", error);
+        metadata = {};
+      }
+    }
     const wizardId = metadata.wizardId;
 
     if (!wizardId) {

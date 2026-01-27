@@ -5,6 +5,11 @@
  * Organiza todos os campos gerados pelo wizard: título, thumbnail, SEO, roteiro, etc.
  */
 
+import type { VideoScriptStructured } from "@/lib/wizard-services/types";
+
+// Re-export for convenience
+export type { VideoScriptStructured };
+
 // ============================================================================
 // VIDEO METADATA TYPES
 // ============================================================================
@@ -125,7 +130,7 @@ export interface VideoLibraryMetadata {
   script?: {
     valorCentral?: string;
     hookTexto?: string;
-    roteiro?: any; // VideoScriptStructured do prompt
+    roteiro?: VideoScriptStructured;
     topicos?: string[];
     duracao?: string;
   };

@@ -49,6 +49,27 @@ import {
 import type { SynthesizerInput, SynthesizedResearch, ResearchPlannerOutput, ResearchQuery } from "@/lib/wizard-services";
 import type { SearchResult } from "@/lib/wizard-services/types";
 
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Parse JSON metadata safely with validation
+ * Returns empty object on parse error instead of crashing
+ */
+function parseMetadataSafely(metadataJson: string | null | undefined): Record<string, unknown> {
+  if (!metadataJson) return {};
+
+  try {
+    const parsed = JSON.parse(metadataJson);
+    // Ensure result is an object
+    return typeof parsed === "object" && parsed !== null ? parsed as Record<string, unknown> : {};
+  } catch (error) {
+    console.error("[Workers] Failed to parse metadata JSON:", error);
+    return {};
+  }
+}
+
 // Social media workers
 import { publishToInstagram, type InstagramPublishPayload } from "@/lib/social/workers/publish-instagram";
 import { publishToFacebook, type FacebookPublishPayload } from "@/lib/social/workers/publish-facebook";
@@ -1334,7 +1355,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         .limit(1);
 
       if (libraryItem) {
-        const currentMetadata = JSON.parse(libraryItem.metadata || '{}');
+        const currentMetadata = parseMetadataSafely(libraryItem.metadata);
         await db
           .update(libraryItems)
           .set({
@@ -1479,7 +1500,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         .limit(1);
 
       if (libraryItem) {
-        const currentMetadata = JSON.parse(libraryItem.metadata || '{}');
+        const currentMetadata = parseMetadataSafely(libraryItem.metadata);
 
         // Merge with existing mediaUrls if any
         const existingMediaUrls = libraryItem.mediaUrl
