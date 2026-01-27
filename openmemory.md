@@ -26,6 +26,8 @@
 - Preview de vídeo na biblioteca usa thumbnail 16:9 com ações e seções colapsáveis (SEO/hashtags/descrição/roteiro)
 - Conteúdo de vídeo na biblioteca é detectado também por metadata/JSON (não só por `item.type`)
 - Ações de vídeo incluem copiar/baixar roteiro e copiar SEO via dropdown de ações
+- Integração Meta usa backoff para erro code 4 e busca tokens de página com `fields=access_token`
+- Integração Meta aplica cache curto de páginas e fallback quando rate limit ocorre
 - Geração de imagem via OpenRouter pode retornar base64 em `message.images` (Gemini), exigir parsing e conversão para data URL antes de subir para storage
 - Gemini via OpenRouter pode retornar `message.images[0].image_url.url` já como `data:image/png;base64,...`
 
