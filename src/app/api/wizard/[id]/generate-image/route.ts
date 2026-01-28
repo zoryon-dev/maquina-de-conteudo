@@ -147,14 +147,29 @@ export async function POST(
       const slide = slides[i];
       const slideNumber = i + 1;
       const isCover = slideNumber === 1;
+      const isLast = slideNumber === slides.length;
 
       // Determine configuration for this slide
       let slideConfig: ImageGenerationConfig = effectiveConfig;
       if (cp) {
-        // Use cover config for first slide, posts config for rest
-        const method = isCover ? cp.coverMethod : cp.postsMethod;
+        // Use cover config for first slide, last card config for last slide (if set), posts config for rest
+        const isLastCardWithCustomTemplate = isLast && cp.lastCardTemplate && cp.postsMethod === "html-template";
+
+        const method = isLastCardWithCustomTemplate ? "html-template" : (isCover ? cp.coverMethod : cp.postsMethod);
         const aiOptions = isCover ? cp.coverAiOptions : cp.postsAiOptions;
-        const htmlOptions = isCover ? cp.coverHtmlOptions : cp.postsHtmlOptions;
+
+        // For last card with custom template, use lastCardHtmlOptions or fall back to posts
+        let htmlOptions = isCover ? cp.coverHtmlOptions : cp.postsHtmlOptions;
+        if (isLastCardWithCustomTemplate) {
+          htmlOptions = cp.lastCardHtmlOptions || {
+            template: cp.lastCardTemplate!,
+            primaryColor: cp.postsHtmlOptions?.primaryColor || "#2dd4bf",
+            secondaryColor: cp.postsHtmlOptions?.secondaryColor,
+          };
+          // Override template with lastCardTemplate
+          htmlOptions = { ...htmlOptions, template: cp.lastCardTemplate! };
+        }
+
         slideConfig = { method, aiOptions, htmlOptions, coverPosts: cp };
       }
 
@@ -163,6 +178,7 @@ export async function POST(
         slideTitle: (slide.title || wizard.theme || undefined) as string | undefined,
         slideContent: slide.content,
         slideNumber,
+        totalSlides: slides.length, // Pass total slides to determine last card
         config: slideConfig,
         wizardContext: {
           theme: wizard.theme || undefined,

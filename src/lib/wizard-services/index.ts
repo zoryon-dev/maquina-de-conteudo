@@ -61,6 +61,8 @@ export {
   getContentTypeName,
   extractJSONFromResponse,
   getResearchPlannerPrompt,
+  getInstagramTribalSystemPrompt,
+  getYouTubeTribalSystemPrompt,
 } from "./prompts";
 
 // ============================================================================

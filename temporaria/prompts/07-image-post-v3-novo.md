@@ -136,7 +136,7 @@ Use CTAs preferidos da marca quando disponíveis
 "Marca alguém que precisa ver isso"
 "Salva pra quando precisar de um lembrete"
 
-Extensão: 150-300 palavras.
+Extensão: 200-500 palavras.
 </formato_caption>
 
 <instrucoes_hashtags>
@@ -160,7 +160,7 @@ Gere 5-8 hashtags que:
   "imageText": "Frase para a imagem (máx 12 palavras)",
   "declarationType": "provocacao | visao | revelacao | confissao",
   "imagePrompt": "[estilo tipográfico] [cores] [composição] [mood]",
-  "caption": "Caption completa seguindo estrutura acima (150-300 palavras)",
+  "caption": "Caption completa seguindo estrutura acima (200-500 palavras)",
   "hashtags": ["identidade_1", "movimento_2", "nicho_3", "alcance_4"]
 }
 </formato_resposta>

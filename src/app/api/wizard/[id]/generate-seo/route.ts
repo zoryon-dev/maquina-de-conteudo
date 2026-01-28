@@ -149,6 +149,8 @@ export async function POST(
       narrativeAngle: body.narrativeAngle as any,
       narrativeTitle: body.narrativeTitle,
       narrativeDescription: body.narrativeDescription,
+      coreBelief: body.coreBelief,
+      statusQuoChallenged: body.statusQuoChallenged,
       theme: body.theme,
       targetAudience: body.targetAudience,
       objective: body.objective,

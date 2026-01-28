@@ -129,13 +129,31 @@ export type HtmlTemplate = (typeof HTML_TEMPLATES)[keyof typeof HTML_TEMPLATES];
 
 /**
  * HTML template generation options
+ *
+ * Color options for customizing template appearance:
+ * - primaryColor: Main accent color (highlights, decorative elements)
+ * - secondaryColor: Secondary accent (buttons, CTAs)
+ * - backgroundColor: Container background color
+ * - titleColor: Headline/main title text color
+ * - textColor: Body/description text color
+ * - buttonColor: CTA button background color
+ * - buttonTextColor: CTA button text color
  */
 export interface HtmlTemplateOptions {
   template: HtmlTemplate;
-  primaryColor: string; // Hex code
-  secondaryColor?: string; // Hex code
-  backgroundColor?: string; // Hex code
-  textColor?: string; // Hex code
+
+  // Core colors (already implemented)
+  primaryColor: string; // Hex code - e.g., "#a3e635" (green)
+  secondaryColor?: string; // Hex code - e.g., "#f97316" (orange)
+
+  // NEW: Extended color customization
+  backgroundColor?: string; // Container background - e.g., "#0f0f0f"
+  titleColor?: string; // Headline text color - e.g., "#ffffff"
+  textColor?: string; // Body text color - e.g., "rgba(255,255,255,0.7)"
+  buttonColor?: string; // CTA button background - overrides secondaryColor
+  buttonTextColor?: string; // CTA button text color - e.g., "#ffffff"
+
+  // Legacy options (kept for compatibility)
   overlay?: boolean;
   opacity?: number; // 0-1
 }
@@ -180,6 +198,11 @@ export interface CoverPostsConfig {
   postsTemplate?: HtmlTemplate; // Required if postsMethod is "html-template"
   postsHtmlOptions?: HtmlTemplateOptions; // Color options for HTML template
   postsAiOptions?: AiImageOptions; // Required if postsMethod is "ai"
+
+  // Last Card (ÚLTIMO CARD) - template específico para o último slide
+  // Quando definido, o último card usa este template sem CTA "arraste para o lado"
+  lastCardTemplate?: HtmlTemplate;
+  lastCardHtmlOptions?: HtmlTemplateOptions; // Color options específicos para o último card
 }
 
 /**
@@ -217,6 +240,7 @@ export interface GeneratedImage {
  */
 export interface ImageGenerationInput {
   slideNumber: number;
+  totalSlides?: number; // Total number of slides (used to determine if this is the last card)
   slideContent: string; // The text/content of the slide
   slideTitle?: string;
   wizardContext?: {

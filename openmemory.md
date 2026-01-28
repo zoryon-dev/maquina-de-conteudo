@@ -30,6 +30,9 @@
 - Integração Meta aplica cache curto de páginas e fallback quando rate limit ocorre
 - Geração de imagem via OpenRouter pode retornar base64 em `message.images` (Gemini), exigir parsing e conversão para data URL antes de subir para storage
 - Gemini via OpenRouter pode retornar `message.images[0].image_url.url` já como `data:image/png;base64,...`
+- Refactor de roteiro de vídeo usa prompt `video-script-refactor-v1.0` com checklist, anti-patterns e metadata de refactor
+- Carousel v4.2: títulos máx 6 palavras, corpo ≤130 chars, caption 200-400 palavras; slides podem incluir `imagePrompt`; resposta inclui `hashtags` e `cta`
+- Video script v4.4: output inclui `transformacao_prometida`, `contexto` e `duracao_segundos`; vídeos longos usam `anthropic/claude-haiku-4.5`, curtos usam `google/gemini-3-flash-preview`
 
 ## User Defined Namespaces
 - [Leave blank - user populates]

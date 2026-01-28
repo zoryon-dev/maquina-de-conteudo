@@ -50,36 +50,39 @@ export interface GeneratedSlide {
   acao?: string;
 }
 
-// ZORYON v4.3 carousel structure - Tribal + Acionável
+// ZORYON v4.2 carousel structure - Tribal + Acionável
 export interface ZoryonCarousel {
   throughline: string; // Central phrase connecting all slides
-  valor_central: string; // What the person learns/gains (v4.3)
+  valor_central: string; // What the person learns/gains (v4.2)
   capa: {
     titulo: string;
     subtitulo: string;
   };
   slides: Array<{
     numero: number;
-    tipo: "problema" | "conceito" | "passo" | "exemplo" | "erro" | "sintese" | "cta"; // v4.3
+    tipo: "problema" | "conceito" | "passo" | "exemplo" | "erro" | "sintese" | "cta"; // v4.2
     titulo: string;
     corpo: string;
     conexao_proximo: string; // Internal field for coherence (v4.3)
+    imagePrompt?: string;
   }>;
   legenda: string;
+  hashtags?: string[];
+  cta?: string;
 }
 
 // ============================================================================
-// VIDEO SCRIPT v4.3 - TRIBAL + ACIONÁVEL
+// VIDEO SCRIPT v4.4 - TRIBAL + ACIONÁVEL
 // ============================================================================
 
 /**
- * Video duration options for v4.3 video script generation
+ * Video duration options for v4.4 video script generation
  * Formats: "2-5min" | "5-10min" | "+10min" | "+30min"
  */
 export type VideoDuration = "2-5min" | "5-10min" | "+10min" | "+30min";
 
 /**
- * Development section types for v4.3
+ * Development section types for v4.4
  */
 export type DevelopmentSectionType =
   | "problema"
@@ -92,12 +95,12 @@ export type DevelopmentSectionType =
   | "cta";
 
 /**
- * Hook type for v4.3
+ * Hook type for v4.4
  */
 export type HookType = "reconhecimento" | "provocacao" | "promessa" | "pergunta";
 
 /**
- * Single development section in v4.3 format
+ * Single development section in v4.4 format
  */
 export interface DevelopmentSection {
   numero: number;
@@ -110,7 +113,7 @@ export interface DevelopmentSection {
 }
 
 /**
- * Video script structure v4.3 - Tribal + Actionable
+ * Video script structure v4.4 - Tribal + Actionable
  * Focused on teaching specific, actionable content
  */
 export interface VideoScriptStructured {
@@ -118,6 +121,7 @@ export interface VideoScriptStructured {
     duracao_estimada: string; // "X-Y minutos"
     angulo_tribal: NarrativeAngle;
     valor_central: string; // What person LEARNS/GAINS
+    transformacao_prometida?: string;
   };
 
   thumbnail: {
@@ -125,13 +129,21 @@ export interface VideoScriptStructured {
     expressao: string; // Facial expression suggestion
     texto_overlay: string; // Short text (max 3 words)
     estilo: string; // Visual description
+    cores_sugeridas?: string;
   };
 
   roteiro: {
     hook: {
       texto: string; // First words (max 15 words)
       tipo: HookType;
+      duracao_segundos?: number;
       nota_gravacao: string; // How to deliver
+    };
+
+    contexto?: {
+      texto: string;
+      duracao_segundos?: number;
+      nota_gravacao?: string;
     };
 
     desenvolvimento: DevelopmentSection[];
@@ -139,6 +151,7 @@ export interface VideoScriptStructured {
     cta: {
       texto: string; // Clear action invitation
       proximo_passo: string; // What specifically to do
+      duracao_segundos?: number;
       nota_gravacao: string; // How to deliver
     };
   };
@@ -361,5 +374,20 @@ export interface WizardGenerationInput extends WizardInputData {
     title: string;
     hook_factor: number;
     reason: string;
+  };
+  // v4.3 synthesized research from Tavily + Synthesizer
+  synthesizedResearch?: {
+    resumo_executivo?: string;
+    throughlines_potenciais?: Array<{ throughline: string; potencial_viral: string; justificativa: string }>;
+    tensoes_narrativas?: Array<{ tensao: string; tipo: string; uso_sugerido: string }>;
+    dados_contextualizados?: Array<{ frase_pronta: string; fonte: string; contraste: string }>;
+    exemplos_narrativos?: Array<{ protagonista: string; situacao_inicial: string; acao: string; resultado: string; aprendizado: string }>;
+    erros_armadilhas?: Array<{ erro: string; por_que_parece_certo: string; consequencia_real: string; alternativa: string }>;
+    frameworks_metodos?: Array<{ nome: string; problema_que_resolve: string; passos: string[]; exemplo_aplicacao: string }>;
+    progressao_sugerida?: {
+      ato1_captura: { gancho_principal: string; tensao_inicial: string; promessa: string };
+      ato2_desenvolvimento: string[];
+      ato3_resolucao: { verdade_central: string; call_to_action_natural: string };
+    };
   };
 }

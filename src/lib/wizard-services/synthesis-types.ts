@@ -33,6 +33,9 @@ export interface SynthesizedResearch {
   /** Suggested narrative approach based on research findings */
   narrative_suggestion: string;
 
+  /** v3.1: Suggested primary/secondary tribal angle */
+  angulo_sugerido?: AnguloSugerido;
+
   /** v3.1: 3-5 potential throughlines - central phrases that connect all slides */
   throughlines_potenciais: ThroughlinePotencial[];
 
@@ -89,6 +92,9 @@ export interface ThroughlinePotencial {
   /** v3.1: Viral potential - why this works */
   potencial_viral: string;
 
+  /** v3.1: Ideal tribal angle for this throughline */
+  angulo_ideal?: string;
+
   /** v3.1: Justification - rationale */
   justificativa: string;
 
@@ -108,6 +114,9 @@ export interface TensoesNarrativa {
 
   /** v3.1: Suggested usage in content */
   uso_sugerido: string;
+
+  /** v3.1: Ideal tribal angle for this tension */
+  angulo_ideal?: string;
 }
 
 /**
@@ -122,6 +131,12 @@ export interface DadoContextualizado {
 
   /** v3.1: Contrast element - what makes this data surprising */
   contraste: string;
+
+  /** v3.1: Belief validated by this data */
+  crenca_validada?: string;
+
+  /** v3.1: Ideal tribal angle for this data */
+  angulo_ideal?: string;
 }
 
 /**
@@ -142,6 +157,9 @@ export interface ExemploNarrativo {
 
   /** Key lesson learned */
   aprendizado: string;
+
+  /** v3.1: Ideal tribal angle for this example */
+  angulo_ideal?: string;
 }
 
 /**
@@ -159,6 +177,9 @@ export interface ErroArmadilha {
 
   /** Better alternative */
   alternativa: string;
+
+  /** v3.1: Ideal tribal angle for this error */
+  angulo_ideal?: string;
 }
 
 /**
@@ -176,12 +197,18 @@ export interface FrameworkMetodoV3 {
 
   /** v3.1: Application example */
   exemplo_aplicacao: string;
+
+  /** v3.1: Ideal tribal angle for this framework */
+  angulo_ideal?: string;
 }
 
 /**
  * v3.1: Suggested 3-act narrative progression (updated structure)
  */
 export interface ProgressaoSugeridaV3 {
+  /** v3.1: Tribal angle applied to this progression */
+  angulo_aplicado?: string;
+
   /** Act 1: Capture - hook, tension, promise */
   ato1_captura: {
     gancho_principal: string;
@@ -229,6 +256,12 @@ export interface ProgressaoSugerida {
 export interface AvaliacaoPesquisa {
   /** Data quality rating (excellent, good, fair, poor) */
   qualidade_dados: string;
+
+  /** v3.1: Tribal adequacy rating (high, medium, low) */
+  adequacao_tribal: string;
+
+  /** v3.1: Tribal angle best supported by research */
+  angulo_melhor_suportado: string;
 
   /** Recommendation for content creation */
   recomendacao: string;
@@ -302,6 +335,22 @@ export interface Hook {
 
   /** Why this hook works - its viral potential */
   potencial_viral: string;
+
+  /** v3.1: Ideal tribal angle for this hook */
+  angulo_ideal?: string;
+
+  /** v3.1: Why this hook resonates */
+  por_que_funciona?: string;
+}
+
+/**
+ * v3.1: Suggested primary/secondary tribal angle for research
+ */
+export interface AnguloSugerido {
+  angulo_primario: string;
+  angulo_secundario?: string;
+  justificativa: string;
+  evidencias_pesquisa: string[];
 }
 
 // ============================================================================

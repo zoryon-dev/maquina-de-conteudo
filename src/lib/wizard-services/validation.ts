@@ -1,7 +1,7 @@
 /**
  * Runtime Validation for Wizard Services
  *
- * Validates AI-generated responses to ensure they meet v4.3 requirements.
+ * Validates AI-generated responses to ensure they meet v4.2 requirements.
  * TypeScript checks structure, we check CONTENT.
  */
 
@@ -24,18 +24,18 @@ export class ValidationError extends Error {
 }
 
 // ============================================================================
-// CAROUSEL VALIDATION v4.3
+// CAROUSEL VALIDATION v4.2
 // ============================================================================
 
 /**
- * Validates that a ZoryonCarousel response meets v4.3 requirements.
+ * Validates that a ZoryonCarousel response meets v4.2 requirements.
  *
  * Critical fields:
  * - throughline: Required, must be non-empty
- * - valor_central: Required (v4.3), must be non-empty
- * - slides[].tipo: Required (v4.3), must be one of the 7 valid types
- * - slides[].corpo: Must be 180-220 characters (v4.3)
- * - legenda: Required, must be 250+ words (v4.3)
+ * - valor_central: Required (v4.2), must be non-empty
+ * - slides[].tipo: Required (v4.2), must be one of the 7 valid types
+ * - slides[].corpo: Must be <=130 characters (v4.2)
+ * - legenda: Required, must be 200-400 words (v4.2)
  */
 export function validateCarouselResponse(
   response: unknown,
@@ -72,10 +72,10 @@ export function validateCarouselResponse(
     );
   }
 
-  // Validate valor_central (v4.3 NEW)
+  // Validate valor_central (v4.2)
   if (!carousel.valor_central || typeof carousel.valor_central !== "string") {
     throw new ValidationError(
-      `Campo 'valor_central' está faltando ou inválido (v4.3 obrigatório). A IA deve explicar o que a pessoa aprende.`,
+      `Campo 'valor_central' está faltando ou inválido (v4.2 obrigatório). A IA deve explicar o que a pessoa aprende.`,
       "valor_central",
       "string não-vazia",
       typeof carousel.valor_central
@@ -84,7 +84,7 @@ export function validateCarouselResponse(
 
   if (carousel.valor_central.trim().length === 0) {
     throw new ValidationError(
-      `Campo 'valor_central' está vazio (v4.3). A IA deve explicar o valor do carrossel.`,
+      `Campo 'valor_central' está vazio (v4.2). A IA deve explicar o valor do carrossel.`,
       "valor_central",
       "string não-vazia",
       `"${carousel.valor_central}"`
@@ -155,10 +155,10 @@ export function validateCarouselResponse(
 
     const slideObj = slide as Record<string, unknown>;
 
-    // Validate tipo (v4.3 NEW)
+    // Validate tipo (v4.2)
     if (!slideObj.tipo || typeof slideObj.tipo !== "string") {
       throw new ValidationError(
-        `Slide ${index + 1}: Campo 'tipo' está faltando (v4.3 obrigatório). Cada slide deve ter um tipo.`,
+        `Slide ${index + 1}: Campo 'tipo' está faltando (v4.2 obrigatório). Cada slide deve ter um tipo.`,
         `slides[${index}].tipo`,
         "um de: " + VALID_TYPES.join(", "),
         typeof slideObj.tipo
@@ -167,7 +167,7 @@ export function validateCarouselResponse(
 
     if (!VALID_TYPES.includes(slideObj.tipo as ValidSlideType)) {
       throw new ValidationError(
-        `Slide ${index + 1}: Tipo '${slideObj.tipo}' é inválido. Deve ser um dos 7 tipos v4.3.`,
+        `Slide ${index + 1}: Tipo '${slideObj.tipo}' é inválido. Deve ser um dos 7 tipos v4.2.`,
         `slides[${index}].tipo`,
         "um de: " + VALID_TYPES.join(", "),
         slideObj.tipo
@@ -179,36 +179,42 @@ export function validateCarouselResponse(
       throw new ValidationError(
         `Slide ${index + 1}: Campo 'titulo' está vazio ou inválido.`,
         `slides[${index}].titulo`,
-        "string não-vazia (4-8 palavras)",
+        "string não-vazia (máx 6 palavras)",
         typeof slideObj.titulo
       );
     }
 
-    // Validate corpo (v4.3: 180-220 chars)
+    const tituloWordCount = slideObj.titulo.trim().split(/\s+/).length;
+    if (tituloWordCount > 6) {
+      throw new ValidationError(
+        `Slide ${index + 1}: Campo 'titulo' tem ${tituloWordCount} palavras, mas máximo v4.2 é 6.`,
+        `slides[${index}].titulo`,
+        "máx 6 palavras",
+        `${tituloWordCount} palavras`
+      );
+    }
+
+    // Validate corpo (v4.2: <=130 chars)
     if (!slideObj.corpo || typeof slideObj.corpo !== "string") {
       throw new ValidationError(
         `Slide ${index + 1}: Campo 'corpo' está faltando.`,
         `slides[${index}].corpo`,
-        "string (180-220 caracteres)",
+        "string (até 130 caracteres)",
         typeof slideObj.corpo
       );
     }
 
     const corpoLength = slideObj.corpo.trim().length;
-    if (corpoLength < 180) {
+    if (corpoLength > 130) {
       throw new ValidationError(
-        `Slide ${index + 1}: Campo 'corpo' tem ${corpoLength} caracteres, mas mínimo v4.3 é 180. A IA deve ser mais generosa.`,
+        `Slide ${index + 1}: Campo 'corpo' tem ${corpoLength} caracteres, mas máximo v4.2 é 130.`,
         `slides[${index}].corpo`,
-        "180-220 caracteres",
-        `${corpoLength} caracteres (muito curto)`
+        "máx 130 caracteres",
+        `${corpoLength} caracteres`
       );
     }
 
-    if (corpoLength > 220) {
-      console.warn(`⚠️ Slide ${index + 1}: Campo 'corpo' tem ${corpoLength} caracteres (excede 220, mas aceitaremos)`);
-    }
-
-    // Validate conexao_proximo (v4.3 NEW - optional field, can be null/undefined/empty for last slide)
+    // Validate conexao_proximo (v4.2 - optional field, can be null/undefined/empty for last slide)
     // Aceita string, null, undefined, ou string vazia - qualquer outro tipo é inválido
     if (
       slideObj.conexao_proximo !== undefined &&
@@ -224,35 +230,34 @@ export function validateCarouselResponse(
     }
   });
 
-  // Validate legenda (v4.3: mínimo flexível com warnings)
+  // Validate legenda (v4.2: 200-400 palavras)
   if (!carousel.legenda || typeof carousel.legenda !== "string") {
     throw new ValidationError(
       `Campo 'legenda' está faltando ou inválido.`,
       "legenda",
-      "string (mínimo 150 palavras)",
+      "string (200-400 palavras)",
       typeof carousel.legenda
     );
   }
 
   const wordCount = carousel.legenda.trim().split(/\s+/).length;
 
-  // Mínimo absoluto: 150 palavras (abaixo disso rejeita)
-  const MIN_ABSOLUTE = 150;
-  // Ideal: 250 palavras (abaixo disso avisa, mas aceita)
-  const MIN_IDEAL = 250;
+  // Mínimo absoluto: 200 palavras (abaixo disso rejeita)
+  const MIN_ABSOLUTE = 200;
+  // Máximo recomendado: 400 palavras (acima disso avisa)
+  const MAX_RECOMMENDED = 400;
 
   if (wordCount < MIN_ABSOLUTE) {
     throw new ValidationError(
       `Campo 'legenda' tem ${wordCount} palavras, mas mínimo absoluto é ${MIN_ABSOLUTE}. A caption deve ter mais substância.`,
       "legenda",
-      `${MIN_ABSOLUTE}+ palavras`,
+      "200-400 palavras",
       `${wordCount} palavras`
     );
   }
 
-  if (wordCount < MIN_IDEAL) {
-    // Warning mas ACEITA - não trava a geração
-    console.warn(`⚠️ Legenda tem ${wordCount} palavras (ideal seria ${MIN_IDEAL}+). Aceitando mesmo assim.`);
+  if (wordCount > MAX_RECOMMENDED) {
+    console.warn(`⚠️ Legenda tem ${wordCount} palavras (excede ${MAX_RECOMMENDED}). Aceitando mesmo assim.`);
   }
 
   // If we got here, validation passed!

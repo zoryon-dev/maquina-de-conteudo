@@ -98,12 +98,14 @@ function escapeHtml(text: string): string {
 
 /**
  * Generates HTML content for each template following .context patterns
+ * @param isLastCard - When true, removes navigation CTA (arraste para o lado, arrow)
  */
 function generateTemplateHtml(
   template: HtmlTemplate,
   options: HtmlTemplateOptions,
   content: string,
-  title?: string
+  title?: string,
+  isLastCard: boolean = false
 ): string {
   // Parse content to extract template-specific fields
   const data = parseTemplateData(content, title);
@@ -112,43 +114,106 @@ function generateTemplateHtml(
   const primaryColor = options.primaryColor || "#2dd4bf"; // Default teal
   const secondaryColor = options.secondaryColor || "#f97316"; // Default orange
   const backgroundColor = options.backgroundColor;
+  const titleColor = options.titleColor;
   const textColor = options.textColor;
+  const buttonColor = options.buttonColor;
+  const buttonTextColor = options.buttonTextColor;
 
-  // Generate template-specific HTML
+  // Generate template-specific HTML with extended color options
   switch (template) {
     // ==================== DARK MODE ====================
     case "dark-mode":
-      return generateDarkModeHtml(data, primaryColor, secondaryColor);
+      return generateDarkModeHtml(data, {
+        primaryColor,
+        secondaryColor,
+        backgroundColor,
+        titleColor,
+        textColor,
+        buttonColor,
+        buttonTextColor,
+      }, isLastCard);
 
     // ==================== WHITE MODE ====================
     case "white-mode":
-      return generateWhiteModeHtml(data, primaryColor, secondaryColor);
+      return generateWhiteModeHtml(data, {
+        primaryColor,
+        secondaryColor,
+        backgroundColor,
+        titleColor,
+        textColor,
+        buttonColor,
+        buttonTextColor,
+      }, isLastCard);
 
     // ==================== TWITTER ====================
     case "twitter":
-      return generateTwitterHtml(data, primaryColor);
+      return generateTwitterHtml(data, {
+        primaryColor,
+        backgroundColor,
+        titleColor,
+        textColor,
+        buttonColor,
+        buttonTextColor,
+      }, isLastCard);
 
     // ==================== SUPER HEADLINE ====================
     case "super-headline":
-      return generateSuperHeadlineHtml(data, primaryColor, secondaryColor);
+      return generateSuperHeadlineHtml(data, {
+        primaryColor,
+        secondaryColor,
+        backgroundColor,
+        titleColor,
+        buttonColor,
+        buttonTextColor,
+      }, isLastCard);
 
     default:
       // Fallback to dark-mode
-      return generateDarkModeHtml(data, primaryColor, secondaryColor);
+      return generateDarkModeHtml(data, {
+        primaryColor,
+        secondaryColor,
+        backgroundColor,
+        titleColor,
+        textColor,
+        buttonColor,
+        buttonTextColor,
+      }, isLastCard);
   }
+}
+
+/**
+ * Color options for template generation
+ */
+interface TemplateColorOptions {
+  primaryColor: string;
+  secondaryColor?: string;
+  backgroundColor?: string;
+  titleColor?: string;
+  textColor?: string;
+  buttonColor?: string;
+  buttonTextColor?: string;
 }
 
 /**
  * Dark Mode Template - Fundo escuro com gradiente verde/teal
  * Pattern: .context/wizard-prompts/dark-mode.html
+ * @param isLastCard - When true, removes navigation CTA (arraste para o lado, arrow)
  */
 function generateDarkModeHtml(
   data: TemplateData,
-  primaryColor: string,
-  secondaryColor: string
+  colors: TemplateColorOptions,
+  isLastCard: boolean = false
 ): string {
   const headline = data.headline || data.title || data.content || "";
   const descricao = data.descricao || data.content || "";
+
+  // Extract colors with defaults
+  const { primaryColor, secondaryColor = "#f97316", backgroundColor = "#0f0f0f", titleColor = "#ffffff", textColor = "rgba(255, 255, 255, 0.7)", buttonColor, buttonTextColor = "#ffffff" } = colors;
+
+  // Use buttonColor if provided, otherwise use secondaryColor gradient
+  const buttonBackground = buttonColor
+    ? buttonColor
+    : `linear-gradient(135deg, ${secondaryColor} 0%, #fb923c 100%)`;
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -164,8 +229,8 @@ function generateDarkModeHtml(
     html, body { width: 1080px; height: 1350px; overflow: hidden; }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #0f0f0f;
-      color: #ffffff;
+      background: ${backgroundColor};
+      color: ${titleColor};
       display: flex;
       flex-direction: column;
       padding: 48px;
@@ -179,15 +244,15 @@ function generateDarkModeHtml(
     .header-year {
       font-size: 18px;
       font-weight: 500;
-      color: rgba(255, 255, 255, 0.6);
+      color: ${textColor};
     }
     .header-brand {
       padding: 10px 28px;
-      border: 1.5px solid rgba(255, 255, 255, 0.3);
+      border: 1.5px solid ${textColor};
       border-radius: 50px;
       font-size: 16px;
       font-weight: 600;
-      color: #ffffff;
+      color: ${titleColor};
     }
     .content {
       flex: 1;
@@ -200,7 +265,7 @@ function generateDarkModeHtml(
       font-size: 72px;
       font-weight: 800;
       line-height: 1.1;
-      color: #ffffff;
+      color: ${titleColor};
       letter-spacing: -2px;
     }
     .headline .destaque {
@@ -208,17 +273,17 @@ function generateDarkModeHtml(
       font-style: italic;
     }
     .descricao {
-      font-size: 28px;
+      font-size: 32px;
       font-weight: 400;
       line-height: 1.5;
-      color: rgba(255, 255, 255, 0.7);
+      color: ${textColor};
       max-width: 90%;
     }
     .subtitulo {
       font-size: 42px;
       font-weight: 600;
       line-height: 1.25;
-      color: rgba(255, 255, 255, 0.85);
+      color: ${textColor};
     }
     .cta-container {
       margin-top: 40px;
@@ -231,11 +296,11 @@ function generateDarkModeHtml(
       align-items: center;
       justify-content: center;
       padding: 18px 48px;
-      background: linear-gradient(135deg, ${secondaryColor} 0%, #fb923c 100%);
+      background: ${buttonBackground};
       border-radius: 50px;
       font-size: 18px;
       font-weight: 700;
-      color: #ffffff;
+      color: ${buttonTextColor};
       letter-spacing: 1px;
       text-transform: uppercase;
     }
@@ -245,10 +310,10 @@ function generateDarkModeHtml(
       justify-content: center;
       width: 56px;
       height: 56px;
-      background: linear-gradient(135deg, ${secondaryColor} 0%, #fb923c 100%);
+      background: ${buttonBackground};
       border-radius: 12px;
     }
-    .cta-arrow svg { width: 24px; height: 24px; color: #ffffff; }
+    .cta-arrow svg { width: 24px; height: 24px; color: ${buttonTextColor}; }
     .footer {
       display: flex;
       justify-content: space-between;
@@ -257,9 +322,9 @@ function generateDarkModeHtml(
       padding-top: 60px;
     }
     .footer-left { display: flex; flex-direction: column; gap: 2px; }
-    .footer-made { font-size: 14px; font-weight: 400; color: rgba(255, 255, 255, 0.5); }
-    .footer-name { font-size: 16px; font-weight: 700; color: rgba(255, 255, 255, 0.8); text-transform: uppercase; }
-    .footer-right { display: flex; align-items: center; gap: 20px; font-size: 15px; font-weight: 500; color: rgba(255, 255, 255, 0.5); }
+    .footer-made { font-size: 14px; font-weight: 400; color: ${textColor}; }
+    .footer-name { font-size: 16px; font-weight: 700; color: ${titleColor}; text-transform: uppercase; }
+    .footer-right { display: flex; align-items: center; gap: 20px; font-size: 15px; font-weight: 500; color: ${textColor}; }
   </style>
 </head>
 <body>
@@ -272,14 +337,16 @@ function generateDarkModeHtml(
     <h1 class="headline">${processHeadline(escapeHtml(headline))}</h1>
     <p class="descricao">${escapeHtml(descricao)}</p>
     ${data.subtitulo ? `<h2 class="subtitulo">${escapeHtml(data.subtitulo)}</h2>` : ""}
+    ${!isLastCard ? `
     <div class="cta-container">
-      <span class="cta-button">Leia a Legenda</span>
+      <span class="cta-button">Arraste para o lado</span>
       <span class="cta-arrow">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7" />
         </svg>
       </span>
     </div>
+    ` : ''}
   </main>
   <footer class="footer">
     <div class="footer-left">
@@ -299,14 +366,23 @@ function generateDarkModeHtml(
 /**
  * White Mode Template - Fundo claro com estilo minimalista
  * Pattern: .context/wizard-prompts/white-mode.html
+ * @param isLastCard - When true, removes navigation CTA (arraste para o lado, arrow)
  */
 function generateWhiteModeHtml(
   data: TemplateData,
-  primaryColor: string,
-  secondaryColor: string
+  colors: TemplateColorOptions,
+  isLastCard: boolean = false
 ): string {
   const headline = data.headline || data.title || data.content || "";
   const descricao = data.descricao || data.content || "";
+
+  // Extract colors with defaults (light theme defaults)
+  const { primaryColor = "#2dd4bf", secondaryColor = "#f97316", backgroundColor = "#fafafa", titleColor = "#171717", textColor = "rgba(23, 23, 23, 0.65)", buttonColor, buttonTextColor = "#ffffff" } = colors;
+
+  // Use buttonColor if provided, otherwise use dark gradient
+  const buttonBackground = buttonColor
+    ? buttonColor
+    : `linear-gradient(135deg, #171717 0%, #404040 100%)`;
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -322,8 +398,8 @@ function generateWhiteModeHtml(
     html, body { width: 1080px; height: 1350px; overflow: hidden; }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #fafafa;
-      color: #171717;
+      background: ${backgroundColor};
+      color: ${titleColor};
       display: flex;
       flex-direction: column;
       padding: 48px;
@@ -337,15 +413,15 @@ function generateWhiteModeHtml(
     .header-year {
       font-size: 18px;
       font-weight: 500;
-      color: rgba(23, 23, 23, 0.5);
+      color: ${textColor};
     }
     .header-brand {
       padding: 10px 28px;
-      border: 1.5px solid rgba(23, 23, 23, 0.2);
+      border: 1.5px solid ${textColor};
       border-radius: 50px;
       font-size: 16px;
       font-weight: 600;
-      color: #171717;
+      color: ${titleColor};
     }
     .content {
       flex: 1;
@@ -358,7 +434,7 @@ function generateWhiteModeHtml(
       font-size: 72px;
       font-weight: 800;
       line-height: 1.1;
-      color: #171717;
+      color: ${titleColor};
       letter-spacing: -2px;
     }
     .headline .destaque {
@@ -366,17 +442,17 @@ function generateWhiteModeHtml(
       font-style: italic;
     }
     .descricao {
-      font-size: 28px;
+      font-size: 32px;
       font-weight: 400;
       line-height: 1.5;
-      color: rgba(23, 23, 23, 0.65);
+      color: ${textColor};
       max-width: 90%;
     }
     .subtitulo {
       font-size: 42px;
       font-weight: 600;
       line-height: 1.25;
-      color: rgba(23, 23, 23, 0.8);
+      color: ${titleColor};
     }
     .cta-container {
       margin-top: 40px;
@@ -389,11 +465,11 @@ function generateWhiteModeHtml(
       align-items: center;
       justify-content: center;
       padding: 18px 48px;
-      background: linear-gradient(135deg, #171717 0%, #404040 100%);
+      background: ${buttonBackground};
       border-radius: 50px;
       font-size: 18px;
       font-weight: 700;
-      color: #ffffff;
+      color: ${buttonTextColor};
       letter-spacing: 1px;
       text-transform: uppercase;
     }
@@ -403,10 +479,10 @@ function generateWhiteModeHtml(
       justify-content: center;
       width: 56px;
       height: 56px;
-      background: linear-gradient(135deg, #171717 0%, #404040 100%);
+      background: ${buttonBackground};
       border-radius: 12px;
     }
-    .cta-arrow svg { width: 24px; height: 24px; color: #ffffff; }
+    .cta-arrow svg { width: 24px; height: 24px; color: ${buttonTextColor}; }
     .footer {
       display: flex;
       justify-content: space-between;
@@ -415,9 +491,9 @@ function generateWhiteModeHtml(
       padding-top: 60px;
     }
     .footer-left { display: flex; flex-direction: column; gap: 2px; }
-    .footer-made { font-size: 14px; font-weight: 400; color: rgba(23, 23, 23, 0.4); }
-    .footer-name { font-size: 16px; font-weight: 700; color: rgba(23, 23, 23, 0.7); text-transform: uppercase; }
-    .footer-right { display: flex; align-items: center; gap: 20px; font-size: 15px; font-weight: 500; color: rgba(23, 23, 23, 0.4); }
+    .footer-made { font-size: 14px; font-weight: 400; color: ${textColor}; }
+    .footer-name { font-size: 16px; font-weight: 700; color: ${titleColor}; text-transform: uppercase; }
+    .footer-right { display: flex; align-items: center; gap: 20px; font-size: 15px; font-weight: 500; color: ${textColor}; }
   </style>
 </head>
 <body>
@@ -430,14 +506,16 @@ function generateWhiteModeHtml(
     <h1 class="headline">${processHeadline(escapeHtml(headline))}</h1>
     <p class="descricao">${escapeHtml(descricao)}</p>
     ${data.subtitulo ? `<h2 class="subtitulo">${escapeHtml(data.subtitulo)}</h2>` : ""}
+    ${!isLastCard ? `
     <div class="cta-container">
-      <span class="cta-button">Leia a Legenda</span>
+      <span class="cta-button">Arraste para o lado</span>
       <span class="cta-arrow">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7" />
         </svg>
       </span>
     </div>
+    ` : ''}
   </main>
   <footer class="footer">
     <div class="footer-left">
@@ -457,15 +535,20 @@ function generateWhiteModeHtml(
 /**
  * Twitter Template - Estilo de post do Twitter com avatar e verificado
  * Pattern: .context/wizard-prompts/twitter.html
+ * @param isLastCard - When true, removes navigation CTA (arraste para o lado, arrow)
  */
 function generateTwitterHtml(
   data: TemplateData,
-  primaryColor: string
+  colors: TemplateColorOptions,
+  isLastCard: boolean = false
 ): string {
   const headline = data.headline || data.title || data.content || "";
   const paragrafo1 = data.paragrafo1 || "";
   const paragrafo2 = data.paragrafo2 || "";
   const destaque = data.destaque || "";
+
+  // Extract colors with defaults
+  const { primaryColor = "#8b7cf7", backgroundColor = "#ffffff", titleColor = "#000000", textColor = "#1a1a1a", buttonColor = "#8b7cf7", buttonTextColor = "#ffffff" } = colors;
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -483,8 +566,8 @@ function generateTwitterHtml(
       height: 1350px;
       overflow: hidden;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #ffffff;
-      color: #000000;
+      background: ${backgroundColor};
+      color: ${titleColor};
     }
 
     /* Container principal */
@@ -507,14 +590,14 @@ function generateTwitterHtml(
     .header-brand {
       font-size: 18px;
       font-weight: 700;
-      color: #000000;
+      color: ${titleColor};
       letter-spacing: 2px;
       text-transform: uppercase;
     }
     .header-tag {
       font-size: 18px;
       font-weight: 600;
-      color: #000000;
+      color: ${titleColor};
       letter-spacing: 1px;
     }
 
@@ -562,7 +645,7 @@ function generateTwitterHtml(
       gap: 8px;
       font-size: 22px;
       font-weight: 700;
-      color: #000000;
+      color: ${titleColor};
     }
     .verified {
       width: 22px;
@@ -572,7 +655,7 @@ function generateTwitterHtml(
     .author-handle {
       font-size: 17px;
       font-weight: 500;
-      color: #666666;
+      color: ${textColor};
     }
 
     /* Conteúdo */
@@ -587,7 +670,7 @@ function generateTwitterHtml(
       font-size: 58px;
       font-weight: 800;
       line-height: 1.1;
-      color: #000000;
+      color: ${titleColor};
       margin-bottom: 32px;
       letter-spacing: -2px;
     }
@@ -599,14 +682,14 @@ function generateTwitterHtml(
       gap: 24px;
     }
     .body p {
-      font-size: 26px;
+      font-size: 30px;
       font-weight: 400;
       line-height: 1.4;
-      color: #1a1a1a;
+      color: ${textColor};
     }
     .body p.destaque {
       font-weight: 700;
-      color: #000000;
+      color: ${primaryColor};
     }
 
     /* CTA Button - DENTRO da área útil */
@@ -621,18 +704,18 @@ function generateTwitterHtml(
     }
     .cta-text {
       padding: 18px 56px;
-      background: #8b7cf7;
+      background: ${buttonColor};
       border-radius: 12px;
       font-size: 16px;
       font-weight: 700;
-      color: #ffffff;
+      color: ${buttonTextColor};
       letter-spacing: 1px;
       text-transform: uppercase;
     }
     .cta-arrow {
       width: 52px;
       height: 52px;
-      background: #f0f0f0;
+      background: ${textColor === "#1a1a1a" ? "#f0f0f0" : textColor};
       border-radius: 12px;
       display: flex;
       align-items: center;
@@ -641,7 +724,7 @@ function generateTwitterHtml(
     .cta-arrow svg {
       width: 24px;
       height: 24px;
-      stroke: #666666;
+      stroke: ${textColor === "#1a1a1a" ? "#666666" : textColor};
       stroke-width: 2.5;
       fill: none;
     }
@@ -682,16 +765,18 @@ function generateTwitterHtml(
         </div>
       </div>
 
+      ${!isLastCard ? `
       <div class="cta-container">
         <div class="cta-button">
-          <span class="cta-text">Leia a Legenda</span>
+          <span class="cta-text">Arraste para o lado</span>
           <span class="cta-arrow">
             <svg viewBox="0 0 24 24">
-              <path d="M12 5v14M5 12l7 7 7-7" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M5 12h14M12 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </span>
         </div>
       </div>
+      ` : ''}
     </main>
   </div>
 </body>
@@ -702,13 +787,20 @@ function generateTwitterHtml(
 /**
  * Super Headline Template - Headline gigante com grid de fundo
  * Pattern: .context/wizard-prompts/superheadline.html
+ * @param isLastCard - When true, removes navigation CTA (arraste para o lado, arrow)
  */
 function generateSuperHeadlineHtml(
   data: TemplateData,
-  primaryColor: string,
-  secondaryColor: string
+  colors: TemplateColorOptions,
+  isLastCard: boolean = false
 ): string {
   const headline = data.headline || data.title || data.content || "";
+
+  // Extract colors with defaults
+  const { primaryColor = "#a3e635", secondaryColor = "#f97316", backgroundColor = "#ffffff", titleColor = "#1a1a1a", buttonColor = "#8b7cf7", buttonTextColor = "#ffffff" } = colors;
+
+  // Grid color based on background (lighter version)
+  const gridColor = titleColor === "#1a1a1a" ? "#e5e5e5" : "rgba(255,255,255,0.1)";
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -724,8 +816,8 @@ function generateSuperHeadlineHtml(
     html, body { width: 1080px; height: 1350px; overflow: hidden; }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #ffffff;
-      color: #000000;
+      background: ${backgroundColor};
+      color: ${titleColor};
       display: flex;
       flex-direction: column;
       padding: 48px 64px;
@@ -740,8 +832,8 @@ function generateSuperHeadlineHtml(
       right: 0;
       bottom: 0;
       background-image:
-        linear-gradient(to right, #e5e5e5 1px, transparent 1px),
-        linear-gradient(to bottom, #e5e5e5 1px, transparent 1px);
+        linear-gradient(to right, ${gridColor} 1px, transparent 1px),
+        linear-gradient(to bottom, ${gridColor} 1px, transparent 1px);
       background-size: 120px 120px;
       pointer-events: none;
       z-index: 0;
@@ -766,15 +858,15 @@ function generateSuperHeadlineHtml(
     .header-year {
       font-size: 16px;
       font-weight: 500;
-      color: #1a1a1a;
+      color: ${titleColor};
     }
     .header-brand {
       padding: 10px 28px;
-      border: 1.5px solid #1a1a1a;
+      border: 1.5px solid ${titleColor};
       border-radius: 50px;
       font-size: 16px;
       font-weight: 600;
-      color: #1a1a1a;
+      color: ${titleColor};
     }
 
     /* Headline gigante */
@@ -787,7 +879,7 @@ function generateSuperHeadlineHtml(
       font-size: 115px;
       font-weight: 700;
       line-height: 1.05;
-      color: #1a1a1a;
+      color: ${titleColor};
       letter-spacing: -3px;
     }
     .headline .destaque {
@@ -806,18 +898,18 @@ function generateSuperHeadlineHtml(
     }
     .cta-text {
       padding: 20px 64px;
-      background: #8b7cf7;
+      background: ${buttonColor};
       border-radius: 50px;
       font-size: 18px;
       font-weight: 700;
-      color: #ffffff;
+      color: ${buttonTextColor};
       letter-spacing: 1px;
       text-transform: uppercase;
     }
     .cta-arrow {
       width: 56px;
       height: 56px;
-      background: #f0f0f0;
+      background: ${titleColor === "#1a1a1a" ? "#f0f0f0" : titleColor};
       border-radius: 12px;
       display: flex;
       align-items: center;
@@ -826,7 +918,7 @@ function generateSuperHeadlineHtml(
     .cta-arrow svg {
       width: 28px;
       height: 28px;
-      stroke: #8b7cf7;
+      stroke: ${buttonColor};
       stroke-width: 2.5;
       fill: none;
     }
@@ -845,12 +937,12 @@ function generateSuperHeadlineHtml(
     .footer-label {
       font-size: 14px;
       font-weight: 400;
-      color: #666666;
+      color: ${titleColor === "#1a1a1a" ? "#666666" : "rgba(255,255,255,0.6)"};
     }
     .footer-name {
       font-size: 16px;
       font-weight: 700;
-      color: #1a1a1a;
+      color: ${titleColor};
       text-transform: uppercase;
     }
     .footer-right {
@@ -859,7 +951,7 @@ function generateSuperHeadlineHtml(
       gap: 16px;
       font-size: 14px;
       font-weight: 500;
-      color: #666666;
+      color: ${titleColor === "#1a1a1a" ? "#666666" : "rgba(255,255,255,0.6)"};
     }
   </style>
 </head>
@@ -877,16 +969,18 @@ function generateSuperHeadlineHtml(
       <h1 class="headline">${processHeadline(escapeHtml(headline))}</h1>
     </main>
 
+    ${!isLastCard ? `
     <div class="cta-container">
       <div class="cta-button">
-        <span class="cta-text">Leia a Legenda</span>
+        <span class="cta-text">Arraste para o lado</span>
         <span class="cta-arrow">
           <svg viewBox="0 0 24 24">
-            <path d="M12 5v14M5 12l7 7 7-7" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M5 12h14M12 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </span>
       </div>
     </div>
+    ` : ''}
 
     <footer class="footer">
       <div class="footer-left">
@@ -926,7 +1020,10 @@ export async function generateHtmlTemplateImage(
       };
     }
 
-    const { slideNumber, slideContent, slideTitle, config } = input;
+    const { slideNumber, totalSlides, slideContent, slideTitle, config } = input;
+
+    // Determine if this is the last card (no navigation CTA should be shown)
+    const isLastCard = totalSlides !== undefined && slideNumber === totalSlides;
 
     if (!config.htmlOptions) {
       return {
@@ -935,15 +1032,16 @@ export async function generateHtmlTemplateImage(
       };
     }
 
-    console.log(`[SCREENSHOT-ONE] Generating template ${config.htmlOptions.template} for slide ${slideNumber}...`);
+    console.log(`[SCREENSHOT-ONE] Generating template ${config.htmlOptions.template} for slide ${slideNumber}${isLastCard ? ' (LAST CARD)' : ''}...`);
     console.log(`[SCREENSHOT-ONE] Template options:`, JSON.stringify(config.htmlOptions, null, 2));
 
-    // Generate HTML content
+    // Generate HTML content (pass isLastCard to remove navigation CTA)
     const htmlContent = generateTemplateHtml(
       config.htmlOptions.template,
       config.htmlOptions,
       slideContent,
-      slideTitle
+      slideTitle,
+      isLastCard
     );
 
     console.log(`[SCREENSHOT-ONE] HTML content generated (length: ${htmlContent.length} chars)`);

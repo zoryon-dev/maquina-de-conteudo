@@ -527,6 +527,9 @@ export async function generateContent(
       narrativeAngle: input.selectedNarrative.angle,
       narrativeTitle: input.selectedNarrative.title,
       narrativeDescription: input.selectedNarrative.description,
+      narrativeHook: input.selectedNarrative.hook,
+      coreBelief: input.selectedNarrative.core_belief,
+      statusQuoChallenged: input.selectedNarrative.status_quo_challenged,
       numberOfSlides: input.numberOfSlides,
       cta: input.cta,
       negativeTerms: mergedNegativeTerms.length > 0 ? mergedNegativeTerms : input.negativeTerms,
@@ -534,6 +537,7 @@ export async function generateContent(
       theme: input.theme,
       targetAudience: input.targetAudience,
       selectedVideoTitle: input.selectedVideoTitle?.title, // Pass selected video title for videos
+      synthesizedResearch: input.synthesizedResearch, // v4.3: Pass synthesized research for rich content
     })
 
     // Append user variables context if available
@@ -686,12 +690,12 @@ function structureGeneratedContent(
 
   switch (contentType) {
     case "carousel": {
-      // Handle new ZORYON v4.3 structure with valor_central, capa, slides (numero/tipo/titulo/corpo/conexao_proximo), legenda
+      // Handle new ZORYON v4.2 structure with valor_central, capa, slides (numero/tipo/titulo/corpo/conexao_proximo), legenda
       if ("capa" in response && "slides" in response && "legenda" in response) {
-        // VALIDAÇÃO RUNTIME v4.3 - Garante que a IA seguiu as instruções
+        // VALIDAÇÃO RUNTIME v4.2 - Garante que a IA seguiu as instruções
         const validated = validateCarouselResponse(response);
 
-        // New format: { throughline, valor_central, capa: { titulo, subtitulo }, slides: [{ numero, tipo, titulo, corpo, conexao_proximo }], legenda }
+        // New format: { throughline, valor_central, capa: { titulo, subtitulo }, slides: [{ numero, tipo, titulo, corpo, conexao_proximo, imagePrompt }], legenda }
         const capa = validated.capa;
         const slides = validated.slides;
 
@@ -707,13 +711,13 @@ function structureGeneratedContent(
             ...slides.map((slide) => ({
               title: String(slide.titulo || ""),
               content: String(slide.corpo || ""),
-              // v4.3: removed 'acao' field - actionability is now in slide 'tipo' and content itself
-              imagePrompt: undefined,
+              // v4.2: imagePrompt pode vir por slide
+              imagePrompt: slide.imagePrompt ? String(slide.imagePrompt) : undefined,
             })),
           ],
           caption: validated.legenda,
-          hashtags: undefined,
-          cta: undefined,
+          hashtags: validated.hashtags ? StringArray(validated.hashtags) : undefined,
+          cta: validated.cta ? String(validated.cta) : undefined,
           metadata: {
             ...baseMetadata,
             throughline: validated.throughline,
@@ -774,7 +778,7 @@ function structureGeneratedContent(
     }
 
     case "video": {
-      // Handle both legacy format (script field) and new v4.3 format (VideoScriptStructured)
+      // Handle both legacy format (script field) and new v4.4 format (VideoScriptStructured)
       if ("script" in response) {
         // Legacy format: simple script field
         const script = response.script;
@@ -788,9 +792,9 @@ function structureGeneratedContent(
         };
       }
 
-      // Check for VideoScriptStructured v4.3 format
+      // Check for VideoScriptStructured v4.4 format
       if ("meta" in response && "roteiro" in response && "thumbnail" in response) {
-        // New v4.3 format: VideoScriptStructured
+        // New v4.4 format: VideoScriptStructured
         const videoScript = response as any;
 
         // Extract CTA from roteiro.cta or fallback to response-level cta
@@ -806,11 +810,11 @@ function structureGeneratedContent(
             ...baseMetadata,
             // Store structured metadata for easy access
             script: videoScript, // VideoScriptStructured v4.3
-          } as any, // Using 'as any' because we're adding v4.3-specific 'script' property
+          } as any, // Using 'as any' because we're adding v4.4-specific 'script' property
         };
       }
 
-      throw new Error("Video response missing required fields (expected 'script' or VideoScriptStructured v4.3 format with 'meta', 'roteiro', 'thumbnail')");
+      throw new Error("Video response missing required fields (expected 'script' or VideoScriptStructured v4.4 format with 'meta', 'roteiro', 'thumbnail')");
     }
 
     default:

@@ -412,6 +412,18 @@ interface HtmlOptionsProps {
 }
 
 function HtmlOptions({ options, onChange }: HtmlOptionsProps) {
+  // Sync local state with options prop to fix desync issues
+  const getInitialValue = (propValue: string | undefined, defaultVal: string = "") => {
+    return propValue || defaultVal;
+  };
+
+  // We'll use controlled inputs directly from options to avoid sync issues
+  const getColorValue = (field: keyof HtmlTemplateOptions, fallback: string): string => {
+    const val = options?.[field];
+    if (typeof val === 'string') return val;
+    return fallback;
+  };
+
   return (
     <div className="space-y-4">
       {/* Template Selection */}
@@ -446,46 +458,188 @@ function HtmlOptions({ options, onChange }: HtmlOptionsProps) {
         </div>
       </div>
 
-      {/* Template Colors */}
+      {/* Template Colors - Using grid layout for better space utilization */}
       <div>
-        <h4 className="text-xs font-medium text-white/60 mb-2">Cores do Template</h4>
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs text-white/40 mb-1 block">Cor Primária</label>
-            <div className="flex items-center gap-3">
+        <h4 className="text-xs font-medium text-white/60 mb-3">Personalização de Cores</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Primary Color - Destaques */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-white/70 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-primary inline-block"></span>
+              <span className="font-medium">Cor Primária</span>
+              <span className="text-white/40 font-normal">- Destaques</span>
+            </label>
+            <div className="flex items-center gap-2">
               <input
                 type="color"
-                value={options?.primaryColor || "#2dd4bf"}
+                value={getColorValue("primaryColor", "#2dd4bf")}
                 onChange={(e) => onChange({ primaryColor: e.target.value })}
-                className="w-10 h-10 rounded-lg cursor-pointer"
+                className="w-9 h-9 rounded cursor-pointer border-0"
               />
               <input
                 type="text"
-                value={options?.primaryColor || "#2dd4bf"}
+                value={getColorValue("primaryColor", "#2dd4bf")}
                 onChange={(e) => onChange({ primaryColor: e.target.value })}
-                className="flex-1 bg-white/[0.02] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-primary/50"
+                className="flex-1 min-w-0 bg-white/[0.02] border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-sm focus:outline-none focus:border-primary/50"
                 maxLength={7}
+                placeholder="#2dd4bf"
               />
             </div>
           </div>
 
-          <div>
-            <label className="text-xs text-white/40 mb-1 block">Cor Secundária (opcional)</label>
-            <div className="flex items-center gap-3">
+          {/* Secondary Color - Botões */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-white/70 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-orange-500 inline-block"></span>
+              <span className="font-medium">Cor Secundária</span>
+              <span className="text-white/40 font-normal">- CTAs</span>
+            </label>
+            <div className="flex items-center gap-2">
               <input
                 type="color"
-                value={options?.secondaryColor || "#f97316"}
+                value={getColorValue("secondaryColor", "#f97316")}
                 onChange={(e) => onChange({ secondaryColor: e.target.value })}
-                className="w-10 h-10 rounded-lg cursor-pointer"
+                className="w-9 h-9 rounded cursor-pointer border-0"
               />
               <input
                 type="text"
-                value={options?.secondaryColor || "#f97316"}
+                value={getColorValue("secondaryColor", "#f97316")}
                 onChange={(e) => onChange({ secondaryColor: e.target.value })}
-                className="flex-1 bg-white/[0.02] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-primary/50"
+                className="flex-1 min-w-0 bg-white/[0.02] border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-sm focus:outline-none focus:border-primary/50"
                 maxLength={7}
+                placeholder="#f97316"
               />
             </div>
+          </div>
+
+          {/* Background Color - Fundo */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-white/70 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-gray-700 border border-white/20 inline-block"></span>
+              <span className="font-medium">Cor de Fundo</span>
+              <span className="text-white/40 font-normal">- Background</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={getColorValue("backgroundColor", "#0f0f0f")}
+                onChange={(e) => onChange({ backgroundColor: e.target.value || undefined })}
+                className="w-9 h-9 rounded cursor-pointer border-0"
+              />
+              <input
+                type="text"
+                value={options?.backgroundColor || ""}
+                onChange={(e) => onChange({ backgroundColor: e.target.value || undefined })}
+                className="flex-1 min-w-0 bg-white/[0.02] border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-sm focus:outline-none focus:border-primary/50"
+                maxLength={7}
+                placeholder="Padrão"
+              />
+            </div>
+            <p className="text-[10px] text-white/30 pl-11">Vazio = padrão do template</p>
+          </div>
+
+          {/* Title Color - Título */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-white/70 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-white border border-white/20 inline-block"></span>
+              <span className="font-medium">Cor do Título</span>
+              <span className="text-white/40 font-normal">- Headline</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={getColorValue("titleColor", "#ffffff")}
+                onChange={(e) => onChange({ titleColor: e.target.value || undefined })}
+                className="w-9 h-9 rounded cursor-pointer border-0"
+              />
+              <input
+                type="text"
+                value={options?.titleColor || ""}
+                onChange={(e) => onChange({ titleColor: e.target.value || undefined })}
+                className="flex-1 min-w-0 bg-white/[0.02] border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-sm focus:outline-none focus:border-primary/50"
+                maxLength={7}
+                placeholder="Padrão"
+              />
+            </div>
+            <p className="text-[10px] text-white/30 pl-11">Vazio = padrão do template</p>
+          </div>
+
+          {/* Text Color - Corpo */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-white/70 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-white/60 inline-block"></span>
+              <span className="font-medium">Cor do Texto</span>
+              <span className="text-white/40 font-normal">- Descrição</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={getColorValue("textColor", "#ffffff")}
+                onChange={(e) => onChange({ textColor: e.target.value || undefined })}
+                className="w-9 h-9 rounded cursor-pointer border-0"
+              />
+              <input
+                type="text"
+                value={options?.textColor || ""}
+                onChange={(e) => onChange({ textColor: e.target.value || undefined })}
+                className="flex-1 min-w-0 bg-white/[0.02] border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-sm focus:outline-none focus:border-primary/50"
+                maxLength={25}
+                placeholder="Padrão"
+              />
+            </div>
+            <p className="text-[10px] text-white/30 pl-11">Vazio = padrão do template</p>
+          </div>
+
+          {/* Button Color - Botão CTA */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-white/70 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-purple-500 inline-block"></span>
+              <span className="font-medium">Cor do Botão</span>
+              <span className="text-white/40 font-normal">- CTA bg</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={getColorValue("buttonColor", "#8b7cf7")}
+                onChange={(e) => onChange({ buttonColor: e.target.value || undefined })}
+                className="w-9 h-9 rounded cursor-pointer border-0"
+              />
+              <input
+                type="text"
+                value={options?.buttonColor || ""}
+                onChange={(e) => onChange({ buttonColor: e.target.value || undefined })}
+                className="flex-1 min-w-0 bg-white/[0.02] border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-sm focus:outline-none focus:border-primary/50"
+                maxLength={7}
+                placeholder="Secundária"
+              />
+            </div>
+            <p className="text-[10px] text-white/30 pl-11">Vazio = usa secundária</p>
+          </div>
+
+          {/* Button Text Color - Texto do Botão */}
+          <div className="space-y-1.5 sm:col-span-2">
+            <label className="text-xs text-white/70 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-white border-2 border-gray-700 inline-block"></span>
+              <span className="font-medium">Cor do Texto do Botão</span>
+              <span className="text-white/40 font-normal">- Texto do CTA</span>
+            </label>
+            <div className="flex items-center gap-2 max-w-[200px] sm:max-w-none">
+              <input
+                type="color"
+                value={getColorValue("buttonTextColor", "#ffffff")}
+                onChange={(e) => onChange({ buttonTextColor: e.target.value || undefined })}
+                className="w-9 h-9 rounded cursor-pointer border-0"
+              />
+              <input
+                type="text"
+                value={options?.buttonTextColor || ""}
+                onChange={(e) => onChange({ buttonTextColor: e.target.value || undefined })}
+                className="flex-1 min-w-0 bg-white/[0.02] border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-sm focus:outline-none focus:border-primary/50"
+                maxLength={7}
+                placeholder="#ffffff"
+              />
+            </div>
+            <p className="text-[10px] text-white/30 pl-11">Vazio = branco (#ffffff)</p>
           </div>
         </div>
       </div>
@@ -553,19 +707,23 @@ export function ImageGenerationOptions({
             <HtmlOptions
               options={coverPosts.coverHtmlOptions ?? { template: coverPosts.coverTemplate || "dark-mode", ...DEFAULT_HTML_COLORS }}
               onChange={(updates) => {
-                const currentTemplate = coverPosts.coverHtmlOptions?.template || coverPosts.coverTemplate || "dark-mode";
-                const newTemplate = updates.template ?? currentTemplate;
+                const currentOptions: HtmlTemplateOptions = coverPosts.coverHtmlOptions ?? { template: "dark-mode", primaryColor: DEFAULT_HTML_COLORS.primaryColor };
                 const newHtmlOptions: HtmlTemplateOptions = {
-                  template: newTemplate,
-                  primaryColor: updates.primaryColor ?? coverPosts.coverHtmlOptions?.primaryColor ?? DEFAULT_HTML_COLORS.primaryColor,
-                  secondaryColor: updates.secondaryColor ?? coverPosts.coverHtmlOptions?.secondaryColor,
-                  backgroundColor: updates.backgroundColor ?? coverPosts.coverHtmlOptions?.backgroundColor,
-                  textColor: updates.textColor ?? coverPosts.coverHtmlOptions?.textColor,
-                  overlay: updates.overlay ?? coverPosts.coverHtmlOptions?.overlay,
-                  opacity: updates.opacity ?? coverPosts.coverHtmlOptions?.opacity,
+                  template: updates.template ?? currentOptions.template ?? coverPosts.coverTemplate ?? "dark-mode",
+                  // Preserve all color properties, using new values if provided
+                  primaryColor: updates.primaryColor ?? currentOptions.primaryColor ?? DEFAULT_HTML_COLORS.primaryColor,
+                  secondaryColor: updates.secondaryColor ?? currentOptions.secondaryColor ?? DEFAULT_HTML_COLORS.secondaryColor,
+                  backgroundColor: updates.backgroundColor ?? currentOptions.backgroundColor,
+                  titleColor: updates.titleColor ?? currentOptions.titleColor,
+                  textColor: updates.textColor ?? currentOptions.textColor,
+                  buttonColor: updates.buttonColor ?? currentOptions.buttonColor,
+                  buttonTextColor: updates.buttonTextColor ?? currentOptions.buttonTextColor,
+                  // Legacy options
+                  overlay: updates.overlay ?? currentOptions.overlay,
+                  opacity: updates.opacity ?? currentOptions.opacity,
                 };
                 updateCoverPosts({
-                  coverTemplate: newTemplate,
+                  coverTemplate: newHtmlOptions.template,
                   coverHtmlOptions: newHtmlOptions,
                 });
               }}
@@ -604,23 +762,129 @@ export function ImageGenerationOptions({
             <HtmlOptions
               options={coverPosts.postsHtmlOptions ?? { template: coverPosts.postsTemplate || "dark-mode", ...DEFAULT_HTML_COLORS }}
               onChange={(updates) => {
-                const currentTemplate = coverPosts.postsHtmlOptions?.template || coverPosts.postsTemplate || "dark-mode";
-                const newTemplate = updates.template ?? currentTemplate;
+                const currentOptions: HtmlTemplateOptions = coverPosts.postsHtmlOptions ?? { template: "dark-mode", primaryColor: DEFAULT_HTML_COLORS.primaryColor };
                 const newHtmlOptions: HtmlTemplateOptions = {
-                  template: newTemplate,
-                  primaryColor: updates.primaryColor ?? coverPosts.postsHtmlOptions?.primaryColor ?? DEFAULT_HTML_COLORS.primaryColor,
-                  secondaryColor: updates.secondaryColor ?? coverPosts.postsHtmlOptions?.secondaryColor,
-                  backgroundColor: updates.backgroundColor ?? coverPosts.postsHtmlOptions?.backgroundColor,
-                  textColor: updates.textColor ?? coverPosts.postsHtmlOptions?.textColor,
-                  overlay: updates.overlay ?? coverPosts.postsHtmlOptions?.overlay,
-                  opacity: updates.opacity ?? coverPosts.postsHtmlOptions?.opacity,
+                  template: updates.template ?? currentOptions.template ?? coverPosts.postsTemplate ?? "dark-mode",
+                  // Preserve all color properties, using new values if provided
+                  primaryColor: updates.primaryColor ?? currentOptions.primaryColor ?? DEFAULT_HTML_COLORS.primaryColor,
+                  secondaryColor: updates.secondaryColor ?? currentOptions.secondaryColor ?? DEFAULT_HTML_COLORS.secondaryColor,
+                  backgroundColor: updates.backgroundColor ?? currentOptions.backgroundColor,
+                  titleColor: updates.titleColor ?? currentOptions.titleColor,
+                  textColor: updates.textColor ?? currentOptions.textColor,
+                  buttonColor: updates.buttonColor ?? currentOptions.buttonColor,
+                  buttonTextColor: updates.buttonTextColor ?? currentOptions.buttonTextColor,
+                  // Legacy options
+                  overlay: updates.overlay ?? currentOptions.overlay,
+                  opacity: updates.opacity ?? currentOptions.opacity,
                 };
                 updateCoverPosts({
-                  postsTemplate: newTemplate,
+                  postsTemplate: newHtmlOptions.template,
                   postsHtmlOptions: newHtmlOptions,
                 });
               }}
             />
+          )}
+        </div>
+      </div>
+
+      {/* LAST CARD SECTION - Último Card sem CTA de navegação */}
+      <div className="border border-white/10 rounded-lg overflow-hidden bg-white/[0.02]">
+        <div className="bg-primary/10 px-4 py-2 border-b border-white/10">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <span className="text-lg">🏁</span>
+            ÚLTIMO CARD (sem "arraste para o lado")
+          </h3>
+        </div>
+        <div className="p-4 space-y-4">
+          <p className="text-xs text-white/50">
+            O último card do carrossel não precisa de navegação. Configure um template diferente ou use o mesmo dos posts.
+          </p>
+
+          {/* Last Card Template Selector */}
+          <div>
+            <label className="text-xs text-white/70 mb-2 flex items-center gap-2">
+              <span>Template do Último Card</span>
+              <span className="text-white/40 font-normal">- Opcional, usa o template dos posts se não definido</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => updateCoverPosts({ lastCardTemplate: undefined })}
+                className={cn(
+                  "relative p-3 rounded-lg border-2 transition-all text-center",
+                  !coverPosts.lastCardTemplate
+                    ? "border-primary bg-primary/10"
+                    : "border-white/10 bg-white/[0.02] hover:border-white/20"
+                )}
+              >
+                <span className="text-sm text-white">Mesmo dos posts</span>
+                <p className="text-[10px] text-white/40 mt-1">Usa o template configurado acima</p>
+              </button>
+              {HTML_TEMPLATES.map((template) => (
+                <button
+                  key={`last-${template.value}`}
+                  type="button"
+                  onClick={() => updateCoverPosts({ lastCardTemplate: template.value as HtmlTemplate })}
+                  className={cn(
+                    "relative p-3 rounded-lg border-2 transition-all text-center",
+                    coverPosts.lastCardTemplate === template.value
+                      ? "border-primary bg-primary/10"
+                      : "border-white/10 bg-white/[0.02] hover:border-white/20"
+                  )}
+                >
+                  <span className="text-sm text-white">{template.label}</span>
+                  <p className="text-[10px] text-white/40 mt-1 truncate">{template.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Last Card Color Override - Optional */}
+          {coverPosts.lastCardTemplate && (
+            <div className="pt-2 border-t border-white/5">
+              <label className="text-xs text-white/70 mb-2 block">
+                Cores do Último Card
+                <span className="text-white/40 font-normal ml-2">- Opcional, usa cores dos posts se vazio</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center gap-2 bg-white/[0.02] rounded-lg px-2 py-1.5">
+                  <input
+                    type="color"
+                    value={coverPosts.lastCardHtmlOptions?.primaryColor || "#2dd4bf"}
+                    onChange={(e) => {
+                      const baseOptions: HtmlTemplateOptions = coverPosts.lastCardHtmlOptions ?? { template: coverPosts.lastCardTemplate!, primaryColor: "#2dd4bf" };
+                      updateCoverPosts({
+                        lastCardHtmlOptions: {
+                          ...baseOptions,
+                          template: coverPosts.lastCardTemplate!,
+                          primaryColor: e.target.value,
+                        }
+                      });
+                    }}
+                    className="w-6 h-6 rounded cursor-pointer border-0"
+                  />
+                  <span className="text-xs text-white/60">Primária</span>
+                </div>
+                <div className="flex items-center gap-2 bg-white/[0.02] rounded-lg px-2 py-1.5">
+                  <input
+                    type="color"
+                    value={coverPosts.lastCardHtmlOptions?.secondaryColor || "#f97316"}
+                    onChange={(e) => {
+                      const baseOptions: HtmlTemplateOptions = coverPosts.lastCardHtmlOptions ?? { template: coverPosts.lastCardTemplate!, primaryColor: "#2dd4bf" };
+                      updateCoverPosts({
+                        lastCardHtmlOptions: {
+                          ...baseOptions,
+                          template: coverPosts.lastCardTemplate!,
+                          secondaryColor: e.target.value,
+                        }
+                      });
+                    }}
+                    className="w-6 h-6 rounded cursor-pointer border-0"
+                  />
+                  <span className="text-xs text-white/60">Secundária</span>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>

@@ -1698,6 +1698,8 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         narrativeAngle: selectedNarrative?.angle,
         narrativeTitle: selectedNarrative?.title,
         narrativeDescription: selectedNarrative?.description,
+        coreBelief: selectedNarrative?.core_belief,
+        statusQuoChallenged: selectedNarrative?.status_quo_challenged,
         roteiroContext: {
           valorCentral: scriptContent?.meta?.valor_central,
           hookTexto: scriptContent?.roteiro?.hook?.texto,
