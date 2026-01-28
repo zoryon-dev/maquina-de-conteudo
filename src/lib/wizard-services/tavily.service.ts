@@ -52,8 +52,8 @@ export function isTavilyConfigured(): boolean {
  * const result = await contextualSearch("social media trends 2025")
  *
  * if (result.success && result.data) {
- *   console.log(result.data.answer) // AI-generated answer
- *   console.log(result.data.sources) // Source citations
+ *   // result.data.answer → resposta gerada pela IA
+ *   // result.data.sources → fontes
  * }
  * ```
  */
@@ -66,21 +66,8 @@ export async function contextualSearch(
     includeSources?: boolean;
   } = {}
 ): Promise<ServiceResult<SearchResult | null>> {
-  // ==============================================================================
-  // WIZARD DEBUG: TAVILY SEARCH
-  // ==============================================================================
-  console.log(`\n${"=".repeat(80)}`);
-  console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-  console.log(`[WIZARD-DEBUG] TAVILY CONTEXTUAL SEARCH`);
-  console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-  console.log(`[WIZARD-DEBUG] Query: ${query}`);
-  console.log(`[WIZARD-DEBUG] Options: ${JSON.stringify(options)}`);
-  console.log(`[WIZARD-DEBUG] API Configured: ${!!TAVILY_API_KEY}`);
-  console.log(`${"=".repeat(80)}\n`);
-
   // Check if Tavily is configured
   if (!TAVILY_API_KEY) {
-    console.log(`[WIZARD-DEBUG] TAVILY: API key não configurada, retornando null`);
     return {
       success: true,
       data: null, // Not an error - just not available
@@ -104,7 +91,6 @@ export async function contextualSearch(
 
   try {
     // Call Tavily API
-    console.log(`[WIZARD-DEBUG] TAVILY: Enviando requisição para API...`);
     const response = await fetch(TAVILY_API_URL, {
       method: "POST",
       headers: {
@@ -123,7 +109,6 @@ export async function contextualSearch(
 
     if (!response.ok) {
       console.error("Tavily API error:", response.status, response.statusText);
-      console.log(`[WIZARD-DEBUG] TAVILY: Erro na resposta - Status ${response.status}`);
       return {
         success: true,
         data: null,
@@ -131,25 +116,6 @@ export async function contextualSearch(
     }
 
     const data = await response.json();
-
-    // ==============================================================================
-    // WIZARD DEBUG: TAVILY RESPONSE
-    // ==============================================================================
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] TAVILY RESPOSTA RECEBIDA`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] Answer (${data.answer?.length || 0} chars):`);
-    console.log(data.answer || "(no answer)");
-    console.log(`[WIZARD-DEBUG] ───────────────────────────────────────────────────────────`);
-    console.log(`[WIZARD-DEBUG] Sources (${data.results?.length || 0} encontradas):`);
-    (data.results || []).forEach((item: any, i: number) => {
-      console.log(`[WIZARD-DEBUG]   [${i + 1}] ${item.title}`);
-      console.log(`[WIZARD-DEBUG]       URL: ${item.url}`);
-      console.log(`[WIZARD-DEBUG]       Snippet: ${item.content?.substring(0, 150)}${item.content?.length > 150 ? "..." : ""}`);
-    });
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`${"=".repeat(80)}\n`);
 
     // Parse response
     const searchResult: SearchResult = {

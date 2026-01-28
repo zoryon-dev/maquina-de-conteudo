@@ -24,7 +24,7 @@ const CHARS_PER_TOKEN = 4
  * @example
  * ```ts
  * const tokens = estimateTokens("Hello world")
- * console.log(tokens) // ~3
+ * // tokens: ~3
  * ```
  */
 export function estimateTokens(text: string): number {
@@ -42,7 +42,7 @@ export function estimateTokens(text: string): number {
  * @example
  * ```ts
  * const budget = getTokenBudget("claude-opus-4")
- * console.log(budget.context) // 16000
+ * // budget.context: 16000
  * ```
  */
 export function getTokenBudget(
@@ -77,7 +77,7 @@ export function getTokenBudget(
  * ```ts
  * const budget = getTokenBudget("claude-opus-4")
  * const available = getAvailableContextTokens(budget)
- * console.log(available) // ~16000
+ * // available: ~16000
  * ```
  */
 export function getAvailableContextTokens(budget: TokenBudget): number {
@@ -94,7 +94,7 @@ export function getAvailableContextTokens(budget: TokenBudget): number {
  * @example
  * ```ts
  * const count = countChunksThatFit(chunks, 4000)
- * console.log(count) // 5
+ * // count: 5
  * ```
  */
 export function countChunksThatFit(
@@ -128,7 +128,7 @@ export function countChunksThatFit(
  * @example
  * ```ts
  * const selected = selectChunksWithinBudget(chunks, 4000)
- * console.log(selected.length) // Number of chunks that fit
+ * // selected.length → quantidade de chunks que cabem no budget
  * ```
  */
 export function selectChunksWithinBudget<T extends { estimatedTokens?: number; text: string }>(
@@ -191,8 +191,8 @@ export function truncateContextToFit(context: string, maxTokens: number): string
  *
  * @example
  * ```ts
- * console.log(formatTokenCount(1234)) // "1.2k"
- * console.log(formatTokenCount(456))  // "456"
+ * // formatTokenCount(1234) → "1.2k"
+ * // formatTokenCount(456)  → "456"
  * ```
  */
 export function formatTokenCount(count: number): string {
@@ -214,7 +214,7 @@ export function formatTokenCount(count: number): string {
  * @example
  * ```ts
  * const overhead = estimateContextOverhead(5, true)
- * console.log(overhead) // ~200 tokens
+ * // overhead: ~200 tokens
  * ```
  */
 export function estimateContextOverhead(

@@ -257,7 +257,6 @@ export function validateCarouselResponse(
   }
 
   if (wordCount > MAX_RECOMMENDED) {
-    console.warn(`⚠️ Legenda tem ${wordCount} palavras (excede ${MAX_RECOMMENDED}). Aceitando mesmo assim.`);
   }
 
   // If we got here, validation passed!

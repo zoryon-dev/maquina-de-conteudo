@@ -137,7 +137,7 @@ class VoyageEmbeddingsClient {
  * ```ts
  * const service = new SimilarityService();
  * const filtered = await service.filterBySimilarity(topics, 'AI marketing', 0.3);
- * console.log(`Filtered to ${filtered.length} similar topics`);
+ * // filtered.length → quantidade de tópicos similares
  * ```
  */
 export class SimilarityService {
@@ -165,7 +165,6 @@ export class SimilarityService {
   ): Promise<TrendingTopic[]> {
     // Graceful degradation when embeddings not available
     if (!this.embeddings.isAvailable()) {
-      console.warn('[Similarity] Voyage not configured, returning all topics with similarity=1');
       return topics.map((t) => ({ ...t, similarity: 1 }));
     }
 

@@ -63,8 +63,6 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
     // Process theme based on source type using AI
     if (theme.sourceType === 'perplexity') {
-      console.log('[ThemeWizardAPI] Processing Perplexity theme with AI...');
-
       try {
         const processor = new ThemeProcessorService();
         const processed = await processor.processPerplexityTheme({
@@ -82,18 +80,10 @@ export async function POST(req: NextRequest, context: RouteContext) {
         wizardContext = processed.context;
         wizardObjective = processed.objective;
         referenceUrl = processed.referenceUrl;
-
-        console.log('[ThemeWizardAPI] Processed Perplexity theme:', {
-          theme: wizardTheme,
-          hasContext: !!wizardContext,
-          referenceUrl,
-        });
       } catch (processorError) {
         console.error('[ThemeWizardAPI] Perplexity processing failed:', processorError);
       }
     } else if (theme.sourceType === 'instagram') {
-      console.log('[ThemeWizardAPI] Processing Instagram theme with AI...');
-
       try {
         const processed = await processInstagramTheme({
           title: theme.title,
@@ -110,18 +100,11 @@ export async function POST(req: NextRequest, context: RouteContext) {
         wizardContext = processed.context;
         wizardObjective = processed.objective;
         suggestedContentType = processed.suggestedContentType;
-
-        console.log('[ThemeWizardAPI] Processed Instagram theme:', {
-          theme: wizardTheme,
-          contentType: suggestedContentType,
-        });
       } catch (processorError) {
         console.error('[ThemeWizardAPI] Instagram processing failed:', processorError);
         suggestedContentType = 'image'; // Default for Instagram
       }
     } else if (theme.sourceType === 'youtube') {
-      console.log('[ThemeWizardAPI] Processing YouTube theme with AI...');
-
       try {
         const processed = await processYouTubeTheme({
           title: theme.title,
@@ -138,11 +121,6 @@ export async function POST(req: NextRequest, context: RouteContext) {
         wizardContext = processed.context;
         wizardObjective = processed.objective;
         suggestedContentType = processed.suggestedContentType;
-
-        console.log('[ThemeWizardAPI] Processed YouTube theme:', {
-          theme: wizardTheme,
-          contentType: suggestedContentType,
-        });
       } catch (processorError) {
         console.error('[ThemeWizardAPI] YouTube processing failed:', processorError);
         suggestedContentType = 'video'; // Default for YouTube

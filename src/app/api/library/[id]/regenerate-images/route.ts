@@ -11,7 +11,7 @@ import { db } from "@/db";
 import { libraryItems } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { createJob } from "@/lib/queue/jobs";
-import type { WizardImageGenerationPayload } from "@/lib/queue/types";
+import { JobType, type WizardImageGenerationPayload } from "@/lib/queue/types";
 
 export async function POST(
   request: Request,
@@ -115,9 +115,7 @@ export async function POST(
       },
     };
 
-    const jobId = await createJob(userId, "wizard_image_generation" as any, payload);
-
-    console.log(`[LIBRARY-REGENERATE] Image generation job ${jobId} queued for library item ${libraryItemId}`);
+    const jobId = await createJob(userId, JobType.WIZARD_IMAGE_GENERATION, payload);
 
     return NextResponse.json({
       success: true,

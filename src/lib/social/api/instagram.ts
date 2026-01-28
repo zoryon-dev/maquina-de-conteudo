@@ -56,7 +56,14 @@ export class InstagramAPIService {
    */
   async createContainer(config: MediaConfig): Promise<string> {
     // Build request body as JSON (access_token in body, not query param)
-    const body: Record<string, any> = {
+    const body: {
+      image_url: string
+      access_token: string
+      is_carousel_item?: boolean
+      caption?: string
+      location_id?: string
+      user_tags?: Array<{ username: string; x: number; y: number }>
+    } = {
       image_url: config.imageUrl,
       access_token: this.accessToken,
     }
@@ -85,13 +92,6 @@ export class InstagramAPIService {
     }
 
     const url = `${this.baseUrl}/${this.apiVersion}/${this.accountId}/media`
-    console.log("[Instagram API] Creating container with POST body:", {
-      url,
-      image_url: body.image_url,
-      has_caption: !!body.caption,
-      is_carousel_item: !!body.is_carousel_item,
-      token_prefix: this.accessToken.substring(0, 10) + "...",
-    })
 
     const response = await fetch(url, {
       method: "POST",
@@ -121,7 +121,12 @@ export class InstagramAPIService {
     children: string[],
     caption?: string
   ): Promise<string> {
-    const body: Record<string, any> = {
+    const body: {
+      media_type: "CAROUSEL"
+      children: string
+      access_token: string
+      caption?: string
+    } = {
       media_type: "CAROUSEL",
       children: children.join(","),
       access_token: this.accessToken,
@@ -132,13 +137,6 @@ export class InstagramAPIService {
     }
 
     const url = `${this.baseUrl}/${this.apiVersion}/${this.accountId}/media`
-    console.log("[Instagram API] Creating CAROUSEL container with POST body:", {
-      url,
-      children_count: children.length,
-      children: children,
-      has_caption: !!caption,
-      token_prefix: this.accessToken.substring(0, 10) + "...",
-    })
 
     const response = await fetch(
       url,
@@ -157,7 +155,6 @@ export class InstagramAPIService {
       throw this.handleError(data.error)
     }
 
-    console.log("[Instagram API] Carousel container created:", data.id)
     return data.id
   }
 
@@ -173,12 +170,6 @@ export class InstagramAPIService {
       creation_id: containerId,
       access_token: this.accessToken,
     }
-
-    console.log("[Instagram API] Publishing container:", {
-      url: `${this.baseUrl}/${this.apiVersion}/${this.accountId}/media_publish`,
-      creation_id: containerId,
-      token_prefix: this.accessToken.substring(0, 10) + "...",
-    })
 
     const response = await fetch(
       `${this.baseUrl}/${this.apiVersion}/${this.accountId}/media_publish`,
@@ -197,7 +188,6 @@ export class InstagramAPIService {
       throw this.handleError(data.error)
     }
 
-    console.log("[Instagram API] Publish succeeded, media_id:", data.id)
     return data.id
   }
 
@@ -344,8 +334,6 @@ export class InstagramAPIService {
     let containerId: string
 
     if (isCarousel && carouselItems && carouselItems.length > 0) {
-      console.log("[Instagram API] Creating carousel with", carouselItems.length, "items")
-
       // Create individual containers for each item
       const itemContainerIds = await Promise.all(
         carouselItems.map((item) =>
@@ -356,8 +344,6 @@ export class InstagramAPIService {
           })
         )
       )
-
-      console.log("[Instagram API] Carousel item containers created:", itemContainerIds)
 
       // Create carousel container
       containerId = await this.createCarouselContainer(
@@ -431,8 +417,7 @@ export class InstagramAPIService {
   }): SocialApiError {
     let code = SocialErrorCode.PUBLISH_FAILED
 
-    // Log full error details for debugging
-    console.error("[Instagram API] Full error details:", JSON.stringify(error, null, 2))
+    console.error("[Instagram API] Error response:", error)
 
     // Map Instagram error codes to our error types
     if (error.code === 190) {

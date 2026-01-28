@@ -125,18 +125,13 @@ export interface ResearchPlannerInput {
  * });
  *
  * if (result.success) {
- *   console.log(result.data.queries); // 7 queries
+ *   // result.data.queries → 7 queries
  * }
  * ```
  */
 export async function generateResearchQueries(
   input: ResearchPlannerInput
 ): Promise<ServiceResult<ResearchPlannerOutput>> {
-  // ==============================================================================
-  // RESEARCH PLANNER: INICIANDO GERAÇÃO DE QUERIES
-  // ==============================================================================
-  console.log(`[RESEARCH-PLANNER] START - theme: ${input.theme}, objective: ${input.objective || "(none)"}`);
-
   if (!openrouter) {
     return {
       success: false,
@@ -164,8 +159,6 @@ export async function generateResearchQueries(
       MAX_RETRIES
     );
 
-    console.log(`[RESEARCH-PLANNER] LLM response received, parsing JSON...`);
-
     // Parse and validate response
     const parsed = extractJSONFromResponse(result);
 
@@ -179,14 +172,7 @@ export async function generateResearchQueries(
 
     // Validate query count (should be 7)
     if (parsed.queries.length !== 7) {
-      console.warn(`[RESEARCH-PLANNER] Warning: Expected 7 queries, got ${parsed.queries.length}`);
     }
-
-    // Log the generated queries for debugging
-    console.log(`[RESEARCH-PLANNER] Generated ${parsed.queries.length} queries:`);
-    parsed.queries.forEach((q: any, i: number) => {
-      console.log(`  [${i + 1}] ${q.layer} - ${q.intent}: "${q.q}" (priority: ${q.priority})`);
-    });
 
     return {
       success: true,

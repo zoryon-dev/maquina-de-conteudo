@@ -73,8 +73,6 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const { platform, sessionId, pageId, selectionIndex } = body
 
-  console.log("[Save Connection] Request:", { userId, platform, hasSessionId: !!sessionId, pageId, selectionIndex })
-
   if (platform !== "instagram" && platform !== "facebook") {
     return NextResponse.json({ error: "Invalid platform" }, { status: 400 })
   }
@@ -117,8 +115,6 @@ async function saveInstagramConnection(
   pageId?: string,
   selectionIndex?: number
 ) {
-  console.log("[Save Connection] Starting Instagram connection save:", { userId, sessionId, pageId, selectionIndex })
-
   // Fetch OAuth session from database
   const sessions = await db
     .select()
@@ -133,8 +129,6 @@ async function saveInstagramConnection(
     )
     .limit(1)
 
-  console.log("[Save Connection] Session lookup result:", sessions.length > 0 ? "Session found" : "Session NOT found")
-
   if (!sessions.length) {
     console.error("[Save Connection] No valid OAuth session found!")
     return NextResponse.json(
@@ -147,12 +141,6 @@ async function saveInstagramConnection(
   const { longLivedToken, tokenExpiresAt, pagesData } = oauthSession
   const pages = (pagesData as { pages: PageWithInstagramData[] }).pages
 
-  console.log("[Save Connection] Parsed OAuth data:", {
-    hasToken: !!longLivedToken,
-    tokenExpiresAt,
-    pagesCount: pages?.length,
-  })
-
   // Validate token exists
   if (!longLivedToken) {
     console.error("[Save Connection] No long-lived token in session!")
@@ -162,26 +150,15 @@ async function saveInstagramConnection(
     )
   }
 
-  // DEBUG: Log token type being saved
-  const tokenPrefix = longLivedToken ? longLivedToken.substring(0, 4) : "EMPTY"
-  console.log("[Save Connection] Token being saved:", {
-    prefix: tokenPrefix,
-    length: longLivedToken?.length || 0,
-    endsWith: longLivedToken?.slice(-10) || "EMPTY",
-  })
-
   // Find selected page
   let selectedPage: PageWithInstagramData | undefined
   if (pageId) {
     selectedPage = pages.find((p) => p.pageId === pageId)
-    console.log("[Save Connection] Looking for page by ID:", pageId, "Found:", !!selectedPage)
   } else if (typeof selectionIndex === "number") {
     selectedPage = pages[selectionIndex]
-    console.log("[Save Connection] Looking for page by index:", selectionIndex, "Found:", !!selectedPage)
   }
 
   if (!selectedPage) {
-    console.error("[Save Connection] Selected page not found! Available pages:", pages.map((p) => p.pageId))
     return NextResponse.json(
       { error: "Página não encontrada na lista de opções" },
       { status: 400 }
@@ -190,19 +167,8 @@ async function saveInstagramConnection(
 
   const { pageId: selectedPageId, pageName, pageAccessToken, instagramBusinessAccount } = selectedPage
 
-  console.log("[Save Connection] Selected page data:", {
-    selectedPageId,
-    pageName,
-    hasPageAccessToken: !!pageAccessToken,
-    igAccountId: instagramBusinessAccount.id,
-    igUsername: instagramBusinessAccount.username,
-    igFollowers: instagramBusinessAccount.followersCount,
-  })
-
   // Calculate token expiration (long-lived user token)
   const expiresAt = tokenExpiresAt ? new Date(tokenExpiresAt) : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
-
-  console.log("[Save Connection] Saving to database...")
 
   // Save connection
   await upsertConnection({
@@ -225,11 +191,8 @@ async function saveInstagramConnection(
     },
   })
 
-  console.log("[Save Connection] Database save successful!")
-
   // Delete the OAuth session (cleanup)
   await db.delete(oauthSessions).where(eq(oauthSessions.id, sessionId))
-  console.log("[Save Connection] Session deleted:", sessionId)
 
   return NextResponse.json({
     success: true,
@@ -250,8 +213,6 @@ async function saveFacebookConnection(
   pageId?: string,
   selectionIndex?: number
 ) {
-  console.log("[Save Connection] Starting Facebook connection save:", { userId, sessionId, pageId, selectionIndex })
-
   // Fetch OAuth session from database
   const sessions = await db
     .select()
@@ -278,22 +239,15 @@ async function saveFacebookConnection(
   const { longLivedToken, pagesData } = oauthSession
   const pages = (pagesData as { pages: FacebookPageData[] }).pages
 
-  console.log("[Save Connection] Parsed OAuth data:", {
-    pagesCount: pages?.length,
-  })
-
   // Find selected page
   let selectedPage: FacebookPageData | undefined
   if (pageId) {
     selectedPage = pages.find((p) => p.pageId === pageId)
-    console.log("[Save Connection] Looking for page by ID:", pageId, "Found:", !!selectedPage)
   } else if (typeof selectionIndex === "number") {
     selectedPage = pages[selectionIndex]
-    console.log("[Save Connection] Looking for page by index:", selectionIndex, "Found:", !!selectedPage)
   }
 
   if (!selectedPage) {
-    console.error("[Save Connection] Selected page not found! Available pages:", pages.map((p) => p.pageId))
     return NextResponse.json(
       { error: "Página não encontrada na lista de opções" },
       { status: 400 }
@@ -308,16 +262,8 @@ async function saveFacebookConnection(
     picture,
   } = selectedPage
 
-  console.log("[Save Connection] Selected page data:", {
-    selectedPageId,
-    pageName,
-    username,
-  })
-
   // Page access tokens don't expire unless revoked
   const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) // 60 days default
-
-  console.log("[Save Connection] Saving to database...")
 
   // Save connection
   await upsertConnection({
@@ -338,11 +284,8 @@ async function saveFacebookConnection(
     },
   })
 
-  console.log("[Save Connection] Database save successful!")
-
   // Delete the OAuth session (cleanup)
   await db.delete(oauthSessions).where(eq(oauthSessions.id, sessionId))
-  console.log("[Save Connection] Session deleted:", sessionId)
 
   return NextResponse.json({
     success: true,
@@ -403,8 +346,6 @@ async function upsertConnection(data: {
         deletedAt: null, // Clear soft delete flag
       })
       .where(eq(socialConnections.id, existingByPlatform.id))
-
-    console.log("[Save Connection] Updated existing connection:", existingByPlatform.id)
   } else {
     // Create new connection
     await db.insert(socialConnections).values({
@@ -424,7 +365,5 @@ async function upsertConnection(data: {
       createdAt: now,
       updatedAt: now,
     })
-
-    console.log("[Save Connection] Created new connection")
   }
 }

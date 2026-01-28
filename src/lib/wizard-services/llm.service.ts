@@ -79,21 +79,6 @@ async function loadAndFormatUserVariables(
   // Fetch saved variables from database (pass userId for worker context)
   const savedVariables = await getUserVariables(userId)
 
-  // Debug: Log loaded variables
-  console.log(`[WIZARD-VARIABLES] ════════════════════════════════════════════════════════`)
-  console.log(`[WIZARD-VARIABLES] Carregando variáveis do usuário (userId: ${userId || "contexto auth"})`)
-  const variableKeys = Object.keys(savedVariables)
-  console.log(`[WIZARD-VARIABLES] Variáveis encontradas: ${variableKeys.length}`)
-  if (variableKeys.length > 0) {
-    variableKeys.forEach(key => {
-      const value = (savedVariables as any)[key]
-      console.log(`[WIZARD-VARIABLES]   • ${key}: ${value?.substring(0, 50) || "(vazio)"}${value?.length > 50 ? "..." : ""}`)
-    })
-  } else {
-    console.log(`[WIZARD-VARIABLES] ⚠️ Nenhuma variável salva encontrada no banco`)
-  }
-  console.log(`[WIZARD-VARIABLES] ════════════════════════════════════════════════════════`)
-
   // Merge: input values take precedence over saved variables
   const mergedVariables: UserVariables = {
     tone: inputTone || savedVariables.tone,
@@ -109,21 +94,11 @@ async function loadAndFormatUserVariables(
   }
 
   // Format variables for prompt injection
-  const { context: variablesContext, hasVariables } = formatVariablesForPrompt(mergedVariables)
-
-  if (hasVariables) {
-    console.log(`[WIZARD-VARIABLES] ✅ Contexto de variáveis gerado (${variablesContext.length} chars)`)
-  } else {
-    console.log(`[WIZARD-VARIABLES] ⚠️ Nenhuma variável para adicionar ao prompt`)
-  }
+  const { context: variablesContext } = formatVariablesForPrompt(mergedVariables)
 
   // Merge negative terms (input + saved)
   const savedNegativeTerms = getNegativeTermsArray(savedVariables)
   const mergedNegativeTerms = [...new Set([...savedNegativeTerms, ...(inputNegativeTerms || [])])]
-
-  if (mergedNegativeTerms.length > 0) {
-    console.log(`[WIZARD-VARIABLES] Termos proibidos: ${mergedNegativeTerms.join(", ")}`)
-  }
 
   return {
     variables: mergedVariables,
@@ -156,7 +131,7 @@ async function loadAndFormatUserVariables(
  * })
  *
  * if (result.success) {
- *   console.log(result.data.narratives) // NarrativeOption[]
+ *   // result.data → NarrativeOption[]
  * }
  * ```
  */
@@ -165,31 +140,6 @@ export async function generateNarratives(
   model: string = WIZARD_DEFAULT_MODEL,
   userId?: string // Optional userId for worker context (to fetch user variables)
 ): Promise<ServiceResult<NarrativeOption[]>> {
-  // ==============================================================================
-  // WIZARD DEBUG: INPUTS PARA GERAÇÃO DE NARRATIVAS
-  // ==============================================================================
-  console.log(`\n${"=".repeat(80)}`);
-  console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-  console.log(`[WIZARD-DEBUG] FASE: GERAÇÃO DE NARRATIVAS`);
-  console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-  console.log(`[WIZARD-DEBUG] Modelo Selecionado: ${model}`);
-  console.log(`[WIZARD-DEBUG] ───────────────────────────────────────────────────────────`);
-  console.log(`[WIZARD-DEBUG] INPUTS DO USUÁRIO:`);
-  console.log(`[WIZARD-DEBUG]   contentType: ${input.contentType}`);
-  console.log(`[WIZARD-DEBUG]   theme: ${input.theme || "(não informado)"}`);
-  console.log(`[WIZARD-DEBUG]   objective: ${input.objective || "(não informado)"}`);
-  console.log(`[WIZARD-DEBUG]   targetAudience: ${input.targetAudience || "(não informado)"}`);
-  console.log(`[WIZARD-DEBUG]   context: ${input.context || "(não informado)"}`);
-  console.log(`[WIZARD-DEBUG]   cta: ${input.cta || "(não informado)"}`);
-  console.log(`[WIZARD-DEBUG]   numberOfSlides: ${input.numberOfSlides || "(não informado)"}`);
-  console.log(`[WIZARD-DEBUG] ───────────────────────────────────────────────────────────`);
-  console.log(`[WIZARD-DEBUG] CONTEXTO ADICIONAL:`);
-  console.log(`[WIZARD-DEBUG]   referenceUrl: ${input.referenceUrl || "(não informado)"}`);
-  console.log(`[WIZARD-DEBUG]   referenceVideoUrl: ${input.referenceVideoUrl || "(não informado)"}`);
-  console.log(`[WIZARD-DEBUG]   extractedContent: ${input.extractedContent ? `${input.extractedContent.length} chars` : "(não informado)"}`);
-  console.log(`[WIZARD-DEBUG]   researchData: ${input.researchData ? `${input.researchData.length} chars` : "(não informado)"}`);
-  console.log(`${"=".repeat(80)}\n`);
-
   // Check if OpenRouter is configured
   if (!openrouter) {
     return {
@@ -236,29 +186,6 @@ export async function generateNarratives(
       systemPrompt += `\n\nTERMOS PROIBIDOS (do usuário): ${mergedNegativeTerms.join(", ")}`
     }
 
-    // ==============================================================================
-    // WIZARD DEBUG: PROMPT ENVIADO PARA IA (NARRATIVAS)
-    // ==============================================================================
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-NARRATIVES] 🚀 INICIANDO GERAÇÃO DE NARRATIVAS`);
-    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-NARRATIVES] 📊 ESTATÍSTICAS DO PROMPT:`);
-    console.log(`[WIZARD-NARRATIVES]   • Tamanho total: ${systemPrompt.length} caracteres`);
-    console.log(`[WIZARD-NARRATIVES]   • Tokens estimados: ~${Math.round(systemPrompt.length / 4)} tokens`);
-    console.log(`[WIZARD-NARRATIVES]   • Modelo: ${model}`);
-    console.log(`[WIZARD-NARRATIVES]   • Variáveis de usuário: ${variablesContext ? "Sim" : "Não"}`);
-    console.log(`[WIZARD-NARRATIVES]   • Termos proibidos: ${mergedNegativeTerms.length || 0}`);
-    console.log(`[WIZARD-NARRATIVES] 📝 CONTEÚDO EXTRAÍDO: ${input.extractedContent ? "✅ " + input.extractedContent.length + " chars" : "❌ Nenhum"}`);
-    console.log(`[WIZARD-NARRATIVES] 🔬 PESQUISA: ${input.researchData ? "✅ " + input.researchData.length + " chars" : "❌ Nenhuma"}`);
-    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-NARRATIVES] 📄 PROMPT COMPLETO (primeiros 2000 chars):`);
-    console.log("─".repeat(80));
-    console.log(systemPrompt.substring(0, 2000) + (systemPrompt.length > 2000 ? "\n... [truncado]" : ""));
-    console.log("─".repeat(80));
-    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
-    console.log(`${"=".repeat(80)}\n`);
-
     // Call LLM with retry logic
     const response = await llmCallWithRetry(
       model,
@@ -267,54 +194,8 @@ export async function generateNarratives(
       MAX_RETRIES
     );
 
-    // ==============================================================================
-    // WIZARD DEBUG: RESPOSTA DA IA (NARRATIVAS)
-    // ==============================================================================
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-NARRATIVES] 📥 RESPOSTA BRUTA DA IA`);
-    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-NARRATIVES]   • Tamanho: ${response.length} caracteres`);
-    console.log(`[WIZARD-NARRATIVES]   • Tokens estimados: ~${Math.round(response.length / 4)} tokens`);
-    console.log(`[WIZARD-NARRATIVES] 📄 CONTEÚDO (primeiros 1500 chars):`);
-    console.log("─".repeat(80));
-    console.log(response.substring(0, 1500) + (response.length > 1500 ? "\n... [truncado]" : ""));
-    console.log("─".repeat(80));
-    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
-    console.log(`${"=".repeat(80)}\n`);
-
     // Parse JSON response
     const parsed = extractJSONFromResponse(response);
-
-    // ==============================================================================
-    // WIZARD DEBUG: RESPOSTA PARSEADA (NARRATIVAS)
-    // ==============================================================================
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-NARRATIVES] ✅ JSON EXTRAÍDO COM SUCESSO`);
-    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-NARRATIVES] 📊 ESTRUTURA: ${parsed && typeof parsed === 'object' && 'narratives' in parsed ? "✅ Válida" : "❌ Inválida"}`);
-
-    if (parsed && typeof parsed === 'object' && 'narratives' in parsed) {
-      const narrs = (parsed as { narratives: unknown[] }).narratives;
-      console.log(`[WIZARD-NARRATIVES] 📝 NARRATIVAS GERADAS: ${Array.isArray(narrs) ? narrs.length : 0}`);
-
-      if (Array.isArray(narrs)) {
-        narrs.forEach((narr: unknown, idx: number) => {
-          if (narr && typeof narr === 'object') {
-            const n = narr as Record<string, unknown>;
-            console.log(`[WIZARD-NARRATIVES]   ${idx + 1}. ${n.title || "(sem título)"} [${n.angle || "sem ângulo"}]`);
-          }
-        });
-      }
-    }
-
-    console.log(`[WIZARD-NARRATIVES] 📄 JSON COMPLETO:`);
-    console.log("─".repeat(80));
-    console.log(JSON.stringify(parsed, null, 2));
-    console.log("─".repeat(80));
-    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
-    console.log(`${"=".repeat(80)}\n`);
 
     // Validate response structure
     if (!parsed || typeof parsed !== "object" || !("narratives" in parsed)) {
@@ -379,38 +260,6 @@ export async function generateNarratives(
       }
     }
 
-    // ==============================================================================
-    // WIZARD DEBUG: NARRATIVAS VALIDADAS
-    // ==============================================================================
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] NARRATIVAS VALIDADAS (FINAL)`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    validatedNarratives.forEach((n, i) => {
-      console.log(`[WIZARD-DEBUG] Narrativa ${i + 1}:`);
-      console.log(`[WIZARD-DEBUG]   id: ${n.id}`);
-      console.log(`[WIZARD-DEBUG]   angle: ${n.angle}`);
-      console.log(`[WIZARD-DEBUG]   title: ${n.title}`);
-      console.log(`[WIZARD-DEBUG]   description: ${n.description}`);
-      // Tribal narrative fields (v4)
-      if (n.hook) console.log(`[WIZARD-DEBUG]   hook: ${n.hook}`);
-      if (n.core_belief) console.log(`[WIZARD-DEBUG]   core_belief: ${n.core_belief}`);
-      if (n.status_quo_challenged) console.log(`[WIZARD-DEBUG]   status_quo_challenged: ${n.status_quo_challenged}`);
-      // Extended fields (legacy)
-      if (n.viewpoint) console.log(`[WIZARD-DEBUG]   viewpoint: ${n.viewpoint}`);
-      if (n.whyUse) console.log(`[WIZARD-DEBUG]   whyUse: ${n.whyUse}`);
-      if (n.impact) console.log(`[WIZARD-DEBUG]   impact: ${n.impact}`);
-      if (n.tone) console.log(`[WIZARD-DEBUG]   tone: ${n.tone}`);
-      if (n.keywords) console.log(`[WIZARD-DEBUG]   keywords: ${n.keywords.join(", ")}`);
-      if (n.differentiation) console.log(`[WIZARD-DEBUG]   differentiation: ${n.differentiation}`);
-      if (n.risks) console.log(`[WIZARD-DEBUG]   risks: ${n.risks}`);
-      console.log(`[WIZARD-DEBUG]   ──────────────────────────────────────────────────────`);
-    });
-    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-NARRATIVES] 🎉 GERAÇÃO DE NARRATIVAS CONCLUÍDA COM SUCESSO!`);
-    console.log(`[WIZARD-NARRATIVES] ════════════════════════════════════════════════════════`);
-    console.log(`${"=".repeat(80)}\n`);
-
     return {
       success: true,
       data: validatedNarratives,
@@ -458,8 +307,8 @@ export async function generateNarratives(
  * })
  *
  * if (result.success) {
- *   console.log(result.data.slides) // GeneratedSlide[]
- *   console.log(result.data.caption) // string
+ *   // result.data.slides → GeneratedSlide[]
+ *   // result.data.caption → string
  * }
  * ```
  */
@@ -468,40 +317,6 @@ export async function generateContent(
   model: string = WIZARD_DEFAULT_MODEL,
   userId?: string // Optional userId for worker context (to fetch user variables)
 ): Promise<ServiceResult<GeneratedContent>> {
-  // ==============================================================================
-  // WIZARD DEBUG: INPUTS PARA GERAÇÃO DE CONTEÚDO
-  // ==============================================================================
-  console.log(`\n${"=".repeat(80)}`);
-  console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-  console.log(`[WIZARD-DEBUG] FASE: GERAÇÃO DE CONTEÚDO FINAL`);
-  console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-  console.log(`[WIZARD-DEBUG] Modelo Selecionado: ${model}`);
-  console.log(`[WIZARD-DEBUG] ───────────────────────────────────────────────────────────`);
-  console.log(`[WIZARD-DEBUG] NARRATIVA SELECIONADA:`);
-  console.log(`[WIZARD-DEBUG]   id: ${input.selectedNarrative.id}`);
-  console.log(`[WIZARD-DEBUG]   angle: ${input.selectedNarrative.angle}`);
-  console.log(`[WIZARD-DEBUG]   title: ${input.selectedNarrative.title}`);
-  console.log(`[WIZARD-DEBUG]   description: ${input.selectedNarrative.description}`);
-  // Tribal narrative fields (v4)
-  if (input.selectedNarrative.hook) console.log(`[WIZARD-DEBUG]   hook: ${input.selectedNarrative.hook}`);
-  if (input.selectedNarrative.core_belief) console.log(`[WIZARD-DEBUG]   core_belief: ${input.selectedNarrative.core_belief}`);
-  if (input.selectedNarrative.status_quo_challenged) console.log(`[WIZARD-DEBUG]   status_quo_challenged: ${input.selectedNarrative.status_quo_challenged}`);
-  // Extended fields (legacy)
-  if (input.selectedNarrative.viewpoint) console.log(`[WIZARD-DEBUG]   viewpoint: ${input.selectedNarrative.viewpoint}`);
-  if (input.selectedNarrative.whyUse) console.log(`[WIZARD-DEBUG]   whyUse: ${input.selectedNarrative.whyUse}`);
-  if (input.selectedNarrative.impact) console.log(`[WIZARD-DEBUG]   impact: ${input.selectedNarrative.impact}`);
-  if (input.selectedNarrative.tone) console.log(`[WIZARD-DEBUG]   tone: ${input.selectedNarrative.tone}`);
-  if (input.selectedNarrative.keywords) console.log(`[WIZARD-DEBUG]   keywords: ${input.selectedNarrative.keywords.join(", ")}`);
-  console.log(`[WIZARD-DEBUG] ───────────────────────────────────────────────────────────`);
-  console.log(`[WIZARD-DEBUG] PARÂMETROS DE CONTEÚDO:`);
-  console.log(`[WIZARD-DEBUG]   contentType: ${input.contentType}`);
-  console.log(`[WIZARD-DEBUG]   numberOfSlides: ${input.numberOfSlides || "(não informado)"}`);
-  console.log(`[WIZARD-DEBUG]   cta: ${input.cta || "(não informado)"}`);
-  console.log(`[WIZARD-DEBUG]   negativeTerms: ${input.negativeTerms?.join(", ") || "(nenhum)"}`);
-  console.log(`[WIZARD-DEBUG]   ragContext: ${input.ragContext ? `${input.ragContext.length} chars` : "(não informado)"}`);
-  console.log(`[WIZARD-DEBUG]   customInstructions: ${input.customInstructions || "(não informado)"}`);
-  console.log(`${"=".repeat(80)}\n`);
-
   // Check if OpenRouter is configured
   if (!openrouter) {
     return {
@@ -553,31 +368,6 @@ export async function generateContent(
     // Create a user message that reinforces the content type
     const userMessage = `Generate ${input.contentType} content with the selected narrative approach.`;
 
-    // ==============================================================================
-    // WIZARD DEBUG: PROMPT ENVIADO PARA IA (CONTEÚDO)
-    // ==============================================================================
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-CONTENT] 🚀 INICIANDO GERAÇÃO DE CONTEÚDO FINAL`);
-    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-CONTENT] 📊 ESTATÍSTICAS DO PROMPT:`);
-    console.log(`[WIZARD-CONTENT]   • Tamanho total: ${prompt.length} caracteres`);
-    console.log(`[WIZARD-CONTENT]   • Tokens estimados: ~${Math.round(prompt.length / 4)} tokens`);
-    console.log(`[WIZARD-CONTENT]   • Modelo: ${model}`);
-    console.log(`[WIZARD-CONTENT]   • Tipo de conteúdo: ${input.contentType}`);
-    console.log(`[WIZARD-CONTENT]   • Ângulo da narrativa: ${input.selectedNarrative.angle}`);
-    console.log(`[WIZARD-CONTENT]   • Slides: ${input.numberOfSlides || "N/A"}`);
-    console.log(`[WIZARD-CONTENT]   • RAG Context: ${input.ragContext ? "✅ " + input.ragContext.length + " chars" : "❌ Nenhum"}`);
-    console.log(`[WIZARD-CONTENT]   • Variáveis usuário: ${variablesContext ? "✅" : "❌"}`);
-    console.log(`[WIZARD-CONTENT]   • Termos proibidos: ${mergedNegativeTerms.length || 0}`);
-    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-CONTENT] 📄 PROMPT COMPLETO (primeiros 2000 chars):`);
-    console.log("─".repeat(80));
-    console.log(prompt.substring(0, 2000) + (prompt.length > 2000 ? "\n... [truncado]" : ""));
-    console.log("─".repeat(80));
-    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
-    console.log(`${"=".repeat(80)}\n`);
-
     // Call LLM with retry logic
     const response = await llmCallWithRetry(
       model,
@@ -585,22 +375,6 @@ export async function generateContent(
       userMessage,
       MAX_RETRIES
     );
-
-    // ==============================================================================
-    // WIZARD DEBUG: RESPOSTA DA IA (CONTEÚDO)
-    // ==============================================================================
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-CONTENT] 📥 RESPOSTA BRUTA DA IA`);
-    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-CONTENT]   • Tamanho: ${response.length} caracteres`);
-    console.log(`[WIZARD-CONTENT]   • Tokens estimados: ~${Math.round(response.length / 4)} tokens`);
-    console.log(`[WIZARD-CONTENT] 📄 CONTEÚDO (primeiros 1500 chars):`);
-    console.log("─".repeat(80));
-    console.log(response.substring(0, 1500) + (response.length > 1500 ? "\n... [truncado]" : ""));
-    console.log("─".repeat(80));
-    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
-    console.log(`${"=".repeat(80)}\n`);
 
     // Parse JSON response
     const parsed = extractJSONFromResponse(response);
@@ -613,33 +387,6 @@ export async function generateContent(
       model,
       input.ragContext ? true : false
     );
-
-    // ==============================================================================
-    // WIZARD DEBUG: CONTEÚDO FINAL ESTRUTURADO
-    // ==============================================================================
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-CONTENT] ✅ CONTEÚDO FINAL ESTRUTURADO`);
-    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-CONTENT] 📊 RESUMO DO CONTEÚDO GERADO:`);
-    console.log(`[WIZARD-CONTENT]   • Tipo: ${generatedContent.type}`);
-    console.log(`[WIZARD-CONTENT]   • Slides: ${generatedContent.slides?.length || 0}`);
-    console.log(`[WIZARD-CONTENT]   • Caption: ${generatedContent.caption ? "✅ " + generatedContent.caption.length + " chars" : "❌"}`);
-    console.log(`[WIZARD-CONTENT]   • Hashtags: ${generatedContent.hashtags?.length || 0}`);
-    console.log(`[WIZARD-CONTENT]   • CTA: ${generatedContent.cta ? "✅" : "❌"}`);
-
-    if (generatedContent.slides && generatedContent.slides.length > 0) {
-      console.log(`[WIZARD-CONTENT] 📄 SLIDES GERADOS:`);
-      generatedContent.slides.forEach((slide, idx) => {
-        console.log(`[WIZARD-CONTENT]   ${idx + 1}. ${slide.title ? slide.title.substring(0, 50) : "(sem título)"}...`);
-        console.log(`[WIZARD-CONTENT]      ${slide.content.substring(0, 80)}...`);
-      });
-    }
-
-    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-CONTENT] 🎉 GERAÇÃO DE CONTEÚDO CONCLUÍDA COM SUCESSO!`);
-    console.log(`[WIZARD-CONTENT] ════════════════════════════════════════════════════════`);
-    console.log(`${"=".repeat(80)}\n`);
 
     return {
       success: true,
@@ -854,8 +601,6 @@ async function llmCallWithRetry(
   const attemptNum = attempt + 1;
 
   try {
-    console.log(`[LLM] Attempt ${attemptNum}/${maxRetries + 1} with model: ${model}`);
-
     const result = await generateText({
       model: openrouter!(model),
       system: systemPrompt,
@@ -866,12 +611,10 @@ async function llmCallWithRetry(
     // Verifica se a resposta está vazia (pode indicar problema com o modelo)
     if (!result.text || result.text.trim().length === 0) {
       console.error(`[LLM] Empty response from model ${model} (attempt ${attemptNum})`);
-      console.error(`[LLM] System prompt length: ${systemPrompt.length}, User message: "${userMessage}"`);
 
       // Se não for a última tentativa, tenta novamente
       if (attempt < maxRetries) {
         const delay = Math.pow(2, attempt) * 1000;
-        console.log(`[LLM] Retrying after ${delay}ms...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
         return llmCallWithRetry(model, systemPrompt, userMessage, maxRetries, attempt + 1);
       }
@@ -879,24 +622,12 @@ async function llmCallWithRetry(
       throw new Error(`LLM returned empty response after ${attemptNum} attempts. Model: ${model}. This may indicate a content filter, rate limit, or model availability issue.`);
     }
 
-    console.log(`[LLM] Success! Response length: ${result.text.length} chars`);
     return result.text;
   } catch (error) {
     const isLastAttempt = attempt >= maxRetries;
 
     // Log detalhado do erro para debugging
     console.error(`[LLM] Error on attempt ${attemptNum}/${maxRetries + 1}:`, error instanceof Error ? error.message : String(error));
-
-    // Extrai mais informações do erro se disponível
-    if (error && typeof error === "object") {
-      const errObj = error as Record<string, unknown>;
-      if ("cause" in errObj) {
-        console.error(`[LLM] Root cause:`, errObj.cause);
-      }
-      if ("statusCode" in errObj) {
-        console.error(`[LLM] Status code:`, errObj.statusCode);
-      }
-    }
 
     if (isLastAttempt) {
       throw new Error(
@@ -906,7 +637,6 @@ async function llmCallWithRetry(
 
     // Exponential backoff
     const delay = Math.pow(2, attempt) * 1000;
-    console.log(`[LLM] Retrying after ${delay}ms...`);
     await new Promise((resolve) => setTimeout(resolve, delay));
 
     return llmCallWithRetry(model, systemPrompt, userMessage, maxRetries, attempt + 1);

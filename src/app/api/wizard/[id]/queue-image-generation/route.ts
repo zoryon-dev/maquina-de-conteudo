@@ -67,8 +67,6 @@ export async function POST(
 
     const jobId = await createJob(userId, "wizard_image_generation" as JobType, payload);
 
-    console.log(`[WIZARD-QUEUE] Image generation job ${jobId} queued for wizard ${wizardId}`);
-
     return NextResponse.json({
       success: true,
       jobId,

@@ -100,7 +100,6 @@ export async function getUserVariables(userId?: string): Promise<UserVariables> 
   const resolvedUserId = userId || (await auth()).userId
 
   if (!resolvedUserId) {
-    console.log(`[USER-VARIABLES] ⚠️ Nenhum userId disponível (auth falhou ou userId não passado)`)
     return {}
   }
 
@@ -112,8 +111,6 @@ export async function getUserVariables(userId?: string): Promise<UserVariables> 
       })
       .from(userVariables)
       .where(eq(userVariables.userId, resolvedUserId))
-
-    console.log(`[USER-VARIABLES] 📊 Busca no banco: ${variables.length} variáveis encontradas para userId=${resolvedUserId.substring(0, 8)}...`)
 
     // Convert to record with proper typing
     const result: UserVariables = {}

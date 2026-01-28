@@ -346,8 +346,8 @@ export async function isRagAvailable(
  * @example
  * ```ts
  * const stats = await getRagStats(userId)
- * console.log(stats.totalDocuments) // 15
- * console.log(stats.totalChunks) // 234
+ * // stats.totalDocuments → 15
+ * // stats.totalChunks → 234
  * ```
  */
 export async function getRagStats(userId: string): Promise<{

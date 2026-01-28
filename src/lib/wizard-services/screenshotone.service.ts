@@ -1009,10 +1009,6 @@ export async function generateHtmlTemplateImage(
   input: ImageGenerationInput
 ): Promise<ImageGenerationResult> {
   try {
-    // Log configuration status
-    console.log(`[SCREENSHOT-ONE] API Key configured: ${!!SCREENSHOT_ONE_ACCESS_KEY}`);
-    console.log(`[SCREENSHOT-ONE] API Key format: ${SCREENSHOT_ONE_ACCESS_KEY?.substring(0, 10)}...`);
-
     if (!SCREENSHOT_ONE_ACCESS_KEY) {
       return {
         success: false,
@@ -1032,9 +1028,6 @@ export async function generateHtmlTemplateImage(
       };
     }
 
-    console.log(`[SCREENSHOT-ONE] Generating template ${config.htmlOptions.template} for slide ${slideNumber}${isLastCard ? ' (LAST CARD)' : ''}...`);
-    console.log(`[SCREENSHOT-ONE] Template options:`, JSON.stringify(config.htmlOptions, null, 2));
-
     // Generate HTML content (pass isLastCard to remove navigation CTA)
     const htmlContent = generateTemplateHtml(
       config.htmlOptions.template,
@@ -1043,9 +1036,6 @@ export async function generateHtmlTemplateImage(
       slideTitle,
       isLastCard
     );
-
-    console.log(`[SCREENSHOT-ONE] HTML content generated (length: ${htmlContent.length} chars)`);
-    console.log(`[SCREENSHOT-ONE] HTML preview:`, htmlContent.substring(0, 200) + "...");
 
     // ScreenshotOne API requires POST with JSON body
     const screenshotUrl = `${SCREENSHOT_ONE_API}`;
@@ -1061,8 +1051,6 @@ export async function generateHtmlTemplateImage(
       cache: false,
     };
 
-    console.log(`[SCREENSHOT-ONE] Requesting image from ScreenshotOne via POST (JSON)...`);
-
     // Make POST request to ScreenshotOne with JSON body
     const response = await fetch(screenshotUrl, {
       method: "POST",
@@ -1072,8 +1060,6 @@ export async function generateHtmlTemplateImage(
       body: JSON.stringify(requestBody),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT),
     });
-
-    console.log(`[SCREENSHOT-ONE] Response status: ${response.status} ${response.statusText}`);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -1086,7 +1072,6 @@ export async function generateHtmlTemplateImage(
 
     // ScreenshotOne returns the image directly
     const imageBlob = await response.blob();
-    console.log(`[SCREENSHOT-ONE] Image blob received, size: ${imageBlob.size} bytes, type: ${imageBlob.type}`);
 
     // Convert blob to base64 data URL (works universally, unlike blob URLs)
     const arrayBuffer = await imageBlob.arrayBuffer();
@@ -1102,8 +1087,6 @@ export async function generateHtmlTemplateImage(
       config,
       createdAt: new Date(),
     };
-
-    console.log(`[SCREENSHOT-ONE] Template image generated successfully`);
 
     return {
       success: true,

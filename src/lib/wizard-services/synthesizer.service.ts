@@ -75,25 +75,6 @@ export async function synthesizeResearch(
   input: SynthesizerInput,
   model: string = SYNTHESIZER_DEFAULT_MODEL
 ): Promise<ServiceResult<SynthesizedResearch>> {
-  // ==============================================================================
-  // WIZARD DEBUG: INPUTS PARA SÍNTESE
-  // ==============================================================================
-  console.log(`\n${"=".repeat(80)}`);
-  console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-  console.log(`[WIZARD-DEBUG] FASE: SYNTHESIZER (Condensar Queries)`);
-  console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-  console.log(`[WIZARD-DEBUG] Modelo: ${model}`);
-  console.log(`[WIZARD-DEBUG] ───────────────────────────────────────────────────────────`);
-  console.log(`[WIZARD-DEBUG] INPUTS:`);
-  console.log(`[WIZARD-DEBUG]   topic: ${input.topic}`);
-  console.log(`[WIZARD-DEBUG]   niche: ${input.niche}`);
-  console.log(`[WIZARD-DEBUG]   objective: ${input.objective}`);
-  console.log(`[WIZARD-DEBUG]   researchResults: ${input.researchResults.length} items`);
-  console.log(`[WIZARD-DEBUG]   extractedContent: ${input.extractedContent ? `${input.extractedContent.length} chars` : "none"}`);
-  console.log(`[WIZARD-DEBUG]   targetAudience: ${input.targetAudience || "none"}`);
-  console.log(`[WIZARD-DEBUG]   tone: ${input.tone || "none"}`);
-  console.log(`${"=".repeat(80)}\n`);
-
   // Check if OpenRouter is configured
   if (!openrouter) {
     return {
@@ -122,19 +103,6 @@ export async function synthesizeResearch(
     // Build the user prompt with all context
     const userPrompt = buildSynthesizerUserPrompt(input, formattedResearch);
 
-    // ==============================================================================
-    // WIZARD DEBUG: PROMPT ENVIADO PARA IA (SYNTHESIZER)
-    // ==============================================================================
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] PROMPT ENVIADO PARA IA (SYNTHESIZER)`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(systemPrompt);
-    console.log(`\n--- USER PROMPT ---\n`);
-    console.log(userPrompt.substring(0, 2000) + "..." + (userPrompt.length > 2000 ? `\n(truncated, total: ${userPrompt.length} chars)` : ""));
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`${"=".repeat(80)}\n`);
-
     // Call LLM with retry logic
     const response = await llmCallWithRetry(
       model,
@@ -143,53 +111,11 @@ export async function synthesizeResearch(
       MAX_RETRIES
     );
 
-    // ==============================================================================
-    // WIZARD DEBUG: RESPOSTA BRUTA DA IA (SYNTHESIZER)
-    // ==============================================================================
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] RESPOSTA BRUTA DA IA (SYNTHESIZER)`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(response);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`${"=".repeat(80)}\n`);
-
     // Parse JSON response
     const parsed = extractJSONFromResponse(response);
 
-    // ==============================================================================
-    // WIZARD DEBUG: RESPOSTA PARSEADA (SYNTHESIZER)
-    // ==============================================================================
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] RESPOSTA PARSEADA (SYNTHESIZER)`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(JSON.stringify(parsed, null, 2));
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`${"=".repeat(80)}\n`);
-
     // Validate and transform response
     const synthesized = validateAndTransformSynthesizedResearch(parsed);
-
-    // ==============================================================================
-    // WIZARD DEBUG: SÍNTESE VALIDADA
-    // ==============================================================================
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] SÍNTESE VALIDADA (FINAL)`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] resumo_executivo: ${synthesized.resumo_executivo.substring(0, 100)}...`);
-    console.log(`[WIZARD-DEBUG] concrete_data: ${synthesized.concrete_data.length} items`);
-    console.log(`[WIZARD-DEBUG] exemplos_narrativos: ${synthesized.exemplos_narrativos.length} items`);
-    console.log(`[WIZARD-DEBUG] erros_armadilhas: ${synthesized.erros_armadilhas.length} items`);
-    console.log(`[WIZARD-DEBUG] frameworks_metodos: ${synthesized.frameworks_metodos.length} items`);
-    console.log(`[WIZARD-DEBUG] hooks: ${synthesized.hooks.length} items`);
-    console.log(`[WIZARD-DEBUG] throughlines_potenciais: ${synthesized.throughlines_potenciais.length} items`);
-    console.log(`[WIZARD-DEBUG] tensoes_narrativas: ${synthesized.tensoes_narrativas.length} items`);
-    console.log(`[WIZARD-DEBUG] perguntas_respondidas: ${synthesized.perguntas_respondidas.length} items`);
-    console.log(`[WIZARD-DEBUG] sources: ${synthesized.sources.length} items`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`${"=".repeat(80)}\n`);
 
     return {
       success: true,

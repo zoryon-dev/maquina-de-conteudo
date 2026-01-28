@@ -136,7 +136,6 @@ export async function addMessageToThread(
       })
     )
   } catch (error) {
-    console.error("Zep: Erro ao adicionar mensagem:", error)
     // Don't throw - chat should continue even if Zep fails
   }
 }
@@ -175,7 +174,7 @@ export async function addMessagesToThread(
       })
     )
   } catch (error) {
-    console.error("Zep: Erro ao adicionar mensagens:", error)
+    // Non-blocking
   }
 }
 
@@ -208,7 +207,6 @@ export async function getAgentContext(
 
     return response.context || ""
   } catch (error) {
-    console.error("Zep: Erro ao obter contexto:", error)
     return ""
   }
 }
@@ -257,7 +255,7 @@ export async function switchAgent(
       })
     )
   } catch (error) {
-    console.error("Zep: Erro ao registrar troca de agente:", error)
+    // Non-blocking
   }
 }
 
@@ -293,7 +291,6 @@ export async function getThreadHistory(
 
     return messages
   } catch (error) {
-    console.error("Zep: Erro ao obter histórico:", error)
     return []
   }
 }
@@ -311,7 +308,7 @@ export async function deleteThread(threadId: string): Promise<void> {
   try {
     await withZepRetry(() => zepClient.thread.delete(threadId))
   } catch (error) {
-    console.error("Zep: Erro ao deletar thread:", error)
+    // Non-blocking
   }
 }
 

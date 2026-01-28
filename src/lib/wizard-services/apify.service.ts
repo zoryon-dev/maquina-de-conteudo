@@ -60,8 +60,8 @@ export function isApifyConfigured(): boolean {
  * const result = await transcribeYouTube("https://youtube.com/watch?v=abc123")
  *
  * if (result.success && result.data) {
- *   console.log(result.data.transcription) // Transcript text
- *   console.log(result.data.metadata?.title) // Video title
+ *   // result.data.transcription → transcript text
+ *   // result.data.metadata?.title → video title
  * }
  * ```
  */
@@ -205,11 +205,6 @@ async function runTranscriptActor(
       include_transcript_text: true,
     };
 
-    console.log(`[WIZARD-YOUTUBE] 🔄 Iniciando Actor do Apify...`);
-    console.log(`[WIZARD-YOUTUBE]   Actor ID: ${YOUTUBE_TRANSCRIPT_ACTOR_ID}`);
-    console.log(`[WIZARD-YOUTUBE]   Video ID: ${videoId}`);
-    console.log(`[WIZARD-YOUTUBE]   Input:`, JSON.stringify(actorInput, null, 2));
-
     // Start the actor run
     const runResponse = await fetch(
       `${APIFY_API_URL}/${YOUTUBE_TRANSCRIPT_ACTOR_ID}/runs?token=${APIFY_API_TOKEN}`,
@@ -224,11 +219,12 @@ async function runTranscriptActor(
 
     if (!runResponse.ok) {
       const errorText = await runResponse.text();
-      console.error("[WIZARD-YOUTUBE] ❌ Erro ao iniciar Actor do Apify:");
-      console.error(`[WIZARD-YOUTUBE]   Status: ${runResponse.status} ${runResponse.statusText}`);
-      console.error(`[WIZARD-YOUTUBE]   Actor ID: ${YOUTUBE_TRANSCRIPT_ACTOR_ID}`);
-      console.error(`[WIZARD-YOUTUBE]   URL: ${APIFY_API_URL}/${YOUTUBE_TRANSCRIPT_ACTOR_ID}/runs`);
-      console.error(`[WIZARD-YOUTUBE]   Resposta: ${errorText}`);
+      console.error("[WIZARD-YOUTUBE] Failed to start Apify actor run", {
+        status: runResponse.status,
+        statusText: runResponse.statusText,
+        actorId: YOUTUBE_TRANSCRIPT_ACTOR_ID,
+        responseText: errorText,
+      });
       return null;
     }
 
@@ -236,14 +232,9 @@ async function runTranscriptActor(
     const runId = runData.data?.id;
 
     if (!runId) {
-      console.error("[WIZARD-YOUTUBE] ❌ Run ID não encontrado na resposta do Apify");
-      console.error("[WIZARD-YOUTUBE]   Resposta:", JSON.stringify(runData, null, 2));
+      console.error("[WIZARD-YOUTUBE] Apify actor run ID not found in response");
       return null;
     }
-
-    console.log(`[WIZARD-YOUTUBE] ✅ Actor iniciado com sucesso!`);
-    console.log(`[WIZARD-YOUTUBE]   Run ID: ${runId}`);
-    console.log(`[WIZARD-YOUTUBE] ⏳ Aguardando conclusão do Actor...`);
 
     // Wait for the run to complete
     const result = await waitForActorCompletion(runId, 120000); // 2 minutes timeout

@@ -53,7 +53,6 @@ export async function addLibraryItemToGraph(
   }
 ): Promise<void> {
   if (!isZepConfigured()) {
-    console.warn("Zep is not configured, skipping graph operation")
     return
   }
 
@@ -75,7 +74,6 @@ export async function addLibraryItemToGraph(
       data: JSON.stringify(eventData),
     })
   } catch (error) {
-    console.error("Failed to add library item to graph:", error)
     // Don't throw - graph operations are non-blocking
   }
 }
@@ -105,7 +103,6 @@ export async function addScheduledPostToGraph(
   }
 ): Promise<void> {
   if (!isZepConfigured()) {
-    console.warn("Zep is not configured, skipping graph operation")
     return
   }
 
@@ -125,7 +122,6 @@ export async function addScheduledPostToGraph(
       data: JSON.stringify(eventData),
     })
   } catch (error) {
-    console.error("Failed to add scheduled post to graph:", error)
     // Don't throw - graph operations are non-blocking
   }
 }
@@ -157,7 +153,6 @@ export async function addStrategyToGraph(
   }
 ): Promise<void> {
   if (!isZepConfigured()) {
-    console.warn("Zep is not configured, skipping graph operation")
     return
   }
 
@@ -179,7 +174,7 @@ export async function addStrategyToGraph(
       data: JSON.stringify(eventData),
     })
   } catch (error) {
-    console.error("Failed to add strategy to graph:", error)
+    // Non-blocking
   }
 }
 
@@ -199,7 +194,6 @@ export async function addIdeaToGraph(
   }
 ): Promise<void> {
   if (!isZepConfigured()) {
-    console.warn("Zep is not configured, skipping graph operation")
     return
   }
 
@@ -218,7 +212,7 @@ export async function addIdeaToGraph(
       data: JSON.stringify(eventData),
     })
   } catch (error) {
-    console.error("Failed to add idea to graph:", error)
+    // Non-blocking
   }
 }
 
@@ -238,7 +232,6 @@ export async function addBrandToGraph(
   }
 ): Promise<void> {
   if (!isZepConfigured()) {
-    console.warn("Zep is not configured, skipping graph operation")
     return
   }
 
@@ -257,7 +250,7 @@ export async function addBrandToGraph(
       data: JSON.stringify(eventData),
     })
   } catch (error) {
-    console.error("Failed to add brand to graph:", error)
+    // Non-blocking
   }
 }
 
@@ -282,7 +275,6 @@ export async function getGraphEvents(
     // For now, we'll return an empty array
     return []
   } catch (error) {
-    console.error("Failed to get graph events:", error)
     return []
   }
 }

@@ -138,8 +138,6 @@ export async function POST(
       })
       .where(eq(contentWizards.id, parseInt(wizardId)));
 
-    console.log(`[YOUTUBE-SEO-API] Starting SEO generation for wizard ${wizardId}`);
-
     // Build SEO generation parameters
     const seoParams: GenerateYouTubeSEOParams = {
       thumbnailTitle: body.thumbnailTitle,
@@ -196,8 +194,6 @@ export async function POST(
         updatedAt: new Date(),
       })
       .where(eq(contentWizards.id, parseInt(wizardId)));
-
-    console.log(`[YOUTUBE-SEO-API] ✅ SEO generated successfully for wizard ${wizardId}`);
 
     const response: GenerateSEOResponse = {
       success: true,

@@ -49,7 +49,7 @@ const DEFAULT_OPTIONS = {
  *   platforms: ['youtube', 'instagram'],
  *   maxResults: 10
  * });
- * console.log(`Found ${result.topics.length} topics in ${result.metadata.searchTime}ms`);
+ * // result.topics.length → quantidade de tópicos
  * ```
  */
 export class DiscoveryService {
@@ -84,11 +84,6 @@ export class DiscoveryService {
     const startTime = Date.now();
     const opts = { ...DEFAULT_OPTIONS, ...options };
 
-    // Check service availability
-    const status = getDiscoveryServiceStatus();
-    console.log('[Discovery] Service status:', status);
-    console.log('[Discovery] Starting discovery with options:', opts);
-
     // Build array of platform searches with their names
     const platformSearches: Array<{ name: Platform; promise: Promise<TrendingTopic[]> }> = [];
 
@@ -111,8 +106,6 @@ export class DiscoveryService {
       });
     }
 
-    console.log('[Discovery] Searching platforms:', platformSearches.map(p => p.name));
-
     // Step 1: Parallel search across platforms
     const platformResults = await Promise.allSettled(
       platformSearches.map(p => p.promise)
@@ -123,16 +116,11 @@ export class DiscoveryService {
     platformResults.forEach((result, index) => {
       const platform = platformSearches[index].name;
       if (result.status === 'fulfilled' && result.value) {
-        console.log(
-          `[Discovery] ${platform} returned ${result.value.length} topics`
-        );
         allTopics.push(...result.value);
       } else if (result.status === 'rejected') {
         console.error(`[Discovery] ${platform} failed:`, result.reason);
       }
     });
-
-    console.log('[Discovery] Total topics fetched:', allTopics.length);
 
     // Step 3: Filter by similarity
     const topicsWithSimilarity = await this.similarity.filterBySimilarity(
@@ -141,23 +129,14 @@ export class DiscoveryService {
       opts.minSimilarity ?? DEFAULT_OPTIONS.minSimilarity
     );
 
-    console.log('[Discovery] After similarity filter:', topicsWithSimilarity.length);
-
     // Step 4: Rank by composite score (60% engagement + 40% similarity)
     const ranked = this.rankTopics(topicsWithSimilarity);
 
     // Step 5: Limit results
     const topTopics = ranked.slice(0, opts.maxResults ?? DEFAULT_OPTIONS.maxResults);
 
-    console.log('[Discovery] Top topics after ranking:', topTopics.length);
-
     // Step 6: Enrich with AI briefings
     const enriched = await this.briefing.enrichBatch(topTopics);
-
-    console.log('[Discovery] After briefing enrichment:', {
-      inputLength: topTopics.length,
-      outputLength: enriched.length,
-    });
 
     return {
       topics: enriched as TrendingTopicWithBriefing[],

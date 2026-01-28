@@ -65,7 +65,7 @@ export type BriefingResult = z.infer<typeof briefingSchema>;
  * ```ts
  * const service = new BriefingService();
  * const enriched = await service.enrichBatch(topics);
- * console.log(`Generated briefings for ${enriched.length} topics`);
+ * // enriched.length → quantidade de tópicos enriquecidos
  * ```
  */
 export class BriefingService {
@@ -82,7 +82,6 @@ export class BriefingService {
   async enrichBatch(topics: TrendingTopic[]): Promise<TrendingTopicWithBriefing[]> {
     // Check if OpenRouter is configured
     if (!this.model) {
-      console.warn('[Briefing] OpenRouter not configured, returning topics without briefings');
       return topics.map((t) => ({
         ...t,
         briefing: '',

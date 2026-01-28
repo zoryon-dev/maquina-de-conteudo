@@ -35,7 +35,6 @@ async function verifyClerkWebhook(request: NextRequest): Promise<boolean> {
 
   const whSecret = process.env.CLERK_WEBHOOK_SECRET
   if (!whSecret) {
-    console.warn("CLERK_WEBHOOK_SECRET not set, skipping webhook verification")
     return true // Allow in development if secret not set
   }
 

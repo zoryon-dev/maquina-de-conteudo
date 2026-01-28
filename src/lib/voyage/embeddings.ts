@@ -17,7 +17,7 @@ import { getVoyageClient, parseVoyageError, DEFAULT_MODEL } from "./index"
  * @example
  * ```ts
  * const embedding = await generateEmbedding("Hello world")
- * console.log(embedding.length) // 1024
+ * // embedding.length → 1024
  * ```
  */
 export async function generateEmbedding(
@@ -67,8 +67,8 @@ export async function generateEmbedding(
  *   "Second text",
  *   "Third text"
  * ])
- * console.log(embeddings.length) // 3
- * console.log(embeddings[0].length) // 1024
+ * // embeddings.length → 3
+ * // embeddings[0].length → 1024
  * ```
  */
 export async function generateEmbeddingsBatch(

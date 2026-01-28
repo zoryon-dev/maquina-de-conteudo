@@ -54,20 +54,17 @@ function decodeOAuthState(state: string): DecodedOAuthState | null {
     const parts = stateData.split(":")
 
     if (parts.length !== 3) {
-      console.warn("[OAuth] Invalid state format: expected 3 parts")
       return null
     }
 
     const [userId, platform, stateId] = parts
 
     if (!userId || !stateId) {
-      console.warn("[OAuth] Missing required state fields")
       return null
     }
 
     // Type guard - valida platform
     if (platform !== "instagram" && platform !== "facebook") {
-      console.warn(`[OAuth] Invalid platform: ${platform}`)
       return null
     }
 
@@ -245,14 +242,6 @@ async function handleInstagramCallback(userId: string, code: string, baseUrl: st
 
   const shortLivedToken = tokenData.access_token
 
-  // DEBUG: Log short-lived token type
-  const shortLivedPrefix = shortLivedToken ? shortLivedToken.substring(0, 4) : "EMPTY"
-  console.log("[Instagram OAuth] Short-lived token details:", {
-    prefix: shortLivedPrefix,
-    length: shortLivedToken?.length || 0,
-    type: getTokenTypeFromPrefix(shortLivedPrefix),
-  })
-
   const permissions = await fetchUserPermissions(shortLivedToken)
   const hasPagesReadEngagement = permissions.some(
     (permission) =>
@@ -280,8 +269,6 @@ async function handleInstagramCallback(userId: string, code: string, baseUrl: st
       pages: pagesWithInstagram,
     })
   }
-
-  console.log(`Total pages with Instagram found: ${pagesWithInstagram.length}`)
 
   if (pagesWithInstagram.length === 0) {
     throw new Error(
@@ -313,15 +300,6 @@ async function handleInstagramCallback(userId: string, code: string, baseUrl: st
   const longLivedToken = longLivedData.access_token
   const expiresInSeconds = longLivedData.expires_in || 5184000 // ~60 days default
 
-  // DEBUG: Log token type based on prefix
-  const tokenPrefix = longLivedToken ? longLivedToken.substring(0, 4) : "EMPTY"
-  const tokenLength = longLivedToken?.length || 0
-  console.log("[Instagram OAuth] Long-lived token details:", {
-    prefix: tokenPrefix,
-    length: tokenLength,
-    type: getTokenTypeFromPrefix(tokenPrefix),
-  })
-
   // Step 4: Store long-lived token temporarily for final connection
   const tokenExpiresAt = new Date(Date.now() + expiresInSeconds * 1000)
 
@@ -329,18 +307,6 @@ async function handleInstagramCallback(userId: string, code: string, baseUrl: st
   // Cookies don't work with NextResponse.redirect() - see GitHub Discussion #48434
   const sessionId = crypto.randomUUID()
   const sessionExpiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
-
-  console.log("[Instagram OAuth] Saving session to database:", {
-    sessionId,
-    userId,
-    pagesCount: pagesWithInstagram.length,
-    tokenExpiresAt: tokenExpiresAt.toISOString(),
-    firstPage: pagesWithInstagram[0] ? {
-      pageId: pagesWithInstagram[0].pageId,
-      pageName: pagesWithInstagram[0].pageName,
-      igUsername: pagesWithInstagram[0].instagramBusinessAccount?.username,
-    } : null,
-  })
 
   await db.insert(oauthSessions).values({
     id: sessionId,
@@ -352,19 +318,12 @@ async function handleInstagramCallback(userId: string, code: string, baseUrl: st
     expiresAt: sessionExpiresAt,
   })
 
-  console.log("[Instagram OAuth] Session saved to database:", sessionId)
-  console.log("[Instagram OAuth] Token saved in session:", {
-    prefix: longLivedToken?.substring(0, 4),
-    firstPageAccessTokenPrefix: pagesWithInstagram[0]?.pageAccessToken?.substring(0, 4),
-  })
-
   // Step 6: Redirect with session_id (not pages data in URL)
   // Frontend will fetch pages using the session_id
   const redirectUrl = buildRedirectUrl(
     `/settings?tab=social&action=select-instagram&session_id=${sessionId}`,
     baseUrl
   )
-  console.log("[Instagram OAuth] Redirecting to:", redirectUrl.toString())
 
   return NextResponse.redirect(redirectUrl)
 }
@@ -455,12 +414,6 @@ async function handleFacebookCallback(userId: string, code: string, baseUrl: str
   const sessionId = crypto.randomUUID()
   const sessionExpiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
 
-  console.log("[Facebook OAuth] Saving session to database:", {
-    sessionId,
-    userId,
-    pagesCount: pagesWithInfo.length,
-  })
-
   await db.insert(oauthSessions).values({
     id: sessionId,
     userId,
@@ -470,15 +423,12 @@ async function handleFacebookCallback(userId: string, code: string, baseUrl: str
     expiresAt: sessionExpiresAt,
   })
 
-  console.log("[Facebook OAuth] Session saved to database:", sessionId)
-
   // Step 4: Redirect with session_id (not pages data in URL)
   // Frontend will fetch pages using the session_id
   const redirectUrl = buildRedirectUrl(
     `/settings?tab=social&action=select-facebook&session_id=${sessionId}`,
     baseUrl
   )
-  console.log("[Facebook OAuth] Redirecting to:", redirectUrl.toString())
 
   return NextResponse.redirect(redirectUrl)
 }
@@ -542,11 +492,8 @@ async function fetchAllPagesWithInstagram(
   const pagesWithIg: PageWithInstagram[] = []
 
   // Source 1: User's personal pages (primary source)
-  console.log("Fetching personal pages from /me/accounts...")
   const personalPagesResult = await fetchPages(accessToken, "/me/accounts")
   pagesWithIg.push(...personalPagesResult.pages)
-
-  console.log(`Found ${pagesWithIg.length} pages with Instagram from personal pages`)
 
   if (!options.includeBusinessPages || personalPagesResult.rateLimited) {
     const uniquePages = Array.from(
@@ -574,7 +521,6 @@ async function fetchAllPagesWithInstagram(
         rateLimited = ownedPagesResult.rateLimited
 
         if (rateLimited) {
-          console.warn("Rate limit hit. Skipping remaining Business Manager pages.")
           break
         }
 
@@ -588,14 +534,13 @@ async function fetchAllPagesWithInstagram(
           rateLimited = clientPagesResult.rateLimited
 
           if (rateLimited) {
-            console.warn("Rate limit hit while fetching client pages. Skipping remaining Business Manager pages.")
             break
           }
         }
       }
     }
   } catch (e) {
-    console.warn("Failed to fetch Business Manager pages:", e)
+    // Silently skip Business Manager pages on error
   }
 
   // Remove duplicates by page ID
@@ -632,7 +577,6 @@ async function fetchPages(
     const data = await fetchJsonWithRetry(url)
 
     if (data.error) {
-      console.warn(`Error fetching pages from ${endpoint}:`, data.error)
       if (data.error?.code === 4) {
         return { pages: pagesWithIg, rateLimited: true }
       }
@@ -641,24 +585,13 @@ async function fetchPages(
 
     const pages = data.data || []
 
-    // Debug: Log first page to see what fields are returned
-    if (pages.length > 0 && endpoint === "/me/accounts") {
-      console.log("Sample page data from /me/accounts:", JSON.stringify(pages[0], null, 2))
-    }
-
     // Check each page for Instagram Business account
     for (const page of pages) {
       const pageId = page.id
       const pageAccessToken = page.access_token
 
-      // Debug: Log token length for first page
-      if (endpoint === "/me/accounts" && pageId === "533347516517806") {
-        console.log(`Page ${pageId} token:`, pageAccessToken ? `"${pageAccessToken.substring(0, 20)}..." (length: ${pageAccessToken.length})` : "MISSING")
-      }
-
       // Skip pages without valid access token
       if (!pageAccessToken || pageAccessToken === "" || pageAccessToken.length < 10) {
-        console.warn(`Skipping page ${pageId}: No valid access token (token=${pageAccessToken ? `"${pageAccessToken.substring(0, 20)}..." (len=${pageAccessToken.length})` : "null/empty"})`)
         continue
       }
 
@@ -671,22 +604,11 @@ async function fetchPages(
 
       const pageDetails = await pageDetailsResponse.json()
 
-      // Debug: Log page details for Voar Digital
-      if (pageId === "533347516517806") {
-        console.log(`Page ${pageId} details:`, JSON.stringify(pageDetails, null, 2))
-      }
-
       if (pageDetails.error) {
-        console.warn(`Error fetching page ${pageId} details:`, pageDetails.error)
         continue
       }
 
       const igBusinessAccount = pageDetails.instagram_business_account
-
-      // Debug: Log if IG Business Account exists
-      if (pageId === "533347516517806") {
-        console.log(`Page ${pageId} instagram_business_account:`, igBusinessAccount ? "FOUND" : "NOT FOUND")
-      }
 
       if (igBusinessAccount) {
         // Get IG user ID (different from IG Business Account ID)
@@ -698,13 +620,7 @@ async function fetchPages(
 
         const igUserData = await igUserResponse.json()
 
-        // Debug: Log IG user data for Voar Digital
-        if (pageId === "533347516517806") {
-          console.log(`Page ${pageId} IG user data:`, JSON.stringify(igUserData, null, 2))
-        }
-
         if (igUserData.error) {
-          console.warn(`Error fetching IG user data for ${pageId}:`, igUserData.error)
           // Continue anyway - use basic IG Business Account data
         }
 
@@ -724,11 +640,6 @@ async function fetchPages(
             mediaCount: finalIgData?.media_count || 0,
           },
         })
-
-        // Debug: Log successful page addition
-        if (pageId === "533347516517806") {
-          console.log(`Page ${pageId} (@${igBusinessAccount.username}) ADDED to pagesWithIg`)
-        }
       }
     }
 

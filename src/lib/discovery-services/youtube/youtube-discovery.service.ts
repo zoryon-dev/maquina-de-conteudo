@@ -46,7 +46,7 @@ const DEFAULT_TIME_RANGE_DAYS = 7;
  * ```ts
  * const service = new YouTubeDiscoveryService();
  * const topics = await service.discoverByKeyword('AI marketing 2025');
- * console.log(`Found ${topics.length} trending topics`);
+ * // topics.length → quantidade de tópicos encontrados
  * ```
  */
 export class YouTubeDiscoveryService {
@@ -86,7 +86,6 @@ export class YouTubeDiscoveryService {
   ): Promise<TrendingTopic[]> {
     // Graceful degradation when API not configured
     if (!this.youtube) {
-      console.warn('[YouTubeDiscovery] API not configured, returning empty results');
       return [];
     }
 

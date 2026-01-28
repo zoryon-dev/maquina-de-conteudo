@@ -34,7 +34,7 @@ export const DOCUMENT_CATEGORIES = [
  * @example
  * ```ts
  * const score = cosineSimilarity([1, 2, 3], [4, 5, 6])
- * console.log(score) // ~0.97
+ * // score: ~0.97
  * ```
  */
 export function cosineSimilarity(a: number[], b: number[]): number {

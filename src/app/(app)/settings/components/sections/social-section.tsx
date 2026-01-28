@@ -120,11 +120,8 @@ export function SocialSection() {
     const action = searchParams.get("action")
     const sessionId = searchParams.get("session_id")
 
-    console.log("[Social Section] Checking for OAuth callback:", { action, hasSessionId: !!sessionId })
-
     if ((action === "select-instagram" || action === "select-facebook") && sessionId) {
       const platform = action === "select-instagram" ? "instagram" : "facebook"
-      console.log("[Social Section] Fetching pages for:", platform, "session:", sessionId)
 
       // Store session_id for later use in save-connection
       setOauthSessionId(sessionId)
@@ -136,21 +133,13 @@ export function SocialSection() {
           const data = await response.json()
 
           if (!response.ok) {
-            console.error("[Social Section] Failed to fetch pages:", data.error)
             setSelectionError(data.error || "Sessão expirada. Tente novamente.")
             return
           }
 
-          console.log("[Social Section] Received pages data:", {
-            platform: data.platform,
-            count: data.pages?.length,
-            firstPage: data.pages?.[0],
-          })
-
           setAvailablePages(data.pages || [])
           setSelectPagesFor(platform)
           setShowPageSelector(true)
-          console.log("[Social Section] Page selector should now be visible")
         } catch (e) {
           console.error("[Social Section] Failed to fetch pages:", e)
           setSelectionError("Erro ao carregar opções de conexão")
@@ -208,8 +197,6 @@ export function SocialSection() {
   const handleSelectPage = async (pageId: string) => {
     if (!selectPagesFor || !oauthSessionId) return
 
-    console.log("[Social Section] handleSelectPage called:", { platform: selectPagesFor, pageId, sessionId: oauthSessionId })
-
     setSelectingPage(true)
     setSelectionError(null)
 
@@ -219,7 +206,6 @@ export function SocialSection() {
         sessionId: oauthSessionId,
         pageId,
       }
-      console.log("[Social Section] Sending save-connection request:", requestBody)
 
       const response = await fetch("/api/social/save-connection", {
         method: "POST",
@@ -228,10 +214,8 @@ export function SocialSection() {
       })
 
       const data = await response.json()
-      console.log("[Social Section] Save-connection response:", { status: response.status, data })
 
       if (response.ok) {
-        console.log("[Social Section] Connection saved successfully!")
         // Success - refresh connections and close selector
         await fetchConnections()
         setShowPageSelector(false)
@@ -239,7 +223,6 @@ export function SocialSection() {
         setSelectPagesFor(null)
         setOauthSessionId(null) // Clear session ID
       } else {
-        console.error("[Social Section] Save-connection failed:", data.error)
         setSelectionError(data.error || "Erro ao salvar conexão")
       }
     } catch (error) {

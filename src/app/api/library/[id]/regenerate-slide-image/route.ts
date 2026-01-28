@@ -143,8 +143,6 @@ export async function POST(
       })
       .where(eq(libraryItems.id, libraryItemId))
 
-    console.log(`[LIBRARY-IMAGE] Regenerated image for slide ${slideIndex} of library item ${libraryItemId}: ${imageUrl}`)
-
     return NextResponse.json({
       success: true,
       imageUrl,

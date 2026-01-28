@@ -60,7 +60,7 @@ export interface RelatedHashtag {
  * const service = new InstagramSearchScraperService();
  * const result = await service.searchHashtags('AI marketing', { resultsLimit: 50 });
  * if (result.success) {
- *   console.log(`Found ${result.data.length} hashtags`);
+ *   // result.data.length → quantidade de hashtags encontradas
  * }
  * ```
  */
@@ -88,7 +88,6 @@ export class InstagramSearchScraperService {
   ): Promise<ServiceResult<SearchScraperResult[]>> {
     // Graceful degradation when not configured
     if (!this.client) {
-      console.warn('[InstagramSearchScraper] APIFY_API_TOKEN not configured, returning empty results');
       return { success: true, data: [] };
     }
 

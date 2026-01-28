@@ -136,7 +136,6 @@ async function extractTextFromDOC(buffer: Buffer): Promise<string> {
     const result = await mammoth.extractRawText({ buffer })
     return result.value || ""
   } catch (error) {
-    console.warn("DOC extraction not fully supported - consider converting to DOCX:", error)
     throw new Error("Legacy .doc files are not fully supported. Please convert to .docx format.")
   }
 }

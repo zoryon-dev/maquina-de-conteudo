@@ -285,14 +285,10 @@ export async function createCollectionAction(
       orderIdx: nextOrderIdx,
     }
 
-    console.log("[createCollectionAction] Inserting collection:", newCollection)
-
     const [inserted] = await db
       .insert(documentCollections)
       .values(newCollection)
       .returning()
-
-    console.log("[createCollectionAction] Inserted successfully with ID:", inserted.id)
 
     revalidatePath("/sources")
     return { success: true, collectionId: inserted.id }

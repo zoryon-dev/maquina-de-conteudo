@@ -49,7 +49,7 @@ export interface PerplexityResponse {
  * ```ts
  * const service = new PerplexityDiscoveryService();
  * const topics = await service.discoverByKeyword('IA para negócios');
- * console.log(`Found ${topics.length} topics`);
+ * // topics.length → quantidade de tópicos encontrados
  * ```
  */
 export class PerplexityDiscoveryService {
@@ -75,11 +75,8 @@ export class PerplexityDiscoveryService {
   async discoverByKeyword(keyword: string): Promise<TrendingTopic[]> {
     // Graceful degradation when not configured
     if (!this.apiKey) {
-      console.warn('[PerplexityDiscovery] PERPLEXITY_API_KEY not configured, returning empty results');
       return [];
     }
-
-    console.log('[PerplexityDiscovery] Starting search for keyword:', keyword);
 
     try {
       const response = await fetch(this.baseUrl, {
@@ -107,23 +104,7 @@ export class PerplexityDiscoveryService {
 
       const data: PerplexityResponse = await response.json();
 
-      console.log('[PerplexityDiscovery] Search completed:', {
-        citationsCount: data.citations?.length || 0,
-        searchResultsCount: data.search_results?.length || 0,
-        hasContent: !!data.choices?.[0]?.message?.content,
-      });
-
       const topics = this.mapSearchResultsToTopics(data, keyword);
-
-      console.log('[PerplexityDiscovery] Topics created:', {
-        count: topics.length,
-        sampleTopics: topics.slice(0, 3).map((t) => ({
-          id: t.id,
-          title: t.title,
-          url: t.source.url,
-          score: t.metrics.engagementScore,
-        })),
-      });
 
       return topics;
     } catch (error) {

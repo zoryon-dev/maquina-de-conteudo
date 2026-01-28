@@ -15,9 +15,7 @@ const OPENROUTER_APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'contentMachine'
 const OPENROUTER_APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
 if (!OPENROUTER_API_KEY) {
-  if (typeof window === 'undefined') {
-    console.warn('OPENROUTER_API_KEY environment variable is not set.')
-  }
+  // API key validation - handled by isAiConfigured()
 }
 
 /**

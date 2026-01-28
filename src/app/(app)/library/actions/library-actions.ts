@@ -1673,8 +1673,6 @@ export async function saveWizardVideoToLibraryAction(
       })
       .returning()
 
-    console.log(`[LIBRARY] Video saved to library: item ID ${libraryItem.id} from wizard ${wizardId}`)
-
     revalidatePath("/library")
 
     return { success: true, libraryItemId: libraryItem.id }

@@ -150,8 +150,6 @@ export async function POST(
       }
     );
 
-    console.log(`[QUEUE-THUMBNAIL] Created job ${jobId} for wizard ${wizardId}`);
-
     const response: QueueThumbnailGenerationResponse = {
       success: true,
       jobId,

@@ -122,8 +122,6 @@ export async function POST(request: NextRequest) {
 
     const body: ChatRequestBody = await request.json()
 
-    // Debug: log request body
-    console.log("Chat API request:", JSON.stringify(body, null, 2))
     const {
       messages: sdkMessages,
       message: legacyMessage,
@@ -242,15 +240,12 @@ ${sources.map((s) => `- ${s.documentTitle} (${s.category})`).join("\n")}`
 
     // Stream response using Vercel AI SDK
     // Pass system prompt separately to ensure it's applied correctly
-    console.log("[DEBUG] Calling streamText with model:", model)
     const result = streamText({
       model: openrouter(model),
       system: systemPromptWithRag,
       messages: modelMessages,
       temperature: 0.7,
     })
-
-    console.log("[DEBUG] streamText result received")
 
     // Save user message to Zep thread (async, non-blocking)
     if (zepThreadId && isZepConfigured()) {
@@ -276,8 +271,6 @@ ${sources.map((s) => `- ${s.documentTitle} (${s.category})`).join("\n")}`
         "X-Zep-Configured": isZepConfigured() ? "true" : "false",
       } as Record<string, string>,
     })
-
-    console.log("[DEBUG] Returning streaming response")
 
     return response
   } catch (error) {

@@ -217,13 +217,6 @@ export async function createLibraryItemFromWizard(
   const { wizardId, userId, generatedContent, contentType, wizardMetadata } = options
 
   try {
-    console.log(`[createLibraryItemFromWizard] Starting library sync for wizard ${wizardId}`, {
-      contentType,
-      generatedContentType: generatedContent?.type,
-      hasMetadata: !!wizardMetadata,
-      userId
-    });
-
     // Validate input
     if (!generatedContent || !generatedContent.type) {
       console.error(`[createLibraryItemFromWizard] Validation failed: missing type`, {
@@ -243,8 +236,6 @@ export async function createLibraryItemFromWizard(
       )
     }
 
-    console.log(`[createLibraryItemFromWizard] Validation passed, mapping to library item format...`);
-
     // Map to library item format
     const libraryItemInput = mapGeneratedContentToLibraryItem(
       generatedContent,
@@ -253,19 +244,11 @@ export async function createLibraryItemFromWizard(
       userId
     )
 
-    console.log(`[createLibraryItemFromWizard] Library item mapped, inserting into database...`, {
-      type: libraryItemInput.type,
-      status: libraryItemInput.status,
-      hasTitle: !!libraryItemInput.title
-    });
-
     // Insert into database
     const [libraryItem] = await db
       .insert(libraryItems)
       .values(libraryItemInput)
       .returning()
-
-    console.log(`[createLibraryItemFromWizard] ✅ Created library item ${libraryItem.id} for wizard ${wizardId}`)
 
     return {
       success: true,

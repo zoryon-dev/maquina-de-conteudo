@@ -49,52 +49,31 @@ async function debugInstagramTokenPermissions(accessToken: string, igAccountId: 
   const META_APP_ID = process.env.META_APP_ID
   const META_APP_SECRET = process.env.META_APP_SECRET
 
-  console.log("[Instagram Debug] Checking token permissions...")
-
   // Get App Access Token for debug_token endpoint
   const appAccessToken = `${META_APP_ID}|${META_APP_SECRET}`
 
   // 1. Get token info using debug_token endpoint
   try {
     const debugUrl = `${GRAPH_API_URL}/debug_token?input_token=${accessToken}&access_token=${appAccessToken}`
-    const debugResponse = await fetch(debugUrl)
-    const debugData = await debugResponse.json()
-
-    console.log("[Instagram Debug] Token debug info:", JSON.stringify(debugData, null, 2))
-
-    if (debugData.data) {
-      console.log("[Instagram Debug] Token is valid:", {
-        type: debugData.data.type,
-        is_valid: debugData.data.is_valid,
-        scopes: debugData.data.scopes,
-        granular_scopes: debugData.data.granular_scopes,
-        expires_at: debugData.data.expires_at,
-      })
-    }
+    await fetch(debugUrl)
   } catch (e) {
-    console.error("[Instagram Debug] Failed to debug token:", e)
+    // Silently skip debug
   }
 
   // 2. Get IG Business Account info
   try {
     const igUrl = `${GRAPH_API_URL}/${igAccountId}?fields=username,account_type,media_count,followers_count&access_token=${accessToken}`
-    const igResponse = await fetch(igUrl)
-    const igData = await igResponse.json()
-
-    console.log("[Instagram Debug] IG Business Account info:", JSON.stringify(igData, null, 2))
+    await fetch(igUrl)
   } catch (e) {
-    console.error("[Instagram Debug] Failed to get IG account info:", e)
+    // Silently skip debug
   }
 
   // 3. Check content publishing limit
   try {
     const limitUrl = `${GRAPH_API_URL}/${igAccountId}/content_publishing_limit?access_token=${accessToken}`
-    const limitResponse = await fetch(limitUrl)
-    const limitData = await limitResponse.json()
-
-    console.log("[Instagram Debug] Content publishing limit:", JSON.stringify(limitData, null, 2))
+    await fetch(limitUrl)
   } catch (e) {
-    console.error("[Instagram Debug] Failed to get publishing limit:", e)
+    // Silently skip debug
   }
 }
 
@@ -237,21 +216,8 @@ export async function POST(request: Request) {
       )
     }
 
-    // DEBUG: Log connection details before using
-    const accessTokenPrefix = connection.accessToken ? connection.accessToken.substring(0, 4) : "EMPTY"
-    const pageAccessTokenPrefix = connection.pageAccessToken ? connection.pageAccessToken.substring(0, 4) : "EMPTY"
-    console.log("[Publish] Connection details from database:", {
-      accessTokenPrefix,
-      accessTokenLength: connection.accessToken?.length || 0,
-      pageAccessTokenPrefix,
-      pageAccessTokenLength: connection.pageAccessToken?.length || 0,
-      accountId: connection.accountId,
-      platform: connection.platform,
-    })
-
-    // DEBUG: Check token permissions before publishing
+    // Check token permissions before publishing (debug only, silently fails)
     if (platform === "instagram") {
-      console.log("[Publish] Checking permissions for USER token (required for Instagram Graph API)")
       await debugInstagramTokenPermissions(connection.accessToken, connection.accountId)
     }
 
@@ -313,7 +279,6 @@ export async function POST(request: Request) {
             .where(eq(publishedPosts.id, publishedPost.id))
         } catch (error) {
           // If Facebook scheduling fails, fall back to server-side scheduling
-          console.error("Facebook native scheduling failed, using cron:", error)
           usedFallback = true
         }
       }
@@ -382,8 +347,6 @@ export async function POST(request: Request) {
           }
         })
       }
-
-      console.log(`[Publish] Created job ${jobId} for immediate ${platform} publishing`)
 
       return NextResponse.json({
         success: true,

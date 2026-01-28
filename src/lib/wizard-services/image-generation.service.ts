@@ -383,8 +383,6 @@ export async function generateAiImage(
     }
 
     // Step 1: Generate the optimized prompt
-    console.log(`[IMAGE-GEN] Generating prompt for slide ${slideNumber}...`);
-
     const promptResult = await generateImagePrompt({
       slideContent,
       slideTitle,
@@ -400,11 +398,8 @@ export async function generateAiImage(
     }
 
     const { prompt, negativePrompt } = promptResult.data;
-    console.log(`[IMAGE-GEN] Generated prompt:`, prompt.substring(0, 200) + "...");
 
     // Step 2: Call the image model
-    console.log(`[IMAGE-GEN] Calling model ${config.aiOptions.model}...`);
-
     const model = config.aiOptions.model;
     const imageData = await callImageModel(model, prompt, negativePrompt);
 
@@ -427,8 +422,6 @@ export async function generateAiImage(
       promptUsed: prompt,
       createdAt: new Date(),
     };
-
-    console.log(`[IMAGE-GEN] Image generated successfully: ${imageData.url}`);
 
     return {
       success: true,
@@ -996,8 +989,6 @@ Respond with JSON only following the Nano Banana v5.0 output format.`;
     // Use a lightweight text model for prompt generation
     const promptModel = process.env.WIZARD_DEFAULT_MODEL || "openai/gpt-4.1-mini";
 
-    console.log(`[NANO-BANANA] Generating thumbnail prompt with estilo="${estilo || "profissional"}"...`);
-
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -1048,8 +1039,6 @@ Respond with JSON only following the Nano Banana v5.0 output format.`;
       };
     }
 
-    console.log(`[NANO-BANANA] ✅ Prompt generated successfully`);
-
     // Extract prompt - handle both v5 object format and v4 string format
     const promptText = typeof parsed.prompt === "object"
       ? parsed.prompt.full_prompt
@@ -1060,9 +1049,6 @@ Respond with JSON only following the Nano Banana v5.0 output format.`;
 
     // Extract expressao - handle both v5 expressao_facial and v4 expressao
     const expressaoText = parsed.especificacoes.expressao_facial || parsed.especificacoes.expressao;
-
-    console.log(`[NANO-BANANA] Texto: "${textoText}"`);
-    console.log(`[NANO-BANANA] Cores: texto=${parsed.especificacoes.cor_texto}, fundo=${parsed.especificacoes.cor_fundo}`);
 
     return {
       success: true,
@@ -1116,8 +1102,6 @@ export async function generateVideoThumbnailNanoBanana(
       };
     }
 
-    console.log(`[NANO-BANANA] Starting thumbnail generation...`);
-
     // Step 1: Generate the Nano Banana prompt
     const promptResult = await generateVideoThumbnailPromptNanoBanana(input);
 
@@ -1129,11 +1113,8 @@ export async function generateVideoThumbnailNanoBanana(
     }
 
     const { prompt, negative_prompt } = promptResult.data;
-    console.log(`[NANO-BANANA] Generated prompt (${prompt.length} chars):`, prompt.substring(0, 200) + "...");
 
     // Step 2: Call the image model
-    console.log(`[NANO-BANANA] Calling model ${model}...`);
-
     const imageData = await callImageModel(model, prompt, negative_prompt);
 
     if (!imageData) {
@@ -1162,8 +1143,6 @@ export async function generateVideoThumbnailNanoBanana(
       promptUsed: prompt,
       createdAt: new Date(),
     };
-
-    console.log(`[NANO-BANANA] ✅ Thumbnail generated successfully: ${imageData.url}`);
 
     return {
       success: true,
@@ -1202,8 +1181,6 @@ export async function generateVideoThumbnail(
       };
     }
 
-    console.log(`[THUMBNAIL-GEN] Generating prompt for video thumbnail...`);
-
     // Step 1: Generate the optimized thumbnail prompt
     const promptResult = await generateVideoThumbnailPrompt({
       thumbnailTitle,
@@ -1220,11 +1197,8 @@ export async function generateVideoThumbnail(
     }
 
     const { prompt, negativePrompt } = promptResult.data;
-    console.log(`[THUMBNAIL-GEN] Generated prompt:`, prompt.substring(0, 200) + "...");
 
     // Step 2: Call the image model (reuse existing infrastructure)
-    console.log(`[THUMBNAIL-GEN] Calling model ${thumbnailConfig.aiOptions.model}...`);
-
     const model = thumbnailConfig.aiOptions.model;
     const imageData = await callImageModel(model, prompt, negativePrompt);
 
@@ -1247,8 +1221,6 @@ export async function generateVideoThumbnail(
       promptUsed: prompt,
       createdAt: new Date(),
     };
-
-    console.log(`[THUMBNAIL-GEN] Thumbnail generated successfully: ${imageData.url}`);
 
     return {
       success: true,
@@ -1281,8 +1253,6 @@ async function callImageModel(
     ? `${prompt}\n\nAvoid: ${negativePrompt}`
     : prompt;
 
-  console.log(`[IMAGE-GEN] Calling model ${model} with modalities: ["image", "text"]`);
-
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -1310,11 +1280,9 @@ async function callImageModel(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`[IMAGE-GEN] ❌ Model ${model} failed:`, response.status, errorText);
+    console.error(`[IMAGE-GEN] Model ${model} failed:`, response.status, errorText);
     return null;
   }
-
-  console.log(`[IMAGE-GEN] ✅ Response OK, reading response body...`);
 
   let data: unknown;
   try {
@@ -1328,22 +1296,12 @@ async function callImageModel(
       setTimeout(() => reject(new Error(`Response read timeout after ${STREAM_TIMEOUT}ms`)), STREAM_TIMEOUT);
     });
 
-    console.log(`[IMAGE-GEN] 🔄 Reading response text (with ${STREAM_TIMEOUT/1000}s timeout)...`);
-
     const responseText = await Promise.race([responseTextPromise, timeoutPromise]) as string;
 
-    console.log(`[IMAGE-GEN] ✅ Response text received (${responseText.length} chars, ${Math.round(responseText.length / 1024)}KB)`);
-
     // Parse JSON with error handling
-    console.log(`[IMAGE-GEN] 🔄 Parsing JSON...`);
     data = JSON.parse(responseText);
-    console.log(`[IMAGE-GEN] ✅ JSON parsed successfully`);
   } catch (parseError) {
-    console.error(`[IMAGE-GEN] ❌ Failed to process response:`, parseError);
-    if (parseError instanceof Error) {
-      console.error(`[IMAGE-GEN] ❌ Error message:`, parseError.message);
-      console.error(`[IMAGE-GEN] ❌ Error name:`, parseError.name);
-    }
+    console.error(`[IMAGE-GEN] Failed to process response:`, parseError);
     return null;
   }
 
@@ -1352,22 +1310,10 @@ async function callImageModel(
   const imageUrl = extractImageUrl(data, model);
 
   if (!imageUrl) {
-    console.error("[IMAGE-GEN] ❌ No image URL found!");
-    console.error("[IMAGE-GEN] ❌ Response structure not recognized by extractImageUrl()");
-
-    // Log response structure safely (even if very large)
-    try {
-      const dataStr = JSON.stringify(data, null, 2);
-      const preview = dataStr.length > 5000 ? dataStr.substring(0, 5000) + `\n... (truncated, total ${dataStr.length} chars)` : dataStr;
-      console.error("[IMAGE-GEN] ❌ Response preview:", preview);
-    } catch (e) {
-      console.error("[IMAGE-GEN] ❌ Could not stringify response:", typeof data, data);
-    }
-
+    console.error("[IMAGE-GEN] No image URL found");
     return null;
   }
 
-  console.log(`[IMAGE-GEN] ✅ URL extracted: ${imageUrl.substring(0, 100)}...`);
   return { url: imageUrl };
 }
 
@@ -1390,27 +1336,10 @@ async function callImageModel(
 function extractImageUrl(response: unknown, model: AiImageModel): string | null {
   const data = response as Record<string, unknown>;
 
-  console.log(`[IMAGE-GEN] 🔍 Extracting URL from response`, {
-    model,
-    keys: Object.keys(data),
-    hasChoices: Array.isArray(data.choices),
-    hasData: !!data.data,
-  });
-
   const buildDataUrl = (base64: string, mimeType?: string): string => {
     const safeMimeType = mimeType && typeof mimeType === "string" ? mimeType : "image/png";
     return `data:${safeMimeType};base64,${base64}`;
   };
-
-  // Se há choices, mostrar estrutura do primeiro choice
-  if (Array.isArray(data.choices) && data.choices.length > 0) {
-    const firstChoice = data.choices[0] as Record<string, unknown>;
-    console.log(`[IMAGE-GEN] 🔍 First choice structure:`, {
-      keys: Object.keys(firstChoice),
-      hasMessage: !!firstChoice.message,
-      messageKeys: firstChoice.message ? Object.keys(firstChoice.message as Record<string, unknown>) : [],
-    });
-  }
 
   // Format 1: OpenRouter 2025 format - nested in choices.message.content
   // When modalities: ["image", "text"] is used, images may be in content array
@@ -1428,18 +1357,15 @@ function extractImageUrl(response: unknown, model: AiImageModel): string | null 
           if (itemObj.image_url && typeof itemObj.image_url === "object") {
             const imageUrl = (itemObj.image_url as Record<string, unknown>).url;
             if (typeof imageUrl === "string") {
-              console.log(`[IMAGE-GEN] Found URL in content[].image_url.url`);
               return imageUrl;
             }
           }
           // Check for direct url field
           if (itemObj.url && typeof itemObj.url === "string") {
-            console.log(`[IMAGE-GEN] Found URL in content[].url`);
             return itemObj.url;
           }
           // Check for type: "image" with url
           if (itemObj.type === "image" && itemObj.url && typeof itemObj.url === "string") {
-            console.log(`[IMAGE-GEN] Found URL in content[] (type:image)`);
             return itemObj.url;
           }
         }
@@ -1450,23 +1376,19 @@ function extractImageUrl(response: unknown, model: AiImageModel): string | null 
     if (typeof content === "string") {
       // Direct URL
       if (content.startsWith("http://") || content.startsWith("https://")) {
-        console.log(`[IMAGE-GEN] Found direct URL in content`);
         return content;
       }
       // Try parsing as JSON
       try {
         const parsed = JSON.parse(content);
         if (parsed.url && typeof parsed.url === "string") {
-          console.log(`[IMAGE-GEN] Found URL in JSON content`);
           return parsed.url;
         }
         if (parsed.image && typeof parsed.image === "string") {
-          console.log(`[IMAGE-GEN] Found image in JSON content`);
           return parsed.image;
         }
         // Check for images array in parsed content
         if (parsed.images && Array.isArray(parsed.images) && parsed.images[0]?.url) {
-          console.log(`[IMAGE-GEN] Found URL in JSON images array`);
           return parsed.images[0].url;
         }
       } catch {
@@ -1481,7 +1403,6 @@ function extractImageUrl(response: unknown, model: AiImageModel): string | null 
         if (tc.output && typeof tc.output === "object") {
           const output = tc.output as Record<string, unknown>;
           if (output.url && typeof output.url === "string") {
-            console.log(`[IMAGE-GEN] Found URL in tool_calls.output`);
             return output.url;
           }
         }
@@ -1491,41 +1412,18 @@ function extractImageUrl(response: unknown, model: AiImageModel): string | null 
     // Format 1.5: Gemini 3 Pro format - images array in message
     // Gemini returns images in message.images array with base64 data
     if (Array.isArray(message?.images) && message.images.length > 0) {
-      console.log(`[IMAGE-GEN] Found ${message.images.length} image(s) in message.images array`);
-
       const firstImage = message.images[0] as Record<string, unknown>;
-
-      // Log the COMPLETE structure of the first image for debugging
-      console.log(`[IMAGE-GEN] 🔍 First image FULL structure (JSON):`);
-      try {
-        const firstImageStr = JSON.stringify(firstImage, null, 2);
-        // Log full structure if small enough, otherwise log preview
-        if (firstImageStr.length > 10000) {
-          console.log(`[IMAGE-GEN] First ${5000} chars:\n${firstImageStr.substring(0, 5000)}`);
-          console.log(`[IMAGE-GEN] Last ${5000} chars:\n${firstImageStr.substring(firstImageStr.length - 5000)}`);
-        } else {
-          console.log(`[IMAGE-GEN] ${firstImageStr}`);
-        }
-      } catch (e) {
-        console.log(`[IMAGE-GEN] Could not stringify firstImage:`, typeof firstImage, firstImage);
-      }
-
-      // Now try all possible extraction paths
-      console.log(`[IMAGE-GEN] 🔍 Attempting all extraction paths...`);
 
       // Path 1: Check for inlineData.base64 (standard Gemini format)
       if (firstImage.inlineData && typeof firstImage.inlineData === "object") {
         const inlineData = firstImage.inlineData as Record<string, unknown>;
-        console.log(`[IMAGE-GEN] ✅ Has inlineData object`);
 
         if (inlineData.data && typeof inlineData.data === "string") {
-          console.log(`[IMAGE-GEN] ✅ Found base64 in message.images[0].inlineData.data (${inlineData.data.length} chars)`);
           const mimeType = (inlineData.mimeType || firstImage.mimeType) as string | undefined;
           return buildDataUrl(inlineData.data, mimeType);
         }
 
         if (inlineData.base64 && typeof inlineData.base64 === "string") {
-          console.log(`[IMAGE-GEN] ✅ Found base64 in message.images[0].inlineData.base64 (${inlineData.base64.length} chars)`);
           const mimeType = (inlineData.mimeType || firstImage.mimeType) as string | undefined;
           return buildDataUrl(inlineData.base64, mimeType);
         }
@@ -1533,7 +1431,6 @@ function extractImageUrl(response: unknown, model: AiImageModel): string | null 
 
       // Path 2: Check for direct url field
       if (firstImage.url && typeof firstImage.url === "string") {
-        console.log(`[IMAGE-GEN] ✅ Found URL in message.images[0].url`);
         return firstImage.url;
       }
 
@@ -1541,26 +1438,22 @@ function extractImageUrl(response: unknown, model: AiImageModel): string | null 
       if (firstImage.image_url && typeof firstImage.image_url === "object") {
         const imageUrlObject = firstImage.image_url as Record<string, unknown>;
         if (imageUrlObject.url && typeof imageUrlObject.url === "string") {
-          console.log(`[IMAGE-GEN] ✅ Found URL in message.images[0].image_url.url`);
           return imageUrlObject.url;
         }
       }
 
       // Path 3: Check for direct data field (base64 string)
       if (firstImage.data && typeof firstImage.data === "string") {
-        console.log(`[IMAGE-GEN] ✅ Found base64 in message.images[0].data (${firstImage.data.length} chars)`);
         return buildDataUrl(firstImage.data, firstImage.mimeType as string | undefined);
       }
 
       // Path 4: Check for base64 field directly
       if (firstImage.base64 && typeof firstImage.base64 === "string") {
-        console.log(`[IMAGE-GEN] ✅ Found base64 in message.images[0].base64 (${firstImage.base64.length} chars)`);
         return buildDataUrl(firstImage.base64, firstImage.mimeType as string | undefined);
       }
 
       // Path 5: Check for image field (base64 or URL)
       if (firstImage.image && typeof firstImage.image === "string") {
-        console.log(`[IMAGE-GEN] ✅ Found image in message.images[0].image (${firstImage.image.length} chars)`);
         // Check if it's already a data URL
         if (firstImage.image.startsWith("data:")) {
           return firstImage.image;
@@ -1571,7 +1464,6 @@ function extractImageUrl(response: unknown, model: AiImageModel): string | null 
 
       // Path 6: Check for content field (sometimes used)
       if (firstImage.content && typeof firstImage.content === "string") {
-        console.log(`[IMAGE-GEN] ✅ Found content in message.images[0].content (${firstImage.content.length} chars)`);
         if (firstImage.content.startsWith("data:")) {
           return firstImage.content;
         }
@@ -1584,33 +1476,26 @@ function extractImageUrl(response: unknown, model: AiImageModel): string | null 
         const nestedMimeType = (imageObject.mimeType || imageObject.mime_type) as string | undefined;
 
         if (imageObject.url && typeof imageObject.url === "string") {
-          console.log(`[IMAGE-GEN] ✅ Found URL in message.images[0].image.url`);
           return imageObject.url;
         }
 
         if (imageObject.data && typeof imageObject.data === "string") {
-          console.log(`[IMAGE-GEN] ✅ Found base64 in message.images[0].image.data (${imageObject.data.length} chars)`);
           return buildDataUrl(imageObject.data, nestedMimeType);
         }
 
         if (imageObject.base64 && typeof imageObject.base64 === "string") {
-          console.log(`[IMAGE-GEN] ✅ Found base64 in message.images[0].image.base64 (${imageObject.base64.length} chars)`);
           return buildDataUrl(imageObject.base64, nestedMimeType);
         }
 
         if (imageObject.bytes && typeof imageObject.bytes === "string") {
-          console.log(`[IMAGE-GEN] ✅ Found base64 in message.images[0].image.bytes (${imageObject.bytes.length} chars)`);
           return buildDataUrl(imageObject.bytes, nestedMimeType);
         }
       }
-
-      console.log(`[IMAGE-GEN] ❌ None of the extraction paths found an image`);
     }
   }
 
   // Format 2: Direct URL in data field (legacy format)
   if (typeof data.data === "string") {
-    console.log(`[IMAGE-GEN] Found URL in data field (string)`);
     return data.data as string;
   }
 
@@ -1618,16 +1503,13 @@ function extractImageUrl(response: unknown, model: AiImageModel): string | null 
   if (Array.isArray(data.data)) {
     const firstItem = data.data[0] as Record<string, unknown> | undefined;
     if (firstItem?.url && typeof firstItem.url === "string") {
-      console.log(`[IMAGE-GEN] Found URL in data[0].url`);
       return firstItem.url;
     }
     if (firstItem?.image && typeof firstItem.image === "string") {
-      console.log(`[IMAGE-GEN] Found URL in data[0].image`);
       return firstItem.image;
     }
     // Check for b64_json base64 encoded image
     if (firstItem?.b64_json && typeof firstItem.b64_json === "string") {
-      console.log(`[IMAGE-GEN] Found base64 image in data[0].b64_json`);
       // Convert base64 to data URL
       return `data:image/png;base64,${firstItem.b64_json}`;
     }
@@ -1635,17 +1517,14 @@ function extractImageUrl(response: unknown, model: AiImageModel): string | null 
 
   // Format 4: Direct url field at root
   if (data.url && typeof data.url === "string") {
-    console.log(`[IMAGE-GEN] Found URL in root url field`);
     return data.url;
   }
 
   // Format 5: image field at root
   if (data.image && typeof data.image === "string") {
-    console.log(`[IMAGE-GEN] Found URL in root image field`);
     return data.image;
   }
 
-  console.log(`[IMAGE-GEN] No image URL found in response`);
   return null;
 }
 

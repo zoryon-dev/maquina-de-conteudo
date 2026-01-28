@@ -77,7 +77,6 @@ export class ThemeProcessorService {
   async processPerplexityTheme(themeData: PerplexityThemeData): Promise<ProcessedThemeResult> {
     // Graceful degradation when not configured
     if (!this.isAvailable()) {
-      console.warn('[ThemeProcessor] OPENROUTER_API_KEY not configured, using raw data');
       return this.fallbackProcessing(themeData);
     }
 
@@ -102,11 +101,7 @@ export class ThemeProcessorService {
     }
 
     try {
-      console.log('[ThemeProcessor] Processing Perplexity theme with AI...');
-
       const result = await this.processWithAI(contentToProcess, themeData.theme);
-
-      console.log('[ThemeProcessor] AI processing completed');
 
       return {
         ...result,

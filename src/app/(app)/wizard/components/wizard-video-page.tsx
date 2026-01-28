@@ -420,7 +420,7 @@ export function WizardVideoPage({
             };
           }
         } catch {
-          console.warn("[VIDEO WIZARD] Could not parse generatedScript");
+          // Could not parse generatedScript - continue with empty context
         }
       }
 

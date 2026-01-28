@@ -267,7 +267,6 @@ export function ContentActionsSection({
             duration: 5000,
           })
           setPublishDialogOpen(false)
-          console.log("[ContentActionsSection] Publish queued successfully, calling onRefresh()")
           onRefresh()
         } else {
           // Handle immediate (synchronous) publishing - legacy support
@@ -284,7 +283,6 @@ export function ContentActionsSection({
             ) : undefined,
           })
           setPublishDialogOpen(false)
-          console.log("[ContentActionsSection] Publish successful (immediate), calling onRefresh()")
           onRefresh()
         }
       } else {
@@ -305,7 +303,6 @@ export function ContentActionsSection({
             duration: 8000,
           })
           setPublishDialogOpen(false)
-          console.log("[ContentActionsSection] Token expired, calling onRefresh() to update connection status")
           onRefresh() // Refresh to update connection status
         } else {
           toast.error(result.error || "Erro ao publicar")
@@ -320,7 +317,6 @@ export function ContentActionsSection({
   }
 
   async function handleRebuild(id: number) {
-    console.log("[ContentActionsSection] Rebuild button clicked for item:", id)
     setIsRebuilding(true)
 
     try {
@@ -331,11 +327,9 @@ export function ContentActionsSection({
 
       if (response.ok) {
         toast.success("Conteúdo reconstruído!")
-        console.log("[ContentActionsSection] Rebuild successful, calling onRefresh()")
         onRefresh()
       } else {
         toast.error("Erro ao reconstruir")
-        console.error("[ContentActionsSection] Rebuild API failed:", response.status)
       }
     } catch (error) {
       console.error("[ContentActionsSection] Error rebuilding:", error)

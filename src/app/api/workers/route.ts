@@ -105,16 +105,7 @@ function validateRequiredApiKeys(jobType: string): string | null {
 
   // Job-specific validations
   if (jobType === "wizard_narratives") {
-    // These are optional but log warnings if missing
-    if (!process.env.TAVILY_API_KEY) {
-      console.warn("TAVILY_API_KEY not configured - contextual search will be skipped");
-    }
-    if (!process.env.FIRECRAWL_API_KEY) {
-      console.warn("FIRECRAWL_API_KEY not configured - URL extraction will be skipped");
-    }
-    if (!process.env.APIFY_API_KEY) {
-      console.warn("APIFY_API_KEY not configured - YouTube transcription will be skipped");
-    }
+    // Optional API keys - Tavily, Firecrawl, and Apify are not required
   }
 
   if (jobType === "document_embedding") {
@@ -183,8 +174,6 @@ async function uploadBase64ImageToStorage(
   const result = await storage.uploadFile(buffer, key, {
     contentType: `image/${format}`,
   });
-
-  console.log(`[STORAGE] Uploaded image to ${result.url}`);
 
   return result.url;
 }
@@ -557,22 +546,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     const { wizardId, userId, contentType, referenceUrl, referenceVideoUrl, theme, context, objective, targetAudience, cta, videoDuration, numberOfSlides, customInstructions, ragConfig } =
       payload as WizardNarrativesPayload;
 
-    // ==============================================================================
-    // WIZARD DEBUG: WORKER RECEBEU JOB (NARRATIVAS)
-    // ==============================================================================
-    console.log(`[WIZARD] JOB wizard_narratives START - wizardId: ${wizardId}, userId: ${userId}, type: ${contentType}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] WORKER: PAYLOAD RECEBIDO DO JOB`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] referenceUrl: ${referenceUrl || "(não informado)"}`);
-    console.log(`[WIZARD-DEBUG] referenceVideoUrl: ${referenceVideoUrl || "(não informado)"}`);
-    console.log(`[WIZARD-DEBUG] theme: ${theme || "(não informado)"}`);
-    console.log(`[WIZARD-DEBUG] context: ${context || "(não informado)"}`);
-    console.log(`[WIZARD-DEBUG] objective: ${objective || "(não informado)"}`);
-    console.log(`[WIZARD-DEBUG] targetAudience: ${targetAudience || "(não informado)"}`);
-    console.log(`[WIZARD-DEBUG] cta: ${cta || "(não informado)"}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-
     // 1. Get wizard
     const [wizard] = await db
       .select()
@@ -598,17 +571,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     let researchData = "";
     let synthesizedResearchData: SynthesizedResearch | null = null;
 
-    // ==============================================================================
-    // WIZARD DEBUG: VERIFICANDO SE PRECISA EXTRAIR URL DE REFERÊNCIA
-    // ==============================================================================
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] WORKER: VERIFICANDO URL DE REFERÊNCIA`);
-    console.log(`[WIZARD-DEBUG] referenceUrl existe? ${referenceUrl ? "SIM ✅" : "NÃO ❌"}`);
-    if (referenceUrl) {
-      console.log(`[WIZARD-DEBUG] referenceUrl valor: ${referenceUrl}`);
-    }
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-
     // 2. Extract content from reference URL (Firecrawl)
     if (referenceUrl) {
       await updateWizardProgress(wizardId, {
@@ -618,35 +580,14 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
           message: "Extraindo conteúdo da URL de referência...",
         },
       });
-
-      console.log(`[WIZARD-DEBUG] WORKER: Iniciando extração de URL: ${referenceUrl}`);
       const firecrawlResult = await extractFromUrl(referenceUrl);
-
-      console.log(`[WIZARD-DEBUG] WORKER: Resultado Firecrawl - success=${firecrawlResult.success}`);
-      if (!firecrawlResult.success) {
-        console.log(`[WIZARD-DEBUG] WORKER: Erro Firecrawl: ${firecrawlResult.error}`);
-      }
 
       if (firecrawlResult.success && firecrawlResult.data) {
         extractedContent = firecrawlResult.data.content;
-        console.log(`[WIZARD-DEBUG] WORKER: ✅ Conteúdo extraído com sucesso (${extractedContent.length} chars)`);
-        console.log(extractedContent.substring(0, 500) + (extractedContent.length > 500 ? "..." : ""));
-      } else {
-        console.log(`[WIZARD-DEBUG] WORKER: ❌ Falha na extração: ${!firecrawlResult.success ? firecrawlResult.error : "no data"}`);
       }
-    } else {
-      console.log(`[WIZARD-DEBUG] WORKER: ⏭️ Pulando extração de URL (nenhuma URL fornecida)`);
     }
 
     // 3. Transcribe video (Apify)
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] WORKER: VERIFICANDO SE PRECISA TRANSCREVER VÍDEO`);
-    console.log(`[WIZARD-DEBUG] referenceVideoUrl existe? ${referenceVideoUrl ? "SIM ✅" : "NÃO ❌"}`);
-    if (referenceVideoUrl) {
-      console.log(`[WIZARD-DEBUG] referenceVideoUrl valor: ${referenceVideoUrl}`);
-    }
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-
     if (referenceVideoUrl) {
       await updateWizardProgress(wizardId, {
         processingProgress: {
@@ -655,47 +596,15 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
           message: "Transcrevendo vídeo do YouTube...",
         },
       });
-
-      console.log(`[WIZARD-DEBUG] WORKER: Transcrevendo vídeo: ${referenceVideoUrl}`);
       const transcriptionResult = await transcribeYouTube(referenceVideoUrl);
       if (transcriptionResult.success && transcriptionResult.data) {
-        // Log metadata extraídos
-        console.log(`[WIZARD-YOUTUBE] ✅ Transcrição bem-sucedida!`);
-        console.log(`[WIZARD-YOUTUBE] 📺 Título: ${transcriptionResult.data.metadata?.title || "(não informado)"}`);
-        console.log(`[WIZARD-YOUTUBE] 👤 Canal: ${transcriptionResult.data.metadata?.channelName || "(não informado)"}`);
-        console.log(`[WIZARD-YOUTUBE] 📊 Views: ${transcriptionResult.data.metadata?.viewCount?.toLocaleString('pt-BR') || "N/A"}`);
-        console.log(`[WIZARD-YOUTUBE] ❤️ Likes: ${transcriptionResult.data.metadata?.likeCount?.toLocaleString('pt-BR') || "N/A"}`);
-        console.log(`[WIZARD-YOUTUBE] 💬 Comentários: ${transcriptionResult.data.metadata?.commentCount?.toLocaleString('pt-BR') || "N/A"}`);
-        console.log(`[WIZARD-YOUTUBE] ⏱️ Duração: ${transcriptionResult.data.metadata?.duration ? `${Math.floor(transcriptionResult.data.metadata.duration / 60)}:${(transcriptionResult.data.metadata.duration % 60).toString().padStart(2, '0')}` : "N/A"}`);
-        console.log(`[WIZARD-YOUTUBE] 📅 Publicado: ${transcriptionResult.data.metadata?.publishedAt ? new Date(transcriptionResult.data.metadata.publishedAt).toLocaleDateString('pt-BR') : "N/A"}`);
-        console.log(`[WIZARD-YOUTUBE] 🌐 Idioma: ${transcriptionResult.data.metadata?.language?.toUpperCase() || "N/A"}`);
-        console.log(`[WIZARD-YOUTUBE] 📝 Tamanho transcrição: ${transcriptionResult.data.transcription.length} caracteres`);
-
         if (extractedContent) {
           extractedContent += `\n\n`;
         }
         // Use formatYouTubeForPrompt for structured metadata
         extractedContent += formatYouTubeForPrompt(transcriptionResult.data);
-        console.log(`[WIZARD-YOUTUBE] 📦 Conteúdo formatado adicionado ao extractedContent (+${formatYouTubeForPrompt(transcriptionResult.data).length} chars)`);
-      } else {
-        console.log(`[WIZARD-DEBUG] WORKER: Falha na transcrição: ${!transcriptionResult.success ? transcriptionResult.error : "no data"}`);
       }
-    } else {
-      console.log(`[WIZARD-YOUTUBE] ⏭️ Pulando transcrição de vídeo (nenhuma URL fornecida)`);
     }
-
-    // ==============================================================================
-    // WIZARD DEBUG: RESUMO DA FASE DE EXTRAÇÃO
-    // ==============================================================================
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] WORKER: RESUMO DA EXTRAÇÃO`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] extractedContent final: ${extractedContent ? `${extractedContent.length} caracteres` : "(vazio)"}`);
-    if (extractedContent) {
-      console.log(`[WIZARD-DEBUG] Preview (primeiros 300 chars):`);
-      console.log(extractedContent.substring(0, 300) + (extractedContent.length > 300 ? "..." : ""));
-    }
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
 
     // 4. Search for context (Tavily)
     if (theme) {
@@ -706,11 +615,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
           message: "Pesquisando informações contextuais...",
         },
       });
-
-      // ==============================================================================
-      // RESEARCH PLANNER v2.0: Gerar 7 queries estratégicas em 3 camadas
-      // ==============================================================================
-      console.log(`[WIZARD] RESEARCH-PLANNER v2.0 - theme: ${theme}, objective: ${objective || "(none)"}`);
 
       // Declare variables in outer scope for synthesizer access
       let researchPlan: ResearchPlannerOutput | undefined;
@@ -733,10 +637,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       });
 
       if (!researchPlannerResult.success || !researchPlannerResult.data) {
-        const errorMsg = !researchPlannerResult.success
-          ? (researchPlannerResult as any).error || "Unknown error"
-          : "No data returned";
-        console.log(`[WIZARD] RESEARCH-PLANNER failed: ${errorMsg}`);
         // Fallback to simple query
         const fallbackQuery = objective ? `${theme} ${objective}` : theme;
         const fallbackResult = await contextualSearch(fallbackQuery, { maxResults: 5, searchDepth: "basic" });
@@ -745,11 +645,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         }
       } else {
         researchPlan = researchPlannerResult.data;
-        console.log(`[WIZARD] RESEARCH-PLANNER generated ${researchPlan.queries.length} queries`);
-
-        // ==============================================================================
-        // MULTI-QUERY EXECUTION: Executar 7 searches no Tavily
-        // ==============================================================================
 
         for (let i = 0; i < researchPlan.queries.length; i++) {
           const q = researchPlan.queries[i];
@@ -760,8 +655,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
               message: `Pesquisando: ${q.q.substring(0, 30)}... (${i + 1}/${researchPlan.queries.length})`,
             },
           });
-
-          console.log(`[WIZARD] QUERY ${i + 1}/${researchPlan.queries.length} [${q.layer}/${q.intent}]: "${q.q}"`);
 
           const searchResult = await contextualSearch(q.q, {
             maxResults: 3, // Fewer results per query to avoid too much data
@@ -776,16 +669,8 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
               result: searchResult.data,
               sources: searchResult.data?.sources || [],
             });
-            console.log(`[WIZARD] QUERY ${i + 1}: Found ${searchResult.data?.sources?.length || 0} sources`);
-          } else {
-            console.log(`[WIZARD] QUERY ${i + 1}: No results`);
           }
         }
-
-        // ==============================================================================
-        // AGGREGATION: Combinar todos os resultados
-        // ==============================================================================
-        console.log(`[WIZARD] AGGREGATING ${allSearchResults.length} query results`);
 
         const aggregatedSources = allSearchResults.flatMap((r, idx) =>
           r.sources.map((s: any) => ({
@@ -796,9 +681,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
             queryIndex: idx,
           }))
         );
-
-        const totalSources = aggregatedSources.length;
-        console.log(`[WIZARD] TOTAL SOURCES: ${totalSources}`);
 
         // Format aggregated research data for prompt
         researchData = allSearchResults
@@ -815,8 +697,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
             )
             .join("\n");
         }
-
-        console.log(`[WIZARD] RESEARCH DATA SIZE: ${researchData.length} chars`);
       }
 
       // ==============================================================================
@@ -831,8 +711,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
             message: "Sintetizando pesquisa em insights acionáveis...",
           },
         });
-
-        console.log(`[WIZARD] SYNTHESIZER - Starting research synthesis...`);
 
         // Prepare aggregated search results for synthesizer
         const researchResultsForSynthesizer = researchPlan?.queries
@@ -859,8 +737,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
           .filter((r): r is { query: string; answer: string; sources: any[] } => r !== null) || [];
 
         if (researchResultsForSynthesizer.length > 0) {
-          console.log(`[WIZARD] SYNTHESIZER - Processing ${researchResultsForSynthesizer.length} research results`);
-
           // Build research results array for synthesizer
           // Include both: results with sources AND results with only AI answers
           const synthesizerResearchResults: any[] = [];
@@ -889,8 +765,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
             }
           }
 
-          console.log(`[WIZARD] SYNTHESIZER - Total items to synthesize: ${synthesizerResearchResults.length}`);
-
           const synthesizerInput: SynthesizerInput = {
             topic: theme || "",
             niche: context || "geral",
@@ -912,17 +786,8 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
               researchData += "\n\n" + synthesizerEnhancedResearchData;
             }
 
-            console.log(`[WIZARD] SYNTHESIZER SUCCESS`);
-            console.log(`  - Dados concretos: ${synthesisData.concrete_data.length}`);
-            console.log(`  - Exemplos reais: ${synthesisData.real_examples?.length ?? 0}`);
-            console.log(`  - Erros e riscos: ${synthesisData.errors_risks?.length ?? 0}`);
-            console.log(`  - Frameworks: ${synthesisData.frameworks_metodos.length}`);
-            console.log(`  - Ganchos: ${synthesisData.hooks.length}`);
-
             // Store synthesized research in wizard (will be saved at the end)
             synthesizedResearchData = synthesisData;
-          } else {
-            console.log(`[WIZARD] SYNTHESIZER failed, using raw data`);
           }
         }
       }
@@ -952,9 +817,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         if (ragSourceInfo.length > 0) {
           researchData += (researchData ? "\n\n" : "") + `FONTES RAG:\n${ragSourceInfo.map(s => `- ${s.title}`).join("\n")}`;
         }
-        console.log(`[WIZARD-DEBUG] RAG: Contexto adicionado ao researchData (${ragContext?.length || 0} chars)`);
-      } else {
-        console.log(`[WIZARD-DEBUG] RAG: Nenhum contexto encontrado ou erro na busca`);
       }
     }
 
@@ -993,11 +855,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     }
 
     const narratives = narrativesResult.data!;
-
-    // ==============================================================================
-    // WIZARD DEBUG: NARRATIVAS GERADAS COM SUCESSO
-    // ==============================================================================
-    console.log(`[WIZARD] Generated ${narratives.length} narratives for wizard ${wizardId}: ${narratives.map(n => `${n.angle}:${n.id}`).join(", ")}`);
 
     // 7. Update wizard with narratives and mark as completed
     await db
@@ -1040,11 +897,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     const { wizardId, userId, selectedNarrativeId, contentType, numberOfSlides, model, ragConfig } =
       payload as WizardGenerationPayload;
 
-    // ==============================================================================
-    // WIZARD DEBUG: WORKER RECEBEU JOB (GENERATION)
-    // ==============================================================================
-    console.log(`[WIZARD] JOB wizard_generation START - wizardId: ${wizardId}, narrative: ${selectedNarrativeId}, model: ${model}`);
-
     // 1. Get wizard
     const [wizard] = await db
       .select()
@@ -1074,18 +926,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     const narratives = wizard.narratives as any[];
     const selectedNarrative = narratives.find((n: any) => n.id === selectedNarrativeId);
 
-    // ==============================================================================
-    // WIZARD DEBUG: NARRATIVA SELECIONADA
-    // ==============================================================================
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] WORKER: NARRATIVA SELECIONADA PELO USUÁRIO`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] selectedNarrativeId: ${selectedNarrativeId}`);
-    console.log(`[WIZARD-DEBUG] Narrativa encontrada:`, JSON.stringify(selectedNarrative, null, 2));
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`${"=".repeat(80)}\n`);
-
     if (!selectedNarrative) {
       await updateWizardProgress(wizardId, {
         jobStatus: "failed",
@@ -1114,19 +954,11 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       });
 
       const ragQuery = `Context for ${contentType} generation: ${wizard.theme || wizard.objective || "general content"}`;
-      console.log(`[WIZARD-DEBUG] RAG: Buscando contexto com query: ${ragQuery}`);
-      console.log(`[WIZARD-DEBUG] RAG: Config mode=${ragConfig?.mode}, documents=${ragConfig?.documents?.length || 0}, collections=${ragConfig?.collections?.length || 0}`);
-
       const ragResult = await generateWizardRagContext(userId, ragQuery, ragConfig);
 
       if (ragResult.success && ragResult.data) {
         ragContextForPrompt = formatRagForPrompt(ragResult.data);
-        console.log(`[WIZARD-DEBUG] RAG: Contexto gerado com sucesso (${ragResult.data.chunksIncluded} chunks, ${ragResult.data.tokensUsed} tokens)`);
-      } else {
-        console.log(`[WIZARD-DEBUG] RAG: Nenhum contexto encontrado ou erro na busca`);
       }
-    } else {
-      console.log(`[WIZARD-DEBUG] RAG: Não configurado ou desabilitado (ragConfig=${ragConfig ? 'sim' : 'não'})`);
     }
 
     // 3. Generate content using AI
@@ -1178,22 +1010,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       .where(eq(contentWizards.id, wizardId));
 
     // 5. Sync to library (create library item from generated content)
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] WORKER: INICIANDO SINCRONIZAÇÃO COM BIBLIOTECA`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] wizardId: ${wizardId}`);
-    console.log(`[WIZARD-DEBUG] userId: ${userId}`);
-    console.log(`[WIZARD-DEBUG] contentType: ${contentType}`);
-    console.log(`[WIZARD-DEBUG] wizardMetadata:`, JSON.stringify({
-      theme: wizard.theme,
-      objective: wizard.objective,
-      targetAudience: wizard.targetAudience,
-      context: wizard.context,
-    }, null, 2));
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`${"=".repeat(80)}\n`);
-
     const libraryResult = await createLibraryItemFromWizard({
       wizardId,
       userId,
@@ -1207,43 +1023,16 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       },
     });
 
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] WORKER: RESULTADO DA SINCRONIZAÇÃO`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] success: ${libraryResult.success}`);
-    console.log(`[WIZARD-DEBUG] libraryItemId: ${libraryResult.libraryItemId || "(não criado)"}`);
-    if (libraryResult.error) {
-      console.log(`[WIZARD-DEBUG] error: ${libraryResult.error}`);
-    }
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`${"=".repeat(80)}\n`);
-
     if (libraryResult.success && libraryResult.libraryItemId) {
       // Update wizard with the library item ID
       await db
         .update(contentWizards)
         .set({ libraryItemId: libraryResult.libraryItemId })
         .where(eq(contentWizards.id, wizardId));
-
-      console.log(`[WIZARD-DEBUG] WORKER: Library item ${libraryResult.libraryItemId} vinculado ao wizard ${wizardId}`);
     } else {
       // Log error but don't fail the wizard - content was successfully generated
       console.error(`[WIZARD-DEBUG] WORKER: Library sync failed for wizard ${wizardId}:`, libraryResult.error);
     }
-
-    // ==============================================================================
-    // WIZARD DEBUG: WORKER CONCLUIU JOB COM SUCESSO
-    // ==============================================================================
-    console.log(`\n${"=".repeat(80)}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] WORKER: JOB wizard_generation CONCLUÍDO COM SUCESSO`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`[WIZARD-DEBUG] wizardId: ${wizardId}`);
-    console.log(`[WIZARD-DEBUG] libraryItemId: ${libraryResult.libraryItemId || "(não criado)"}`);
-    console.log(`[WIZARD-DEBUG] contentType: ${generatedContent.type}`);
-    console.log(`[WIZARD-DEBUG] ════════════════════════════════════════════════════════`);
-    console.log(`${"=".repeat(80)}\n`);
 
     return {
       success: true,
@@ -1266,8 +1055,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
   wizard_image_generation: async (payload: unknown) => {
     const { wizardId, userId, config } =
       payload as WizardImageGenerationPayload;
-
-    console.log(`[WIZARD-IMAGE] JOB wizard_image_generation START - wizardId: ${wizardId}, userId: ${userId}`);
 
     // 1. Get wizard
     const [wizard] = await db
@@ -1303,8 +1090,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       slides = [{ content: wizard.theme || "Conteúdo gerado" }];
       numberOfSlides = 1;
     }
-
-    console.log(`[WIZARD-IMAGE] Generating ${numberOfSlides} images for ${slides.length} slides`);
 
     // 3. Determine effective configuration (support both legacy and coverPosts format)
     let effectiveConfig: typeof config = config;
@@ -1435,7 +1220,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       }
 
       newImages.push(result);
-      console.log(`[WIZARD-IMAGE] Generated image ${slideNumber}/${slides.length}: ${result.imageUrl}`);
     }
 
     // 6. Update wizard with generated images
@@ -1459,19 +1243,11 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       .where(eq(contentWizards.id, wizardId));
 
     // 7. Upload images to storage and sync to library
-    console.log(`[WIZARD-IMAGE] Checking library sync condition:`, {
-      wizardId,
-      libraryItemId: wizard.libraryItemId,
-      hasLibraryItem: !!wizard.libraryItemId,
-      newImagesCount: newImages.length
-    });
-
     // Initialize upload fallbacks array (will be populated if libraryItemId exists)
     const uploadFallbacks: Array<{ slideNumber: number; error: string }> = [];
 
     if (wizard.libraryItemId) {
       // First, upload all base64 images to storage
-      console.log(`[WIZARD-IMAGE] Uploading ${newImages.length} images to storage...`);
       const uploadedImageUrls: string[] = [];
 
       for (let i = 0; i < newImages.length; i++) {
@@ -1483,7 +1259,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
           try {
             const storageUrl = await uploadBase64ImageToStorage(img.imageUrl, wizardId, slideNumber);
             uploadedImageUrls.push(storageUrl);
-            console.log(`[WIZARD-IMAGE] Uploaded image ${slideNumber}/${newImages.length} to storage`);
           } catch (uploadError) {
             const errorMsg = uploadError instanceof Error ? uploadError.message : String(uploadError);
             console.error(`[WIZARD-IMAGE] Failed to upload image ${slideNumber}:`, errorMsg);
@@ -1495,12 +1270,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
           // Already a regular URL, use as-is
           uploadedImageUrls.push(img.imageUrl);
         }
-      }
-
-      // Log summary if there were fallbacks
-      if (uploadFallbacks.length > 0) {
-        console.warn(`[WIZARD-IMAGE] ⚠️ ${uploadFallbacks.length} images fell back to base64 (slides: ${uploadFallbacks.map((f) => f.slideNumber).join(", ")})`);
-        console.warn(`[WIZARD-IMAGE] ⚠️ Base64 images may fail later if too large. Consider checking storage configuration.`);
       }
 
       // Now update the library item with the storage URLs
@@ -1532,15 +1301,8 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
             updatedAt: new Date(),
           })
           .where(eq(libraryItems.id, wizard.libraryItemId!));
-
-        console.log(`[WIZARD-IMAGE] Synced ${uploadedImageUrls.length} images to library item ${wizard.libraryItemId}`);
       }
-    } else {
-      console.warn(`[WIZARD-IMAGE] ⚠️ Library sync skipped: No libraryItemId found for wizard ${wizardId}`);
-      console.warn(`[WIZARD-IMAGE] ⚠️ Images were generated but NOT saved to library. This is likely a bug in wizard_generation job.`);
     }
-
-    console.log(`[WIZARD-IMAGE] JOB wizard_image_generation COMPLETED - wizardId: ${wizardId}`);
 
     return {
       success: true,
@@ -1580,8 +1342,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       tipoIluminacao,
       model,
     } = payload as WizardThumbnailGenerationPayload;
-
-    console.log(`[WIZARD-THUMBNAIL] JOB wizard_thumbnail_generation START - wizardId: ${wizardId}, userId: ${userId}`);
 
     // 1. Fetch wizard to verify ownership
     const [wizard] = await db
@@ -1638,8 +1398,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
 
     const { imageUrl, promptUsed } = thumbnailResult.data;
 
-    console.log(`[WIZARD-THUMBNAIL] Generated thumbnail for wizard ${wizardId}: ${imageUrl}`);
-
     // 4. Update wizard with generated thumbnail
     await db
       .update(contentWizards)
@@ -1654,8 +1412,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       .where(eq(contentWizards.id, wizardId));
 
     // 5. Generate YouTube SEO metadata
-    console.log(`[WIZARD-THUMBNAIL] Generating YouTube SEO for wizard ${wizardId}...`);
-
     await updateWizardProgress(wizardId, {
       jobStatus: "processing",
       processingProgress: {
@@ -1677,7 +1433,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
           scriptContent = wizard.generatedContent;
         }
       } catch {
-        console.warn(`[WIZARD-THUMBNAIL] Could not parse generatedContent as JSON`);
       }
 
       // Extract development topics for timestamps
@@ -1712,8 +1467,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
 
       if (seoResult.success && seoResult.data) {
         generatedSEO = seoResult.data;
-        console.log(`[WIZARD-THUMBNAIL] SEO generated successfully for wizard ${wizardId}`);
-
         // Update wizard with generated SEO
         await db
           .update(contentWizards)
@@ -1722,9 +1475,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
             updatedAt: new Date(),
           })
           .where(eq(contentWizards.id, wizardId));
-      } else {
-        console.warn(`[WIZARD-THUMBNAIL] SEO generation failed: ${seoResult.error}`);
-        // Continue without SEO - don't fail the job
       }
     } catch (seoError) {
       console.error(`[WIZARD-THUMBNAIL] Error generating SEO:`, seoError);
@@ -1752,8 +1502,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       const libraryResult = await saveWizardVideoToLibraryAction(wizardId);
 
       if (libraryResult.success) {
-        console.log(`[WIZARD-THUMBNAIL] Video automatically saved to library: item ID ${libraryResult.libraryItemId}`);
-
         // Update wizard with library item ID
         await db
           .update(contentWizards)
@@ -1761,15 +1509,11 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
             libraryItemId: libraryResult.libraryItemId,
           })
           .where(eq(contentWizards.id, wizardId));
-      } else {
-        console.warn(`[WIZARD-THUMBNAIL] Failed to save video to library: ${libraryResult.error}`);
       }
     } catch (libraryError) {
       console.error(`[WIZARD-THUMBNAIL] Error saving video to library:`, libraryError);
       // Don't fail the job if library save fails - thumbnail is still successful
     }
-
-    console.log(`[WIZARD-THUMBNAIL] JOB wizard_thumbnail_generation COMPLETED - wizardId: ${wizardId}`);
 
     return {
       success: true,
@@ -1828,14 +1572,11 @@ export async function POST(request: Request) {
     if (!jobId) {
       const { isQueueConfigured } = await import("@/lib/queue/client");
       if (!isQueueConfigured()) {
-        console.warn("[Worker] Redis not configured, falling back to direct database polling");
-
         // reserveNextJob() é atômico e já marca como 'processing'
         job = await reserveNextJob();
 
         if (job) {
           jobId = job.id;
-          console.log(`[Worker] Processing job ${jobId} from database (atomic reservation, no race condition)`);
         }
       }
     }
@@ -1924,7 +1665,6 @@ export async function POST(request: Request) {
           try {
             await enqueueJobFn(jobId, job.priority ?? undefined);
           } catch (enqueueError) {
-            console.warn(`[Worker] Failed to re-enqueue job ${jobId} to Redis:`, enqueueError);
             // Job stays in DB as pending, will be picked up by fallback
           }
         }

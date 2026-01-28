@@ -60,8 +60,8 @@ const WIZARD_DEFAULT_RAG_OPTIONS = {
  * })
  *
  * if (result.success && result.data) {
- *   console.log(result.data.context) // Formatted context string
- *   console.log(result.data.sources) // Source documents
+ *   // result.data.context → string formatada
+ *   // result.data.sources → documentos fonte
  * }
  * ```
  */

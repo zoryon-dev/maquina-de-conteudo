@@ -144,9 +144,6 @@ export async function POST(
       refactorInstructions: body.refactorInstructions,
     };
 
-    console.log(`[REFACTOR-SCRIPT] Refactoring script for wizard ${wizardId}`);
-    console.log(`[REFACTOR-SCRIPT] Instructions: ${body.refactorInstructions}`);
-
     // Call refactoring service
     const result = await refactorVideoScript(refactorParams);
 
@@ -169,8 +166,6 @@ export async function POST(
         updatedAt: new Date(),
       })
       .where(eq(contentWizards.id, parseInt(wizardId)));
-
-    console.log(`[REFACTOR-SCRIPT] ✅ Script refactored successfully`);
 
     const response: RefactorScriptResponse = {
       success: true,

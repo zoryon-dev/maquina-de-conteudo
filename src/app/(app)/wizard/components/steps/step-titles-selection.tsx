@@ -215,7 +215,6 @@ export function StepTitlesSelection({
           }
         } catch {
           // Not valid JSON or not VideoScriptStructured
-          console.warn("[TITLES] Could not parse generatedContent as VideoScriptStructured");
         }
 
         const response = await fetch(

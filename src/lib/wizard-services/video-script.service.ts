@@ -9,7 +9,7 @@
 
 import { openrouter } from "@/lib/ai/config";
 import { getVideoScriptV4Prompt } from "./prompts";
-import type { NarrativeAngle } from "./types";
+import type { NarrativeAngle, VideoDuration } from "./types";
 
 // ============================================================================
 // TYPES
@@ -19,7 +19,7 @@ export interface VideoScriptInput {
   narrativeAngle: NarrativeAngle;
   narrativeTitle: string;
   narrativeDescription: string;
-  duration: string; // "2-5min" | "5-10min" | "+10min" | "+30min"
+  duration: VideoDuration;
   intention?: string;
   theme?: string;
   targetAudience?: string;
@@ -124,14 +124,12 @@ export async function generateVideoScript(
       };
     }
 
-    console.log(`[VIDEO-SCRIPT] Starting script generation for: ${params.narrativeTitle}`);
-
     // Build prompt using existing v4.4 prompt
     const systemPrompt = getVideoScriptV4Prompt({
       narrativeAngle: params.narrativeAngle,
       narrativeTitle: params.narrativeTitle,
       narrativeDescription: params.narrativeDescription,
-      duration: params.duration as any,
+      duration: params.duration,
       intention: params.intention,
       cta: params.cta,
       negativeTerms: params.negativeTerms,
@@ -200,10 +198,6 @@ export async function generateVideoScript(
       };
     }
 
-    console.log(`[VIDEO-SCRIPT] ✅ Script generated successfully`);
-    console.log(`[VIDEO-SCRIPT] Estimated duration: ${parsed.meta.duracao_estimada}`);
-    console.log(`[VIDEO-SCRIPT] Development sections: ${parsed.roteiro.desenvolvimento.length}`);
-
     return {
       success: true,
       data: parsed,
@@ -233,9 +227,6 @@ export async function refactorVideoScript(
         error: "OpenRouter not configured. Please set OPENROUTER_API_KEY.",
       };
     }
-
-    console.log(`[VIDEO-SCRIPT] Starting script refactoring for: ${params.narrativeTitle}`);
-    console.log(`[VIDEO-SCRIPT] Refactor instructions: ${params.refactorInstructions}`);
 
     const systemPrompt = getRefactorSystemPrompt(params);
     const userPrompt = buildRefactorUserPrompt(params);
@@ -292,9 +283,6 @@ export async function refactorVideoScript(
         error: "Invalid video script refactor response structure",
       };
     }
-
-    console.log(`[VIDEO-SCRIPT] ✅ Script refactored successfully`);
-    console.log(`[VIDEO-SCRIPT] New development sections: ${parsed.roteiro.desenvolvimento.length}`);
 
     return {
       success: true,
@@ -716,7 +704,7 @@ function buildRefactorUserPrompt(params: VideoScriptRefactorInput): string {
 /**
  * Selects appropriate model based on video duration.
  */
-function getModelForDuration(duration: string): string {
+function getModelForDuration(duration: VideoDuration): string {
   // Longer videos might benefit from more capable models
   if (duration === "+30min" || duration === "+10min") {
     return "anthropic/claude-haiku-4.5";

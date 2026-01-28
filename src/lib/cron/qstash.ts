@@ -82,7 +82,6 @@ function getCronSecret(): string {
 function createQStashClient(): Client | null {
   const token = getQStashToken();
   if (!token) {
-    console.warn("[QStash] Token não configurado");
     return null;
   }
 
@@ -292,7 +291,6 @@ export async function setupCronJobs(): Promise<SetupResult> {
     };
   }
 
-  console.log(`[QStash] Setting up cron jobs for ${appUrl}`);
 
   const result: SetupResult = {
     success: true,
@@ -372,7 +370,6 @@ export async function setupCronJobs(): Promise<SetupResult> {
           ? createResult.scheduleId
           : JSON.stringify(createResult.scheduleId);
         storeScheduleId(name, scheduleId);
-        console.log(`[QStash] ✓ Schedule "${name}" created: ${scheduleId}`);
       }
     }
 
@@ -426,7 +423,6 @@ export async function removeCronJobs(): Promise<{
     };
   }
 
-  console.log("[QStash] Removing all cron jobs");
 
   const result = {
     success: true,
@@ -446,7 +442,6 @@ export async function removeCronJobs(): Promise<{
     }
 
     if (!schedules || schedules.length === 0) {
-      console.log("[QStash] No schedules to remove");
       return result;
     }
 

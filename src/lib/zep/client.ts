@@ -11,11 +11,6 @@ import { ZepClient } from "@getzep/zep-cloud"
 
 const API_KEY = process.env.ZEP_API_KEY!
 
-if (!API_KEY || API_KEY === "sk_") {
-  console.warn(
-    "ZEP_API_KEY não configurada. A funcionalidade de memória multi-agent estará desabilitada."
-  )
-}
 
 /**
  * Cliente Zep singleton

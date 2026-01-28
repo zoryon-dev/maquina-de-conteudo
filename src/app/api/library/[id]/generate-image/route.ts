@@ -128,8 +128,6 @@ export async function POST(
       })
       .where(eq(libraryItems.id, libraryItemId));
 
-    console.log(`[LIBRARY-IMAGE] Generated image for library item ${libraryItemId}: ${imageUrl}`);
-
     return NextResponse.json({
       success: true,
       imageUrl,

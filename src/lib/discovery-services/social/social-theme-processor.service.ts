@@ -85,7 +85,6 @@ export class SocialThemeProcessorService {
   ): Promise<ProcessedSocialThemeResult> {
     // Graceful degradation when not configured
     if (!this.isAvailable()) {
-      console.warn(`[SocialThemeProcessor] OPENROUTER_API_KEY not configured, using raw data for ${platform}`);
       return this.fallbackProcessing(themeData, platform);
     }
 
@@ -106,11 +105,7 @@ export class SocialThemeProcessorService {
     }
 
     try {
-      console.log(`[SocialThemeProcessor] Processing ${platform} theme with AI...`);
-
       const result = await this.processWithAI(contentToProcess, themeData.theme, platform);
-
-      console.log(`[SocialThemeProcessor] AI processing completed for ${platform}`);
 
       return result;
     } catch (error) {

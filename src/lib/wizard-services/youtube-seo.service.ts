@@ -456,8 +456,6 @@ export async function generateYouTubeSEO(
       };
     }
 
-    console.log(`[YOUTUBE-SEO] Starting SEO generation for: ${params.primaryKeyword}`);
-
     const systemPrompt = getYouTubeSEOSystemPrompt(params);
     const userPrompt = buildUserPrompt(params);
 
@@ -513,11 +511,6 @@ export async function generateYouTubeSEO(
         error: "Invalid YouTube SEO response structure",
       };
     }
-
-    console.log(`[YOUTUBE-SEO] ✅ SEO metadata generated successfully`);
-    console.log(`[YOUTUBE-SEO] Title: "${parsed.titulo.principal}" (${parsed.titulo.caracteres} chars)`);
-    console.log(`[YOUTUBE-SEO] Description: ${parsed.descricao.caracteres_total} chars`);
-    console.log(`[YOUTUBE-SEO] Tags: ${parsed.tags.lista_ordenada.length} tags (${parsed.tags.caracteres_total} chars)`);
 
     return {
       success: true,

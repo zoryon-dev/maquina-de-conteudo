@@ -148,8 +148,6 @@ export async function POST(
       },
     }
 
-    console.log("[REGENERATE-SLIDE] Generation input:", JSON.stringify(generationInput, null, 2))
-
     const result = await generateHtmlTemplateImage(generationInput)
 
     if (!result.success || !result.data) {

@@ -48,7 +48,7 @@ interface UseJobPollingOptions {
  * ```tsx
  * useJobPolling({
  *   jobId: 123,
- *   onComplete: (result) => console.log("Done!", result),
+ *   onComplete: (result) => void result,
  *   actionLabel: "Ver na Biblioteca",
  *   onAction: () => router.push("/library"),
  * });

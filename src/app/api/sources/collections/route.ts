@@ -46,9 +46,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    console.log("Creating collection with data:", body)
     const result = await createCollectionAction(body)
-    console.log("Collection creation result:", result)
     return NextResponse.json(result)
   } catch (error) {
     console.error("Error creating collection:", error)

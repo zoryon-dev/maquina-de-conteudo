@@ -54,8 +54,6 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  console.log("[OAuth Session] Fetching session:", { userId, sessionId })
-
   // Fetch session from database with validation
   const sessions = await db
     .select()
@@ -80,12 +78,6 @@ export async function GET(request: NextRequest) {
   const session = sessions[0]
   const { platform, pagesData } = session
   const pages = (pagesData as { pages: unknown[] }).pages
-
-  console.log("[OAuth Session] Session found:", {
-    sessionId,
-    platform,
-    pagesCount: pages.length,
-  })
 
   // Return platform and pages for frontend
   return NextResponse.json({

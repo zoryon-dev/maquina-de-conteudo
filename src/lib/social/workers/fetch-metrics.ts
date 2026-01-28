@@ -144,8 +144,6 @@ export async function fetchSocialMetrics(
 
     // Log summary if there were errors
     if (errors.length > 0) {
-      console.warn(`[MetricsFetch] Completed with ${errors.length} errors out of ${postsToUpdate.length} posts`)
-      console.warn(`[MetricsFetch] Failed posts: ${errors.map((e) => `#${e.postId}`).join(", ")}`)
     }
 
     return { success: true, updatedCount, errors: errors.length > 0 ? errors : undefined }

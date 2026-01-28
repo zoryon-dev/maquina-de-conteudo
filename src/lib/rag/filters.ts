@@ -237,7 +237,7 @@ export function deduplicateChunks(
  *   "hello world",
  *   "hello world again"
  * )
- * console.log(similarity) // ~0.67
+ * // similarity: ~0.67
  * ```
  */
 export function calculateTextSimilarity(text1: string, text2: string): number {
@@ -278,7 +278,7 @@ export function calculateTextSimilarity(text1: string, text2: string): number {
  * ```ts
  * const result = validateChunk(chunk, { minScore: 0.7 })
  * if (!result.passed) {
- *   console.log(result.reason) // "Score below threshold"
+ *   // result.reason → "Score below threshold"
  * }
  * ```
  */

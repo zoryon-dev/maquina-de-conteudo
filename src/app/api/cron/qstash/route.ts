@@ -93,7 +93,6 @@ function verifyQStashSignature(
     // e confiar no header de autenticação
     return actualSignature.length > 0;
   } catch (error) {
-    console.error("[QStash] Signature verification error:", error);
     return false;
   }
 }
@@ -243,13 +242,6 @@ export async function POST(request: Request) {
 
   // Validar que pelo menos um método de autenticação passou
   if (!hasValidSignature && !hasValidSecret && !testMode) {
-    console.warn("[QStash] Unauthorized request", {
-      hasSignature: !!signature,
-      hasSigningKey: !!signingKey,
-      hasSecret: !!providedSecret,
-      isLocalhost,
-      isDev,
-    });
     return NextResponse.json(
       { error: "Unauthorized", message: "Missing or invalid authentication" },
       { status: 401 }
@@ -258,21 +250,11 @@ export async function POST(request: Request) {
 
   // 4. Verificar timestamp (apenas para requisições assinadas)
   if (hasValidSignature && !verifyTimestamp(timestamp)) {
-    console.warn("[QStash] Invalid timestamp", { timestamp });
     return NextResponse.json(
       { error: "Invalid timestamp", message: "Request timestamp too old or too new" },
       { status: 401 }
     );
   }
-
-  // 5. Log da requisição recebida
-  console.log(`[QStash] Processing request`, {
-    messageId,
-    job: payload.job,
-    source: payload.source,
-    signature: !!signature,
-    timestamp,
-  });
 
   // 6. Idempotência: verificar se já processamos este message ID
   // Em produção, você pode usar Redis para rastrear IDs processados
@@ -283,12 +265,6 @@ export async function POST(request: Request) {
     const result = await processJob(payload);
 
     if (!result.success) {
-      // Erro que deve gerar retry do QStash
-      console.error("[QStash] Job processing failed", {
-        messageId,
-        error: result.error,
-      });
-
       // Retornar 5xx para que o QStash faça retry
       return NextResponse.json(
         {
@@ -300,12 +276,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Sucesso
-    console.log(`[QStash] ✓ Job completed`, {
-      messageId,
-      job: payload.job,
-    });
-
     return NextResponse.json({
       success: true,
       messageId,
@@ -313,11 +283,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const appError = toAppError(error, "QSTASH_JOB_FAILED");
-
-    console.error("[QStash] Unexpected error", {
-      messageId,
-      error: getErrorMessage(appError),
-    });
 
     // Retornar 5xx para retry
     return NextResponse.json(

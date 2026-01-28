@@ -140,3 +140,117 @@ export async function GET(request: Request) {
     )
   }
 }
+
+/**
+ * POST /api/cron/social-publish
+ *
+ * Endpoint for QStash callbacks (and other POST-based cron services).
+ * Supports the same authentication and logic as GET.
+ *
+ * Request body (optional):
+ * - source: "qstash" or similar for logging
+ * - job: "social-publish" for job identification
+ */
+export async function POST(request: Request) {
+  // Verify cron secret (same logic as GET)
+  const authHeader = request.headers.get("authorization")
+  const secret = authHeader?.replace("Bearer ", "")
+
+  // Allow test mode ONLY in development AND from localhost
+  const { searchParams } = new URL(request.url)
+  const host = request.headers.get("host") || ""
+  const isLocalhost = host.startsWith("localhost:") || host.startsWith("127.0.0.1:") || host.startsWith("[::1]:")
+  const testMode = searchParams.get("test") === "true" && process.env.NODE_ENV === "development" && isLocalhost
+
+  if (secret !== CRON_SECRET && !testMode) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  // Parse body for logging (QStash sends identification)
+  let body: Record<string, unknown> | undefined
+  try {
+    body = await request.json().catch(() => undefined)
+    if (body?.source === "qstash") {
+    }
+  } catch {
+    // Body parsing is optional, ignore errors
+  }
+
+  try {
+    const nowUtc = new Date()
+
+    // Find all scheduled posts that are due
+    const duePosts = await db
+      .select()
+      .from(publishedPosts)
+      .where(
+        and(
+          eq(publishedPosts.status, PublishedPostStatus.SCHEDULED),
+          lt(publishedPosts.scheduledFor!, nowUtc as any),
+          isNull(publishedPosts.deletedAt)
+        )
+      )
+
+    if (duePosts.length === 0) {
+      return NextResponse.json({
+        processed: 0,
+        message: "No scheduled posts due",
+      })
+    }
+
+    let enqueuedCount = 0
+    let facebookCount = 0
+
+    for (const post of duePosts) {
+      if (post.platform === "instagram") {
+        if (!post.platformPostId) {
+          await createJob(
+            post.userId,
+            "social_publish_instagram" as any,
+            {
+              publishedPostId: post.id,
+              userId: post.userId,
+            } as any,
+            {
+              priority: 1,
+            }
+          )
+          enqueuedCount++
+        } else {
+          await db
+            .update(publishedPosts)
+            .set({
+              status: PublishedPostStatus.PUBLISHED,
+              publishedAt: nowUtc,
+              updatedAt: nowUtc,
+            })
+            .where(eq(publishedPosts.id, post.id))
+          enqueuedCount++
+        }
+      } else if (post.platform === "facebook") {
+        await db
+          .update(publishedPosts)
+          .set({
+            status: PublishedPostStatus.PUBLISHED,
+            publishedAt: nowUtc,
+            updatedAt: nowUtc,
+          })
+          .where(eq(publishedPosts.id, post.id))
+        facebookCount++
+      }
+    }
+
+    return NextResponse.json({
+      processed: enqueuedCount + facebookCount,
+      instagramEnqueued: enqueuedCount,
+      facebookMarked: facebookCount,
+      timestamp: nowUtc.toISOString(),
+    })
+  } catch (error) {
+    console.error("Cron social publish POST error:", error)
+    return NextResponse.json(
+      { error: "Cron processing failed" },
+      { status: 500 }
+    )
+  }
+}

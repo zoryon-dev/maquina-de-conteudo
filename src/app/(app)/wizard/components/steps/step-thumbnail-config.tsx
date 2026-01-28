@@ -385,7 +385,6 @@ export function StepThumbnailConfig({
   ];
 
   const handleGenerate = async () => {
-    console.log("[THUMBNAIL CONFIG] handleGenerate called!", { wizardId, estilo, contextoTematico });
     if (!wizardId) return;
 
     setIsSubmitting(true);
@@ -408,7 +407,6 @@ export function StepThumbnailConfig({
           }
         } catch {
           // Not valid JSON or not VideoScriptStructured
-          console.warn("[THUMBNAIL] Could not parse generatedContent as VideoScriptStructured");
         }
       }
 

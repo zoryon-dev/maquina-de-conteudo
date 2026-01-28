@@ -32,7 +32,6 @@ export function OAuthButtons({ className, isLoading = false }: OAuthButtonsProps
       const clerk = signInClerk.isLoaded ? signInClerk : signUpClerk
 
       if (!clerk) {
-        console.warn("Clerk not loaded")
         return
       }
 

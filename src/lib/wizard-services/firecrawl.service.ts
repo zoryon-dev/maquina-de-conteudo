@@ -51,8 +51,8 @@ export function isFirecrawlConfigured(): boolean {
  * const result = await extractFromUrl("https://example.com/blog/post")
  *
  * if (result.success && result.data) {
- *   console.log(result.data.content) // Markdown content
- *   console.log(result.data.metadata?.title) // Page title
+ *   // result.data.content → markdown
+ *   // result.data.metadata?.title → título da página
  * }
  * ```
  */

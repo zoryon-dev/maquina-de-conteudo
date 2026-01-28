@@ -231,7 +231,6 @@ export function WizardPage({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: "Unknown error", details: "No details" }));
-        console.error("API error:", errorData);
         throw new Error(errorData.details || errorData.error || "Failed to create wizard");
       }
 
@@ -405,7 +404,6 @@ export function WizardPage({
     posicaoTexto?: string;
     tipoIluminacao?: string;
   }) => {
-    console.log("[WIZARD] handleQueueThumbnailGeneration called!", config);
     if (!wizardId) return;
     setError(null);
 
@@ -425,7 +423,7 @@ export function WizardPage({
               };
             }
           } catch {
-            console.warn("[WIZARD] Could not parse generatedContent");
+            // Could not parse generatedContent - continue with empty context
           }
         }
       }
@@ -453,7 +451,6 @@ export function WizardPage({
       }
 
       const data = await response.json();
-      console.log("[WIZARD] Thumbnail job queued:", data.jobId);
 
       // Store jobId for processing modal
       setQueuedJobId(data.jobId);
@@ -515,8 +512,6 @@ export function WizardPage({
     setError(null);
 
     try {
-      // Log the config being sent for debugging
-      console.log("[WIZARD] Image generation config:", JSON.stringify(config, null, 2));
 
       // Save config to wizard
       await fetch(`/api/wizard/${wizardId}`, {
@@ -540,17 +535,14 @@ export function WizardPage({
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorData.message || errorMessage;
-          console.error("[WIZARD] API Error Response:", errorData);
         } catch {
           const errorText = await response.text();
           errorMessage = errorText || errorMessage;
-          console.error("[WIZARD] API Error Text:", errorText);
         }
         throw new Error(errorMessage);
       }
 
       const data = await response.json();
-      console.log("[WIZARD] Job queued:", data.jobId);
 
       // Store jobId for processing modal
       setQueuedJobId(data.jobId);

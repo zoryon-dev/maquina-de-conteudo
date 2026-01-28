@@ -71,9 +71,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    console.log('[ThemesAPI] POST Creating theme with body:', body);
     const theme = await createThemeAction(body);
-    console.log('[ThemesAPI] POST Theme created:', theme);
     return NextResponse.json(theme, { status: 201 });
   } catch (error) {
     console.error('[ThemesAPI] POST Error:', error);

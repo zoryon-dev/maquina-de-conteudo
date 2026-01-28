@@ -33,7 +33,7 @@ import type { SearchScraperResult } from './search-scraper.service';
  * ```ts
  * const service = new InstagramDiscoveryService();
  * const topics = await service.discoverByKeyword('AI marketing');
- * console.log(`Found ${topics.length} trending Instagram topics`);
+ * // topics.length → quantidade de tópicos encontrados
  * ```
  */
 export class InstagramDiscoveryService {
@@ -61,23 +61,9 @@ export class InstagramDiscoveryService {
       resultsLimit: 50,
     });
 
-    console.log('[InstagramDiscovery] Search result:', {
-      success: searchResult.success,
-      dataLength: searchResult.success ? searchResult.data.length : 0,
-    });
-
     if (!searchResult.success || !searchResult.data) {
       return [];
     }
-
-    console.log('[InstagramDiscovery] Raw results:', {
-      total: searchResult.data.length,
-      sample: searchResult.data.slice(0, 5).map((r) => ({
-        name: r.name,
-        postsCount: r.postsCount,
-        postsPerDay: r.postsPerDay,
-      })),
-    });
 
     // Filter out results without meaningful data (no posts or no postsPerDay)
     // Hashtags with postsCount: 0 are typically placeholders without actual engagement
@@ -85,13 +71,7 @@ export class InstagramDiscoveryService {
       (item) => item.postsCount && item.postsCount > 0
     );
 
-    console.log('[InstagramDiscovery] After filtering meaningful results:', {
-      filteredOut: searchResult.data.length - meaningfulResults.length,
-      remaining: meaningfulResults.length,
-    });
-
     if (meaningfulResults.length === 0) {
-      console.log('[InstagramDiscovery] No meaningful results found (all have postsCount: 0)');
       return [];
     }
 
@@ -107,18 +87,7 @@ export class InstagramDiscoveryService {
       .sort((a, b) => b.score - a.score)
       .slice(0, 20);
 
-    console.log('[InstagramDiscovery] After ranking (top 20):', {
-      rankedLength: rankedResults.length,
-      sample: rankedResults.slice(0, 5).map((r) => ({
-        name: r.name,
-        postsCount: r.postsCount,
-        postsPerDay: r.postsPerDay,
-        score: r.score,
-      })),
-    });
-
     if (rankedResults.length === 0) {
-      console.log('[InstagramDiscovery] No results after ranking');
       return [];
     }
 
@@ -128,16 +97,6 @@ export class InstagramDiscoveryService {
       .filter((topic): topic is TrendingTopic => topic !== null)
       .sort((a, b) => b.metrics.engagementScore - a.metrics.engagementScore)
       .slice(0, 10);
-
-    console.log('[InstagramDiscovery] Topics created:', {
-      count: topics.length,
-      sampleTopics: topics.slice(0, 2).map((t) => ({
-        id: t.id,
-        title: t.title,
-        theme: t.theme,
-        score: t.metrics.engagementScore,
-      })),
-    });
 
     return topics;
   }

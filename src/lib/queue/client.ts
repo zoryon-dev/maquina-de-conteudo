@@ -37,11 +37,6 @@ export class QueueNotConfiguredError extends Error {
   }
 }
 
-if (!url || !token) {
-  console.warn(
-    "⚠️  UPSTASH_REDIS_REST_URL e UPSTASH_REDIS_REST_TOKEN devem ser configurados para usar o sistema de filas."
-  );
-}
 
 // Criar cliente Redis
 export const redis = new Redis({
@@ -93,8 +88,6 @@ export async function dequeueJob(): Promise<number | null> {
   } catch (error) {
     const appError = toAppError(error, "QUEUE_DEQUEUE_FAILED");
     console.error("[Queue] Erro ao desenfileirar job:", appError);
-    // Retornar null é aceitável aqui (fila vazia ou erro temporário)
-    // mas logamos com contexto para debug
     return null;
   }
 }
