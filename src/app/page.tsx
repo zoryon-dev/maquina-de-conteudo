@@ -1,8 +1,12 @@
+"use client"
+
+import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { MessageSquare, Sparkles, Calendar, Globe, ArrowRight } from "lucide-react"
 import { QuickChatInput } from "@/components/home/quick-chat-input"
 import { Footer } from "@/components/footer"
+import { BetaModal } from "@/components/beta-modal"
 
 /**
  * Landing Page - contentMachine
@@ -10,6 +14,8 @@ import { Footer } from "@/components/footer"
  * Página pública com CTAs para login/cadastro.
  */
 export default function HomePage() {
+  const [isBetaModalOpen, setIsBetaModalOpen] = useState(false)
+
   return (
     <div className="min-h-screen relative overflow-hidden bg-[#0a0a0f]">
       {/* Background animado */}
@@ -57,12 +63,12 @@ export default function HomePage() {
               <Link href="/sign-in" className="text-white/70 hover:text-white text-sm transition-colors">
                 Entrar
               </Link>
-              <Link
-                href="/sign-up"
+              <button
+                onClick={() => setIsBetaModalOpen(true)}
                 className="bg-primary text-[#0a0a0f] px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
               >
                 Criar Conta
-              </Link>
+              </button>
             </nav>
           </div>
         </header>
@@ -91,23 +97,17 @@ export default function HomePage() {
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
               <Link
-                href="/sign-up"
+                href="/sign-in"
                 className="group flex items-center gap-2 bg-primary text-[#0a0a0f] px-8 py-3 rounded-lg font-medium hover:bg-primary/90 transition-all"
               >
-                Começar Gratuitamente
+                Acessar Agora
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
-              <Link
-                href="/sign-in"
-                className="flex items-center gap-2 px-8 py-3 rounded-lg font-medium text-white border border-white/20 hover:bg-white/5 transition-all"
-              >
-                Já tenho conta
               </Link>
             </div>
 
             {/* Quick Chat Input */}
             <div className="mt-12">
-              <QuickChatInput />
+              <QuickChatInput onAction={() => setIsBetaModalOpen(true)} />
             </div>
           </div>
 
@@ -134,6 +134,8 @@ export default function HomePage() {
         {/* Footer */}
         <Footer showNewsletter />
       </div>
+
+      <BetaModal isOpen={isBetaModalOpen} onClose={() => setIsBetaModalOpen(false)} />
     </div>
   )
 }

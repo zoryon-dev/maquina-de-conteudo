@@ -46,28 +46,24 @@ export function AuthLayout({
 
       {/* Content */}
       <div className={cn("relative z-10 w-full max-w-md", className)}>
-        {/* Logo - responsive */}
+        {/* Logo - simplified */}
         <Link
           href="/"
-          className="flex items-center justify-center gap-3 mb-6 sm:mb-8 group"
+          className="flex items-center justify-center mb-6 sm:mb-8 group"
         >
-          <div className="relative h-10 sm:h-12 w-auto">
+          <div className="relative h-12 sm:h-16 w-auto">
             <Image
               src="/img/logo_full_content.png"
               alt="contentMachine powered by zoryon"
-              width={48}
-              height={48}
+              width={480}
+              height={96}
               className="object-contain w-auto h-full transition-transform duration-300 group-hover:scale-105"
               priority
+              quality={100}
+              sizes="(max-width: 640px) 240px, 480px"
             />
             {/* Glow effect no logo */}
-            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity -z-10" />
-          </div>
-          <div className="text-left hidden sm:block">
-            <h1 className="text-lg sm:text-xl font-bold text-white group-hover:text-primary/90 transition-colors">
-              {title}
-            </h1>
-            <p className="text-xs sm:text-sm text-white/60">{subtitle}</p>
+            <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity -z-10" />
           </div>
         </Link>
 
