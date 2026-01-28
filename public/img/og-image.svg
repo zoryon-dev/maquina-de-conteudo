@@ -1,0 +1,36 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#0a0a0f"/>
+
+  <!-- Gradient Orbs -->
+  <circle cx="200" cy="150" r="200" fill="#a3e635" fill-opacity="0.1"/>
+  <circle cx="1000" cy="480" r="250" fill="#a3e635" fill-opacity="0.05"/>
+
+  <!-- Grid Pattern -->
+  <defs>
+    <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+      <path d="M 50 0 L 0 0 0 50" fill="none" stroke="white" stroke-opacity="0.02" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+
+  <!-- Logo Placeholder -->
+  <circle cx="600" cy="280" r="60" fill="#a3e635" fill-opacity="0.2"/>
+  <circle cx="600" cy="280" r="50" fill="#a3e635" fill-opacity="0.3"/>
+
+  <!-- Text -->
+  <text x="600" y="400" font-family="Arial, sans-serif" font-size="56" font-weight="bold" fill="white" text-anchor="middle">
+    Máquina de Conteúdo
+  </text>
+  <text x="600" y="450" font-family="Arial, sans-serif" font-size="24" fill="#a3e635" text-anchor="middle">
+    Seu estúdio de conteúdo com IA
+  </text>
+  <text x="600" y="490" font-family="Arial, sans-serif" font-size="18" fill="white" fill-opacity="0.6" text-anchor="middle">
+    Crie, edite e agende posts para redes sociais
+  </text>
+
+  <!-- URL -->
+  <text x="600" y="580" font-family="Arial, sans-serif" font-size="16" fill="white" fill-opacity="0.4" text-anchor="middle">
+    maquinadeconteudo.com
+  </text>
+</svg>

@@ -163,7 +163,7 @@ export function AnimatedAIChat({
   // Extract RAG sources from response headers (if available)
   const [sources, setSources] = useState<ChatSource[] | null>(null)
 
-  // Comandos específicos para Máquina de Conteúdo
+  // Comandos específicos para contentMachine
   const commandSuggestions: CommandSuggestion[] = [
     {
       icon: <MessageSquare className="w-4 h-4" />,

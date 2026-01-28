@@ -70,6 +70,35 @@ export function useLibraryData(
       params.set("limit", limit.toString())
 
       const response = await fetch(`/api/library?${params.toString()}`)
+
+      // Check if response is OK
+      if (!response.ok) {
+        // Try to get error message from response
+        let errorMessage = `Erro ${response.status}: ${response.statusText}`
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch {
+          // If response is not JSON, check if it's HTML
+          const text = await response.text()
+          if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
+            errorMessage = `Erro do servidor: A API retornou HTML em vez de JSON. Verifique se a rota /api/library está funcionando corretamente.`
+          } else {
+            errorMessage = text.substring(0, 200) || errorMessage
+          }
+        }
+        throw new Error(errorMessage)
+      }
+
+      // Check Content-Type to ensure it's JSON
+      const contentType = response.headers.get("content-type")
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text()
+        throw new Error(
+          `Resposta inválida: esperado JSON, recebido ${contentType || "text/html"}. Resposta: ${text.substring(0, 100)}`
+        )
+      }
+
       const result = await response.json()
 
       // Check if response is paginated
@@ -90,10 +119,34 @@ export function useLibraryData(
         setTotalPages(1)
       }
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Erro ao carregar conteúdo"
+      let errorMessage = "Erro ao carregar conteúdo"
+      
+      if (err instanceof Error) {
+        errorMessage = err.message
+        
+        // Check if it's a JSON parse error
+        if (
+          errorMessage.includes("Unexpected token") ||
+          errorMessage.includes("is not valid JSON") ||
+          errorMessage.includes("<!DOCTYPE") ||
+          errorMessage.includes("<html")
+        ) {
+          errorMessage =
+            "Erro ao processar resposta do servidor. A API pode estar retornando HTML em vez de JSON. Verifique se a rota /api/library está funcionando corretamente."
+        }
+      } else if (typeof err === "string") {
+        errorMessage = err
+      } else if (err && typeof err === "object" && "message" in err) {
+        errorMessage = String(err.message)
+      }
+      
       setError(errorMessage)
-      console.error("Error fetching library data:", err)
+      console.error("[useLibraryData] Error fetching library data:", err)
+      
+      // Log additional context for debugging
+      if (err instanceof TypeError && err.message.includes("JSON")) {
+        console.error("[useLibraryData] JSON parse error detected. This usually means the API returned HTML instead of JSON.")
+      }
     } finally {
       setIsLoading(false)
     }

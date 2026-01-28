@@ -16,7 +16,7 @@ export default function SignUpPage({
   React.use(params)
 
   return (
-    <AuthLayout>
+    <AuthLayout showFooter={false}>
       <SignUpCard redirectUrl="/dashboard" />
     </AuthLayout>
   )

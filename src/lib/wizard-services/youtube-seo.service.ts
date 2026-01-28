@@ -394,7 +394,7 @@ export async function generateYouTubeSEO(
         Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.OPENROUTER_APP_URL || "https://maquina-deconteudo.com",
-        "X-Title": process.env.OPENROUTER_APP_NAME || "Máquina de Conteúdo",
+        "X-Title": process.env.OPENROUTER_APP_NAME || "contentMachine",
       },
       body: JSON.stringify({
         model,

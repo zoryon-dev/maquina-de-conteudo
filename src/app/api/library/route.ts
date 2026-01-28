@@ -64,12 +64,23 @@ export async function GET(request: NextRequest) {
     }
 
     const result = await getLibraryItemsAction(filters, viewMode)
-    return NextResponse.json(result)
+    return NextResponse.json(result, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
   } catch (error) {
     console.error("Error fetching library items:", error)
+    const errorMessage =
+      error instanceof Error ? error.message : "Failed to fetch library items"
     return NextResponse.json(
-      { success: false, error: "Failed to fetch library items" },
-      { status: 500 }
+      { success: false, error: errorMessage },
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
     )
   }
 }

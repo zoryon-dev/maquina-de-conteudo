@@ -11,7 +11,7 @@ import { createOpenAI } from '@ai-sdk/openai'
  * Environment variables validation
  */
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
-const OPENROUTER_APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Máquina de Conteúdo'
+const OPENROUTER_APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'contentMachine'
 const OPENROUTER_APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
 if (!OPENROUTER_API_KEY) {

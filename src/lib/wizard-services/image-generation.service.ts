@@ -241,7 +241,7 @@ Respond with JSON only: { prompt, negative_prompt, style_guidance }`;
         Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.OPENROUTER_APP_URL || "https://maquina-deconteudo.com",
-        "X-Title": process.env.OPENROUTER_APP_NAME || "Máquina de Conteúdo",
+        "X-Title": process.env.OPENROUTER_APP_NAME || "contentMachine",
       },
       body: JSON.stringify({
         model: promptModel,
@@ -860,7 +860,7 @@ Respond with JSON only: { prompt, negative_prompt, style_guidance }`;
         Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.OPENROUTER_APP_URL || "https://maquina-deconteudo.com",
-        "X-Title": process.env.OPENROUTER_APP_NAME || "Máquina de Conteúdo",
+        "X-Title": process.env.OPENROUTER_APP_NAME || "contentMachine",
       },
       body: JSON.stringify({
         model: promptModel,
@@ -1047,7 +1047,7 @@ Respond with JSON only following the Nano Banana v5.0 output format.`;
         Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.OPENROUTER_APP_URL || "https://maquina-deconteudo.com",
-        "X-Title": process.env.OPENROUTER_APP_NAME || "Máquina de Conteúdo",
+        "X-Title": process.env.OPENROUTER_APP_NAME || "contentMachine",
       },
       body: JSON.stringify({
         model: promptModel,

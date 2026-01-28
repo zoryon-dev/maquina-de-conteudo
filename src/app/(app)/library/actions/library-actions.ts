@@ -242,7 +242,23 @@ export async function getLibraryItemsAction(
 
     return result
   } catch (error) {
-    console.error("Error fetching library items:", error)
+    console.error("[getLibraryItemsAction] Error fetching library items:", error)
+    
+    // Return empty paginated result instead of empty array to maintain consistency
+    if (filters.page !== undefined || filters.limit !== undefined) {
+      const page = filters.page ?? 1
+      const limit = filters.limit ?? 12
+      return {
+        items: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 0,
+        },
+      }
+    }
+    
     return []
   }
 }

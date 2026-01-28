@@ -157,7 +157,7 @@ async function validateOpenRouterKey(apiKey: string): Promise<{
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Máquina de Conteúdo",
+        "X-Title": process.env.NEXT_PUBLIC_APP_NAME || "contentMachine",
       },
     })
 

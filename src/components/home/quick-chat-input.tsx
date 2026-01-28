@@ -13,7 +13,11 @@ import { Send, MessageSquare, Sparkles } from "lucide-react"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 
-export function QuickChatInput() {
+interface QuickChatInputProps {
+  onAction?: () => void
+}
+
+export function QuickChatInput({ onAction }: QuickChatInputProps) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const [input, setInput] = useState("")
@@ -23,6 +27,11 @@ export function QuickChatInput() {
     e.preventDefault()
     const message = input.trim()
     if (!message) return
+
+    if (onAction) {
+      onAction()
+      return
+    }
 
     // Redirect to /chat with the message
     router.push(`/chat?new=true&message=${encodeURIComponent(message)}`)

@@ -288,3 +288,12 @@
     scrollbar-width: none;
   }
 }
+
+/* ============================================================================
+   NEXTJS PORTAL STYLES
+   ============================================================================ */
+/* Remove default positioning from Next.js portals */
+nextjs-portal {
+  left: unset !important;
+  top: unset !important;
+}

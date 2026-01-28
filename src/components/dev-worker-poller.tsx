@@ -51,9 +51,10 @@ export function DevWorkerPoller() {
 /**
  * DevWorkerStatus - Mostra o status do worker em desenvolvimento
  *
- * Uso: <DevWorkerStatus /> no seu layout para ver visualmente o status
+ * Uso: <DevWorkerStatus /> em qualquer lugar para ver visualmente o status
+ * Agora sem estilo fixo, adequado para ser usado dentro de cards/seções
  */
-export function DevWorkerStatus() {
+export function DevWorkerStatus({ className }: { className?: string }) {
   const [status, setStatus] = useState<{
     pending: number;
     processing: number;
@@ -95,7 +96,7 @@ export function DevWorkerStatus() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 bg-black/80 text-white text-xs px-3 py-2 rounded-lg border border-white/10 z-50 flex items-center gap-3">
+    <div className={`bg-white/[0.02] text-white text-xs px-3 py-2 rounded-lg border border-white/10 flex items-center gap-3 ${className || ""}`}>
       <div className="flex items-center gap-1.5">
         <div className={`w-2 h-2 rounded-full ${status?.pending === 0 ? "bg-green-500" : "bg-yellow-500 animate-pulse"}`} />
         <span className="text-white/70">Worker:</span>
