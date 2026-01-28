@@ -401,6 +401,7 @@ sequenceDiagram
     participant API as /api/jobs
     participant DB as Neon DB
     participant Redis as Upstash
+    participant QStash as Upstash QStash
     participant Worker as /api/workers
     participant Handler as Job Handler
 
@@ -409,7 +410,9 @@ sequenceDiagram
     API->>Redis: LPUSH jobs:pending
     API-->>Client: {jobId, status: "pending"}
 
-    Note over Worker: Triggered by cron/webhook
+    Note over QStash: Schedule: * * * * * (every minute)
+
+    QStash->>Worker: POST /api/workers (cron trigger)
 
     Worker->>Redis: RPOP jobs:pending
     Redis-->>Worker: jobId
@@ -453,32 +456,67 @@ sequenceDiagram
 | `social_publish_instagram` | Publish to Instagram (async) | ⭐ Implemented (Jan 2026) |
 | `social_publish_facebook` | Publish to Facebook (async) | ⭐ Implemented (Jan 2026) |
 
-### Worker Triggering: Development vs Production
+### Worker Triggering: Cron com Upstash QStash
 
-**CRITICAL:** Vercel Cron (`vercel.json`) only works in production deployment. Development requires manual triggering.
+**CRITICAL:** O sistema usa **Upstash QStash** para agendamento de cron jobs, substituindo o Vercel Cron.
 
-| Environment | Trigger Method | Implementation |
-|-------------|----------------|----------------|
-| **Development** | Manual via `triggerWorker()` | Called after job creation |
-| **Production** | Vercel Cron | Every minute via `vercel.json` |
+| Característica | Vercel Cron (Pro) | Upstash QStash |
+|----------------|-------------------|----------------|
+| **Custo** | $20/mês | Grátis (500k/mês) |
+| **Frequência mínima** | 1 minuto (Pro) / 1 hora (Hobby) | 1 minuto (Free) |
+| **Gerenciamento** | `vercel.json` | SDK TypeScript |
 
-```typescript
-// Auto-trigger pattern in development
-import { triggerWorker } from "@/lib/queue/client";
+### Configuração QStash
 
-function isDevelopment(): boolean {
-  return process.env.NODE_ENV === "development";
-}
+```bash
+# Setup inicial (configura todos os schedules)
+npm run cron:setup
 
-// After creating a job
-if (isDevelopment()) {
-  triggerWorker().catch((err) => {
-    console.error("Failed to trigger worker in development:", err);
-  });
-}
+# Verificar saúde
+npm run cron:health
+
+# Remover todos os schedules
+npm run cron:remove
+
+# Trigger manual
+npm run cron:trigger workers
 ```
 
-**Worker Authentication:** The `/api/workers` endpoint bypasses Clerk auth and uses `WORKER_SECRET` instead (configured in `src/proxy.ts`).
+### Schedules Configurados
+
+```typescript
+// src/lib/cron/qstash.ts
+export const cronSchedules: Record<string, QStashSchedule> = {
+  workers: {
+    cron: "* * * * *", // A cada minuto
+    endpoint: "/api/workers",
+    payload: { source: "qstash", job: "workers" },
+  },
+  socialPublish: {
+    cron: "*/5 * * * *", // A cada 5 minutos
+    endpoint: "/api/cron/social-publish",
+    payload: { source: "qstash", job: "social-publish" },
+  },
+};
+```
+
+### Variáveis de Ambiente
+
+```env
+# QStash (usa UPSTASH_REDIS_REST_TOKEN como fallback)
+QSTASH_URL=https://qstash-us-east-1.upstash.io
+QSTASH_TOKEN=eyJ1c2VySWQiOi...
+QSTASH_CURRENT_SIGNING_KEY=sig_...
+QSTASH_NEXT_SIGNING_KEY=sig_...
+
+# Autenticação do cron
+CRON_SECRET=dev-secret-change-in-production
+
+# URL para callbacks do QStash
+NEXT_PUBLIC_APP_URL=https://your-domain.com
+```
+
+**Worker Authentication:** O endpoint `/api/workers` bypassa Clerk auth e usa `WORKER_SECRET` (configurado em `src/proxy.ts`).
 
 ## Error Handling Architecture (Jan 2026)
 
@@ -1176,7 +1214,7 @@ sequenceDiagram
     API-->>UI: { queued: true, jobId }
     UI->>User: Toast "Publicação enfileirada"
 
-    Note over Worker: Triggered by cron (1min)
+    Note over Worker: Triggered by QStash cron (1min)
 
     Worker->>Queue: RPOP job
     Worker->>IG: Create container
@@ -1230,8 +1268,8 @@ graph TD
         Publish --> Immediate{Immediate?}
         Immediate -->|Yes| API[Instagram/Facebook API]
         Immediate -->|No| Scheduled[Scheduled Status]
-        Scheduled --> Cron[Cron Worker]
-        Cron --> API
+        Scheduled --> QStashCron[QStash Cron]
+        QStashCron --> API
     end
 
     API --> Result[Platform Post ID/URL]

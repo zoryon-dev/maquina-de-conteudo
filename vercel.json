@@ -1,12 +1,3 @@
 {
-  "crons": [
-    {
-      "path": "/api/workers",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/social-publish",
-      "schedule": "*/5 * * * *"
-    }
-  ]
+  "_comment": "Cron jobs agora são gerenciados pelo Upstash QStash (veja: npm run cron:setup)"
 }

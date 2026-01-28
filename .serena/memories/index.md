@@ -38,6 +38,7 @@
 - **[database-patterns](serena:read?memory=database-patterns.md)** - Banco de dados com Drizzle ORM ⭐
 - **[auth-patterns](serena:read?memory=auth-patterns.md)** - Autenticação com Clerk ⭐
 - **[zep-multi-agent-status](serena:read?memory=zep-multi-agent-status.md)** - Sistema Multi-Agent ZEP
+- **[qstash-patterns](serena:read?memory=qstash-patterns.md)** - Cron Jobs com Upstash QStash ⭐ NOVO
 
 ## Stack Tecnológica
 
@@ -56,6 +57,7 @@
 | **AI SDK** | **Vercel AI SDK** | **1.x** ⭐ |
 | **LLM Provider** | **OpenRouter** | **-** ⭐ |
 | **Embeddings** | **Voyage AI** | **voyage-4-large** ⭐ |
+| **Cron Jobs** | **Upstash QStash** | **-** ⭐ |
 
 ## Dependências Principais
 
@@ -116,6 +118,14 @@ npm run db:generate  # Gera migration
 npm run db:migrate   # Executa migration
 npm run db:push      # Push schema (sem migration)
 npm run db:studio    # Interface visual Drizzle
+```
+
+### Cron Jobs (QStash)
+```bash
+npm run cron:setup    # Configura schedules no QStash
+npm run cron:remove   # Remove todos os schedules
+npm run cron:health   # Verifica saúde do sistema
+npm run cron:trigger  # Trigger manual de job
 ```
 
 ## Convenções de Nome

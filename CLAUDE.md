@@ -19,6 +19,7 @@ Estúdio de conteúdo alimentado por IA para criar, editar e gerenciar posts par
 | Embeddings | Voyage AI | voyage-4-large |
 | Search | Tavily | - |
 | Scraping | Firecrawl | - |
+| **Cron Jobs** | **Upstash QStash** | **-** ⭐ |
 | Animação | Framer Motion | - |
 | Ícones | Lucide React | - |
 
@@ -124,6 +125,13 @@ R2_CUSTOM_DOMAIN=storage-mc.zoryon.org
 META_APP_ID=your_meta_app_id
 META_APP_SECRET=your_meta_app_secret
 META_REDIRECT_URI=http://localhost:3000/api/social/callback  # Produção: https://yourdomain.com/api/social/callback
+
+# Upstash QStash (Cron Jobs)
+QSTASH_URL=https://qstash-us-east-1.upstash.io
+QSTASH_TOKEN=eyJ1c2VySWQiOi...  # Opcional - usa UPSTASH_REDIS_REST_TOKEN se não definido
+QSTASH_CURRENT_SIGNING_KEY=sig_...
+QSTASH_NEXT_SIGNING_KEY=sig_...
+CRON_SECRET=dev-cron-secret-change-in-production
 ```
 
 ## Comandos Úteis
@@ -140,6 +148,12 @@ npm run lint
 npx drizzle-kit generate  # Gerar migration
 npx drizzle-kit migrate   # Executar migration
 npx drizzle-kit studio    # Interface visual
+
+# Cron Jobs (QStash)
+npm run cron:setup        # Configura schedules no QStash
+npm run cron:remove       # Remove todos os schedules
+npm run cron:health       # Verifica saúde do sistema
+npm run cron:trigger      # Trigger manual de job
 ```
 
 ## Como Usar os Agentes
@@ -276,7 +290,14 @@ chore: dependências
 - **Tokens:** Page Access Token (EAF) for publishing, User Access Token (EAAE) for fetching pages
 - **Async Publishing (Jan 2026):** Immediate publishing uses job queue to prevent UI blocking (30-60s IG processing)
 - **Status Flow:** PUBLISHING → (worker) → PUBLISHED/FAILED
-- **Cron Jobs:** `/api/workers` (1min), `/api/cron/social-publish` (5min)
+- **Cron Jobs:** Upstash QStash agencia `/api/workers` (1min) e `/api/cron/social-publish` (5min)
+
+### Cron Jobs (Upstash QStash)
+- **Memória Serena:** `qstash-patterns`
+- **Arquivos:** `src/lib/cron/qstash.ts`, `src/app/api/cron/qstash/route.ts`
+- **Features:** Schedules gerenciados via SDK, retry automático, health check
+- **Custo:** Grátis (500k requisições/mês) vs $20/mês do Vercel Cron Pro
+- **Setup:** `npm run cron:setup` (configura todos os schedules automaticamente)
 
 ---
 
@@ -361,3 +382,4 @@ Consulte via Serena para padrões detalhados:
 | `prompt-system` | Sistema de prompts |
 | `wizard-patterns` | Wizard de criação (Prompts v4 Tribal, 4 ângulos tribais) |
 | `social-integration-patterns` | Integração Meta (Instagram/Facebook) - OAuth, Publishing API |
+| `qstash-patterns` | Cron Jobs com Upstash QStash |
