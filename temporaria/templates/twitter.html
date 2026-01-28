@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitter Style Template</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #15202b;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1080px;
+            width: 100%;
+            aspect-ratio: 4/5;
+            background: #1c2938;
+            border-radius: 16px;
+            padding: 50px 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .avatar {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #a3e635 0%, #84cc16 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #000;
+            font-size: 1.5rem;
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .username {
+            font-weight: 700;
+            color: #ffffff;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .verified {
+            width: 18px;
+            height: 18px;
+            background: #1d9bf0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .verified svg {
+            width: 12px;
+            height: 12px;
+            fill: #ffffff;
+        }
+
+        .handle {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.95rem;
+        }
+
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .headline {
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+            font-weight: 700;
+            color: #ffffff;
+            line-height: 1.3;
+            margin-bottom: 20px;
+        }
+
+        .paragrafo1 {
+            font-size: clamp(0.95rem, 2vw, 1.2rem);
+            color: rgba(255, 255, 255, 0.85);
+            line-height: 1.5;
+            margin-bottom: 15px;
+        }
+
+        .paragrafo2 {
+            font-size: clamp(0.95rem, 2vw, 1.2rem);
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .destaque {
+            display: inline-block;
+            background: rgba(163, 230, 53, 0.15);
+            color: #a3e635;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            border: 1px solid rgba(163, 230, 53, 0.3);
+        }
+
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .date {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.85rem;
+        }
+
+        .engagement {
+            display: flex;
+            gap: 20px;
+        }
+
+        .engagement-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
+        }
+
+        .engagement-item svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="avatar">{{author}}</div>
+            <div class="user-info">
+                <div class="username">
+                    {{author}}
+                    <div class="verified">
+                        <svg viewBox="0 0 24 24"><path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .495.083.965.238 1.4-1.272.65-2.147 2.018-2.147 3.6 0 2.49 2.028 4.5 4.5 4.5.666 0 1.298-.146 1.868-.406.34.51.836.92 1.402 1.206-.127.36-.197.746-.197 1.152 0 1.313 1.064 2.376 2.377 2.376.405 0 .788-.084 1.14-.236.473.51 1.076.84 1.744.84.796 0 1.496-.435 1.857-1.083.36.648 1.06 1.083 1.857 1.083.667 0 1.27-.33 1.743-.84.353.152.735.236 1.14.236 1.313 0 2.312-1.064 2.312-2.376 0-.406-.07-.792-.197-1.152.566-.286 1.062-.696 1.402-1.206.57.26 1.202.406 1.868.406 2.472 0 4.5-2.028 4.5-4.5z"/></svg>
+                    </div>
+                </div>
+                <div class="handle">@{{handle}}</div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <h1 class="headline">{{headline}}</h1>
+            <p class="paragrafo1">{{paragrafo1}}</p>
+            <p class="paragrafo2">{{paragrafo2}}</p>
+            <span class="destaque">{{destaque}}</span>
+        </div>
+
+        <div class="footer">
+            <span class="date">{{date}}</span>
+            <div class="engagement">
+                <div class="engagement-item">
+                    <svg viewBox="0 0 24 24"><path d="M14.046 2.242l-4.126 7.885 9.86 1.27-9.86 1.27 4.126 7.885-7.063-5.919-7.063 5.919z"/></svg>
+                    <span>2.4K</span>
+                </div>
+                <div class="engagement-item">
+                    <svg viewBox="0 0 24 24"><path d="M1.75 6h20.5c.966 0 1.75.784 1.75 1.75v8.5c0 .966-.784 1.75-1.75 1.75H1.75c-.966 0-1.75-.784-1.75-1.75V7.75c0-.966.784-1.75 1.75-1.75zM12 12.25l-9.125-6h18.25L12 12.25z"/></svg>
+                    <span>847</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

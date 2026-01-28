@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>White Mode Template</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1080px;
+            width: 100%;
+            aspect-ratio: 4/5;
+            background: #ffffff;
+            border-radius: 24px;
+            padding: 60px 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 200px;
+            height: 200px;
+            background: linear-gradient(135deg, #a3e635 0%, #84cc16 100%);
+            border-radius: 0 24px 0 100%;
+            opacity: 0.1;
+        }
+
+        .content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .headline {
+            font-size: clamp(2rem, 6vw, 3.5rem);
+            font-weight: 800;
+            color: #1a1a2e;
+            line-height: 1.2;
+            margin-bottom: 30px;
+            letter-spacing: -0.02em;
+        }
+
+        .headline span {
+            color: #84cc16;
+        }
+
+        .descricao {
+            font-size: clamp(1rem, 2.5vw, 1.4rem);
+            color: rgba(26, 26, 46, 0.7);
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .subtitulo {
+            font-size: clamp(0.9rem, 2vw, 1.1rem);
+            color: rgba(26, 26, 46, 0.5);
+            line-height: 1.5;
+        }
+
+        .accent-line {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            right: 40px;
+            height: 4px;
+            background: linear-gradient(90deg, #a3e635 0%, #84cc16 100%);
+            border-radius: 2px;
+        }
+
+        .number {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            font-size: 6rem;
+            font-weight: 900;
+            color: rgba(163, 230, 53, 0.1);
+            line-height: 1;
+        }
+
+        .decorative-dots {
+            position: absolute;
+            bottom: 60px;
+            right: 40px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background: #a3e635;
+            border-radius: 50%;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="number">01</div>
+        <div class="content">
+            <h1 class="headline">{{headline}}</h1>
+            <p class="descricao">{{descricao}}</p>
+            <p class="subtitulo">{{subtitulo}}</p>
+        </div>
+        <div class="decorative-dots">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>
+        <div class="accent-line"></div>
+    </div>
+</body>
+</html>

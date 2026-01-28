@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Headline Template</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #0a0a0f;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1080px;
+            width: 100%;
+            aspect-ratio: 4/5;
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
+            border-radius: 24px;
+            padding: 60px 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .grid-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image:
+                linear-gradient(rgba(163, 230, 53, 0.1) 2px, transparent 2px),
+                linear-gradient(90deg, rgba(163, 230, 53, 0.1) 2px, transparent 2px);
+            background-size: 100px 100px;
+            opacity: 0.5;
+        }
+
+        .grid-background::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            height: 80%;
+            background: radial-gradient(circle, rgba(163, 230, 53, 0.15) 0%, transparent 70%);
+        }
+
+        .content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            max-width: 90%;
+        }
+
+        .headline {
+            font-size: clamp(2.5rem, 8vw, 5rem);
+            font-weight: 900;
+            color: #ffffff;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+            text-transform: uppercase;
+        }
+
+        .headline span {
+            color: #a3e635;
+            display: block;
+        }
+
+        .cta {
+            margin-top: 40px;
+            display: inline-block;
+            padding: 18px 40px;
+            background: #a3e635;
+            color: #0a0a0f;
+            font-size: clamp(0.9rem, 2vw, 1.2rem);
+            font-weight: 700;
+            border-radius: 50px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .corner-accent {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            border: 3px solid #a3e635;
+            opacity: 0.3;
+        }
+
+        .corner-accent.top-left {
+            top: 30px;
+            left: 30px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .corner-accent.bottom-right {
+            bottom: 30px;
+            right: 30px;
+            border-left: none;
+            border-top: none;
+        }
+
+        .number {
+            position: absolute;
+            font-size: 20rem;
+            font-weight: 900;
+            color: rgba(163, 230, 53, 0.03);
+            line-height: 1;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        .arrows {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            opacity: 0.5;
+        }
+
+        .arrow {
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 12px solid #a3e635;
+        }
+
+        .arrow:nth-child(2) {
+            opacity: 0.6;
+            transform: translateY(-5px);
+        }
+
+        .arrow:nth-child(3) {
+            opacity: 0.3;
+            transform: translateY(-10px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="grid-background"></div>
+        <div class="corner-accent top-left"></div>
+        <div class="corner-accent bottom-right"></div>
+        <div class="number">01</div>
+
+        <div class="content">
+            <h1 class="headline">
+                {{headline}}
+            </h1>
+            <div class="cta">{{cta}}</div>
+        </div>
+
+        <div class="arrows">
+            <div class="arrow"></div>
+            <div class="arrow"></div>
+            <div class="arrow"></div>
+        </div>
+    </div>
+</body>
+</html>
