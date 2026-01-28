@@ -11,17 +11,16 @@ import { neon } from '@neondatabase/serverless';
 import { config } from 'dotenv';
 config({ path: '.env.local' });
 
-const DATABASE_URL = process.env.DATABASE_URL;
-
-if (!DATABASE_URL) {
-  console.error('❌ DATABASE_URL environment variable is not set');
-  process.exit(1);
-}
-
 async function applyMigration() {
   console.log('🔄 Applying oauth_sessions table migration...\n');
 
-  const sql = neon(DATABASE_URL);
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    console.error('❌ DATABASE_URL environment variable is not set');
+    return false;
+  }
+
+  const sql = neon(databaseUrl);
 
   try {
     // 1. Create oauth_sessions table

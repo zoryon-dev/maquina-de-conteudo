@@ -22,6 +22,7 @@
 - Itens de lista clicáveis com checkbox: usar `div` com `role="button"` e `tabIndex` para evitar `<button>` aninhado
 - Botões `outline` no dark mode precisam cores explícitas (ex.: `bg-white/5`, `text-white/80`, `border-white/20`)
 - Logging: evitar `console.log`/`console.warn`/`console.info`/`console.debug` no app; manter apenas `console.error` quando necessário (falhas/observabilidade), sem vazar tokens/segredos
+- Scripts de migração devem validar `DATABASE_URL` dentro da função antes de usar `neon()` para evitar erro de tipo no build
 - Seleção de tipo "Vídeo" no wizard deve redirecionar para `/wizard?type=video`
 - Blocos de ações rápidas no dashboard devem ficar dentro de card com borda sutil e grid 2 colunas
 - Preview de vídeo na biblioteca usa thumbnail 16:9 com ações e seções colapsáveis (SEO/hashtags/descrição/roteiro)
