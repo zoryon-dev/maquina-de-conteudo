@@ -7,7 +7,7 @@
 
 'use server';
 
-import { auth } from '@clerk/nextjs/server';
+import { ensureAuthenticatedUser } from '@/lib/auth/ensure-user';
 import { db } from '@/db';
 import { themes, themeTags, tags } from '@/db/schema';
 import { eq, and, isNull, desc, ilike, inArray, sql } from 'drizzle-orm';
@@ -69,10 +69,7 @@ export interface UpdateThemeInput extends Partial<CreateThemeInput> {
  * Get all themes for the current user with pagination support.
  */
 export async function getThemesAction(filters?: ThemeFilters): Promise<PaginatedThemesResponse | Theme[]> {
-  const { userId } = await auth();
-  if (!userId) {
-    throw new Error('Unauthorized');
-  }
+  const userId = await ensureAuthenticatedUser();
 
   const page = filters?.page || 1;
   const limit = filters?.limit || 12;
@@ -130,10 +127,7 @@ export async function getThemesAction(filters?: ThemeFilters): Promise<Paginated
  * Get a single theme by ID.
  */
 export async function getThemeAction(id: number) {
-  const { userId } = await auth();
-  if (!userId) {
-    throw new Error('Unauthorized');
-  }
+  const userId = await ensureAuthenticatedUser();
 
   const [theme] = await db
     .select()
@@ -151,10 +145,7 @@ export async function getThemeAction(id: number) {
  * Create a new theme.
  */
 export async function createThemeAction(data: CreateThemeInput) {
-  const { userId } = await auth();
-  if (!userId) {
-    throw new Error('Unauthorized');
-  }
+  const userId = await ensureAuthenticatedUser();
 
   console.log('[createThemeAction] Creating theme for user:', userId);
   console.log('[createThemeAction] Theme data:', JSON.stringify({ ...data, sourceData: '[omitted]' }));
@@ -199,10 +190,7 @@ export async function createThemeAction(data: CreateThemeInput) {
 export async function createThemesFromDiscoveryAction(
   topics: TrendingTopicWithBriefing[]
 ): Promise<Theme[]> {
-  const { userId } = await auth();
-  if (!userId) {
-    throw new Error('Unauthorized');
-  }
+  const userId = await ensureAuthenticatedUser();
 
   if (topics.length === 0) {
     return [];
@@ -241,10 +229,7 @@ export async function createThemesFromDiscoveryAction(
  * Update an existing theme.
  */
 export async function updateThemeAction(data: UpdateThemeInput) {
-  const { userId } = await auth();
-  if (!userId) {
-    throw new Error('Unauthorized');
-  }
+  const userId = await ensureAuthenticatedUser();
 
   const { id, ...updateData } = data;
 
@@ -264,10 +249,7 @@ export async function updateThemeAction(data: UpdateThemeInput) {
  * Update theme status.
  */
 export async function updateThemeStatusAction(id: number, status: ThemeStatus) {
-  const { userId } = await auth();
-  if (!userId) {
-    throw new Error('Unauthorized');
-  }
+  const userId = await ensureAuthenticatedUser();
 
   const [theme] = await db
     .update(themes)
@@ -286,10 +268,7 @@ export async function updateThemeStatusAction(id: number, status: ThemeStatus) {
  * Soft delete a theme.
  */
 export async function deleteThemeAction(id: number) {
-  const { userId } = await auth();
-  if (!userId) {
-    throw new Error('Unauthorized');
-  }
+  const userId = await ensureAuthenticatedUser();
 
   const [theme] = await db
     .update(themes)
@@ -304,10 +283,7 @@ export async function deleteThemeAction(id: number) {
  * Delete multiple themes.
  */
 export async function deleteThemesAction(ids: number[]) {
-  const { userId } = await auth();
-  if (!userId) {
-    throw new Error('Unauthorized');
-  }
+  const userId = await ensureAuthenticatedUser();
 
   const result = await db
     .update(themes)
@@ -331,10 +307,7 @@ export async function deleteThemesAction(ids: number[]) {
  * Get theme categories for the current user.
  */
 export async function getThemeCategoriesAction() {
-  const { userId } = await auth();
-  if (!userId) {
-    throw new Error('Unauthorized');
-  }
+  const userId = await ensureAuthenticatedUser();
 
   const userThemes = await db
     .select({ category: themes.category })
@@ -352,10 +325,7 @@ export async function getThemeCategoriesAction() {
  * Get theme statistics.
  */
 export async function getThemeStatsAction() {
-  const { userId } = await auth();
-  if (!userId) {
-    throw new Error('Unauthorized');
-  }
+  const userId = await ensureAuthenticatedUser();
 
   const userThemes = await db
     .select()

@@ -6,11 +6,11 @@
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { contentWizards, type NewContentWizard } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import type { PostType, WizardStep } from "@/db/schema";
+import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
 
 /**
  * POST /api/wizard
@@ -18,10 +18,7 @@ import type { PostType, WizardStep } from "@/db/schema";
  * Creates a new content wizard for the authenticated user.
  */
 export async function POST(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await ensureAuthenticatedUser();
 
   try {
     const body = await request.json();
@@ -117,10 +114,7 @@ export async function POST(request: Request) {
  * Lists all wizards for the authenticated user.
  */
 export async function GET(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await ensureAuthenticatedUser();
 
   try {
     const { searchParams } = new URL(request.url);
