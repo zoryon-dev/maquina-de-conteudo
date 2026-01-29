@@ -28,14 +28,7 @@ import {
   DocumentSelectorDialog,
   type RagSelection,
 } from "./document-selector-dialog";
-
-export interface RagConfig {
-  mode?: "auto" | "manual" | "off";
-  threshold?: number;
-  maxChunks?: number;
-  documents?: number[];
-  collections?: number[];
-}
+import type { RagConfig } from "@/lib/wizard-services/types";
 
 interface DocumentConfigFormProps {
   config: RagConfig;

@@ -27,14 +27,12 @@ import type { PostType } from "@/db/schema";
 // Video-specific steps
 import { StepVideoConfiguration } from "./steps/video/step-video-configuration";
 import { Step3Narratives, type Narrative, type SynthesizedResearch } from "./steps/step-3-narratives";
-import { type RagConfig } from "./shared/document-config-form";
 import { StepVideoScript } from "./steps/video/step-video-script";
 import { StepVideoTitles } from "./steps/video/step-video-titles";
 import { StepVideoThumbnail } from "./steps/video/step-video-thumbnail";
 
-import type { VideoDuration } from "@/lib/wizard-services/types";
+import type { RagConfig, VideoDuration, VideoScriptStructured } from "@/lib/wizard-services/types";
 import type { VideoTitleOption } from "@/lib/wizard-services/video-titles.service";
-import type { VideoScriptStructured } from "@/lib/wizard-services/types";
 
 // ============================================================================
 // TYPES

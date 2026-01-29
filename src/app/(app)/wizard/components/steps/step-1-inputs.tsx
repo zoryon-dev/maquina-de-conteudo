@@ -43,11 +43,11 @@ import { cn } from "@/lib/utils";
 import {
   CollapsibleSection,
 } from "@/components/ui/collapsible";
-import { DocumentConfigForm, type RagConfig } from "../shared/document-config-form";
+import { DocumentConfigForm } from "../shared/document-config-form";
 import type { PostType } from "@/db/schema";
 import { TEXT_MODELS, DEFAULT_TEXT_MODEL, type ModelProvider } from "@/lib/models";
-import type { VideoDuration } from "@/lib/wizard-services/types";
 import type { ImageGenerationConfig } from "@/lib/wizard-services/image-types";
+import type { RagConfig, VideoDuration } from "@/lib/wizard-services/types";
 
 export interface WizardFormData {
   contentType?: PostType;
@@ -60,13 +60,7 @@ export interface WizardFormData {
   objective?: string;
   cta?: string;
   targetAudience?: string;
-  ragConfig?: {
-    mode?: "auto" | "manual" | "off";
-    threshold?: number;
-    maxChunks?: number;
-    documents?: number[];
-    collections?: number[];
-  };
+  ragConfig?: RagConfig;
   negativeTerms?: string[];
   // v4.0 video-specific fields
   videoDuration?: VideoDuration;
@@ -701,12 +695,12 @@ export function Step1Inputs({
                     Duração do Roteiro
                   </Label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {[
-                      { value: "3-5min" as VideoDuration, label: "3-5 min" },
-                      { value: "5-10min" as VideoDuration, label: "5-10 min" },
-                      { value: "10min+" as VideoDuration, label: "10+ min" },
-                      { value: "curto" as VideoDuration, label: "Curto (30-60s)" },
-                    ].map((option) => (
+                    {([
+                      { value: "2-5min", label: "2-5 min" },
+                      { value: "5-10min", label: "5-10 min" },
+                      { value: "+10min", label: "10-20 min" },
+                      { value: "+30min", label: "30+ min" },
+                    ] satisfies Array<{ value: VideoDuration; label: string }>).map((option) => (
                       <motion.button
                         key={option.value}
                         type="button"

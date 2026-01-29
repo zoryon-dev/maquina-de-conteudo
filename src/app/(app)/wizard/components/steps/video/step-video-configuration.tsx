@@ -29,8 +29,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 import type { SynthesizedResearch } from "../step-3-narratives";
-import type { RagConfig } from "../../shared/document-config-form";
-import type { VideoDuration } from "@/lib/wizard-services/types";
+import type { RagConfig, VideoDuration } from "@/lib/wizard-services/types";
 import type { VideoWizardFormData } from "../../wizard-video-page";
 import { DocumentConfigForm } from "../../shared/document-config-form";
 

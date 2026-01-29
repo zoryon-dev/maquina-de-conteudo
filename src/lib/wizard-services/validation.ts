@@ -51,7 +51,7 @@ export function validateCarouselResponse(
     );
   }
 
-  const carousel = response as Record<string, unknown>;
+  const carousel = response as ZoryonCarousel & Record<string, unknown>;
 
   // Validate throughline
   if (!carousel.throughline || typeof carousel.throughline !== "string") {
@@ -260,7 +260,7 @@ export function validateCarouselResponse(
   }
 
   // If we got here, validation passed!
-  return carousel as unknown as ZoryonCarousel;
+  return carousel;
 }
 
 // ============================================================================

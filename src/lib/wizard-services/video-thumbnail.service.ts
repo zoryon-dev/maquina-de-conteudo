@@ -226,7 +226,7 @@ function getNanoBananaUserPrompt(params: GenerateVideoThumbnailParams): string {
     expressao,
     referenciaImagem1,
     referenciaImagem2,
-    variacaoIndex,
+    variacaoIndex = 0,
   } = params;
 
   // Style mapping
