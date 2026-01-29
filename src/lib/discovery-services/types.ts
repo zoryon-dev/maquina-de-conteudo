@@ -81,6 +81,7 @@ export interface DiscoveryResult {
     afterFiltering: number;
     platformsSearched: Platform[];
     searchTime: number;
+    platformErrors?: Record<string, string>;
   };
 }
 

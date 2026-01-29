@@ -84,22 +84,31 @@ export class DiscoveryService {
     const startTime = Date.now();
     const opts = { ...DEFAULT_OPTIONS, ...options };
 
+    console.log(`[Discovery] Starting search for keyword: "${opts.keyword}"`);
+    console.log(`[Discovery] Platforms: ${opts.platforms.join(', ')}`);
+
     // Build array of platform searches with their names
     const platformSearches: Array<{ name: Platform; promise: Promise<TrendingTopic[]> }> = [];
 
     if (opts.platforms.includes('youtube')) {
+      const hasApiKey = !!(process.env.YOUTUBE_DATA_API_KEY || process.env.GOOGLE_API_KEY);
+      console.log(`[Discovery] YouTube API configured: ${hasApiKey}`);
       platformSearches.push({
         name: 'youtube',
         promise: this.youtube.discoverByKeyword(opts.keyword, opts.timeRange)
       });
     }
     if (opts.platforms.includes('instagram')) {
+      const hasApiKey = !!(process.env.APIFY_API_TOKEN || process.env.APIFY_API_KEY);
+      console.log(`[Discovery] Instagram/Apify API configured: ${hasApiKey}`);
       platformSearches.push({
         name: 'instagram',
         promise: this.instagram.discoverByKeyword(opts.keyword)
       });
     }
     if (opts.platforms.includes('perplexity')) {
+      const hasApiKey = !!process.env.PERPLEXITY_API_KEY;
+      console.log(`[Discovery] Perplexity API configured: ${hasApiKey}`);
       platformSearches.push({
         name: 'perplexity',
         promise: this.perplexity.discoverByKeyword(opts.keyword)
@@ -113,14 +122,24 @@ export class DiscoveryService {
 
     // Step 2: Aggregate all results
     const allTopics: TrendingTopic[] = [];
+    const platformErrors: Record<string, string> = {};
+
     platformResults.forEach((result, index) => {
       const platform = platformSearches[index].name;
       if (result.status === 'fulfilled' && result.value) {
+        console.log(`[Discovery] ${platform}: found ${result.value.length} topics`);
         allTopics.push(...result.value);
       } else if (result.status === 'rejected') {
-        console.error(`[Discovery] ${platform} failed:`, result.reason);
+        const errorMsg = result.reason instanceof Error ? result.reason.message : String(result.reason);
+        console.error(`[Discovery] ${platform} failed:`, errorMsg);
+        platformErrors[platform] = errorMsg;
       }
     });
+
+    console.log(`[Discovery] Total topics fetched: ${allTopics.length}`);
+    if (allTopics.length === 0) {
+      console.warn(`[Discovery] No topics found. Platform errors:`, platformErrors);
+    }
 
     // Step 3: Filter by similarity
     const topicsWithSimilarity = await this.similarity.filterBySimilarity(
@@ -128,6 +147,8 @@ export class DiscoveryService {
       opts.keyword,
       opts.minSimilarity ?? DEFAULT_OPTIONS.minSimilarity
     );
+
+    console.log(`[Discovery] After similarity filtering: ${topicsWithSimilarity.length} topics`);
 
     // Step 4: Rank by composite score (60% engagement + 40% similarity)
     const ranked = this.rankTopics(topicsWithSimilarity);
@@ -138,13 +159,17 @@ export class DiscoveryService {
     // Step 6: Enrich with AI briefings
     const enriched = await this.briefing.enrichBatch(topTopics);
 
+    const searchTime = Date.now() - startTime;
+    console.log(`[Discovery] Search completed in ${searchTime}ms`);
+
     return {
       topics: enriched as TrendingTopicWithBriefing[],
       metadata: {
         totalFetched: allTopics.length,
         afterFiltering: topicsWithSimilarity.length,
         platformsSearched: opts.platforms,
-        searchTime: Date.now() - startTime,
+        searchTime,
+        platformErrors: Object.keys(platformErrors).length > 0 ? platformErrors : undefined,
       },
     };
   }
