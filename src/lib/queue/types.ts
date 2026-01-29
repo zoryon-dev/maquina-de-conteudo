@@ -143,7 +143,7 @@ export interface WizardNarrativesPayload {
   customInstructions?: string;
   /** RAG configuration */
   ragConfig?: {
-    mode?: "auto" | "manual";
+    mode?: "auto" | "manual" | "off";
     threshold?: number;
     maxChunks?: number;
     documents?: number[];
@@ -170,7 +170,7 @@ export interface WizardGenerationPayload {
   model?: string;
   /** RAG configuration */
   ragConfig?: {
-    mode?: "auto" | "manual";
+    mode?: "auto" | "manual" | "off";
     threshold?: number;
     maxChunks?: number;
     documents?: number[];

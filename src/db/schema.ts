@@ -477,7 +477,7 @@ export const contentWizards = pgTable(
 
     // RAG config
     ragConfig: jsonb("rag_config").$type<{
-      mode?: "auto" | "manual"
+      mode?: "auto" | "manual" | "off"
       threshold?: number
       maxChunks?: number
       documents?: number[]

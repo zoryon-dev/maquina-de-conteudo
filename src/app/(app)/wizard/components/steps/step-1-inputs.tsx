@@ -61,7 +61,7 @@ export interface WizardFormData {
   cta?: string;
   targetAudience?: string;
   ragConfig?: {
-    mode?: "auto" | "manual";
+    mode?: "auto" | "manual" | "off";
     threshold?: number;
     maxChunks?: number;
     documents?: number[];
