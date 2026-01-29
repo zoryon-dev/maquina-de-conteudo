@@ -184,6 +184,30 @@ async function processJob(payload: {
       return { success: true, data };
     }
 
+    case "social-refresh": {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const cronSecret = process.env.CRON_SECRET || process.env.WORKER_SECRET;
+
+      const response = await fetch(`${appUrl}/api/cron/social-refresh`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${cronSecret}`,
+          "X-QStash-Source": "callback",
+        },
+        signal: AbortSignal.timeout(60_000),
+      });
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: `Social refresh returned ${response.status}`,
+        };
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    }
+
     default:
       return {
         success: false,
@@ -332,6 +356,7 @@ export async function GET(request: Request) {
     jobs: {
       workers: "Process worker queue (every minute)",
       "social-publish": "Publish scheduled social posts (every 5 minutes)",
+      "social-refresh": "Refresh Meta tokens for Instagram connections (daily)",
     },
   });
 }

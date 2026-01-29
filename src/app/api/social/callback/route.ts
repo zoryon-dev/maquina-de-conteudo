@@ -85,7 +85,8 @@ async function ensureUserRecord(userId: string) {
   if (existing.length > 0) return
 
   try {
-    const clerkUser = await clerkClient.users.getUser(userId)
+    const clerk = await clerkClient()
+    const clerkUser = await clerk.users.getUser(userId)
     const primaryEmail =
       clerkUser.emailAddresses.find((email) => email.id === clerkUser.primaryEmailAddressId)
         ?.emailAddress || clerkUser.emailAddresses[0]?.emailAddress
