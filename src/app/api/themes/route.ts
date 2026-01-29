@@ -62,9 +62,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    await ensureAuthenticatedUser();
+    console.log('[ThemesAPI] POST request received');
+    const userId = await ensureAuthenticatedUser();
+    console.log('[ThemesAPI] User authenticated:', userId);
 
     const body = await req.json();
+    console.log('[ThemesAPI] Request body keys:', Object.keys(body));
+    console.log('[ThemesAPI] Source type:', body.sourceType);
+
     const theme = await createThemeAction(body);
     return NextResponse.json(theme, { status: 201 });
   } catch (error) {

@@ -156,28 +156,41 @@ export async function createThemeAction(data: CreateThemeInput) {
     throw new Error('Unauthorized');
   }
 
-  const [theme] = await db
-    .insert(themes)
-    .values({
-      userId,
-      title: data.title,
-      theme: data.theme,
-      context: data.context,
-      targetAudience: data.targetAudience,
-      briefing: data.briefing,
-      keyPoints: data.keyPoints || [],
-      angles: data.angles || [],
-      sourceType: data.sourceType || 'manual',
-      sourceUrl: data.sourceUrl,
-      sourceData: data.sourceData,
-      engagementScore: data.engagementScore,
-      category: data.category,
-      tags: data.tags || [],
-      status: data.status || 'active',
-    })
-    .returning();
+  console.log('[createThemeAction] Creating theme for user:', userId);
+  console.log('[createThemeAction] Theme data:', JSON.stringify({ ...data, sourceData: '[omitted]' }));
 
-  return theme;
+  try {
+    const [theme] = await db
+      .insert(themes)
+      .values({
+        userId,
+        title: data.title,
+        theme: data.theme,
+        context: data.context,
+        targetAudience: data.targetAudience,
+        briefing: data.briefing,
+        keyPoints: data.keyPoints || [],
+        angles: data.angles || [],
+        sourceType: data.sourceType || 'manual',
+        sourceUrl: data.sourceUrl,
+        sourceData: data.sourceData,
+        engagementScore: data.engagementScore,
+        category: data.category,
+        tags: data.tags || [],
+        status: data.status || 'active',
+      })
+      .returning();
+
+    console.log('[createThemeAction] Theme created successfully:', theme.id);
+    return theme;
+  } catch (error) {
+    console.error('[createThemeAction] Database error:', error);
+    if (error instanceof Error) {
+      console.error('[createThemeAction] Error message:', error.message);
+      console.error('[createThemeAction] Error stack:', error.stack);
+    }
+    throw error;
+  }
 }
 
 /**
