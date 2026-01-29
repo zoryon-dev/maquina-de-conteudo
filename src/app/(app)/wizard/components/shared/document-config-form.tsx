@@ -30,7 +30,7 @@ import {
 } from "./document-selector-dialog";
 
 export interface RagConfig {
-  mode?: "auto" | "manual";
+  mode?: "auto" | "manual" | "off";
   threshold?: number;
   maxChunks?: number;
   documents?: number[];
