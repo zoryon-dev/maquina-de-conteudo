@@ -260,7 +260,7 @@ export function validateCarouselResponse(
   }
 
   // If we got here, validation passed!
-  return carousel as ZoryonCarousel;
+  return carousel as unknown as ZoryonCarousel;
 }
 
 // ============================================================================
