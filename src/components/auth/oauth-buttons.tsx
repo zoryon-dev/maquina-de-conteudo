@@ -29,14 +29,14 @@ export function OAuthButtons({ className, isLoading = false }: OAuthButtonsProps
       const signUpClerk = useSignUp()
 
       // Usar SignIn se disponível, senão SignUp
-      const clerk = signInClerk.isLoaded ? signInClerk : signUpClerk
+      const clerk = (signInClerk as any)?.isLoaded ? signInClerk : signUpClerk
 
       if (!clerk) {
         return
       }
 
       // Iniciar o fluxo OAuth
-      await clerk.authenticateWithRedirect({
+      await (clerk as any).authenticateWithRedirect({
         strategy: provider === "google" ? "oauth_google" : "oauth_github",
         redirectUrl: "/dashboard",
         redirectUrlComplete: "/dashboard",

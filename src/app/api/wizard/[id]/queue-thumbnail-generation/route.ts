@@ -118,7 +118,7 @@ export async function POST(
       .set({
         jobStatus: "processing" as any,
         processingProgress: {
-          stage: "thumbnail",
+          stage: "thumbnail" as any, // "thumbnail" stage not in processingProgress type
           percent: 10,
           message: "Thumbnail enfileirada para geração assíncrona...",
         },

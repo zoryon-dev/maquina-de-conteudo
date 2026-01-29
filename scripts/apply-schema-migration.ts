@@ -23,7 +23,8 @@ if (!DATABASE_URL) {
 async function applyMigration() {
   console.log('🔄 Applying schema migration...\n');
 
-  const sql = neon(DATABASE_URL);
+  // DATABASE_URL is validated above, but TypeScript needs explicit non-null assertion
+  const sql = neon(DATABASE_URL!);
 
   try {
     // 1. Create enum published_post_status

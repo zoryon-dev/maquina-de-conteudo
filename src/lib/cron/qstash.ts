@@ -199,14 +199,14 @@ async function createSchedule(
     const result = await client.schedules.create({
       destination: destinationUrl,
       cron: cron,
-      body: options?.body as BodyInit | undefined,
+      body: options?.body as any, // BodyInit type issue with QStash client
       headers: options?.headers as HeadersInit | undefined,
       method: "POST" as const,
       retries: 3, // Retry 3 vezes em caso de falha
     });
 
     // O resultado é o scheduleId diretamente (string)
-    const scheduleId = result as string;
+    const scheduleId = (result as any).scheduleId || (result as any).id;
 
     if (!scheduleId) {
       return {
@@ -515,7 +515,7 @@ export async function triggerJob(
 
     return {
       success: true,
-      scheduleId: result?.scheduleId || result?.messageId,
+      scheduleId: (result as any)?.scheduleId || (result as any)?.messageId,
       message: `Job "${jobName}" triggered successfully`,
     };
   } catch (error) {

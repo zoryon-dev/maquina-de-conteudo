@@ -57,7 +57,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
     // Process theme data based on source type
     let wizardTheme = theme.theme || theme.title;
     let wizardContext = theme.context;
-    let wizardObjective = theme.objective;
+    let wizardObjective = theme.briefing || undefined; // objective not in themes schema
     let referenceUrl = theme.sourceUrl;
     let suggestedContentType: 'image' | 'carousel' | 'video' | 'text' | undefined = undefined;
 
@@ -68,11 +68,11 @@ export async function POST(req: NextRequest, context: RouteContext) {
         const processed = await processor.processPerplexityTheme({
           title: theme.title,
           theme: theme.theme || theme.title,
-          context: theme.context,
-          briefing: theme.briefing,
+          context: theme.context || undefined,
+          briefing: theme.briefing || undefined,
           keyPoints: theme.keyPoints || undefined,
           angles: theme.angles || undefined,
-          sourceUrl: theme.sourceUrl,
+          sourceUrl: theme.sourceUrl || undefined,
           sourceData: theme.sourceData as Record<string, unknown> | undefined,
         });
 
@@ -88,11 +88,11 @@ export async function POST(req: NextRequest, context: RouteContext) {
         const processed = await processInstagramTheme({
           title: theme.title,
           theme: theme.theme || theme.title,
-          context: theme.context,
-          briefing: theme.briefing,
+          context: theme.context || undefined,
+          briefing: theme.briefing || undefined,
           keyPoints: theme.keyPoints || undefined,
           angles: theme.angles || undefined,
-          sourceUrl: theme.sourceUrl,
+          sourceUrl: theme.sourceUrl || undefined,
           sourceData: theme.sourceData as Record<string, unknown> | undefined,
         });
 
@@ -109,11 +109,11 @@ export async function POST(req: NextRequest, context: RouteContext) {
         const processed = await processYouTubeTheme({
           title: theme.title,
           theme: theme.theme || theme.title,
-          context: theme.context,
-          briefing: theme.briefing,
+          context: theme.context || undefined,
+          briefing: theme.briefing || undefined,
           keyPoints: theme.keyPoints || undefined,
           angles: theme.angles || undefined,
-          sourceUrl: theme.sourceUrl,
+          sourceUrl: theme.sourceUrl || undefined,
           sourceData: theme.sourceData as Record<string, unknown> | undefined,
         });
 

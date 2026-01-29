@@ -102,7 +102,7 @@ export async function POST(
     // Create the image generation job
     // Use a default config for regeneration - user can customize in the future
     const payload: WizardImageGenerationPayload = {
-      wizardId,
+      wizardId: wizardId as number, // metadata.wizardId is extracted above
       userId,
       config: {
         method: "html-template",

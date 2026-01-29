@@ -30,31 +30,33 @@ export function SignUpCard({ redirectUrl = "/dashboard" }: SignUpCardProps) {
 
   // Detectar mudanças no estado do Clerk
   useEffect(() => {
-    if (!signUp.isLoaded) return
+    const clerkSignUp = signUp as any
+    if (!clerkSignUp?.isLoaded) return
 
     // Verificar se há erros
-    if (signUp.activeClause && signUp.activeClause.error) {
-      const clerkError = signUp.activeClause.error as { message?: string; longMessage?: string }
+    if (clerkSignUp.activeClause && clerkSignUp.activeClause.error) {
+      const clerkError = clerkSignUp.activeClause.error as { message?: string; longMessage?: string }
       setError(clerkError.message || clerkError.longMessage || "Erro ao criar conta")
     } else {
       setError(null)
     }
 
     // Verificar se está carregando
-    setIsLoading(signUp.status === "loading")
+    setIsLoading(clerkSignUp.status === "loading")
 
     // Detectar quando email de verificação foi enviado
-    if (signUp.verification) {
+    if (clerkSignUp.verification) {
       setVerificationSent(true)
     }
   }, [signUp])
 
   // Detectar cadastro bem-sucedido
   useEffect(() => {
-    if (signUp.isLoaded && signUp.status === "complete") {
+    const clerkSignUp = signUp as any
+    if (clerkSignUp.isLoaded && clerkSignUp.status === "complete") {
       setSuccess(true)
     }
-  }, [signUp.isLoaded, signUp.status])
+  }, [signUp])
 
   return (
     <div className="space-y-6">
@@ -184,7 +186,6 @@ export function SignUpCard({ redirectUrl = "/dashboard" }: SignUpCardProps) {
             socialButtonsBlockButton: "bg-white/5 border-white/10 hover:bg-white/10 text-white",
             socialButtonsBlockButtonText: "text-white",
             footerAction: "hidden",
-            footerActionLink: "hidden",
             usernameInput: "hidden", // Hide username field
             // Password strength indicator
             navbar: "bg-white/5 border border-white/10 rounded-lg",

@@ -121,7 +121,7 @@ export class ConfigError extends AppError {
  */
 export class JobError extends AppError {
   constructor(message: string, public jobId?: number, details?: unknown) {
-    super(message, "JOB_ERROR", 500, { jobId, ...details })
+    super(message, "JOB_ERROR", 500, { jobId, ...(details && typeof details === "object" ? details : {}) })
     this.name = "JobError"
   }
 }

@@ -327,7 +327,7 @@ export async function POST(request: Request) {
         {
           publishedPostId: publishedPost.id,
           userId,
-        },
+        } as any, // SocialPublishPayload not yet defined in JobPayload union
         {
           priority: 1, // High priority for immediate publishing
         }

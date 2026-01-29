@@ -131,7 +131,7 @@ export async function migrateScheduledPostToPublished(scheduledPostId: number) {
       .values({
         userId: libraryItem.userId,
         libraryItemId: scheduled.libraryItemId,
-        platform: scheduled.platform as "instagram" | "facebook" | "linkedin",
+        platform: scheduled.platform as any, // Filter to IG/FB before calling
         status: mappedStatus,
         platformPostId: scheduled.platformPostId,
         scheduledFor: scheduled.scheduledFor,

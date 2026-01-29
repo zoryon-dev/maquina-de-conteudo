@@ -1586,13 +1586,16 @@ export async function saveWizardVideoToLibraryAction(
       return { success: false, error: "Não autorizado" }
     }
 
+    // Wizard has additional fields stored as JSON that aren't in the schema
+    const wizardData = wizard as any
+
     // Verify wizard has all required data
-    if (!wizard.selectedTitle || !wizard.generatedThumbnail) {
+    if (!wizardData.selectedTitle || !wizardData.generatedThumbnail) {
       return { success: false, error: "Wizard incompleto: título ou thumbnail não gerado" }
     }
 
     // Extract thumbnail URL
-    const thumbnailData = wizard.generatedThumbnail as any
+    const thumbnailData = wizardData.generatedThumbnail as any
     const thumbnailUrl = thumbnailData?.imageUrl || thumbnailData?.url
 
     if (!thumbnailUrl) {
@@ -1603,14 +1606,14 @@ export async function saveWizardVideoToLibraryAction(
     const videoMetadata = {
       wizardId,
       selectedTitle: {
-        id: wizard.selectedTitle.id || "default",
-        title: wizard.selectedTitle.title || "Sem título",
-        hook_factor: wizard.selectedTitle.hook_factor || 0,
-        word_count: wizard.selectedTitle.word_count,
-        formula_used: wizard.selectedTitle.formula_used,
-        triggers: wizard.selectedTitle.triggers,
-        tribal_angle: wizard.selectedTitle.tribal_angle,
-        reason: wizard.selectedTitle.reason,
+        id: wizardData.selectedTitle.id || "default",
+        title: wizardData.selectedTitle.title || "Sem título",
+        hook_factor: wizardData.selectedTitle.hook_factor || 0,
+        word_count: wizardData.selectedTitle.word_count,
+        formula_used: wizardData.selectedTitle.formula_used,
+        triggers: wizardData.selectedTitle.triggers,
+        tribal_angle: wizardData.selectedTitle.tribal_angle,
+        reason: wizardData.selectedTitle.reason,
       },
       thumbnail: {
         imageUrl: thumbnailUrl,
@@ -1620,36 +1623,36 @@ export async function saveWizardVideoToLibraryAction(
         reasoning: thumbnailData.reasoning,
         variacoes: thumbnailData.variacoes,
         config: {
-          estilo: wizard.thumbnailEstilo,
-          expressao: wizard.thumbnailExpressao,
-          contextoTematico: wizard.contextoTematico,
-          instrucoesCustomizadas: wizard.instrucoesCustomizadas,
-          tipoFundo: wizard.tipoFundo,
-          corTexto: wizard.corTexto,
-          posicaoTexto: wizard.posicaoTexto,
-          tipoIluminacao: wizard.tipoIluminacao,
+          estilo: wizardData.thumbnailEstilo,
+          expressao: wizardData.thumbnailExpressao,
+          contextoTematico: wizardData.contextoTematico,
+          instrucoesCustomizadas: wizardData.instrucoesCustomizadas,
+          tipoFundo: wizardData.tipoFundo,
+          corTexto: wizardData.corTexto,
+          posicaoTexto: wizardData.posicaoTexto,
+          tipoIluminacao: wizardData.tipoIluminacao,
         },
       },
-      youtubeSEO: wizard.generatedSEO || undefined,
-      script: wizard.generatedContent ? {
-        valorCentral: (wizard.generatedContent as any)?.valorCentral,
-        hookTexto: (wizard.generatedContent as any)?.hookTexto,
-        roteiro: wizard.generatedContent,
-        topicos: (wizard.generatedContent as any)?.topicos,
-        duracao: (wizard.generatedContent as any)?.duracao,
+      youtubeSEO: wizardData.generatedSEO || undefined,
+      script: wizardData.generatedContent ? {
+        valorCentral: (wizardData.generatedContent as any)?.valorCentral,
+        hookTexto: (wizardData.generatedContent as any)?.hookTexto,
+        roteiro: wizardData.generatedContent,
+        topicos: (wizardData.generatedContent as any)?.topicos,
+        duracao: (wizardData.generatedContent as any)?.duracao,
       } : undefined,
       wizardContext: {
-        duration: wizard.duration,
-        theme: wizard.theme,
-        niche: wizard.niche,
-        objective: wizard.objective,
-        targetAudience: wizard.targetAudience,
-        tone: wizard.tone,
+        duration: wizardData.duration,
+        theme: wizardData.theme,
+        niche: wizardData.niche,
+        objective: wizardData.objective,
+        targetAudience: wizardData.targetAudience,
+        tone: wizardData.tone,
       },
       narrativeContext: {
-        angle: wizard.narrativeAngle,
-        title: wizard.narrativeTitle,
-        description: wizard.narrativeDescription,
+        angle: wizardData.narrativeAngle,
+        title: wizardData.narrativeTitle,
+        description: wizardData.narrativeDescription,
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -1665,8 +1668,8 @@ export async function saveWizardVideoToLibraryAction(
         userId,
         type: "video" as const,
         status: "draft" as const,
-        title: wizard.selectedTitle.title || "Sem título",
-        content: wizard.generatedContent ? JSON.stringify(wizard.generatedContent) : null,
+        title: wizardData.selectedTitle.title || "Sem título",
+        content: wizardData.generatedContent ? JSON.stringify(wizardData.generatedContent) : null,
         mediaUrl: JSON.stringify(mediaUrls),
         metadata: JSON.stringify(videoMetadata),
         updatedAt: new Date(),

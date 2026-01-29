@@ -584,7 +584,7 @@ export function Step4Generation({
       }
     } else if (content.script) {
       // Video script content
-      text = content.script;
+      text = typeof content.script === "string" ? content.script : JSON.stringify(content.script, null, 2);
     }
 
     if (text) {

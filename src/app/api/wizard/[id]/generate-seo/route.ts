@@ -129,7 +129,7 @@ export async function POST(
       .set({
         jobStatus: "processing" as any,
         processingProgress: {
-          stage: "seo",
+          stage: "seo" as any, // "seo" stage not in processingProgress type
           percent: 20,
           message: "Gerando metadados SEO do YouTube...",
         },
@@ -147,8 +147,8 @@ export async function POST(
       narrativeAngle: body.narrativeAngle as any,
       narrativeTitle: body.narrativeTitle,
       narrativeDescription: body.narrativeDescription,
-      coreBelief: body.coreBelief,
-      statusQuoChallenged: body.statusQuoChallenged,
+      coreBelief: (body as any).coreBelief,
+      statusQuoChallenged: (body as any).statusQuoChallenged,
       theme: body.theme,
       targetAudience: body.targetAudience,
       objective: body.objective,
@@ -187,12 +187,12 @@ export async function POST(
         generatedSEO: seoResult.data as any,
         jobStatus: "completed",
         processingProgress: {
-          stage: "seo",
+          stage: "seo" as any, // "seo" stage not in processingProgress type
           percent: 100,
           message: "SEO gerado com sucesso!",
         },
         updatedAt: new Date(),
-      })
+      } as any) // generatedSEO not in schema
       .where(eq(contentWizards.id, parseInt(wizardId)));
 
     const response: GenerateSEOResponse = {

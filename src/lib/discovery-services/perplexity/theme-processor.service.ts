@@ -219,7 +219,7 @@ Regras:
       return {
         theme: parsed.theme || fallbackTheme,
         context: parsed.context || '',
-        objective: parsed.object,
+        objective: parsed.objective, // Fixed: was using 'object' instead of 'objective'
         suggestedTags: parsed.suggestedTags || [],
       };
     } catch (error) {

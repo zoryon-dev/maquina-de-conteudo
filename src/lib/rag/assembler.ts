@@ -31,14 +31,13 @@ import { filterByRelevance, diversifyChunks } from "./filters"
  * - More chunks can be retrieved (10 -> 15)
  * - Token budget adjusted for social media content
  */
-const DEFAULT_RAG_OPTIONS: Required<
-  Omit<RagContextOptions, "categories" | "hybrid" | "semanticWeight" | "keywordWeight">
-> = {
+const DEFAULT_RAG_OPTIONS = {
   threshold: 0.5, // Lowered from 0.6 for better recall
   maxChunks: 15, // Increased since chunks are smaller
   maxTokens: 3000, // Reduced - enough for ~3 chunks + overhead
   includeSources: true,
-}
+  documentIds: undefined, // Added to match RagContextOptions
+} as const
 
 /**
  * Assemble RAG context for a query

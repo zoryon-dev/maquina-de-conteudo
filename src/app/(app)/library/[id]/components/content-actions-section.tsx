@@ -156,7 +156,7 @@ export function ContentActionsSection({
   const videoThumbnailUrl = videoMetadata ? extractThumbnailUrl(videoMetadata) : undefined
   const seoTitle = videoMetadata ? extractYouTubeTitle(videoMetadata) : undefined
   const seoHashtags = videoMetadata ? extractYouTubeHashtags(videoMetadata) : []
-  const seoTags = videoMetadata ? extractYouTubeTags(videoMetadata) : []
+  const seoTags = videoMetadata ? (extractYouTubeTags(videoMetadata) || []) : []
   const seoDescription =
     videoMetadata?.youtubeSEO?.descricao?.corpo_completo ||
     videoMetadata?.youtubeSEO?.descricao?.above_the_fold

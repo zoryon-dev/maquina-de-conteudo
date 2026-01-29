@@ -1108,14 +1108,16 @@ export async function generateVideoThumbnailNanoBanana(
     if (!promptResult.success || !promptResult.data) {
       return {
         success: false,
-        error: `Failed to generate Nano Banana thumbnail prompt: ${promptResult.error}`,
+        error: `Failed to generate Nano Banana thumbnail prompt: ${(promptResult as any).error}`,
       };
     }
 
     const { prompt, negative_prompt } = promptResult.data;
+    // Extract string prompt - v5 format is object with full_prompt, v4 is string
+    const promptString = typeof prompt === "string" ? prompt : prompt.full_prompt;
 
     // Step 2: Call the image model
-    const imageData = await callImageModel(model, prompt, negative_prompt);
+    const imageData = await callImageModel(model, promptString, negative_prompt);
 
     if (!imageData) {
       return {
@@ -1140,7 +1142,7 @@ export async function generateVideoThumbnailNanoBanana(
           style: "profissional", // Will be overridden by Nano Banana estilo
         },
       },
-      promptUsed: prompt,
+      promptUsed: promptString,
       createdAt: new Date(),
     };
 

@@ -26,6 +26,7 @@ import {
   Type,
   FileImage,
   Wand2,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -635,7 +636,7 @@ export function VideoThumbnailGeneration({
             aiOptions: {
               model: data.data.model,
               color: "personalizado",
-              style: estilo,
+              style: estilo as any, // NanoBananaStyle may not match VisualStyle
             },
           },
           createdAt: new Date(),
@@ -722,7 +723,7 @@ export function VideoThumbnailGeneration({
               aiOptions: {
                 model: data.data.model,
                 color: "personalizado",
-                style: estilo,
+                style: estilo as any, // NanoBananaStyle may not match VisualStyle
               },
             },
             createdAt: new Date(),

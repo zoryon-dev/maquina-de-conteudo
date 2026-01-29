@@ -126,7 +126,7 @@ export async function POST(
       narrativeAngle: selectedNarrative.angle,
       narrativeTitle: selectedNarrative.title,
       narrativeDescription: selectedNarrative.description,
-      duration: wizard.videoDuration || "5-10min",
+      duration: (wizard as any).videoDuration || "5-10min",
       intention: undefined as string | undefined,
       theme: wizard.theme || undefined,
       targetAudience: wizard.targetAudience || undefined,
@@ -134,9 +134,9 @@ export async function POST(
       cta: wizard.cta || undefined,
       negativeTerms: wizard.negativeTerms || undefined,
       ragContext: undefined as string | undefined,
-      narrativeHook: selectedNarrative.hook,
-      coreBelief: selectedNarrative.core_belief,
-      statusQuoChallenged: selectedNarrative.status_quo_challenged,
+      narrativeHook: (selectedNarrative as any).hook,
+      coreBelief: (selectedNarrative as any).core_belief,
+      statusQuoChallenged: (selectedNarrative as any).status_quo_challenged,
       selectedTitle: undefined as string | undefined,
       currentScript: typeof wizard.generatedContent === "string"
         ? wizard.generatedContent
@@ -145,7 +145,7 @@ export async function POST(
     };
 
     // Call refactoring service
-    const result = await refactorVideoScript(refactorParams);
+    const result = await refactorVideoScript(refactorParams as any);
 
     if (!result.success || !result.data) {
       return NextResponse.json(

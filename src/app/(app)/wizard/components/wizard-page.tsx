@@ -24,17 +24,15 @@ import type { PostType } from "@/db/schema";
 import {
   Step3Narratives,
   type Narrative,
-  type RagConfig,
   type SynthesizedResearch,
 } from "./steps/step-3-narratives";
+import type { RagConfig } from "@/lib/wizard-services/types";
 import {
   Step4Generation,
   type GeneratedContent,
 } from "./steps/step-4-generation";
-import {
-  StepTitlesSelection,
-  type VideoTitleOption,
-} from "./steps/step-titles-selection";
+import { StepTitlesSelection } from "./steps/step-titles-selection";
+import type { VideoTitleOption } from "@/lib/wizard-services/video-titles.service";
 import {
   StepThumbnailConfig,
   type GeneratedThumbnailData,

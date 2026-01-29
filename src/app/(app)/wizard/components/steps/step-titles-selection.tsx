@@ -181,6 +181,7 @@ export function StepTitlesSelection({
   theme,
   targetAudience,
   objective,
+  generatedContent,
   onTitleSelected,
   onBack,
   className,

@@ -347,6 +347,6 @@ export function VideoScriptViewer({ script }: VideoScriptViewerProps) {
 /**
  * Type guard to check if script is VideoScriptStructured (v4.3)
  */
-export function isVideoScriptStructured(script: string | Record<string, unknown> | undefined): script is VideoScriptStructured {
+export function isVideoScriptStructured(script: string | Record<string, unknown> | undefined): script is VideoScriptStructured & Record<string, unknown> {
   return script !== undefined && typeof script === "object" && "meta" in script && "thumbnail" in script && "roteiro" in script;
 }
