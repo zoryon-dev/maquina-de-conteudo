@@ -24,6 +24,15 @@ Estas variáveis **DEVEM** estar configuradas para que o build funcione:
 
 ---
 
+## ✅ Ajustes RECOMENDADOS para Build (evitar OOM)
+
+Use estas variáveis quando o build falhar por falta de memória:
+
+- [ ] `NODE_OPTIONS` - Aumenta o heap do Node durante o build
+  - Valor sugerido: `--max-old-space-size=4096` (ou `8192` se necessário)
+
+---
+
 ## ✅ Variáveis OBRIGATÓRIAS para Runtime
 
 Estas variáveis são necessárias para o funcionamento da aplicação em produção:
