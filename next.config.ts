@@ -4,6 +4,12 @@ const nextConfig: NextConfig = {
   /* config options here */
   // reactCompiler: true, // Disabled - conflicts with Clerk + Turbopack
 
+  // TypeScript configuration
+  typescript: {
+    // Keep false to ensure type safety - errors should be fixed, not ignored
+    ignoreBuildErrors: false,
+  },
+
   // Allow external images from R2 storage and other sources
   images: {
     remotePatterns: [
