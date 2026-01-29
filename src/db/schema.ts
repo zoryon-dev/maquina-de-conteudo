@@ -599,7 +599,7 @@ export const oauthSessions = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    platform: socialPlatformEnum("platform").notNull(), // "instagram" | "facebook"
+    platform: text("platform").notNull(), // "instagram" | "facebook"
     longLivedToken: text("long_lived_token"), // User access token (60 days)
     tokenExpiresAt: timestamp("token_expires_at"), // Token expiration
     pagesData: jsonb("pages_data").notNull(), // { pages: PageWithInstagram[] }

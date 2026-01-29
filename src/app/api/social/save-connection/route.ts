@@ -167,8 +167,10 @@ async function saveInstagramConnection(
 
   const { pageId: selectedPageId, pageName, pageAccessToken, instagramBusinessAccount } = selectedPage
 
-  // Calculate token expiration (long-lived user token)
-  const expiresAt = tokenExpiresAt ? new Date(tokenExpiresAt) : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
+  // Calculate user token expiration (long-lived user token)
+  const userTokenExpiresAt = tokenExpiresAt
+    ? new Date(tokenExpiresAt)
+    : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
 
   // Save connection
   await upsertConnection({
@@ -178,7 +180,7 @@ async function saveInstagramConnection(
     accountName: `@${instagramBusinessAccount.username}`,
     accountUsername: instagramBusinessAccount.username,
     accessToken: longLivedToken,
-    tokenExpiresAt: expiresAt,
+    tokenExpiresAt: userTokenExpiresAt,
     pageId: selectedPageId,
     pageAccessToken: pageAccessToken,
     pageName: pageName,
@@ -188,6 +190,9 @@ async function saveInstagramConnection(
       followersCount: instagramBusinessAccount.followersCount,
       mediaCount: instagramBusinessAccount.mediaCount,
       permissions: ["instagram_basic", "instagram_content_publish", "instagram_manage_insights"],
+      userAccessToken: longLivedToken,
+      userTokenExpiresAt: userTokenExpiresAt.toISOString(),
+      pageAccessTokenLastFetchedAt: new Date().toISOString(),
     },
   })
 
@@ -263,8 +268,6 @@ async function saveFacebookConnection(
   } = selectedPage
 
   // Page access tokens don't expire unless revoked
-  const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) // 60 days default
-
   // Save connection
   await upsertConnection({
     userId,
@@ -273,7 +276,7 @@ async function saveFacebookConnection(
     accountName: pageName,
     accountUsername: username || selectedPageId,
     accessToken: pageAccessToken,
-    tokenExpiresAt: expiresAt,
+    tokenExpiresAt: null,
     pageId: selectedPageId,
     pageAccessToken: pageAccessToken,
     pageName: pageName,
@@ -281,6 +284,7 @@ async function saveFacebookConnection(
     metadata: {
       picture,
       permissions: ["pages_manage_posts", "pages_read_engagement"],
+      pageAccessTokenLastFetchedAt: new Date().toISOString(),
     },
   })
 
@@ -306,7 +310,7 @@ async function upsertConnection(data: {
   accountName: string
   accountUsername: string
   accessToken: string
-  tokenExpiresAt?: Date
+  tokenExpiresAt?: Date | null
   pageId?: string
   pageAccessToken?: string
   pageName?: string

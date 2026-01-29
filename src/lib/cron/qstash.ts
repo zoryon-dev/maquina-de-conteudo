@@ -114,6 +114,11 @@ export const cronSchedules: Record<string, QStashSchedule> = {
     endpoint: "/api/cron/social-publish",
     payload: { source: "qstash", job: "social-publish" },
   },
+  socialRefresh: {
+    cron: "15 3 * * *", // Diariamente às 03:15
+    endpoint: "/api/cron/social-refresh",
+    payload: { source: "qstash", job: "social-refresh" },
+  },
 };
 
 /**

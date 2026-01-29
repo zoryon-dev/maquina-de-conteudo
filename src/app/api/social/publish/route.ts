@@ -204,8 +204,10 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if token is expired
-    if (isTokenExpired(connection.tokenExpiresAt)) {
+    const shouldCheckExpiry = platform === "instagram"
+
+    // Check if token is expired (Instagram user tokens expire; page tokens don't)
+    if (shouldCheckExpiry && isTokenExpired(connection.tokenExpiresAt)) {
       await markConnectionExpired(connection.id)
       return NextResponse.json(
         {

@@ -85,6 +85,9 @@ export interface SocialConnectionMetadata {
   scopes?: string[] // OAuth scopes
   pageId?: string // Facebook Page ID
   igUserId?: string // Instagram User ID
+  userAccessToken?: string // Long-lived user token for refresh workflows
+  userTokenExpiresAt?: string // ISO timestamp of user token expiry
+  pageAccessTokenLastFetchedAt?: string // ISO timestamp of last page token refresh
 }
 
 /**

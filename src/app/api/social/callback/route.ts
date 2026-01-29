@@ -23,9 +23,9 @@
  */
 
 import { NextResponse } from "next/server"
-import { auth } from "@clerk/nextjs/server"
+import { auth, clerkClient } from "@clerk/nextjs/server"
 import { db } from "@/db"
-import { socialConnections, oauthSessions } from "@/db/schema"
+import { socialConnections, oauthSessions, users } from "@/db/schema"
 import { eq } from "drizzle-orm"
 import { SocialPlatform, SocialConnectionStatus } from "@/lib/social/types"
 
@@ -73,6 +73,49 @@ function decodeOAuthState(state: string): DecodedOAuthState | null {
     console.error("[OAuth] Failed to decode state:", e)
     return null
   }
+}
+
+async function ensureUserRecord(userId: string) {
+  const existing = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+
+  if (existing.length > 0) return
+
+  try {
+    const clerkUser = await clerkClient.users.getUser(userId)
+    const primaryEmail =
+      clerkUser.emailAddresses.find((email) => email.id === clerkUser.primaryEmailAddressId)
+        ?.emailAddress || clerkUser.emailAddresses[0]?.emailAddress
+
+    if (!primaryEmail) {
+      throw new Error("No email address found for user")
+    }
+
+    await db.insert(users).values({
+      id: clerkUser.id,
+      email: primaryEmail,
+      name: [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null,
+      avatarUrl: clerkUser.imageUrl || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+  } catch (error) {
+    console.error("[OAuth] Failed to ensure user record:", error)
+    throw new Error("Falha ao validar seu usuário. Tente novamente ou contate o suporte.")
+  }
+}
+
+function getSafeOAuthErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    if (error.message.includes("Failed query")) {
+      return "Falha ao salvar sessão OAuth. Tente novamente em instantes."
+    }
+    return error.message
+  }
+  return "Erro ao conectar conta"
 }
 
 // Environment variables
@@ -190,14 +233,19 @@ export async function GET(request: Request) {
   }
 
   try {
+    await ensureUserRecord(finalUserId)
+
     if (platform === "instagram") {
       return await handleInstagramCallback(finalUserId, code, request.url)
     } else if (platform === "facebook") {
       return await handleFacebookCallback(finalUserId, code, request.url)
     }
   } catch (err) {
-    const errorMessage =
-      err instanceof Error ? err.message : "Erro ao conectar conta"
+    console.error("[OAuth] Callback error:", err)
+    if (err instanceof Error && (err as any).cause) {
+      console.error("[OAuth] Callback root cause:", (err as any).cause)
+    }
+    const errorMessage = getSafeOAuthErrorMessage(err)
 
     return NextResponse.redirect(
       buildRedirectUrl(`/settings?tab=social&error=${encodeURIComponent(errorMessage)}`, request.url)
