@@ -6,13 +6,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import {
   getThemesAction,
   createThemeAction,
   getThemeStatsAction,
 } from '@/actions/themes-actions';
 import type { ThemeStatus, ThemeSourceType } from '@/db/schema';
+import { ensureAuthenticatedUser } from '@/lib/auth/ensure-user';
 
 // ============================================================================
 // GET /api/themes
@@ -20,10 +20,7 @@ import type { ThemeStatus, ThemeSourceType } from '@/db/schema';
 
 export async function GET(req: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    await ensureAuthenticatedUser();
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status') as ThemeStatus | null;
@@ -65,10 +62,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    await ensureAuthenticatedUser();
 
     const body = await req.json();
     const theme = await createThemeAction(body);
