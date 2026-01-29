@@ -3,6 +3,9 @@
  *
  * Ensures that the Clerk user exists in the database.
  * This is needed because Clerk doesn't automatically sync users to our database.
+ *
+ * Handles the case where a user's email already exists in the database
+ * with a different Clerk ID (e.g., account was recreated).
  */
 
 import { auth } from '@clerk/nextjs/server';
@@ -15,9 +18,10 @@ import { eq } from 'drizzle-orm';
  * Ensures the authenticated user exists in the database.
  * Creates the user record if it doesn't exist.
  *
- * Use this at the beginning of any API route that needs to access the database.
+ * If the user's email already exists with a different Clerk ID (account recreated),
+ * returns the existing user instead of failing.
  *
- * @returns The user ID
+ * @returns The user ID (may be different from Clerk ID if email was reused)
  * @throws Error if user is not authenticated or if sync fails
  */
 export async function ensureAuthenticatedUser(): Promise<string> {
@@ -26,18 +30,18 @@ export async function ensureAuthenticatedUser(): Promise<string> {
     throw new Error('Unauthorized');
   }
 
-  // Check if user exists in database
-  const existing = await db
+  // First, check if user exists by Clerk ID
+  const existingById = await db
     .select({ id: users.id })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
 
-  if (existing.length > 0) {
+  if (existingById.length > 0) {
     return userId;
   }
 
-  // User doesn't exist in DB, create from Clerk
+  // User doesn't exist in DB by Clerk ID. Check if email exists.
   try {
     const clerk = await clerkClient();
     const clerkUser = await clerk.users.getUser(userId);
@@ -49,6 +53,22 @@ export async function ensureAuthenticatedUser(): Promise<string> {
       throw new Error('No email address found for user');
     }
 
+    // Check if email already exists (possibly with different Clerk ID)
+    const existingByEmail = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, primaryEmail))
+      .limit(1);
+
+    if (existingByEmail.length > 0) {
+      // Email already exists with different Clerk ID
+      // This happens when user recreated their Clerk account
+      // Return the existing user ID instead of creating a duplicate
+      console.log(`[Auth] Email ${primaryEmail} already exists with ID ${existingByEmail[0].id}, reusing it`);
+      return existingByEmail[0].id;
+    }
+
+    // Create new user record
     await db.insert(users).values({
       id: clerkUser.id,
       email: primaryEmail,
