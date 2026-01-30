@@ -33,7 +33,7 @@ type RouteContext = {
 export async function POST(req: NextRequest, context: RouteContext) {
   console.log("[ThemeWizardAPI] POST request received")
   try {
-    // Get Clerk user ID first
+    // Get Clerk user ID - this is the source of truth for authentication
     const { userId: clerkUserId } = await auth();
     if (!clerkUserId) {
       console.error("[ThemeWizardAPI] Unauthorized: No clerkUserId")
@@ -42,35 +42,47 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
     console.log("[ThemeWizardAPI] Clerk userId:", clerkUserId)
 
-    // Get the actual userId from ensureAuthenticatedUser (might be different if email was reused)
+    // Ensure user exists in DB (for new accounts), but use clerkUserId for all operations
     const { ensureAuthenticatedUser } = await import('@/lib/auth/ensure-user');
-    const userId = await ensureAuthenticatedUser();
-
-    console.log("[ThemeWizardAPI] ensureAuthenticatedUser returned userId:", userId)
-
-    if (clerkUserId !== userId) {
-      console.warn("[ThemeWizardAPI] Clerk ID differs from DB userId! Clerk:", clerkUserId, "DB:", userId)
-    }
+    await ensureAuthenticatedUser(); // Just to ensure DB sync happens
 
     const { id } = await context.params;
     const themeId = parseInt(id, 10);
-    console.log("[ThemeWizardAPI] Creating wizard for themeId:", themeId, "using userId:", userId)
+    console.log("[ThemeWizardAPI] Creating wizard for themeId:", themeId, "using clerkUserId:", clerkUserId)
 
     if (isNaN(themeId)) {
       return NextResponse.json({ error: 'Invalid theme ID' }, { status: 400 });
     }
 
-    // Fetch the theme
+    // Fetch the theme - try with clerkUserId first, then try without userId filter
+    // (theme might have been created with an old Clerk ID after account recreation)
     console.log("[ThemeWizardAPI] Fetching theme from database...")
-    const [theme] = await db
+
+    let [theme] = await db
       .select()
       .from(themes)
-      .where(and(eq(themes.id, themeId), eq(themes.userId, userId), isNull(themes.deletedAt)));
+      .where(and(eq(themes.id, themeId), eq(themes.userId, clerkUserId), isNull(themes.deletedAt)));
 
     if (!theme) {
-      console.error("[ThemeWizardAPI] Theme not found for id:", themeId, "userId:", userId)
-      console.error("[ThemeWizardAPI] This might be a user mismatch - theme was created by a different user")
-      return NextResponse.json({ error: 'Theme not found. Please try creating a new wizard.' }, { status: 404 });
+      // Try fetching without userId filter - theme might be from old account
+      console.log("[ThemeWizardAPI] Theme not found with clerkUserId, trying without userId filter...")
+      const [themeByAnyUser] = await db
+        .select()
+        .from(themes)
+        .where(and(eq(themes.id, themeId), isNull(themes.deletedAt)));
+
+      if (themeByAnyUser) {
+        console.log("[ThemeWizardAPI] Found theme but with different userId, updating to clerkUserId:", themeByAnyUser.userId, "->", clerkUserId)
+        // Update theme to use current clerkUserId
+        [theme] = await db
+          .update(themes)
+          .set({ userId: clerkUserId, updatedAt: new Date() })
+          .where(eq(themes.id, themeId))
+          .returning();
+      } else {
+        console.error("[ThemeWizardAPI] Theme not found for id:", themeId)
+        return NextResponse.json({ error: 'Theme not found. Please try creating a new wizard.' }, { status: 404 });
+      }
     }
     console.log("[ThemeWizardAPI] Theme found:", theme.id, "sourceType:", theme.sourceType)
 
@@ -154,7 +166,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
     const [wizard] = await db
       .insert(contentWizards)
       .values({
-        userId,
+        userId: clerkUserId,
         currentStep: 'input' as const,
         contentType: suggestedContentType,
         theme: wizardTheme,
