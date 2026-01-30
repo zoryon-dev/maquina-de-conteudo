@@ -21,6 +21,7 @@ import { createJob } from "@/lib/queue/jobs";
 import { JobType } from "@/lib/queue/types";
 import { isQueueConfigured, QueueNotConfiguredError, triggerWorker } from "@/lib/queue/client";
 import type { PostType } from "@/db/schema";
+import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
 
 interface SubmitRequestBody {
   /** Submit type: "narratives" to generate narratives, "generation" to generate final content */
@@ -51,12 +52,15 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { userId } = await auth();
-  if (!userId) {
+  const { userId: clerkUserId } = await auth();
+  if (!clerkUserId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
+    // Ensure user exists in database (handles account recreation scenario)
+    const dbUserId = await ensureAuthenticatedUser();
+
     const { id } = await params;
     const wizardId = parseInt(id, 10);
 
@@ -64,15 +68,40 @@ export async function POST(
       return NextResponse.json({ error: "Invalid wizard ID" }, { status: 400 });
     }
 
-    // Get wizard
-    const [wizard] = await db
+    console.log(`[WizardSubmit] POST request for wizard ${wizardId}, clerkUserId: ${clerkUserId}, dbUserId: ${dbUserId}`);
+
+    // Get wizard - try with dbUserId first (may differ from clerkUserId if email was reused)
+    let wizard: any | undefined;
+    const wizardResult = await db
       .select()
       .from(contentWizards)
-      .where(and(eq(contentWizards.id, wizardId), eq(contentWizards.userId, userId)))
+      .where(and(eq(contentWizards.id, wizardId), eq(contentWizards.userId, dbUserId)))
       .limit(1);
+    wizard = wizardResult[0];
 
+    // If not found, try without userId filter (might be from recreated account)
     if (!wizard) {
-      return NextResponse.json({ error: "Wizard not found" }, { status: 404 });
+      console.log(`[WizardSubmit] Wizard ${wizardId} not found with dbUserId, trying without userId filter...`);
+      const wizardByAnyUserResult = await db
+        .select()
+        .from(contentWizards)
+        .where(eq(contentWizards.id, wizardId))
+        .limit(1);
+      const wizardByAnyUser = wizardByAnyUserResult[0];
+
+      if (wizardByAnyUser) {
+        console.log(`[WizardSubmit] Found wizard with different userId, updating from ${wizardByAnyUser.userId} to ${dbUserId}`);
+        // Update wizard to use current dbUserId (account was recreated)
+        const updatedResult = await db
+          .update(contentWizards)
+          .set({ userId: dbUserId, updatedAt: new Date() })
+          .where(eq(contentWizards.id, wizardId))
+          .returning();
+        wizard = updatedResult[0];
+      } else {
+        console.log(`[WizardSubmit] Wizard ${wizardId} not found`);
+        return NextResponse.json({ error: "Wizard not found" }, { status: 404 });
+      }
     }
 
     // Verify queue system is configured before creating jobs
@@ -94,11 +123,11 @@ export async function POST(
     if (submitType === "narratives") {
       // Enqueue wizard_narratives job
       jobId = await createJob(
-        userId,
+        dbUserId,
         JobType.WIZARD_NARRATIVES,
         {
           wizardId: wizard.id,
-          userId,
+          userId: dbUserId,
           contentType: wizard.contentType ?? "text",
           referenceUrl: wizard.referenceUrl ?? undefined,
           referenceVideoUrl: wizard.referenceVideoUrl ?? undefined,
@@ -149,11 +178,11 @@ export async function POST(
 
       // Enqueue wizard_generation job
       jobId = await createJob(
-        userId,
+        dbUserId,
         JobType.WIZARD_GENERATION,
         {
           wizardId: wizard.id,
-          userId,
+          userId: dbUserId,
           selectedNarrativeId: wizard.selectedNarrativeId!,
           contentType: wizard.contentType ?? "text",
           numberOfSlides: wizard.numberOfSlides ?? 10,
