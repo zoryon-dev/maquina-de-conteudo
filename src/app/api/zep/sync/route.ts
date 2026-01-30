@@ -19,7 +19,8 @@ import { eq } from "drizzle-orm"
 import { zepClient } from "@/lib/zep/client"
 import { isZepConfigured } from "@/lib/zep/client"
 import { db } from "@/db"
-import { zepThreads } from "@/db/schema"
+import { zepThreads, users } from "@/db/schema"
+import { clerkClient } from "@clerk/nextjs/server"
 
 /**
  * Verify Clerk webhook signature
@@ -52,6 +53,50 @@ async function verifyClerkWebhook(request: NextRequest): Promise<boolean> {
     return signatureParts.some((part) => part === expectedSignature)
   } catch {
     return false
+  }
+}
+
+/**
+ * Ensure user exists in database (for webhooks that don't use ensureAuthenticatedUser)
+ * This is needed for Clerk webhooks where the user might not exist yet in our DB.
+ */
+async function ensureUserInDb(clerkUserId: string): Promise<void> {
+  const existing = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.id, clerkUserId))
+    .limit(1)
+
+  if (existing.length > 0) {
+    return // User already exists
+  }
+
+  // Fetch user from Clerk and create in DB
+  try {
+    const clerk = await clerkClient()
+    const clerkUser = await clerk.users.getUser(clerkUserId)
+    const primaryEmail =
+      clerkUser.emailAddresses.find((email) => email.id === clerkUser.primaryEmailAddressId)
+        ?.emailAddress || clerkUser.emailAddresses[0]?.emailAddress
+
+    if (!primaryEmail) {
+      console.warn("[ZepSync] No email found for user, skipping DB creation")
+      return
+    }
+
+    await db.insert(users).values({
+      id: clerkUser.id,
+      email: primaryEmail,
+      name: [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null,
+      avatarUrl: clerkUser.imageUrl || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
+    console.log("[ZepSync] Created user in DB:", clerkUserId)
+  } catch (error) {
+    console.error("[ZepSync] Failed to create user in DB:", error)
+    // Don't throw - we still want to create the Zep thread
   }
 }
 
@@ -123,6 +168,10 @@ export async function POST(request: NextRequest) {
           throw error
         }
       }
+
+      // Ensure user exists in database before creating Zep thread
+      // This prevents FK constraint violations
+      await ensureUserInDb(clerkUser.id)
 
       // Check if user already has a Zep thread, create if not
       const existingThread = await db

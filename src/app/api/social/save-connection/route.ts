@@ -16,6 +16,7 @@ import { db } from "@/db"
 import { socialConnections, oauthSessions } from "@/db/schema"
 import { eq, and, gt } from "drizzle-orm"
 import { SocialPlatform, SocialConnectionStatus } from "@/lib/social/types"
+import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user"
 
 /**
  * Page data structure from OAuth session
@@ -70,6 +71,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  // Ensure user exists in database (handles account recreation scenario)
+  const dbUserId = await ensureAuthenticatedUser()
+
   const body = await request.json()
   const { platform, sessionId, pageId, selectionIndex } = body
 
@@ -93,9 +97,9 @@ export async function POST(request: NextRequest) {
 
   try {
     if (platform === "instagram") {
-      return await saveInstagramConnection(userId, sessionId, pageId, selectionIndex)
+      return await saveInstagramConnection(dbUserId, sessionId, pageId, selectionIndex)
     } else {
-      return await saveFacebookConnection(userId, sessionId, pageId, selectionIndex)
+      return await saveFacebookConnection(dbUserId, sessionId, pageId, selectionIndex)
     }
   } catch (err) {
     const errorMessage =
