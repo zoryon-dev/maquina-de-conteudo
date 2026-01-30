@@ -91,7 +91,11 @@ function TopicCard({ topic, rank, onSave, onCreateWizard }: TopicCardProps) {
             </Button>
             <Button
               size="sm"
-              onClick={() => onCreateWizard(topic)}
+              onClick={() => {
+                console.log("[TopicCard] Wizard button clicked for topic:", topic.title)
+                console.log("[TopicCard] Topic data:", topic)
+                onCreateWizard(topic)
+              }}
               className="h-8 gap-1 bg-primary text-black hover:bg-primary/90 px-3"
             >
               <Wand2 className="size-3" />
