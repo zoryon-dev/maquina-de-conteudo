@@ -360,7 +360,10 @@ export function DiscoverPage() {
 
   // Handle create wizard
   const handleCreateWizard = async (topic: TrendingTopicWithBriefing) => {
+    console.log("[handleCreateWizard] Starting wizard creation for topic:", topic.title)
     try {
+      // Step 1: Save theme
+      console.log("[handleCreateWizard] Step 1: Saving theme...")
       const saveResponse = await fetch("/api/themes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -379,17 +382,29 @@ export function DiscoverPage() {
         }),
       })
 
-      if (!saveResponse.ok) throw new Error("Failed to save theme")
+      if (!saveResponse.ok) {
+        const errorText = await saveResponse.text()
+        console.error("[handleCreateWizard] Save theme failed:", saveResponse.status, errorText)
+        throw new Error(`Failed to save theme: ${saveResponse.status} ${errorText}`)
+      }
 
       const savedTheme = await saveResponse.json()
+      console.log("[handleCreateWizard] Theme saved successfully:", savedTheme.id)
 
+      // Step 2: Create wizard from theme
+      console.log("[handleCreateWizard] Step 2: Creating wizard from theme...")
       const wizardResponse = await fetch(`/api/themes/${savedTheme.id}/wizard`, {
         method: "POST",
       })
 
-      if (!wizardResponse.ok) throw new Error("Failed to create wizard")
+      if (!wizardResponse.ok) {
+        const errorText = await wizardResponse.text()
+        console.error("[handleCreateWizard] Create wizard failed:", wizardResponse.status, errorText)
+        throw new Error(`Failed to create wizard: ${wizardResponse.status} ${errorText}`)
+      }
 
       const wizardData = await wizardResponse.json()
+      console.log("[handleCreateWizard] Wizard created successfully:", wizardData.wizardId)
 
       toast.success("Wizard criado! Redirecionando...")
 
@@ -397,8 +412,8 @@ export function DiscoverPage() {
         window.location.href = `/wizard?wizardId=${wizardData.wizardId}`
       }, 500)
     } catch (error) {
-      console.error("Wizard error:", error)
-      toast.error("Erro ao criar Wizard")
+      console.error("[handleCreateWizard] Error:", error)
+      toast.error(error instanceof Error ? error.message : "Erro ao criar Wizard")
     }
   }
 

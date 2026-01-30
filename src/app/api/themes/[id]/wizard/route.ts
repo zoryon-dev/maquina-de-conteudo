@@ -31,28 +31,34 @@ type RouteContext = {
 // ============================================================================
 
 export async function POST(req: NextRequest, context: RouteContext) {
+  console.log("[ThemeWizardAPI] POST request received")
   try {
     const { userId } = await auth();
     if (!userId) {
+      console.error("[ThemeWizardAPI] Unauthorized: No userId")
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await context.params;
     const themeId = parseInt(id, 10);
+    console.log("[ThemeWizardAPI] Creating wizard for themeId:", themeId, "userId:", userId)
 
     if (isNaN(themeId)) {
       return NextResponse.json({ error: 'Invalid theme ID' }, { status: 400 });
     }
 
     // Fetch the theme
+    console.log("[ThemeWizardAPI] Fetching theme from database...")
     const [theme] = await db
       .select()
       .from(themes)
       .where(and(eq(themes.id, themeId), eq(themes.userId, userId), isNull(themes.deletedAt)));
 
     if (!theme) {
+      console.error("[ThemeWizardAPI] Theme not found for id:", themeId)
       return NextResponse.json({ error: 'Theme not found' }, { status: 404 });
     }
+    console.log("[ThemeWizardAPI] Theme found:", theme.id, "sourceType:", theme.sourceType)
 
     // Process theme data based on source type
     let wizardTheme = theme.theme || theme.title;
@@ -63,6 +69,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
     // Process theme based on source type using AI
     if (theme.sourceType === 'perplexity') {
+      console.log("[ThemeWizardAPI] Processing perplexity theme...")
       try {
         const processor = new ThemeProcessorService();
         const processed = await processor.processPerplexityTheme({
@@ -80,6 +87,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
         wizardContext = processed.context;
         wizardObjective = processed.objective;
         referenceUrl = processed.referenceUrl;
+        console.log("[ThemeWizardAPI] Perplexity theme processed successfully")
       } catch (processorError) {
         console.error('[ThemeWizardAPI] Perplexity processing failed:', processorError);
       }
@@ -128,6 +136,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
     }
 
     // Create a new Wizard with processed theme data
+    console.log("[ThemeWizardAPI] Creating wizard in database...")
     const [wizard] = await db
       .insert(contentWizards)
       .values({
@@ -150,6 +159,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
           : undefined,
       })
       .returning();
+
+    console.log("[ThemeWizardAPI] Wizard created successfully:", wizard.id)
 
     return NextResponse.json({
       wizardId: wizard.id,
