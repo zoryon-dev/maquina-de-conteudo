@@ -33,15 +33,28 @@ type RouteContext = {
 export async function POST(req: NextRequest, context: RouteContext) {
   console.log("[ThemeWizardAPI] POST request received")
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      console.error("[ThemeWizardAPI] Unauthorized: No userId")
+    // Get Clerk user ID first
+    const { userId: clerkUserId } = await auth();
+    if (!clerkUserId) {
+      console.error("[ThemeWizardAPI] Unauthorized: No clerkUserId")
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    console.log("[ThemeWizardAPI] Clerk userId:", clerkUserId)
+
+    // Get the actual userId from ensureAuthenticatedUser (might be different if email was reused)
+    const { ensureAuthenticatedUser } = await import('@/lib/auth/ensure-user');
+    const userId = await ensureAuthenticatedUser();
+
+    console.log("[ThemeWizardAPI] ensureAuthenticatedUser returned userId:", userId)
+
+    if (clerkUserId !== userId) {
+      console.warn("[ThemeWizardAPI] Clerk ID differs from DB userId! Clerk:", clerkUserId, "DB:", userId)
     }
 
     const { id } = await context.params;
     const themeId = parseInt(id, 10);
-    console.log("[ThemeWizardAPI] Creating wizard for themeId:", themeId, "userId:", userId)
+    console.log("[ThemeWizardAPI] Creating wizard for themeId:", themeId, "using userId:", userId)
 
     if (isNaN(themeId)) {
       return NextResponse.json({ error: 'Invalid theme ID' }, { status: 400 });
@@ -55,8 +68,9 @@ export async function POST(req: NextRequest, context: RouteContext) {
       .where(and(eq(themes.id, themeId), eq(themes.userId, userId), isNull(themes.deletedAt)));
 
     if (!theme) {
-      console.error("[ThemeWizardAPI] Theme not found for id:", themeId)
-      return NextResponse.json({ error: 'Theme not found' }, { status: 404 });
+      console.error("[ThemeWizardAPI] Theme not found for id:", themeId, "userId:", userId)
+      console.error("[ThemeWizardAPI] This might be a user mismatch - theme was created by a different user")
+      return NextResponse.json({ error: 'Theme not found. Please try creating a new wizard.' }, { status: 404 });
     }
     console.log("[ThemeWizardAPI] Theme found:", theme.id, "sourceType:", theme.sourceType)
 

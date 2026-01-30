@@ -25,26 +25,31 @@ import { eq } from 'drizzle-orm';
  * @throws Error if user is not authenticated or if sync fails
  */
 export async function ensureAuthenticatedUser(): Promise<string> {
-  const { userId } = await auth();
-  if (!userId) {
+  const { userId: clerkUserId } = await auth();
+  if (!clerkUserId) {
     throw new Error('Unauthorized');
   }
+
+  console.log(`[Auth] Clerk userId: ${clerkUserId}`);
 
   // First, check if user exists by Clerk ID
   const existingById = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.id, userId))
+    .where(eq(users.id, clerkUserId))
     .limit(1);
 
   if (existingById.length > 0) {
-    return userId;
+    console.log(`[Auth] User found by Clerk ID: ${clerkUserId}`);
+    return clerkUserId;
   }
+
+  console.log(`[Auth] User not found by Clerk ID, checking by email...`);
 
   // User doesn't exist in DB by Clerk ID. Check if email exists.
   try {
     const clerk = await clerkClient();
-    const clerkUser = await clerk.users.getUser(userId);
+    const clerkUser = await clerk.users.getUser(clerkUserId);
     const primaryEmail =
       clerkUser.emailAddresses.find((email) => email.id === clerkUser.primaryEmailAddressId)
         ?.emailAddress || clerkUser.emailAddresses[0]?.emailAddress;
@@ -52,6 +57,8 @@ export async function ensureAuthenticatedUser(): Promise<string> {
     if (!primaryEmail) {
       throw new Error('No email address found for user');
     }
+
+    console.log(`[Auth] User email: ${primaryEmail}`);
 
     // Check if email already exists (possibly with different Clerk ID)
     const existingByEmail = await db
@@ -64,7 +71,7 @@ export async function ensureAuthenticatedUser(): Promise<string> {
       // Email already exists with different Clerk ID
       // This happens when user recreated their Clerk account
       // Return the existing user ID instead of creating a duplicate
-      console.log(`[Auth] Email ${primaryEmail} already exists with ID ${existingByEmail[0].id}, reusing it`);
+      console.log(`[Auth] Email ${primaryEmail} already exists with DB ID ${existingByEmail[0].id}, Clerk ID is ${clerkUserId} - REUSING DB ID`);
       return existingByEmail[0].id;
     }
 
@@ -78,8 +85,8 @@ export async function ensureAuthenticatedUser(): Promise<string> {
       updatedAt: new Date(),
     });
 
-    console.log(`[Auth] Synced user ${userId} to database`);
-    return userId;
+    console.log(`[Auth] Created new user record for Clerk ID ${clerkUserId}, email ${primaryEmail}`);
+    return clerkUserId;
   } catch (error) {
     console.error('[Auth] Failed to sync user:', error);
     throw new Error('Failed to synchronize user. Please try again.');
