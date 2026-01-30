@@ -32,7 +32,8 @@ export async function GET(request: Request) {
 
   if (auto) {
     // Trigger the worker in the background
-    const workerUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/workers?test=true`;
+    // Always use localhost for internal server-to-server calls in development
+    const workerUrl = `http://localhost:3000/api/workers?test=true`;
 
     fetch(workerUrl, {
       method: "POST",
@@ -66,8 +67,8 @@ export async function POST() {
     });
   }
 
-  // Trigger the worker
-  const workerUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/workers?test=true`;
+  // Trigger the worker - always use localhost for internal calls
+  const workerUrl = `http://localhost:3000/api/workers?test=true`;
 
   try {
     const response = await fetch(workerUrl, {

@@ -29,6 +29,10 @@ export async function createJob<T extends JobPayload>(
     maxAttempts?: number;
   }
 ): Promise<number> {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobs.ts:createJob-entry',message:'Creating job',data:{userId,type,hasPayload:!!payload},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
+
   // Inserir job no banco
   const [newJob] = await db
     .insert(jobs)
@@ -43,18 +47,31 @@ export async function createJob<T extends JobPayload>(
     })
     .returning({ id: jobs.id });
 
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobs.ts:createJob-inserted',message:'Job inserted in DB',data:{jobId:newJob.id,type,userId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+
   // Se não for agendado, enfileirar imediatamente
   // Se a fila não estiver configurada (Redis não disponível),
   // o job fica no banco com status pending mas não é enfileirado
   if (!options?.scheduledFor) {
     try {
       const { enqueueJob, isQueueConfigured } = await import("./client");
-      if (isQueueConfigured()) {
+      const queueConfigured = isQueueConfigured();
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobs.ts:createJob-enqueue',message:'Checking queue config',data:{jobId:newJob.id,queueConfigured},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      if (queueConfigured) {
         await enqueueJob(newJob.id, options?.priority);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobs.ts:createJob-enqueued',message:'Job enqueued to Redis',data:{jobId:newJob.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
       }
     } catch (error) {
       // Se falhar ao enfileirar, logar mas não falhar a criação do job
       console.error(`[Queue] Failed to enqueue job ${newJob.id}:`, error);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobs.ts:createJob-enqueue-error',message:'Failed to enqueue',data:{jobId:newJob.id,error:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
     }
   }
 

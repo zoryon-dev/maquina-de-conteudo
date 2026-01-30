@@ -1056,12 +1056,20 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     const { wizardId, userId, config } =
       payload as WizardImageGenerationPayload;
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:wizard_image_generation-entry',message:'Handler started',data:{wizardId,userId,hasConfig:!!config,configMethod:config?.method},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+
     // 1. Get wizard
     const [wizard] = await db
       .select()
       .from(contentWizards)
       .where(and(eq(contentWizards.id, wizardId), eq(contentWizards.userId, userId)))
       .limit(1);
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:wizard_image_generation-wizard-query',message:'Wizard query result',data:{wizardId,userId,wizardFound:!!wizard,wizardUserId:wizard?.userId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
 
     if (!wizard) {
       throw new Error(`Wizard ${wizardId} not found for user ${userId}`);
@@ -1157,6 +1165,10 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
           .where(eq(libraryItems.id, wizard.libraryItemId!));
       }
     }
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:wizard_image_generation-before-loop',message:'Starting image generation loop',data:{wizardId,slidesCount:slides.length,effectiveMethod:effectiveConfig.method},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
 
     // 5. Generate images for each slide
     const newImages: any[] = [];
@@ -1303,6 +1315,10 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
           .where(eq(libraryItems.id, wizard.libraryItemId!));
       }
     }
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:wizard_image_generation-complete',message:'Image generation completed',data:{wizardId,imagesGenerated:newImages.length,libraryItemId:wizard.libraryItemId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
 
     return {
       success: true,
@@ -1524,6 +1540,9 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
 };
 
 export async function POST(request: Request) {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:POST-entry',message:'Worker POST called',data:{url:request.url,method:request.method},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
   // Verificar autenticação - múltiplos métodos suportados:
 
   // 1. Vercel Cron header (x-vercel-cron) - enviado automaticamente pelo Vercel Cron Jobs
@@ -1582,6 +1601,9 @@ export async function POST(request: Request) {
     }
 
     if (!jobId) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:no-jobs',message:'No jobs to process',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       return NextResponse.json({
         message: "No jobs to process",
         processed: false,
@@ -1620,6 +1642,10 @@ export async function POST(request: Request) {
       );
     }
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:processing-job',message:'Processing job',data:{jobId,jobType:job.type,jobUserId:job.userId,jobStatus:job.status},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+
     // Buscar handler para o tipo de job
     const handler = jobHandlers[job.type];
 
@@ -1641,8 +1667,14 @@ export async function POST(request: Request) {
 
     try {
       result = await handler(job.payload);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:handler-success',message:'Handler completed successfully',data:{jobId,jobType:job.type,hasResult:!!result},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
     } catch (err) {
       error = err instanceof Error ? err.message : "Unknown error";
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:handler-error',message:'Handler threw error',data:{jobId,jobType:job.type,error,stack:err instanceof Error ? err.stack?.substring(0,500) : undefined},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
     }
 
     const duration = Date.now() - startTime;

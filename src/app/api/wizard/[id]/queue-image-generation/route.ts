@@ -24,6 +24,10 @@ export async function POST(
     const { id } = await params;
     const wizardId = parseInt(id, 10);
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'queue-image-generation/route.ts:entry',message:'Queue image generation called',data:{wizardId,dbUserId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+
     if (isNaN(wizardId)) {
       return NextResponse.json({ error: "Invalid wizard ID" }, { status: 400 });
     }
@@ -63,6 +67,10 @@ export async function POST(
     };
 
     const jobId = await createJob(dbUserId, "wizard_image_generation" as JobType, payload);
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'queue-image-generation/route.ts:job-created',message:'Job created successfully',data:{jobId,wizardId,dbUserId,payloadUserId:payload.userId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
 
     return NextResponse.json({
       success: true,
