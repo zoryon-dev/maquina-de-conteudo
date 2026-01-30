@@ -34,8 +34,9 @@ export class ValidationError extends Error {
  * - throughline: Required, must be non-empty
  * - valor_central: Required (v4.2), must be non-empty
  * - slides[].tipo: Required (v4.2), must be one of the 7 valid types
- * - slides[].corpo: Must be <=130 characters (v4.2)
- * - legenda: Required, must be 200-400 words (v4.2)
+ * - slides[].corpo: Required (sem limitação de caracteres)
+ * - slides[].titulo: Required (sem limitação de palavras)
+ * - legenda: Required (sem limitação de palavras)
  */
 export function validateCarouselResponse(
   response: unknown,
@@ -184,35 +185,18 @@ export function validateCarouselResponse(
       );
     }
 
-    const tituloWordCount = slideObj.titulo.trim().split(/\s+/).length;
-    if (tituloWordCount > 6) {
-      throw new ValidationError(
-        `Slide ${index + 1}: Campo 'titulo' tem ${tituloWordCount} palavras, mas máximo v4.2 é 6.`,
-        `slides[${index}].titulo`,
-        "máx 6 palavras",
-        `${tituloWordCount} palavras`
-      );
-    }
-
-    // Validate corpo (v4.2: <=130 chars)
+    // Título: sem limitação de palavras (aceita qualquer tamanho)
+    // Validate corpo (sem limitação de caracteres)
     if (!slideObj.corpo || typeof slideObj.corpo !== "string") {
       throw new ValidationError(
         `Slide ${index + 1}: Campo 'corpo' está faltando.`,
         `slides[${index}].corpo`,
-        "string (até 130 caracteres)",
+        "string",
         typeof slideObj.corpo
       );
     }
 
-    const corpoLength = slideObj.corpo.trim().length;
-    if (corpoLength > 130) {
-      throw new ValidationError(
-        `Slide ${index + 1}: Campo 'corpo' tem ${corpoLength} caracteres, mas máximo v4.2 é 130.`,
-        `slides[${index}].corpo`,
-        "máx 130 caracteres",
-        `${corpoLength} caracteres`
-      );
-    }
+    // Corpo: sem limitação de caracteres (aceita qualquer tamanho)
 
     // Validate conexao_proximo (v4.2 - optional field, can be null/undefined/empty for last slide)
     // Aceita string, null, undefined, ou string vazia - qualquer outro tipo é inválido
@@ -230,34 +214,17 @@ export function validateCarouselResponse(
     }
   });
 
-  // Validate legenda (v4.2: 200-400 palavras)
+  // Validate legenda (sem limitação de palavras)
   if (!carousel.legenda || typeof carousel.legenda !== "string") {
     throw new ValidationError(
       `Campo 'legenda' está faltando ou inválido.`,
       "legenda",
-      "string (200-400 palavras)",
+      "string",
       typeof carousel.legenda
     );
   }
 
-  const wordCount = carousel.legenda.trim().split(/\s+/).length;
-
-  // Mínimo absoluto: 200 palavras (abaixo disso rejeita)
-  const MIN_ABSOLUTE = 200;
-  // Máximo recomendado: 400 palavras (acima disso avisa)
-  const MAX_RECOMMENDED = 400;
-
-  if (wordCount < MIN_ABSOLUTE) {
-    throw new ValidationError(
-      `Campo 'legenda' tem ${wordCount} palavras, mas mínimo absoluto é ${MIN_ABSOLUTE}. A caption deve ter mais substância.`,
-      "legenda",
-      "200-400 palavras",
-      `${wordCount} palavras`
-    );
-  }
-
-  if (wordCount > MAX_RECOMMENDED) {
-  }
+  // Legenda: sem limitação de palavras (aceita qualquer tamanho)
 
   // If we got here, validation passed!
   return carousel;
