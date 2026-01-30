@@ -57,47 +57,62 @@ async function verifyClerkWebhook(request: NextRequest): Promise<boolean> {
 }
 
 /**
- * Ensure user exists in database (for webhooks that don't use ensureAuthenticatedUser)
- * This is needed for Clerk webhooks where the user might not exist yet in our DB.
+ * Ensure user exists in database for webhook events.
+ * Returns the DB userId (may differ from Clerk ID if email was reused).
  */
-async function ensureUserInDb(clerkUserId: string): Promise<void> {
-  const existing = await db
+async function ensureUserInDb(clerkUser: {
+  id: string
+  email_addresses?: { email_address: string }[]
+  first_name?: string | null
+  last_name?: string | null
+  image_url?: string | null
+}): Promise<string> {
+  const clerkUserId = clerkUser.id
+  const existingById = await db
     .select({ id: users.id })
     .from(users)
     .where(eq(users.id, clerkUserId))
     .limit(1)
 
-  if (existing.length > 0) {
-    return // User already exists
+  if (existingById.length > 0) {
+    return clerkUserId
   }
 
-  // Fetch user from Clerk and create in DB
-  try {
-    const clerk = await clerkClient()
-    const clerkUser = await clerk.users.getUser(clerkUserId)
-    const primaryEmail =
-      clerkUser.emailAddresses.find((email) => email.id === clerkUser.primaryEmailAddressId)
-        ?.emailAddress || clerkUser.emailAddresses[0]?.emailAddress
+  const primaryEmail = clerkUser.email_addresses?.[0]?.email_address
 
-    if (!primaryEmail) {
-      console.warn("[ZepSync] No email found for user, skipping DB creation")
-      return
-    }
-
-    await db.insert(users).values({
-      id: clerkUser.id,
-      email: primaryEmail,
-      name: [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null,
-      avatarUrl: clerkUser.imageUrl || null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })
-
-    console.log("[ZepSync] Created user in DB:", clerkUserId)
-  } catch (error) {
-    console.error("[ZepSync] Failed to create user in DB:", error)
-    // Don't throw - we still want to create the Zep thread
+  if (!primaryEmail) {
+    throw new Error("[ZepSync] No email found for user")
   }
+
+  // Check if email already exists (account recreation scenario)
+  const existingByEmail = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, primaryEmail))
+    .limit(1)
+
+  if (existingByEmail.length > 0) {
+    console.log(
+      `[ZepSync] Email ${primaryEmail} already exists with DB ID ${existingByEmail[0].id}, Clerk ID is ${clerkUserId} - REUSING DB ID`
+    )
+    return existingByEmail[0].id
+  }
+
+  // Fetch user from Clerk to get full profile if needed
+  const clerk = await clerkClient()
+  const fullClerkUser = await clerk.users.getUser(clerkUserId)
+
+  await db.insert(users).values({
+    id: fullClerkUser.id,
+    email: primaryEmail,
+    name: [fullClerkUser.firstName, fullClerkUser.lastName].filter(Boolean).join(" ") || null,
+    avatarUrl: fullClerkUser.imageUrl || null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  })
+
+  console.log("[ZepSync] Created user in DB:", clerkUserId)
+  return clerkUserId
 }
 
 /**
@@ -171,13 +186,13 @@ export async function POST(request: NextRequest) {
 
       // Ensure user exists in database before creating Zep thread
       // This prevents FK constraint violations
-      await ensureUserInDb(clerkUser.id)
+      const dbUserId = await ensureUserInDb(clerkUser)
 
       // Check if user already has a Zep thread, create if not
       const existingThread = await db
         .select()
         .from(zepThreads)
-        .where(eq(zepThreads.userId, clerkUser.id))
+        .where(eq(zepThreads.userId, dbUserId))
         .limit(1)
 
       if (existingThread.length === 0) {
@@ -186,7 +201,7 @@ export async function POST(request: NextRequest) {
         const agentSessionId = crypto.randomUUID()
 
         await db.insert(zepThreads).values({
-          userId: clerkUser.id,
+          userId: dbUserId,
           zepThreadId: crypto.randomUUID(), // Will be replaced with actual Zep thread ID
           currentAgent: "zory",
           agentSessionId,
@@ -195,7 +210,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        userId: clerkUser.id,
+        userId: dbUserId,
         zepUserId: zepUser.userId,
       })
     }

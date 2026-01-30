@@ -75,7 +75,7 @@ export async function getThemesAction(filters?: ThemeFilters): Promise<Paginated
   const limit = filters?.limit || 12;
   const offset = (page - 1) * limit;
 
-  const conditions = [isNull(themes.deletedAt)];
+  const conditions = [isNull(themes.deletedAt), eq(themes.userId, userId)];
 
   if (filters?.status) {
     conditions.push(eq(themes.status, filters.status));
@@ -127,42 +127,14 @@ export async function getThemesAction(filters?: ThemeFilters): Promise<Paginated
  * Get a single theme by ID.
  */
 export async function getThemeAction(id: number) {
-  const { auth } = await import('@clerk/nextjs/server');
-  const { userId: clerkUserId } = await auth();
-  if (!clerkUserId) {
-    throw new Error('Unauthorized');
-  }
+  const userId = await ensureAuthenticatedUser();
 
-  // Call ensureAuthenticatedUser just to sync DB
-  await ensureAuthenticatedUser();
+  console.log(`[getThemeAction] Fetching theme ${id}, userId: ${userId}`);
 
-  console.log(`[getThemeAction] Fetching theme ${id}, clerkUserId: ${clerkUserId}`);
-
-  // Try with clerkUserId first
-  let [theme] = await db
+  const [theme] = await db
     .select()
     .from(themes)
-    .where(and(eq(themes.id, id), eq(themes.userId, clerkUserId), isNull(themes.deletedAt)));
-
-  // If not found, try without userId filter (might be from recreated account)
-  if (!theme) {
-    console.log(`[getThemeAction] Theme ${id} not found with clerkUserId, trying without userId filter...`);
-    const [themeByAnyUser] = await db
-      .select()
-      .from(themes)
-      .where(and(eq(themes.id, id), isNull(themes.deletedAt)))
-      .limit(1);
-
-    if (themeByAnyUser) {
-      console.log(`[getThemeAction] Found theme with different userId, updating from ${themeByAnyUser.userId} to ${clerkUserId}`);
-      // Update theme to use current clerkUserId (account was recreated)
-      [theme] = await db
-        .update(themes)
-        .set({ userId: clerkUserId, updatedAt: new Date() })
-        .where(eq(themes.id, id))
-        .returning();
-    }
-  }
+    .where(and(eq(themes.id, id), eq(themes.userId, userId), isNull(themes.deletedAt)));
 
   return theme || null;
 }

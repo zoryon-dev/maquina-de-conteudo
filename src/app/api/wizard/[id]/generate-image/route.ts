@@ -7,7 +7,6 @@
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { contentWizards } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -17,6 +16,7 @@ import {
   isImageGenerationAvailable,
   isScreenshotOneAvailable,
 } from "@/lib/wizard-services";
+import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
 import type {
   ImageGenerationConfig,
   ImageGenerationInput,
@@ -33,10 +33,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const dbUserId = await ensureAuthenticatedUser();
 
   try {
     const { id } = await params;
@@ -50,7 +47,7 @@ export async function POST(
     const [wizard] = await db
       .select()
       .from(contentWizards)
-      .where(and(eq(contentWizards.id, wizardId), eq(contentWizards.userId, userId)))
+      .where(and(eq(contentWizards.id, wizardId), eq(contentWizards.userId, dbUserId)))
       .limit(1);
 
     if (!wizard) {

@@ -6,22 +6,19 @@
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { contentWizards } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { createJob } from "@/lib/queue/jobs";
 import type { WizardImageGenerationPayload } from "@/lib/queue/types";
 import { JobType } from "@/lib/queue/types";
+import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const dbUserId = await ensureAuthenticatedUser();
 
   try {
     const { id } = await params;
@@ -35,7 +32,7 @@ export async function POST(
     const [wizard] = await db
       .select()
       .from(contentWizards)
-      .where(and(eq(contentWizards.id, wizardId), eq(contentWizards.userId, userId)))
+      .where(and(eq(contentWizards.id, wizardId), eq(contentWizards.userId, dbUserId)))
       .limit(1);
 
     if (!wizard) {
@@ -61,11 +58,11 @@ export async function POST(
     // Create the job
     const payload: WizardImageGenerationPayload = {
       wizardId,
-      userId,
+      userId: dbUserId,
       config,
     };
 
-    const jobId = await createJob(userId, "wizard_image_generation" as JobType, payload);
+    const jobId = await createJob(dbUserId, "wizard_image_generation" as JobType, payload);
 
     return NextResponse.json({
       success: true,

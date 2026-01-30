@@ -8,12 +8,12 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { generateYouTubeSEO } from "@/lib/wizard-services";
 import type { GenerateYouTubeSEOParams } from "@/lib/wizard-services";
 import { db } from "@/db";
 import { contentWizards } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
 
 // ============================================================================
 // TYPES
@@ -71,16 +71,7 @@ export async function POST(
     const { id: wizardId } = await params;
 
     // Authenticate user
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Unauthorized",
-        },
-        { status: 401 }
-      );
-    }
+    const dbUserId = await ensureAuthenticatedUser();
 
     // Parse request body
     const body: GenerateSEORequestBody = await request.json();
@@ -113,7 +104,7 @@ export async function POST(
       );
     }
 
-    if (wizard.userId !== userId) {
+    if (wizard.userId !== dbUserId) {
       return NextResponse.json(
         {
           success: false,

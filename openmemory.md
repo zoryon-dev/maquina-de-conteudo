@@ -35,6 +35,10 @@
 - Refactor de roteiro de vídeo usa prompt `video-script-refactor-v1.0` com checklist, anti-patterns e metadata de refactor
 - Carousel v4.2: títulos máx 6 palavras, corpo ≤130 chars, caption 200-400 palavras; slides podem incluir `imagePrompt`; resposta inclui `hashtags` e `cta`
 - Video script v4.4: output inclui `transformacao_prometida`, `contexto` e `duracao_segundos`; vídeos longos usam `anthropic/claude-haiku-4.5`, curtos usam `google/gemini-3-flash-preview`
+- APIs que usam `ensureAuthenticatedUser()` devem usar o ID retornado (DB userId) nas queries; não usar diretamente o Clerk ID para evitar violação de foreign key em contas recriadas
+- Actions/queries de temas devem sempre filtrar por `themes.userId` para evitar vazamento entre usuários
+- Webhooks que criam `zepThreads` devem resolver o DB userId por email (reuse) e usar esse ID nas FK inserts
+- Endpoints do wizard que usam `auth()` devem migrar para `ensureAuthenticatedUser()` para evitar 404/403 em contas recriadas
 
 ## User Defined Namespaces
 - [Leave blank - user populates]

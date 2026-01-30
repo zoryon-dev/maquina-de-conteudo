@@ -8,11 +8,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { contentWizards } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { refactorVideoScript } from "@/lib/wizard-services";
+import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
 
 // ============================================================================
 // TYPES
@@ -48,16 +48,7 @@ export async function POST(
     const { id: wizardId } = await params;
 
     // Authenticate user
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Unauthorized",
-        },
-        { status: 401 }
-      );
-    }
+    const dbUserId = await ensureAuthenticatedUser();
 
     // Parse request body
     const body: RefactorScriptRequestBody = await request.json();
@@ -80,7 +71,7 @@ export async function POST(
       .where(
         and(
           eq(contentWizards.id, parseInt(wizardId)),
-          eq(contentWizards.userId, userId)
+          eq(contentWizards.userId, dbUserId)
         )
       )
       .limit(1);
