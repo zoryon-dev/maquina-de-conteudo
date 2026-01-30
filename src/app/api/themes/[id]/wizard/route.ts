@@ -15,7 +15,7 @@ import { auth } from '@clerk/nextjs/server';
 import { db } from '@/db';
 import { themes, contentWizards } from '@/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
-import { wizardStepEnum } from '@/db/schema';
+import type { Theme } from '@/db/schema';
 import { ThemeProcessorService } from '@/lib/discovery-services/perplexity/theme-processor.service';
 import {
   processInstagramTheme,
@@ -58,7 +58,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
     // (theme might have been created with an old Clerk ID after account recreation)
     console.log("[ThemeWizardAPI] Fetching theme from database...")
 
-    let [theme] = await db
+    let theme: Theme | undefined;
+    [theme] = await db
       .select()
       .from(themes)
       .where(and(eq(themes.id, themeId), eq(themes.userId, clerkUserId), isNull(themes.deletedAt)));
@@ -66,19 +67,21 @@ export async function POST(req: NextRequest, context: RouteContext) {
     if (!theme) {
       // Try fetching without userId filter - theme might be from old account
       console.log("[ThemeWizardAPI] Theme not found with clerkUserId, trying without userId filter...")
-      const [themeByAnyUser] = await db
+      const themeResults = await db
         .select()
         .from(themes)
         .where(and(eq(themes.id, themeId), isNull(themes.deletedAt)));
+      const themeByAnyUser: Theme | undefined = themeResults[0];
 
       if (themeByAnyUser) {
         console.log("[ThemeWizardAPI] Found theme but with different userId, updating to clerkUserId:", themeByAnyUser.userId, "->", clerkUserId)
         // Update theme to use current clerkUserId
-        [theme] = await db
+        const updatedTheme = await db
           .update(themes)
           .set({ userId: clerkUserId, updatedAt: new Date() })
           .where(eq(themes.id, themeId))
           .returning();
+        theme = updatedTheme[0];
       } else {
         console.error("[ThemeWizardAPI] Theme not found for id:", themeId)
         return NextResponse.json({ error: 'Theme not found. Please try creating a new wizard.' }, { status: 404 });
