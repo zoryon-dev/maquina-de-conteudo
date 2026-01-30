@@ -1780,12 +1780,20 @@ ${synthesizedResearch ? `
 - Frameworks: use como estrutura para slides de passo
 ` : ''}
 
-Tipos de conteúdo de valor:
-1. **CONCEITO + APLICAÇÃO**: Conceito + explicação + contexto + aplicação prática (200-250 chars)
-2. **ERRO + CORREÇÃO**: Erro comum + consequência + correção contraintuitiva (200-250 chars)
-3. **PASSO + EXEMPLO**: Passo específico + como fazer + exemplo de execução (220-260 chars)
-4. **MITO + VERDADE**: Crença comum + verdade + por quê funciona melhor (200-240 chars)
-5. **ANTES + DEPOIS**: Situação anterior + mudança + resultado específico (190-240 chars)
+⚠️ IMPORTANTE: TIPOS vs PADRÕES DE CONTEÚDO
+
+Os 7 TIPOS VÁLIDOS de slide são:
+- problema, conceito, passo, exemplo, erro, sintese, cta
+
+Os padrões abaixo (CONCEITO+APLICAÇÃO, ERRO+CORREÇÃO, MITO+VERDADE, etc) descrevem 
+o CONTEÚDO do slide, não o tipo. Use o tipo mais apropriado para cada padrão.
+
+Padrões de conteúdo de valor:
+1. **CONCEITO + APLICAÇÃO** (usar tipo="conceito"): Conceito + explicação + contexto + aplicação prática (200-250 chars)
+2. **ERRO + CORREÇÃO** (usar tipo="erro"): Erro comum + consequência + correção contraintuitiva (200-250 chars)
+3. **PASSO + EXEMPLO** (usar tipo="passo"): Passo específico + como fazer + exemplo de execução (220-260 chars)
+4. **MITO + VERDADE** (usar tipo="conceito" ou tipo="erro"): Crença comum + verdade + por quê funciona melhor (200-240 chars)
+5. **ANTES + DEPOIS** (usar tipo="exemplo"): Situação anterior + mudança + resultado específico (190-240 chars)
 
 **SLIDE PENÚLTIMO — SÍNTESE**
 - Título: A verdade central em uma frase
@@ -1972,12 +1980,13 @@ REGRAS CRÍTICAS v4.3:
 2. Título: máximo 6 palavras (claro, não apenas impactante)
 3. Corpo: 160-250 caracteres para slides de conteúdo (mínimo aceitável: 160, ideal: 230-250)
 4. CTA: 120-180 caracteres (específico e acionável)
-5. Cada slide deve ter "tipo" identificado
+5. Cada slide deve ter "tipo" identificado - APENAS um dos 7 tipos válidos: problema, conceito, passo, exemplo, erro, sintese, cta
 6. Campo "conexao_proximo" ajuda coerência (não aparece no output final)
 7. Caption: 300-500 palavras (mais generosa, mais valor)
 8. TODO slide de conteúdo deve ENSINAR algo específico e CONCRETO
 9. Use synthesizedResearch quando disponível para enriquecer conteúdo
 10. Priorize densidade de 230-250 caracteres por slide de conteúdo
+11. ⚠️ NUNCA use tipos como "mito", "verdade", "antes", "depois" - esses são padrões de conteúdo, não tipos válidos
 
 CTA Final: "${cta || "Salva pra quando precisar lembrar disso."}"
 

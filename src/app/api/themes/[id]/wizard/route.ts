@@ -164,45 +164,104 @@ export async function POST(req: NextRequest, context: RouteContext) {
       }
     }
 
+    // Validate required fields before insertion
+    if (!wizardTheme || wizardTheme.trim().length === 0) {
+      console.error("[ThemeWizardAPI] Validation failed: wizardTheme is empty")
+      return NextResponse.json(
+        { error: 'Theme is required to create wizard' },
+        { status: 400 }
+      );
+    }
+
     // Create a new Wizard with processed theme data
     console.log("[ThemeWizardAPI] Creating wizard in database...")
-    const [wizard] = await db
-      .insert(contentWizards)
-      .values({
-        userId: clerkUserId,
-        currentStep: 'input' as const,
-        contentType: suggestedContentType,
-        theme: wizardTheme,
-        context: wizardContext || undefined,
-        referenceUrl: referenceUrl || undefined,
-        objective: wizardObjective || undefined,
-        targetAudience: theme.targetAudience || undefined,
-        // Pre-fill with briefing if available
-        extractedContent: theme.briefing
-          ? {
-              title: theme.title,
-              briefing: theme.briefing,
-              keyPoints: theme.keyPoints || [],
-              angles: theme.angles || [],
-            }
-          : undefined,
-      })
-      .returning();
+    console.log("[ThemeWizardAPI] Wizard data:", {
+      userId: clerkUserId,
+      contentType: suggestedContentType,
+      theme: wizardTheme,
+      hasContext: !!wizardContext,
+      hasObjective: !!wizardObjective,
+      hasReferenceUrl: !!referenceUrl,
+      hasTargetAudience: !!theme.targetAudience,
+      hasExtractedContent: !!theme.briefing,
+    })
 
-    console.log("[ThemeWizardAPI] Wizard created successfully:", wizard.id)
+    try {
+      const [wizard] = await db
+        .insert(contentWizards)
+        .values({
+          userId: clerkUserId,
+          currentStep: 'input' as const,
+          contentType: suggestedContentType,
+          theme: wizardTheme,
+          context: wizardContext || undefined,
+          referenceUrl: referenceUrl || undefined,
+          objective: wizardObjective || undefined,
+          targetAudience: theme.targetAudience || undefined,
+          // Pre-fill with briefing if available
+          extractedContent: theme.briefing
+            ? {
+                title: theme.title,
+                briefing: theme.briefing,
+                keyPoints: theme.keyPoints || [],
+                angles: theme.angles || [],
+              }
+            : undefined,
+        })
+        .returning();
 
-    return NextResponse.json({
-      wizardId: wizard.id,
-      theme: {
-        id: theme.id,
-        title: theme.title,
-        theme: theme.theme,
-      },
-    });
+      console.log("[ThemeWizardAPI] Wizard created successfully:", wizard.id)
+
+      return NextResponse.json({
+        wizardId: wizard.id,
+        theme: {
+          id: theme.id,
+          title: theme.title,
+          theme: theme.theme,
+        },
+      });
+    } catch (dbError) {
+      console.error('[ThemeWizardAPI] Database error creating wizard:', dbError);
+      if (dbError instanceof Error) {
+        console.error('[ThemeWizardAPI] Error message:', dbError.message);
+        console.error('[ThemeWizardAPI] Error stack:', dbError.stack);
+        
+        // Check for common database errors
+        if (dbError.message.includes('violates foreign key constraint')) {
+          return NextResponse.json(
+            { error: 'Invalid user or theme reference' },
+            { status: 400 }
+          );
+        }
+        if (dbError.message.includes('violates not-null constraint')) {
+          return NextResponse.json(
+            { error: 'Missing required fields for wizard creation' },
+            { status: 400 }
+          );
+        }
+      }
+      throw dbError; // Re-throw to be caught by outer catch
+    }
   } catch (error) {
-    console.error('[ThemeWizardAPI] Error:', error);
+    console.error('[ThemeWizardAPI] Unexpected error:', error);
+    
+    // Log detailed error information
+    if (error instanceof Error) {
+      console.error('[ThemeWizardAPI] Error name:', error.name);
+      console.error('[ThemeWizardAPI] Error message:', error.message);
+      console.error('[ThemeWizardAPI] Error stack:', error.stack);
+    } else {
+      console.error('[ThemeWizardAPI] Unknown error type:', typeof error, error);
+    }
+
+    // Return more detailed error in development
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const errorMessage = isDevelopment && error instanceof Error
+      ? `Failed to create wizard from theme: ${error.message}`
+      : 'Failed to create wizard from theme';
+
     return NextResponse.json(
-      { error: 'Failed to create wizard from theme' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

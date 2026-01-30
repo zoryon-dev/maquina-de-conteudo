@@ -143,6 +143,18 @@ export function validateCarouselResponse(
   const VALID_TYPES = ["problema", "conceito", "passo", "exemplo", "erro", "sintese", "cta"] as const;
   type ValidSlideType = typeof VALID_TYPES[number];
 
+  // Auto-correction mapping for common invalid types
+  const TYPE_CORRECTION_MAP: Record<string, ValidSlideType> = {
+    "mito": "conceito",
+    "verdade": "conceito",
+    "antes": "exemplo",
+    "depois": "exemplo",
+    "aplicacao": "conceito",
+    "correcao": "erro",
+    "sintese": "sintese", // Already valid, but included for completeness
+    "síntese": "sintese", // With accent
+  };
+
   // Validate each slide
   carousel.slides.forEach((slide: unknown, index: number) => {
     if (!slide || typeof slide !== "object") {
@@ -166,13 +178,37 @@ export function validateCarouselResponse(
       );
     }
 
-    if (!VALID_TYPES.includes(slideObj.tipo as ValidSlideType)) {
-      throw new ValidationError(
-        `Slide ${index + 1}: Tipo '${slideObj.tipo}' é inválido. Deve ser um dos 7 tipos v4.2.`,
-        `slides[${index}].tipo`,
-        "um de: " + VALID_TYPES.join(", "),
-        slideObj.tipo
-      );
+    const tipoOriginal = slideObj.tipo as string;
+    let tipoCorrigido: string = tipoOriginal.toLowerCase().trim();
+
+    // Try auto-correction if type is invalid
+    if (!VALID_TYPES.includes(tipoCorrigido as ValidSlideType)) {
+      if (TYPE_CORRECTION_MAP[tipoCorrigido]) {
+        tipoCorrigido = TYPE_CORRECTION_MAP[tipoCorrigido];
+        console.warn(
+          `[Validation] Slide ${index + 1}: Tipo inválido '${tipoOriginal}' corrigido automaticamente para '${tipoCorrigido}'`
+        );
+        // Update the slide object with corrected type
+        slideObj.tipo = tipoCorrigido;
+        
+        // Verify the corrected type is valid (should always be, but double-check)
+        if (!VALID_TYPES.includes(tipoCorrigido as ValidSlideType)) {
+          throw new ValidationError(
+            `Slide ${index + 1}: Erro interno - tipo corrigido '${tipoCorrigido}' ainda é inválido`,
+            `slides[${index}].tipo`,
+            "um de: " + VALID_TYPES.join(", "),
+            tipoCorrigido
+          );
+        }
+      } else {
+        // No auto-correction available, throw error
+        throw new ValidationError(
+          `Slide ${index + 1}: Tipo '${tipoOriginal}' é inválido. Deve ser um dos 7 tipos v4.2: ${VALID_TYPES.join(", ")}`,
+          `slides[${index}].tipo`,
+          "um de: " + VALID_TYPES.join(", "),
+          tipoOriginal
+        );
+      }
     }
 
     // Validate titulo
