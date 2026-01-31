@@ -608,12 +608,13 @@ export function Step1Inputs({
                     </DialogHeader>
                     <div className="flex-1 overflow-y-auto -mx-2">
                       {(() => {
-                        const providers: Array<ModelProvider> = ["openai", "anthropic", "google", "x-ai"];
+                        const providers: Array<ModelProvider> = ["openai", "anthropic", "google", "x-ai", "deepseek"];
                         const providerNames: Record<ModelProvider, string> = {
                           openai: "OpenAI",
                           anthropic: "Anthropic",
                           google: "Google",
                           "x-ai": "xAI",
+                          deepseek: "DeepSeek",
                           "black-forest-labs": "Black Forest Labs",
                           "sourceful": "Sourceful",
                           "bytedance-seed": "ByteDance",

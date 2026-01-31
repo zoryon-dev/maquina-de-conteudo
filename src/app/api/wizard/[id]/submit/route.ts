@@ -139,6 +139,7 @@ export async function POST(
           videoDuration: wizard.videoDuration ?? undefined,
           numberOfSlides: wizard.numberOfSlides ?? undefined,
           customInstructions: wizard.customInstructions ?? undefined,
+          model: wizard.model ?? undefined,
           ragConfig: wizard.ragConfig as any,
         }
       );

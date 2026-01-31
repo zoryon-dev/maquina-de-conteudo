@@ -28,6 +28,7 @@ export type ModelProvider =
   | "google"
   | "anthropic"
   | "x-ai"
+  | "deepseek"
   | "black-forest-labs"
   | "sourceful"
   | "bytedance-seed"
@@ -54,6 +55,8 @@ export const TEXT_MODELS: AIModel[] = [
   { id: "openai/gpt-5.2", name: "GPT 5.2", type: "text", provider: "openai" },
   { id: "openai/gpt-5.1", name: "GPT 5.1", type: "text", provider: "openai" },
   { id: "openai/gpt-5.2-chat", name: "GPT 5.2 Chat", type: "text", provider: "openai" },
+  { id: "openai/gpt-4.1", name: "GPT 4.1", type: "text", provider: "openai" },
+  { id: "openai/gpt-4.1-mini", name: "GPT 4.1 Mini", type: "text", provider: "openai" },
   { id: "google/gemini-3-flash-preview", name: "Gemini 3 Flash Preview", type: "text", provider: "google" },
   { id: "google/gemini-3-pro-preview", name: "Gemini 3 Pro Preview", type: "text", provider: "google" },
   { id: "anthropic/claude-sonnet-4.5", name: "Claude Sonnet 4.5", type: "text", provider: "anthropic" },
@@ -61,6 +64,7 @@ export const TEXT_MODELS: AIModel[] = [
   { id: "anthropic/claude-haiku-4.5", name: "Claude Haiku 4.5", type: "text", provider: "anthropic" },
   { id: "x-ai/grok-4.1-fast", name: "Grok 4.1 Fast", type: "text", provider: "x-ai" },
   { id: "x-ai/grok-4-fast", name: "Grok 4 Fast", type: "text", provider: "x-ai" },
+  { id: "deepseek/deepseek-v3.2-speciale", name: "DeepSeek V3.2 Speciale", type: "text", provider: "deepseek" },
 ]
 
 /**

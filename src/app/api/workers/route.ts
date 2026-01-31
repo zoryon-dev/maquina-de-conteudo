@@ -543,7 +543,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
    * 7. Updating wizard with narratives
    */
   wizard_narratives: async (payload: unknown) => {
-    const { wizardId, userId, contentType, referenceUrl, referenceVideoUrl, theme, context, objective, targetAudience, cta, videoDuration, numberOfSlides, customInstructions, ragConfig } =
+    const { wizardId, userId, contentType, referenceUrl, referenceVideoUrl, theme, context, objective, targetAudience, cta, videoDuration, numberOfSlides, customInstructions, model, ragConfig } =
       payload as WizardNarrativesPayload;
 
     // 1. Get wizard
@@ -843,7 +843,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       referenceVideoUrl,
       numberOfSlides,
       customInstructions,
-    }, undefined, userId); // Pass userId for user variables
+    }, model, userId); // Pass model and userId for user variables
 
     if (!narrativesResult.success) {
       // Update wizard with error status

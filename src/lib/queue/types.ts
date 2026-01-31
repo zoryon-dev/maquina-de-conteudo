@@ -116,7 +116,7 @@ export interface DocumentEmbeddingPayload {
 
 /**
  * Payload for wizard narratives job
- * Generates 3 narrative options based on user input
+ * Generates 4 narrative options based on user input
  */
 export interface WizardNarrativesPayload {
   /** Wizard ID */
@@ -141,6 +141,8 @@ export interface WizardNarrativesPayload {
   numberOfSlides?: number;
   /** Custom user instructions */
   customInstructions?: string;
+  /** AI model to use for narrative generation */
+  model?: string;
   /** RAG configuration */
   ragConfig?: {
     mode?: "auto" | "manual" | "off";
