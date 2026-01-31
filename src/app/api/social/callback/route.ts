@@ -50,7 +50,16 @@ interface DecodedOAuthState {
  */
 function decodeOAuthState(state: string): DecodedOAuthState | null {
   try {
-    const stateData = Buffer.from(state, 'base64').toString('utf-8')
+    // Remove platform suffix added in oauth/route.ts (e.g., "_instagram" or "_facebook")
+    // The suffix was added for debugging but corrupts the base64 encoding
+    let cleanState = state
+    if (state.endsWith("_instagram")) {
+      cleanState = state.slice(0, -10) // Remove "_instagram" (10 chars)
+    } else if (state.endsWith("_facebook")) {
+      cleanState = state.slice(0, -9) // Remove "_facebook" (9 chars)
+    }
+
+    const stateData = Buffer.from(cleanState, 'base64').toString('utf-8')
     const parts = stateData.split(":")
 
     if (parts.length !== 3) {
@@ -76,25 +85,35 @@ function decodeOAuthState(state: string): DecodedOAuthState | null {
 }
 
 async function ensureUserRecord(userId: string) {
-  const existing = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1)
-
-  if (existing.length > 0) return
+  console.log("[OAuth] ensureUserRecord - checking user:", userId)
 
   try {
+    const existing = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+
+    if (existing.length > 0) {
+      console.log("[OAuth] User already exists in database")
+      return
+    }
+
+    console.log("[OAuth] User not found, fetching from Clerk...")
     const clerk = await clerkClient()
     const clerkUser = await clerk.users.getUser(userId)
+    console.log("[OAuth] Clerk user found:", clerkUser.id, clerkUser.emailAddresses.length, "emails")
+
     const primaryEmail =
       clerkUser.emailAddresses.find((email) => email.id === clerkUser.primaryEmailAddressId)
         ?.emailAddress || clerkUser.emailAddresses[0]?.emailAddress
 
     if (!primaryEmail) {
-      throw new Error("No email address found for user")
+      console.error("[OAuth] No email address found for user:", userId)
+      throw new Error("Nenhum email encontrado para o usuário. Verifique sua conta Clerk.")
     }
 
+    console.log("[OAuth] Inserting user with email:", primaryEmail)
     await db.insert(users).values({
       id: clerkUser.id,
       email: primaryEmail,
@@ -103,8 +122,17 @@ async function ensureUserRecord(userId: string) {
       createdAt: new Date(),
       updatedAt: new Date(),
     })
+    console.log("[OAuth] User record created successfully")
   } catch (error) {
     console.error("[OAuth] Failed to ensure user record:", error)
+    // Re-throw with more context
+    if (error instanceof Error) {
+      if (error.message.includes("duplicate key")) {
+        console.log("[OAuth] Race condition - user already exists, continuing...")
+        return // User was created by another request
+      }
+      throw new Error(`Falha ao validar usuário: ${error.message}`)
+    }
     throw new Error("Falha ao validar seu usuário. Tente novamente ou contate o suporte.")
   }
 }
@@ -189,10 +217,13 @@ function buildRedirectUrl(path: string, requestUrl: string): URL {
 export async function GET(request: Request) {
   // Try to get userId from Clerk auth first
   let userId = (await auth()).userId
+  console.log("[OAuth] Callback received - Clerk userId:", userId)
 
   const { searchParams } = new URL(request.url)
   const state = searchParams.get("state")
   const error = searchParams.get("error")
+  console.log("[OAuth] State parameter:", state ? `${state.substring(0, 30)}...` : "null")
+  console.log("[OAuth] Error parameter:", error)
 
   // Handle user denial
   if (error) {
@@ -214,8 +245,10 @@ export async function GET(request: Request) {
 
   // Decode and validate OAuth state
   const decodedState = decodeOAuthState(state)
+  console.log("[OAuth] Decoded state:", decodedState)
 
   if (!decodedState) {
+    console.error("[OAuth] Failed to decode state - raw state:", state)
     return NextResponse.redirect(
       buildRedirectUrl(`/settings?tab=social&error=${encodeURIComponent("Invalid OAuth state. Please try again.")}`, request.url)
     )
@@ -224,6 +257,8 @@ export async function GET(request: Request) {
   // Use userId from decoded state if Clerk auth failed
   const finalUserId = userId || decodedState.userId
   const platform = decodedState.platform
+  console.log("[OAuth] Final userId:", finalUserId, "| Platform:", platform)
+  console.log("[OAuth] userId source:", userId ? "Clerk auth" : "decoded state")
 
   if (!finalUserId) {
     return new Response("Unauthorized: Unable to verify user session", { status: 401 })
