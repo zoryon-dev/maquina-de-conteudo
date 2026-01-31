@@ -79,6 +79,9 @@ graph TD
 │   │   ├── /documents      # Document management
 │   │   │   ├── /upload      # PDF/TXT/MD upload with text extraction
 │   │   │   └── /[id]        # Download document from storage
+│   │   ├── /library         # Library management
+│   │   │   └── /[id]
+│   │   │       └── /upload-image  # Custom image upload (Jan 2026)
 │   │   └── /admin          # Admin operations
 │   │       └── /clear-documents # Bulk delete all user documents
 │   ├── /sign-in            # Clerk sign-in page
@@ -390,6 +393,86 @@ Deletes ALL user documents including:
   "steps": ["Fetching documents...", "✓ Deleted 42 R2 files", "..."]
 }
 ```
+
+### Library Image Upload (Jan 2026)
+
+Users can upload custom images to replace existing images in the Library:
+- **Carousel slides**: Replace any individual slide
+- **Video thumbnails**: Replace auto-generated thumbnails
+- **Single images**: Replace AI-generated images
+
+**API Endpoint:** `POST /api/library/[id]/upload-image`
+
+```typescript
+// Request: FormData
+const formData = new FormData()
+formData.append("file", file)           // Image file (PNG, JPG, WebP, GIF)
+formData.append("slideIndex", "0")      // Index in mediaUrl array
+
+// Response
+{
+  success: true,
+  newImageUrl: "https://storage-mc.zoryon.org/library-123/custom-0-1234567890.png",
+  slideIndex: 0
+}
+```
+
+**Storage Key Pattern:**
+```
+library-{libraryItemId}/custom-{slideIndex}-{timestamp}.{ext}
+
+Example: library-123/custom-2-1706745600000.png
+```
+
+**Validation:**
+| Check | Method | Limit |
+|-------|--------|-------|
+| File Size | `file.size` | 5MB max |
+| MIME Type | `file.type` | image/png, image/jpeg, image/webp, image/gif |
+| Magic Bytes | Buffer header analysis | PNG: 89504e47, JPG: ffd8ff, WebP: 52494646...57454250, GIF: 47494638 |
+
+**Double Validation Pattern:**
+```typescript
+// First check: MIME type
+if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+  return { error: "Tipo não permitido" }
+}
+
+// Second check: Magic bytes (prevents spoofed extensions)
+const buffer = Buffer.from(await file.arrayBuffer())
+const detectedType = detectImageType(buffer)
+if (!detectedType) {
+  return { error: "Arquivo não é uma imagem válida" }
+}
+```
+
+**Integration with Social Publishing:**
+
+Custom uploaded images are stored in Cloudflare R2 with public URLs. These URLs are directly used by the Instagram Content Publishing API:
+
+```mermaid
+graph LR
+    Upload[Custom Image] --> R2[Cloudflare R2]
+    R2 --> URL[Public URL]
+    URL --> DB[libraryItems.mediaUrl]
+    DB --> Publish[/api/social/publish]
+    Publish --> IG[Instagram API]
+    IG --> Post[Published Post]
+```
+
+**UI Integration:**
+
+| Location | Component | Action |
+|----------|-----------|--------|
+| Image Gallery | `ImageGalleryDrawer` | "Substituir" button per slide |
+| Video Thumbnail | `ContentPreviewSection` | "Substituir" button for thumbnail |
+
+**Component:** `ImageUploadDialog`
+- Drag & drop zone
+- Preview current image (if exists)
+- Preview new image before upload
+- Size/type validation feedback
+- Progress indicator during upload
 
 ## Queue System Architecture
 
@@ -1825,4 +1908,4 @@ Clerk webhooks keep database in sync rather than fetching user data on each requ
 
 ---
 
-*Updated based on codebase analysis as of Jan 23, 2026 (Tribal v4 Migration - Seth Godin's "Tribes" philosophy).*
+*Updated based on codebase analysis as of Jan 31, 2026 (Library Custom Image Upload feature).*

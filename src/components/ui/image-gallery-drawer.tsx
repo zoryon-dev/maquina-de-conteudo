@@ -14,7 +14,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Edit3, Loader2, RefreshCw, Download } from "lucide-react"
+import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Edit3, Loader2, RefreshCw, Download, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { getWizardTemplateDataAction } from "@/app/(app)/library/actions/library-actions"
+import { ImageUploadDialog } from "@/components/ui/image-upload-dialog"
 
 // ============================================================================
 // TYPES
@@ -69,6 +70,7 @@ export function ImageGalleryDrawer({
   const [zoom, setZoom] = useState(1)
   const [isEditing, setIsEditing] = useState(false)
   const [isRegenerating, setIsRegenerating] = useState(false)
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
   const [enrichedImages, setEnrichedImages] = useState<GalleryImage[]>(images)
 
   // Estado para edição de texto
@@ -305,6 +307,19 @@ export function ImageGalleryDrawer({
               >
                 <Edit3 className="w-4 h-4 mr-2" />
                 {isEditing ? "Cancelar Edição" : "Editar Texto"}
+              </Button>
+            )}
+
+            {/* Botão Substituir Imagem */}
+            {libraryItemId && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setUploadDialogOpen(true)}
+                className="text-white/70 hover:text-white hover:bg-white/5"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Substituir
               </Button>
             )}
 
@@ -554,6 +569,29 @@ export function ImageGalleryDrawer({
           </div>
         </div>
       </div>
+
+      {/* Dialog de Upload de Imagem */}
+      {libraryItemId && (
+        <ImageUploadDialog
+          open={uploadDialogOpen}
+          onOpenChange={setUploadDialogOpen}
+          libraryItemId={libraryItemId}
+          slideIndex={currentIndex}
+          currentImageUrl={currentImage?.url}
+          onSuccess={(newUrl) => {
+            onImageUpdated?.(currentIndex, newUrl)
+            setUploadDialogOpen(false)
+            // Atualizar a lista de imagens localmente
+            setEnrichedImages(prev => {
+              const updated = [...prev]
+              if (updated[currentIndex]) {
+                updated[currentIndex] = { ...updated[currentIndex], url: newUrl }
+              }
+              return updated
+            })
+          }}
+        />
+      )}
     </div>
   )
 }

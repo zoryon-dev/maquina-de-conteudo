@@ -10,10 +10,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { MessageSquare, Layers, Type, Image, Video, Camera, Images, ChevronLeft, ChevronRight, Edit3, Copy, Check, X, Loader2, Maximize2, Download, Hash, FileText } from "lucide-react"
+import { MessageSquare, Layers, Type, Image, Video, Camera, Images, ChevronLeft, ChevronRight, Edit3, Copy, Check, X, Loader2, Maximize2, Download, Hash, FileText, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ImageGalleryDrawer, type GalleryImage } from "@/components/ui/image-gallery-drawer"
+import { ImageUploadDialog } from "@/components/ui/image-upload-dialog"
 import type { LibraryItemWithRelations } from "@/types/library"
 import { toast } from "sonner"
 import { CollapsibleSection } from "@/components/ui/collapsible"
@@ -73,6 +74,9 @@ export function ContentPreviewSection({
   const [isEditingCaption, setIsEditingCaption] = useState(false)
   const [editedCaption, setEditedCaption] = useState(caption || "")
   const [isSavingCaption, setIsSavingCaption] = useState(false)
+
+  // Thumbnail upload state
+  const [thumbnailUploadOpen, setThumbnailUploadOpen] = useState(false)
 
   // Update edited caption when prop changes
   useEffect(() => {
@@ -368,6 +372,15 @@ export function ContentPreviewSection({
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => setThumbnailUploadOpen(true)}
+                      className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Substituir
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={handleDownloadThumbnail}
                       disabled={!videoThumbnailUrl}
                       className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
@@ -560,6 +573,19 @@ export function ContentPreviewSection({
         images={galleryImages}
         libraryItemId={item.id}
         onImageUpdated={() => window.location.reload()}
+      />
+
+      {/* Thumbnail Upload Dialog */}
+      <ImageUploadDialog
+        open={thumbnailUploadOpen}
+        onOpenChange={setThumbnailUploadOpen}
+        libraryItemId={item.id}
+        slideIndex={0}
+        currentImageUrl={videoThumbnailUrl || undefined}
+        onSuccess={() => {
+          setThumbnailUploadOpen(false)
+          window.location.reload()
+        }}
       />
     </div>
   )

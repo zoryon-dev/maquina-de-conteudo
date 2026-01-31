@@ -2,14 +2,14 @@
 
 **Projeto:** Máquina de Conteúdo
 **Feature:** Biblioteca de Conteúdos (`/library`)
-**Data:** 2026-01-15
+**Data:** 2026-01-31 (Atualizado)
 **Status:** ✅ Concluído
 
 ---
 
 ## Visão Geral
 
-A Biblioteca de Conteúdos é uma página completa para gerenciar todos os conteúdos criados, com visualização em grid/lista, filtros, edição inline e ações em lote.
+A Biblioteca de Conteúdos é uma página completa para gerenciar todos os conteúdos criados, com visualização em grid/lista, filtros, edição inline, ações em lote e upload de imagens customizadas.
 
 ---
 
@@ -34,12 +34,131 @@ src/app/(app)/library/
 │   ├── use-library-data.ts           # Hook de dados
 │   ├── use-library-filters.ts        # Hook de filtros
 │   └── use-library-view.ts           # Hook de view mode
-└── actions/
-    └── library-actions.ts            # Server Actions
+├── actions/
+│   └── library-actions.ts            # Server Actions
+└── [id]/
+    ├── page.tsx                      # Server Component (detalhe)
+    └── components/
+        ├── library-detail-page.tsx   # Client Component principal
+        ├── content-preview-section.tsx # Preview de mídia (65%)
+        ├── content-actions-section.tsx # Ações (35%)
+        └── schedule-drawer.tsx       # Drawer de agendamento
+
+src/components/ui/
+├── image-gallery-drawer.tsx          # Galeria de imagens com edição
+└── image-upload-dialog.tsx           # Dialog de upload de imagem (NOVO)
+
+src/app/api/library/[id]/
+├── route.ts                          # CRUD básico
+├── upload-image/route.ts             # Upload de imagem customizada (NOVO)
+├── regenerate-slide/route.ts         # Regenerar slide com texto editado
+├── regenerate-images/route.ts        # Regenerar todas as imagens
+└── generate-image/route.ts           # Gerar nova imagem
 
 src/types/
-└── library.ts                         # Tipos TypeScript
+└── library.ts                        # Tipos TypeScript
 ```
+
+---
+
+## Padrão 10: Upload de Imagem Customizada (NOVO - Jan 2026)
+
+**Problema:** Usuário quer substituir uma imagem gerada por IA por uma imagem própria.
+
+**Solução:** Dialog de upload com drag & drop que faz upload para R2/Local e atualiza o mediaUrl.
+
+### API Endpoint
+
+```typescript
+// POST /api/library/[id]/upload-image
+// FormData: file (File) + slideIndex (number)
+// Response: { success: boolean, newImageUrl?: string, slideIndex?: number }
+
+// Validações:
+// - Tipos: PNG, JPG, WebP, GIF
+// - Tamanho: máximo 5MB
+// - Validação dupla: MIME type + magic bytes
+
+// Storage key pattern:
+const key = `library-${libraryItemId}/custom-${slideIndex}-${timestamp}.${ext}`
+```
+
+### Componente ImageUploadDialog
+
+```typescript
+// src/components/ui/image-upload-dialog.tsx
+interface ImageUploadDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  libraryItemId: number
+  slideIndex: number
+  currentImageUrl?: string
+  onSuccess?: (newImageUrl: string) => void
+}
+
+// Features:
+// - Drag & drop zone
+// - Preview da imagem atual
+// - Preview da nova imagem antes de upload
+// - Validação visual de tipo/tamanho
+// - Indicador de progresso
+```
+
+### Integração no ImageGalleryDrawer
+
+```typescript
+// Botão "Substituir" no header (após Download)
+{libraryItemId && (
+  <Button onClick={() => setUploadDialogOpen(true)}>
+    <Upload className="w-4 h-4 mr-2" />
+    Substituir
+  </Button>
+)}
+
+// Dialog de upload
+<ImageUploadDialog
+  open={uploadDialogOpen}
+  onOpenChange={setUploadDialogOpen}
+  libraryItemId={libraryItemId!}
+  slideIndex={currentIndex}
+  currentImageUrl={currentImage?.url}
+  onSuccess={(newUrl) => {
+    onImageUpdated?.(currentIndex, newUrl)
+    setUploadDialogOpen(false)
+    // Atualiza local state para refletir mudança
+    setEnrichedImages(prev => {
+      const updated = [...prev]
+      updated[currentIndex] = { ...updated[currentIndex], url: newUrl }
+      return updated
+    })
+  }}
+/>
+```
+
+### Integração para Thumbnails de Vídeo
+
+```typescript
+// ContentPreviewSection - seção de thumbnail
+<Button onClick={() => setThumbnailUploadOpen(true)}>
+  <Upload className="w-4 h-4 mr-2" />
+  Substituir
+</Button>
+
+<ImageUploadDialog
+  libraryItemId={item.id}
+  slideIndex={0}  // Thumbnail sempre no índice 0
+  currentImageUrl={videoThumbnailUrl}
+  onSuccess={() => window.location.reload()}
+/>
+```
+
+### Fluxo de Dados
+
+```
+Upload → R2/Local Storage → URL pública → libraryItems.mediaUrl → Instagram API
+```
+
+A mesma URL salva no banco é usada diretamente na publicação do Instagram.
 
 ---
 
@@ -50,7 +169,6 @@ src/types/
 **Solução:** Usar `useRef` + `JSON.stringify` para comparar objetos:
 
 ```typescript
-// use-library-data.ts
 const prevDepsRef = useRef<string>("")
 
 useEffect(() => {
@@ -62,172 +180,20 @@ useEffect(() => {
 }, [filters, viewMode])
 ```
 
-**Importante:** Sempre que tiver `useEffect` com dependências de objeto (filters, viewMode, etc.), usar esse padrão.
-
 ---
 
 ## Padrão 2: Edição Inline com Autoselect
 
-**Problema:** Precisar editar um campo rapidamente sem abrir modal.
-
-**Solução:** Duplo clique ativa modo de edição com input focado e texto selecionado:
-
 ```typescript
-// content-card.tsx
 const [isEditing, setIsEditing] = useState(false)
-const [editedTitle, setEditedTitle] = useState(item.title ?? "")
 const inputRef = useRef<HTMLInputElement>(null)
 
-// Focus e select quando inicia edição
 useEffect(() => {
   if (isEditing && inputRef.current) {
     inputRef.current.focus()
     inputRef.current.select()
   }
 }, [isEditing])
-
-// Atalhos: Enter salva, Esc cancela
-const handleKeyDown = (e: React.KeyboardEvent) => {
-  if (e.key === "Enter") {
-    handleSave()
-  } else if (e.key === "Escape") {
-    handleCancel()
-  }
-}
-
-// Salvar também ao sair do campo (onBlur)
-<Input
-  ref={inputRef}
-  value={editedTitle}
-  onChange={(e) => setEditedTitle(e.target.value)}
-  onKeyDown={handleKeyDown}
-  onBlur={handleSave}
-/>
-```
-
----
-
-## Padrão 3: Picker Customizado com Click-Outside
-
-**Problema:** Componente Popover do shadcn não estava disponível.
-
-**Solução:** Criar dropdown customizado com `useRef` para detectar click outside:
-
-```typescript
-// category-picker.tsx
-const [open, setOpen] = useState(false)
-const containerRef = useRef<HTMLDivElement>(null)
-
-useEffect(() => {
-  const handleClickOutside = (e: MouseEvent) => {
-    if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-      setOpen(false)
-    }
-  }
-  document.addEventListener("mousedown", handleClickOutside)
-  return () => document.removeEventListener("mousedown", handleClickOutside)
-}, [])
-```
-
----
-
-## Padrão 4: Multi-Select de Tags
-
-**Problema:** Usuário precisa selecionar múltiplas tags.
-
-**Solução:** State com array de IDs + badges visual:
-
-```typescript
-// tag-picker.tsx
-interface TagPickerProps {
-  tags: Tag[]
-  selectedIds: number[]
-  onSelect: (tagIds: number[]) => void
-}
-
-// Toggle sem remover outros
-const toggleTag = (tagId: number) => {
-  if (selectedIds.includes(tagId)) {
-    onSelect(selectedIds.filter((id) => id !== tagId))
-  } else {
-    onSelect([...selectedIds, tagId])
-  }
-}
-
-// Badge com botão de remover
-<Badge>
-  #{tag.name}
-  <X onClick={() => removeTag(tag.id)} />
-</Badge>
-```
-
----
-
-## Padrão 5: Ações em Lote com Toast
-
-**Problema:** Usuário precisa excluir/mudar status de múltiplos itens.
-
-**Solução:** State de seleção + toolbar condicional:
-
-```typescript
-// library-page.tsx
-const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
-
-// Toolbar só aparece quando há seleção
-{selectedIds.size > 0 && (
-  <BatchActionsBar
-    selectedCount={selectedIds.size}
-    onBatchDelete={handleBatchDelete}
-    onBatchStatus={handleBatchStatus}
-    onClearSelection={clearSelection}
-  />
-)}
-
-// Handler de batch delete
-const handleBatchDelete = async () => {
-  const ids = Array.from(selectedIds)
-  const result = await batchDeleteAction(ids)
-  if (result.success) {
-    toast.success(`${ids.length} conteúdos excluídos`)
-    clearSelection()
-    refetch()
-  }
-}
-```
-
----
-
-## Padrão 6: Filtro Bar Expansível
-
-**Problema:** Muitos filtros poluem a interface.
-
-**Solução:** Barra colapsável com contador de filtros ativos:
-
-```typescript
-// library-filter-bar.tsx
-const [isExpanded, setIsExpanded] = useState(false)
-
-const activeFilterCount = useMemo(() => {
-  let count = 0
-  if (filters.types?.length) count++
-  if (filters.statuses?.length) count++
-  if (filters.categories?.length) count++
-  if (filters.tags?.length) count++
-  return count
-}, [filters])
-
-// Header com contador
-<button onClick={() => setIsExpanded(!isExpanded)}>
-  Filtros {activeFilterCount > 0 && `(${activeFilterCount})`}
-  <ChevronDown className={cn(isExpanded && "rotate-180")} />
-</button>
-
-// Conteúdo expansível
-{isExpanded && (
-  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-    {/* Filtros aqui */}
-  </div>
-)}
 ```
 
 ---
@@ -239,106 +205,22 @@ const activeFilterCount = useMemo(() => {
 **Solução:** `JSON.stringify` ao salvar, `JSON.parse` ao carregar:
 
 ```typescript
-// ContentDialog - salvar
-const formData = {
-  mediaUrl: mediaUrls.length > 0 ? JSON.stringify(mediaUrls) : undefined,
-}
+// Salvar
+mediaUrl: JSON.stringify(mediaUrls)
 
-// ContentDialog - carregar
-useEffect(() => {
-  if (item.mediaUrl) {
-    try {
-      const parsed = JSON.parse(item.mediaUrl)
-      setMediaUrls(Array.isArray(parsed) ? parsed : [])
-    } catch {
-      setMediaUrls([])
-    }
-  }
-}, [item])
-```
+// Carregar
+const mediaUrls: string[] = item.mediaUrl
+  ? Array.isArray(item.mediaUrl)
+    ? item.mediaUrl
+    : JSON.parse(item.mediaUrl)
+  : []
 
----
-
-## Padrão 8: Toggle de View Mode
-
-**Problema:** Usuário quer alternar entre grid e lista.
-
-**Solução:** Hook dedicado com persistência opcional:
-
-```typescript
-// use-library-view.ts
-interface ViewMode {
-  mode: 'grid' | 'list'
-  sortBy: 'createdAt' | 'updatedAt' | 'title'
-  sortOrder: 'asc' | 'desc'
-}
-
-export function useLibraryView() {
-  const [viewMode, setViewMode] = useState<ViewMode>({
-    mode: 'grid',
-    sortBy: 'createdAt',
-    sortOrder: 'desc',
-  })
-
-  const toggleViewMode = () => {
-    setViewMode(prev => ({
-      ...prev,
-      mode: prev.mode === 'grid' ? 'list' : 'grid',
-    }))
-  }
-
-  // ... outros métodos
-
-  return { viewMode, toggleViewMode, setSortBy, toggleSortOrder }
-}
-```
-
----
-
-## Padrão 9: Empty State com CTAs
-
-**Problema:** Usuário não sabe o que fazer quando biblioteca está vazia.
-
-**Solução:** Componente dedicado com ilustração e CTAs:
-
-```typescript
-// empty-library-state.tsx
-{items.length === 0 && (
-  <EmptyLibraryState
-    hasActiveFilters={activeFilterCount > 0}
-    onClearFilters={clearFilters}
-    onCreateNew={handleCreate}
-  />
-)}
-```
-
----
-
-## Server Actions Padrão
-
-Todas as ações seguem o mesmo padrão de resultado:
-
-```typescript
-interface ActionResult {
-  success: boolean
-  error?: string
-  id?: number
-}
-
-// "use server"
-export async function createLibraryItemAction(
-  data: LibraryItemFormData
-): Promise<ActionResult> {
-  const { userId } = await auth()
-  if (!userId) return { success: false, error: "Unauthorized" }
-
-  try {
-    // ... lógica
-    return { success: true, id: item.id }
-  } catch (error) {
-    return { success: false, error: "Erro ao criar" }
-  }
-}
+// Atualizar índice específico (pattern de upload/regeneração)
+mediaUrls[slideIndex] = newImageUrl
+await db.update(libraryItems).set({
+  mediaUrl: JSON.stringify(mediaUrls),
+  updatedAt: new Date(),
+})
 ```
 
 ---
@@ -346,7 +228,7 @@ export async function createLibraryItemAction(
 ## Cores dos Status
 
 | Status | Cor | Background |
-|--------|-----|-----------|
+|--------|-----|------------|
 | draft | `text-gray-300` | `bg-gray-500/20` |
 | scheduled | `text-blue-300` | `bg-blue-500/20` |
 | published | `text-green-300` | `bg-green-500/20` |
@@ -366,17 +248,21 @@ export async function createLibraryItemAction(
 
 ---
 
-## Próximas Melhorias
+## APIs de Mídia da Biblioteca
 
-1. **Duplicar conteúdo** - Criar cópia com "(cópia)" no título
-2. **Drag & drop** - Para reordenar cards
-3. **Export** - Exportar conteúdos para CSV/JSON
-4. **Preview** - Preview de imagem no hover
-5. **Bulk edit** - Editar múltiplos itens de uma vez
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `/api/library/[id]` | PATCH | Atualização genérica |
+| `/api/library/[id]/upload-image` | POST | Upload de imagem customizada |
+| `/api/library/[id]/regenerate-slide` | POST | Regenerar com texto editado |
+| `/api/library/[id]/regenerate-images` | POST | Regenerar todas (async job) |
+| `/api/library/[id]/generate-image` | POST | Gerar nova imagem |
 
 ---
 
 ## Arquivos Relacionados
 
-- `.context/docs/development-plan/library-dev-plan.md` - Planejamento completo
-- `.context/docs/insights/07-fase-7-library.md` - Insights da implementação
+- `.context/docs/development-plan/library-dev-plan.md` - Planejamento
+- `.context/docs/insights/07-fase-7-library.md` - Insights
+- `src/components/ui/image-upload-dialog.tsx` - Componente de upload
+- `src/app/api/library/[id]/upload-image/route.ts` - API de upload
