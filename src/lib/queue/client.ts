@@ -128,8 +128,9 @@ export async function getProcessingCount(): Promise<number> {
 
 /**
  * Triggers the worker endpoint to process pending jobs.
- * In development, this can be called after enqueueing jobs to process them immediately.
- * In production, Vercel Cron handles this automatically.
+ *
+ * - In DEVELOPMENT: Uses direct fetch to localhost (fast, synchronous)
+ * - In PRODUCTION: Uses QStash to trigger externally (avoids Vercel serverless limitations)
  *
  * @returns { success: boolean, message: string }
  */
@@ -139,9 +140,30 @@ export async function triggerWorker(options?: { waitForJobId?: number; timeoutMs
   jobId?: number;
   result?: unknown;
 }> {
-  // In development, always use localhost for internal server-to-server calls
-  // This avoids issues with ngrok/external URLs that may be down
   const isDev = process.env.NODE_ENV === "development";
+
+  // In production, use QStash for external triggering (more reliable)
+  if (!isDev) {
+    try {
+      // Dynamic import to avoid circular dependencies
+      const { triggerJob, isQStashConfigured } = await import("@/lib/cron/qstash");
+
+      if (isQStashConfigured()) {
+        console.log("[Queue] Triggering worker via QStash (production)");
+        const result = await triggerJob("workers");
+        return {
+          success: result.success,
+          message: result.message || result.error || "QStash trigger sent",
+        };
+      } else {
+        console.warn("[Queue] QStash not configured, falling back to direct fetch");
+      }
+    } catch (error) {
+      console.error("[Queue] QStash trigger failed, falling back to direct fetch:", error);
+    }
+  }
+
+  // Development or fallback: use direct fetch
   const baseUrl = isDev
     ? "http://localhost:3000"
     : (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000");
@@ -210,9 +232,7 @@ export async function triggerWorker(options?: { waitForJobId?: number; timeoutMs
     }
 
     // Simple trigger - just fire and forget
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'client.ts:triggerWorker-before-fetch',message:'About to call worker',data:{workerUrl,hasSecret:!!workerSecret},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
+    console.log("[Queue] Triggering worker via direct fetch:", workerUrl);
 
     const response = await fetch(workerUrl, {
       method: "POST",
@@ -222,10 +242,7 @@ export async function triggerWorker(options?: { waitForJobId?: number; timeoutMs
       },
     });
 
-    // #region agent log
     const responseText = await response.text();
-    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'client.ts:triggerWorker-response',message:'Worker response received',data:{status:response.status,statusText:response.statusText,responsePreview:responseText.substring(0,200)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
 
     // Parse JSON from the text we already read
     let data: any;
