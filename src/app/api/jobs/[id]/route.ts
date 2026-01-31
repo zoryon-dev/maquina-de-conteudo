@@ -5,19 +5,17 @@
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { getJob } from "@/lib/queue/jobs";
+import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    // Get database user ID (handles Clerk ID → DB ID mapping)
+    const dbUserId = await ensureAuthenticatedUser();
+
     const { id } = await params;
     const jobId = parseInt(id, 10);
 
@@ -31,8 +29,8 @@ export async function GET(
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
-    // Verificar se o job pertence ao usuário
-    if (job.userId !== userId) {
+    // Verificar se o job pertence ao usuário (compare DB user IDs)
+    if (job.userId !== dbUserId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
