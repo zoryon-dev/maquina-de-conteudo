@@ -247,7 +247,6 @@ export function ImageGalleryDrawer({
         throw new Error(data.error || "Erro ao regenerar")
       }
     } catch (err) {
-      console.error("Error regenerating:", err)
       toast.error(err instanceof Error ? err.message : "Erro ao regenerar imagem")
     } finally {
       setIsRegenerating(false)

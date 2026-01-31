@@ -304,7 +304,6 @@ export function StepVideoTitles({
 
       setTitles(data.data?.titles || []);
     } catch (err) {
-      console.error("[VIDEO TITLES] Error generating titles:", err);
       setError(err instanceof Error ? err.message : "Erro ao gerar títulos");
 
       // Set fallback titles for demo

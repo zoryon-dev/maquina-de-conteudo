@@ -62,7 +62,7 @@ export function JobPollingManager() {
           }
         }
       } catch {
-        console.error("[JOB-POLLING-MANAGER] Failed to parse stored jobs");
+        // Silent fail - stored jobs parse error
       }
     }
   }, [jobId]);

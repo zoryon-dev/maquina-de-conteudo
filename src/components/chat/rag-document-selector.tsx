@@ -205,7 +205,7 @@ export function RagDocumentSelector({
         setCollections(mergedCollections)
       }
     } catch (error) {
-      console.error("Failed to fetch RAG sources:", error)
+      // Silent fail - RAG sources fetch error
     } finally {
       setIsLoading(false)
     }

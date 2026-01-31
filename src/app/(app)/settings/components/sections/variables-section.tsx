@@ -403,7 +403,6 @@ export function VariablesSection({ onChange, className }: VariablesSectionProps)
         const savedVariables = await getUserVariablesAction()
         setValues(savedVariables)
       } catch (error) {
-        console.error("Failed to load variables:", error)
         toast.error("Erro ao carregar variáveis")
       } finally {
         setIsLoading(false)
@@ -428,7 +427,6 @@ export function VariablesSection({ onChange, className }: VariablesSectionProps)
       onChange?.()
       toast.success("Variáveis resetadas com sucesso!")
     } catch (error) {
-      console.error("Failed to reset variables:", error)
       toast.error("Erro ao resetar variáveis")
     }
   }
@@ -463,7 +461,6 @@ export function VariablesSection({ onChange, className }: VariablesSectionProps)
         }
       }
     } catch (error) {
-      console.error("Failed to save variable:", error)
       toast.error(error instanceof Error ? error.message : "Erro ao salvar variável")
     } finally {
       setIsSaving(false)

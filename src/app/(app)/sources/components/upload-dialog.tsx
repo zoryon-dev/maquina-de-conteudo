@@ -220,7 +220,6 @@ export function UploadDialog({ open, onOpenChange, onSuccess, collectionId }: Up
         toast.error(result.error || "Falha ao enviar documento(s)")
       }
     } catch (error) {
-      console.error("Upload error:", error)
       toast.error("Falha ao processar arquivo(s)")
     } finally {
       setIsUploading(false)

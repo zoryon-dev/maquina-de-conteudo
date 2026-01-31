@@ -458,7 +458,6 @@ function CreateThemeDialog({ open, onOpenChange, onSuccess }: CreateThemeDialogP
         status: "active",
       })
     } catch (error) {
-      console.error("Create error:", error)
       toast.error("Erro ao criar tema")
     } finally {
       setIsLoading(false)
@@ -716,7 +715,6 @@ function ThemeDetailDialog({
       onUpdate()
       onOpenChange(false)
     } catch (error) {
-      console.error("Status update error:", error)
       toast.error("Erro ao alterar status")
     } finally {
       setIsUpdating(false)
@@ -1135,7 +1133,6 @@ export function ThemesPage() {
         setTotalPages(1)
       }
     } catch (error) {
-      console.error("Fetch error:", error)
       toast.error("Erro ao carregar temas")
     } finally {
       setIsLoading(false)
@@ -1176,7 +1173,6 @@ export function ThemesPage() {
       setDeleteDialogOpen(false)
       fetchThemes()
     } catch (error) {
-      console.error("Delete error:", error)
       toast.error("Erro ao excluir tema")
     }
   }
@@ -1195,7 +1191,6 @@ export function ThemesPage() {
 
       router.push(`/wizard?edit=${data.wizardId}`)
     } catch (error) {
-      console.error("Wizard error:", error)
       toast.error("Erro ao criar Wizard")
     }
   }

@@ -658,7 +658,6 @@ export function VideoThumbnailGeneration({
         }
       }
     } catch (error) {
-      console.error("[THUMBNAIL-GEN] Error:", error);
       alert(
         `Erro ao gerar thumbnail: ${error instanceof Error ? error.message : "Erro desconhecido"}`
       );
@@ -735,7 +734,6 @@ export function VideoThumbnailGeneration({
           }
         }
       } catch (error) {
-        console.error("[THUMBNAIL-GEN] Error generating variation:", error);
         alert(
           `Erro ao gerar variação: ${error instanceof Error ? error.message : "Erro desconhecido"}`
         );

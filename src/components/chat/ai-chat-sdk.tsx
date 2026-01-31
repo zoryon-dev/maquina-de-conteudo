@@ -365,7 +365,7 @@ export function AiChatSdk({
         }
       }
     } catch (error) {
-      console.error("Failed to upload file:", error)
+      // Silent fail - file upload error
     } finally {
       setIsUploading(false)
       if (fileInputRef.current) {

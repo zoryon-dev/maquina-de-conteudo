@@ -65,7 +65,7 @@ export function MoveToCollectionDialog({
         setCollections(data)
       }
     } catch (error) {
-      console.error("Failed to fetch collections:", error)
+      // Silent fail - collections fetch error
     } finally {
       setIsLoading(false)
     }
@@ -80,7 +80,7 @@ export function MoveToCollectionDialog({
           setSelectedCollections(new Set(docCollections.map((c) => c.id)))
         }
       } catch (error) {
-        console.error("Failed to fetch document collections:", error)
+        // Silent fail - document collections fetch error
       }
     }
   }

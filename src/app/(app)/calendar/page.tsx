@@ -71,7 +71,7 @@ function CalendarClient() {
       await fetch(`/api/calendar/posts/${postId}`, { method: "DELETE" })
       refetch()
     } catch (error) {
-      console.error("Failed to delete post:", error)
+      // Silent fail - delete post error
     }
   }
 
@@ -85,7 +85,7 @@ function CalendarClient() {
       })
       refetch()
     } catch (error) {
-      console.error("Failed to duplicate post:", error)
+      // Silent fail - duplicate post error
     }
   }
 
@@ -99,7 +99,7 @@ function CalendarClient() {
       })
       refetch()
     } catch (error) {
-      console.error("Failed to reschedule post:", error)
+      // Silent fail - reschedule post error
     }
   }
 
@@ -122,7 +122,6 @@ function CalendarClient() {
       }
       refetch()
     } catch (error) {
-      console.error("Failed to save post:", error)
       throw error
     } finally {
       setIsSaving(false)

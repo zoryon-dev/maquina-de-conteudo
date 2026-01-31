@@ -42,7 +42,6 @@ export function OAuthButtons({ className, isLoading = false }: OAuthButtonsProps
         redirectUrlComplete: "/dashboard",
       })
     } catch (error) {
-      console.error(`OAuth error (${provider}):`, error)
       setClickedProvider(null)
     }
   }

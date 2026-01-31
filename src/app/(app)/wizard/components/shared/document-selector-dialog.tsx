@@ -119,7 +119,6 @@ export function DocumentSelectorDialog({
         setDocuments(data.documents || []);
         setCollections(data.collections || []);
       } catch (err) {
-        console.error("Error fetching documents:", err);
         setError(err instanceof Error ? err.message : "Failed to load documents");
       } finally {
         setIsLoading(false);

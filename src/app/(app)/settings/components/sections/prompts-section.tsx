@@ -239,7 +239,6 @@ function PromptEditorDialog({
         }
       }
     } catch (error) {
-      console.error("Save prompt error:", error)
       toast.error("Falha ao salvar prompt")
     } finally {
       setIsSaving(false)
@@ -261,7 +260,6 @@ function PromptEditorDialog({
         toast.error(result.error || "Falha ao resetar prompt")
       }
     } catch (error) {
-      console.error("Reset prompt error:", error)
       toast.error("Falha ao resetar prompt")
     } finally {
       setIsSaving(false)
@@ -393,7 +391,7 @@ export function PromptsSection({ onChange, className }: PromptsSectionProps) {
       setSystemPrompts(system)
       setUserPrompts(user)
     } catch (error) {
-      console.error("Failed to fetch prompts:", error)
+      // Silent fail - prompts fetch error
     } finally {
       setIsLoading(false)
     }

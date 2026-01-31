@@ -118,7 +118,6 @@ export function ScheduleDrawer({
         toast.error(result.error || "Erro ao agendar publicação")
       }
     } catch (error) {
-      console.error("Error scheduling:", error)
       toast.error("Erro ao agendar publicação")
     } finally {
       setIsScheduling(false)

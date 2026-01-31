@@ -191,7 +191,6 @@ export function SemanticSearchTab() {
         }
       }
     } catch (error) {
-      console.error("Search error:", error)
       toast.error(error instanceof Error ? error.message : "Erro na busca")
     } finally {
       setIsSearching(false)

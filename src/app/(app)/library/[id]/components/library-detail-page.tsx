@@ -214,7 +214,7 @@ async function handleDownloadAll(urls: string[]) {
       document.body.removeChild(link)
       URL.revokeObjectURL(blobUrl)
     } catch (error) {
-      console.error("Error downloading image:", error)
+      // Silent fail - download image error
     }
   }
 }

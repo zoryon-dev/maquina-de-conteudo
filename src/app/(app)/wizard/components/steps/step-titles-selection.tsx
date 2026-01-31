@@ -248,7 +248,6 @@ export function StepTitlesSelection({
 
         setTitles(data.data.titles);
       } catch (err) {
-        console.error("[TITLES] Error generating:", err);
         setError(
           err instanceof Error ? err.message : "Failed to generate titles"
         );

@@ -92,8 +92,6 @@ function TopicCard({ topic, rank, onSave, onCreateWizard }: TopicCardProps) {
             <Button
               size="sm"
               onClick={() => {
-                console.log("[TopicCard] Wizard button clicked for topic:", topic.title)
-                console.log("[TopicCard] Topic data:", topic)
                 onCreateWizard(topic)
               }}
               className="h-8 gap-1 bg-primary text-black hover:bg-primary/90 px-3"
@@ -325,7 +323,6 @@ export function DiscoverPage() {
         toast.success(`Encontrados ${data.topics.length} temas! (YouTube: ${platformCounts.youtube}, Instagram: ${platformCounts.instagram}, Perplexity: ${platformCounts.perplexity})`)
       }
     } catch (error) {
-      console.error("Search error:", error)
       toast.error("Erro ao buscar temas")
     } finally {
       setIsSearching(false)
@@ -357,17 +354,14 @@ export function DiscoverPage() {
 
       toast.success("Tema salvo na biblioteca!")
     } catch (error) {
-      console.error("Save error:", error)
       toast.error("Erro ao salvar tema")
     }
   }
 
   // Handle create wizard
   const handleCreateWizard = async (topic: TrendingTopicWithBriefing) => {
-    console.log("[handleCreateWizard] Starting wizard creation for topic:", topic.title)
     try {
       // Step 1: Save theme
-      console.log("[handleCreateWizard] Step 1: Saving theme...")
       const saveResponse = await fetch("/api/themes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -388,27 +382,22 @@ export function DiscoverPage() {
 
       if (!saveResponse.ok) {
         const errorText = await saveResponse.text()
-        console.error("[handleCreateWizard] Save theme failed:", saveResponse.status, errorText)
         throw new Error(`Failed to save theme: ${saveResponse.status} ${errorText}`)
       }
 
       const savedTheme = await saveResponse.json()
-      console.log("[handleCreateWizard] Theme saved successfully:", savedTheme.id)
 
       // Step 2: Create wizard from theme
-      console.log("[handleCreateWizard] Step 2: Creating wizard from theme...")
       const wizardResponse = await fetch(`/api/themes/${savedTheme.id}/wizard`, {
         method: "POST",
       })
 
       if (!wizardResponse.ok) {
         const errorText = await wizardResponse.text()
-        console.error("[handleCreateWizard] Create wizard failed:", wizardResponse.status, errorText)
         throw new Error(`Failed to create wizard: ${wizardResponse.status} ${errorText}`)
       }
 
       const wizardData = await wizardResponse.json()
-      console.log("[handleCreateWizard] Wizard created successfully:", wizardData.wizardId)
 
       toast.success("Wizard criado! Redirecionando...")
 
@@ -416,7 +405,6 @@ export function DiscoverPage() {
         window.location.href = `/wizard?wizardId=${wizardData.wizardId}`
       }, 500)
     } catch (error) {
-      console.error("[handleCreateWizard] Error:", error)
       toast.error(error instanceof Error ? error.message : "Erro ao criar Wizard")
     }
   }

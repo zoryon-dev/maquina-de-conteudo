@@ -160,7 +160,6 @@ export function ImageUploadDialog({
       onOpenChange(false)
 
     } catch (err) {
-      console.error("[ImageUploadDialog] Error:", err)
       setError(err instanceof Error ? err.message : "Erro ao fazer upload")
     } finally {
       setIsUploading(false)

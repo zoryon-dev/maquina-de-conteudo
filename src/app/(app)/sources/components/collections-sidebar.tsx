@@ -92,7 +92,7 @@ export function CollectionsSidebar({
         setCollections(data)
       }
     } catch (error) {
-      console.error("Failed to fetch collections:", error)
+      // Silent fail - collections fetch error
     } finally {
       setIsLoading(false)
     }
@@ -132,7 +132,7 @@ export function CollectionsSidebar({
         })
       }
     } catch (error) {
-      console.error("Failed to fetch child collections:", error)
+      // Silent fail - child collections fetch error
     }
   }, [])
 
@@ -208,7 +208,6 @@ export function CollectionsSidebar({
         toast.error(result.error || "Falha ao criar coleção")
       }
     } catch (error) {
-      console.error("Create collection error:", error)
       toast.error("Falha ao criar coleção")
     } finally {
       setIsCreating(false)
@@ -246,7 +245,6 @@ export function CollectionsSidebar({
         toast.error(result.error || "Falha ao atualizar coleção")
       }
     } catch (error) {
-      console.error("Update collection error:", error)
       toast.error("Falha ao atualizar coleção")
     } finally {
       setIsEditing(false)
@@ -277,7 +275,6 @@ export function CollectionsSidebar({
         toast.error(result.error || "Falha ao excluir coleção")
       }
     } catch (error) {
-      console.error("Delete collection error:", error)
       toast.error("Falha ao excluir coleção")
     }
   }

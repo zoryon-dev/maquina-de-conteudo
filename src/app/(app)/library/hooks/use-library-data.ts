@@ -141,12 +141,6 @@ export function useLibraryData(
       }
       
       setError(errorMessage)
-      console.error("[useLibraryData] Error fetching library data:", err)
-      
-      // Log additional context for debugging
-      if (err instanceof TypeError && err.message.includes("JSON")) {
-        console.error("[useLibraryData] JSON parse error detected. This usually means the API returned HTML instead of JSON.")
-      }
     } finally {
       setIsLoading(false)
     }

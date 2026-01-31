@@ -141,7 +141,6 @@ export function SocialSection() {
           setSelectPagesFor(platform)
           setShowPageSelector(true)
         } catch (e) {
-          console.error("[Social Section] Failed to fetch pages:", e)
           setSelectionError("Erro ao carregar opções de conexão")
         }
       }
@@ -160,7 +159,7 @@ export function SocialSection() {
       const data: SocialConnectionsResponse = await response.json()
       setConnections(data.connections)
     } catch (error) {
-      console.error("Failed to fetch connections:", error)
+      // Silent fail - connection fetch error
     } finally {
       setIsLoading(false)
     }
@@ -183,12 +182,9 @@ export function SocialSection() {
 
       if (response.ok) {
         setConnections((prev) => prev.filter((c) => c.id !== id))
-      } else {
-        const data = await response.json()
-        console.error("Failed to disconnect:", data.error)
       }
     } catch (error) {
-      console.error("Failed to disconnect:", error)
+      // Silent fail - disconnect error
     } finally {
       setDeleting(null)
     }
@@ -226,7 +222,6 @@ export function SocialSection() {
         setSelectionError(data.error || "Erro ao salvar conexão")
       }
     } catch (error) {
-      console.error("[Social Section] Exception in handleSelectPage:", error)
       setSelectionError("Erro ao salvar conexão")
     } finally {
       setSelectingPage(false)

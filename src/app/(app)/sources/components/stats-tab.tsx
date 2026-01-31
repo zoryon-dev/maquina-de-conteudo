@@ -118,7 +118,7 @@ export function StatsTab() {
           setStats(data)
         }
       } catch (error) {
-        console.error("Failed to fetch stats:", error)
+        // Silent fail - stats fetch error
       } finally {
         setIsLoading(false)
       }

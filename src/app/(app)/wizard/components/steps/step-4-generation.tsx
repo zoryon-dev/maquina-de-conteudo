@@ -516,8 +516,6 @@ export function Step4Generation({
           });
         }
       } catch (error) {
-        console.error("Error polling wizard status:", error);
-
         if (isMountedRef.current && retryCountRef.current < 3) {
           const backoffDelay = 1000 * Math.pow(2, retryCountRef.current);
           setTimeout(() => {
@@ -557,7 +555,7 @@ export function Step4Generation({
       await onSaveToLibrary(content);
       setSavedToLibrary(true);
     } catch (error) {
-      console.error("Error saving to library:", error);
+      // Silent fail - save to library error
     } finally {
       setIsSaving(false);
     }

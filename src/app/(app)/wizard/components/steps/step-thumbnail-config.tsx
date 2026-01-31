@@ -426,7 +426,6 @@ export function StepThumbnailConfig({
         tipoIluminacao: tipoIluminacao || undefined,
       });
     } catch (err) {
-      console.error("[THUMBNAIL CONFIG] Error:", err);
       setError(err instanceof Error ? err.message : "Failed to queue thumbnail generation");
       setIsSubmitting(false);
     }

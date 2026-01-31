@@ -27,7 +27,7 @@ export function DevWorkerPoller() {
           cache: "no-store",
         });
       } catch (error) {
-        console.error("[DevWorkerPoller] Error:", error);
+        // Silent fail - dev worker poll error
       }
     };
 
@@ -81,7 +81,7 @@ export function DevWorkerStatus({ className }: { className?: string }) {
           });
         }
       } catch (error) {
-        console.error("[DevWorkerStatus] Error:", error);
+        // Silent fail - dev worker status error
       }
     };
 

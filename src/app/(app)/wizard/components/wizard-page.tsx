@@ -170,7 +170,6 @@ export function WizardPage({
           });
         }
       } catch (err) {
-        console.error("Error loading wizard:", err);
         if (isMountedRef.current) {
           setError("Failed to load wizard");
         }
@@ -200,7 +199,7 @@ export function WizardPage({
           body: JSON.stringify(data),
         });
       } catch (err) {
-        console.error("Auto-save error:", err);
+        // Silent fail - auto-save error
       }
     }, 1000);
   }, [wizardId]);
@@ -248,7 +247,6 @@ export function WizardPage({
         setCurrentStep("processing");
       }
     } catch (err) {
-      console.error("Error submitting inputs:", err);
       if (isMountedRef.current) {
         const errorMessage = err instanceof Error ? err.message : "Failed to start processing. Please try again.";
         setError(errorMessage);
@@ -294,7 +292,7 @@ export function WizardPage({
         }
       }
     } catch (err) {
-      console.error("Error loading narratives:", err);
+      // Silent fail - narratives loading error
     }
   };
 
@@ -334,7 +332,6 @@ export function WizardPage({
 
       setCurrentStep("generation");
     } catch (err) {
-      console.error("Error submitting narrative:", err);
       if (isMountedRef.current) {
         setError("Failed to start generation. Please try again.");
       }
@@ -456,7 +453,6 @@ export function WizardPage({
       // Show processing modal - it will auto-redirect to library
       setShowProcessingModal(true);
     } catch (err) {
-      console.error("Error queuing thumbnail generation:", err);
       setError(err instanceof Error ? err.message : "Failed to queue thumbnail generation");
     }
   };
@@ -548,7 +544,6 @@ export function WizardPage({
       // Show processing modal - it will auto-redirect to dashboard
       setShowProcessingModal(true);
     } catch (err) {
-      console.error("Error queuing image generation:", err);
       setError(err instanceof Error ? err.message : "Failed to queue image generation");
     }
   };
@@ -592,7 +587,7 @@ export function WizardPage({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentStep: "abandoned" }),
-      }).catch(console.error);
+      }).catch(() => {});
     }
     // Use callback if provided, otherwise navigate
     if (onClose) {

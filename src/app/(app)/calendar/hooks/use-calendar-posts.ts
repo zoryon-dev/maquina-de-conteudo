@@ -55,7 +55,6 @@ export function useCalendarPosts(
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erro ao carregar posts"
       setError(message)
-      console.error("Error fetching calendar posts:", err)
     } finally {
       setIsLoading(false)
     }

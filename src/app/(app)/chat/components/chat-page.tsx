@@ -92,7 +92,7 @@ export function ChatPage({
         router.replace("/chat")
       }
     } catch (error) {
-      console.error("Failed to create conversation:", error)
+      // Silent fail - create conversation error
     }
   }, [router])
 
@@ -131,7 +131,7 @@ export function ChatPage({
         window.location.reload()
       }
     } catch (error) {
-      console.error("Failed to create collection:", error)
+      // Silent fail - create collection error
     }
   }, [newCollectionName])
 
@@ -166,7 +166,7 @@ export function ChatPage({
         setRenameConversationId(null)
       }
     } catch (error) {
-      console.error("Failed to rename conversation:", error)
+      // Silent fail - rename conversation error
     }
   }, [renameConversationId, renameValue])
 
@@ -197,7 +197,7 @@ export function ChatPage({
         setTargetCollectionId(null)
       }
     } catch (error) {
-      console.error("Failed to move conversation:", error)
+      // Silent fail - move conversation error
     }
   }, [moveConversationId, targetCollectionId])
 
@@ -226,7 +226,7 @@ export function ChatPage({
         setDeleteConversationId(null)
       }
     } catch (error) {
-      console.error("Failed to delete conversation:", error)
+      // Silent fail - delete conversation error
     }
   }, [deleteConversationId, selectedConversationId])
 

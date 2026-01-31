@@ -173,7 +173,7 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
         setStats(statsData)
       }
     } catch (error) {
-      console.error("Failed to fetch data:", error)
+      // Silent fail - data fetch error
     } finally {
       setIsLoading(false)
     }
@@ -209,7 +209,6 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
         await fetchData()
       }
     } catch (error) {
-      console.error("Process embeddings error:", error)
       toast.error("Falha ao processar embeddings")
     } finally {
       setIsProcessing(false)

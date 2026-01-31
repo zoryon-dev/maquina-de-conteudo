@@ -309,7 +309,6 @@ export function ContentActionsSection({
         }
       }
     } catch (error) {
-      console.error("Error publishing:", error)
       toast.error("Erro ao publicar. Tente novamente.")
     } finally {
       setIsPublishing(false)
@@ -332,7 +331,6 @@ export function ContentActionsSection({
         toast.error("Erro ao reconstruir")
       }
     } catch (error) {
-      console.error("[ContentActionsSection] Error rebuilding:", error)
       toast.error("Erro ao reconstruir")
     } finally {
       setIsRebuilding(false)
@@ -362,7 +360,6 @@ export function ContentActionsSection({
         toast.error(result.error || "Erro ao gerar imagem")
       }
     } catch (error) {
-      console.error("Error generating image:", error)
       toast.error("Erro ao gerar imagem")
     }
   }
@@ -382,7 +379,6 @@ export function ContentActionsSection({
         toast.error(result.error || "Erro ao limpar mídias")
       }
     } catch (error) {
-      console.error("Error clearing media:", error)
       toast.error("Erro ao limpar mídias")
     }
   }

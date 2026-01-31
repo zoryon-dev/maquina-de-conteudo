@@ -206,7 +206,6 @@ export function serializeVideoMetadata(metadata: VideoLibraryMetadata): string {
   try {
     return JSON.stringify(metadata);
   } catch (error) {
-    console.error("[serializeVideoMetadata] Error:", error);
     return "{}";
   }
 }
@@ -219,7 +218,6 @@ export function deserializeVideoMetadata(metadataJson: string): VideoLibraryMeta
     const parsed = JSON.parse(metadataJson);
     return parsed as VideoLibraryMetadata;
   } catch (error) {
-    console.error("[deserializeVideoMetadata] Error:", error);
     return null;
   }
 }

@@ -138,11 +138,9 @@ export function AnimatedAIChat({
 
   const isTyping = status === "streaming"
 
-  // Log errors for debugging
+  // Track errors for UI display (removed console logging)
   useEffect(() => {
-    if (error) {
-      console.error("Chat error:", error)
-    }
+    // Error handling via UI - no console logging
   }, [error])
 
   // Extract text from message

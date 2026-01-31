@@ -334,7 +334,6 @@ export function ContentDialog({ open, item, onClose, onSave }: ContentDialogProp
       onSave()
       onClose()
     } catch (err) {
-      console.error("Error regenerating images:", err)
       setError(err instanceof Error ? err.message : "Erro ao regenerar imagens")
     } finally {
       setIsRegeneratingImages(false)

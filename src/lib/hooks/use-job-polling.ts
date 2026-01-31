@@ -98,7 +98,6 @@ export function useJobPolling({
         const response = await fetch(`/api/jobs/${jobId}`);
 
         if (!response.ok) {
-          console.error("[JOB-POLLING] Failed to fetch job status");
           return;
         }
 
@@ -148,7 +147,7 @@ export function useJobPolling({
           onError?.(job.error || "Unknown error");
         }
       } catch (error) {
-        console.error("[JOB-POLLING] Error polling job status:", error);
+        // Silent fail - polling error
       }
     };
 

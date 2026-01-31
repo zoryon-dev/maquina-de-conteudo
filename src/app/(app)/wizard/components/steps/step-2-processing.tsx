@@ -200,7 +200,7 @@ export function Step2Processing({
           });
         }
       } catch (error) {
-        console.error("Error polling wizard status:", error);
+        // Silent fail - polling error, will retry
 
         if (isMountedRef.current && retryCount < 3) {
           // Retry with exponential backoff

@@ -254,7 +254,6 @@ export function DocumentsSection({ onChange, className }: DocumentsSectionProps)
         setDocuments(data)
       }
     } catch (error) {
-      console.error("Failed to fetch documents:", error)
       toast.error("Falha ao carregar documentos")
     } finally {
       setIsLoading(false)
@@ -293,7 +292,6 @@ export function DocumentsSection({ onChange, className }: DocumentsSectionProps)
         toast.error(result.error || "Falha ao enviar documento")
       }
     } catch (error) {
-      console.error("Upload error:", error)
       toast.error("Falha ao processar arquivo")
     } finally {
       setIsUploading(false)
@@ -316,7 +314,6 @@ export function DocumentsSection({ onChange, className }: DocumentsSectionProps)
         toast.error(result.error || "Falha ao remover documento")
       }
     } catch (error) {
-      console.error("Delete error:", error)
       toast.error("Falha ao remover documento")
     }
   }

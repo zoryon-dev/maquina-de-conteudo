@@ -184,7 +184,6 @@ export function SystemStatusSection({
         setSystemStatus(status)
       }
     } catch (error) {
-      console.error("Failed to load system status:", error)
       toast.error("Erro ao carregar status do sistema")
     } finally {
       setIsLoading(false)

@@ -168,7 +168,6 @@ export function WizardVideoPage({
           });
         }
       } catch (err) {
-        console.error("Error loading wizard:", err);
         if (isMountedRef.current) {
           setError("Failed to load wizard");
         }
@@ -193,7 +192,7 @@ export function WizardVideoPage({
         body: JSON.stringify(data),
       });
     } catch (err) {
-      console.error("Auto-save error:", err);
+      // Silent fail - auto-save error
     }
   }, [wizardId]);
 
@@ -268,7 +267,7 @@ export function WizardVideoPage({
           }
         }
       } catch (err) {
-        console.error("Error polling wizard:", err);
+        // Silent fail - polling error
       }
     };
 
@@ -336,7 +335,6 @@ export function WizardVideoPage({
         setCurrentStep("narratives");
       }
     } catch (err) {
-      console.error("Error submitting configuration:", err);
       setError(err instanceof Error ? err.message : "Failed to save configuration");
     }
   };
@@ -371,7 +369,6 @@ export function WizardVideoPage({
 
       setCurrentStep("script");
     } catch (err) {
-      console.error("Error submitting narratives:", err);
       setError("Failed to generate script. Please try again.");
     }
   };
@@ -456,7 +453,6 @@ export function WizardVideoPage({
       setQueuedJobId(data.jobId);
       setShowProcessingModal(true);
     } catch (err) {
-      console.error("Error queuing thumbnail generation:", err);
       setError(err instanceof Error ? err.message : "Failed to queue thumbnail generation");
     }
   };
