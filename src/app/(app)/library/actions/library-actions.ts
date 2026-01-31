@@ -7,7 +7,6 @@
 
 "use server"
 
-import { auth } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
 import { db } from "@/db"
 import {
@@ -30,6 +29,7 @@ import type {
   PaginatedList,
 } from "@/types/library"
 import type { PostType, ContentStatus } from "@/db/schema"
+import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user"
 
 // ============================================================================
 // LIBRARY ITEMS ACTIONS
@@ -46,10 +46,12 @@ export async function getLibraryItemsAction(
   filters: LibraryFilters = {},
   viewMode: ViewMode = { mode: "grid", sortBy: "createdAt", sortOrder: "desc" }
 ): Promise<PaginatedList<LibraryItemWithRelations> | LibraryItemWithRelations[]> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return []
+  let userId: string;
+  try {
+    // Use ensureAuthenticatedUser to handle Clerk ID → DB ID mapping
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return [];
   }
 
   // Extract pagination params
@@ -272,10 +274,11 @@ export async function getLibraryItemsAction(
 export async function getLibraryItemAction(
   id: number
 ): Promise<LibraryItemWithRelations | null> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return null
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return null;
   }
 
   try {
@@ -372,10 +375,11 @@ export async function createLibraryItemAction(
     platforms?: Array<{ platform: string; scheduledFor?: Date }>
   }
 ): Promise<ActionResult & { libraryItemId?: number }> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { success: false, error: "Não autenticado" }
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Não autenticado" };
   }
 
   try {
@@ -464,10 +468,11 @@ export async function updateLibraryItemAction(
     }
   >
 ): Promise<ActionResult> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { success: false, error: "Não autenticado" }
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Não autenticado" };
   }
 
   try {
@@ -601,10 +606,11 @@ export async function inlineUpdateLibraryItemAction(
   field: "title" | "status",
   value: string
 ): Promise<ActionResult> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { success: false, error: "Não autenticado" }
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Não autenticado" };
   }
 
   if (!value || value.trim() === "") {
@@ -663,10 +669,11 @@ export async function inlineUpdateLibraryItemAction(
 export async function deleteLibraryItemAction(
   id: number
 ): Promise<ActionResult> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { success: false, error: "Não autenticado" }
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Não autenticado" };
   }
 
   try {
@@ -708,10 +715,11 @@ export async function deleteLibraryItemAction(
 export async function deleteLibraryItemsAction(
   ids: number[]
 ): Promise<ActionResult> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { success: false, error: "Não autenticado" }
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Não autenticado" };
   }
 
   if (ids.length === 0) {
@@ -760,10 +768,11 @@ export async function batchUpdateStatusAction(
   ids: number[],
   status: ContentStatus
 ): Promise<ActionResult> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { success: false, error: "Não autenticado" }
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Não autenticado" };
   }
 
   if (ids.length === 0) {
@@ -814,10 +823,11 @@ export async function batchUpdateStatusAction(
  * @returns Action result
  */
 export async function batchDeleteAction(ids: number[]): Promise<ActionResult> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { success: false, error: "Não autenticado" }
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Não autenticado" };
   }
 
   if (ids.length === 0) {
@@ -872,10 +882,11 @@ export async function duplicateLibraryItemAction(
   id: number,
   newScheduledFor?: Date
 ): Promise<ActionResult & { libraryItemId?: number }> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { success: false, error: "Não autenticado" }
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Não autenticado" };
   }
 
   try {
@@ -944,10 +955,11 @@ export async function duplicateLibraryItemAction(
  * @returns Array of categories
  */
 export async function getCategoriesAction(): Promise<Category[]> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return []
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return [];
   }
 
   try {
@@ -997,10 +1009,11 @@ export async function getCategoriesAction(): Promise<Category[]> {
 export async function createCategoryAction(
   data: Omit<typeof categories.$inferInsert, "id" | "userId" | "createdAt" | "updatedAt">
 ): Promise<ActionResult & { categoryId?: number }> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { success: false, error: "Não autenticado" }
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Não autenticado" };
   }
 
   try {
@@ -1035,10 +1048,11 @@ export async function updateCategoryAction(
   id: number,
   data: Partial<typeof categories.$inferInsert>
 ): Promise<ActionResult> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { success: false, error: "Não autenticado" }
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Não autenticado" };
   }
 
   try {
@@ -1077,10 +1091,11 @@ export async function updateCategoryAction(
  * @returns Action result
  */
 export async function deleteCategoryAction(id: number): Promise<ActionResult> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { success: false, error: "Não autenticado" }
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Não autenticado" };
   }
 
   try {
@@ -1120,10 +1135,11 @@ export async function deleteCategoryAction(id: number): Promise<ActionResult> {
  * @returns Array of tags
  */
 export async function getTagsAction(): Promise<Tag[]> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return []
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return [];
   }
 
   try {
@@ -1170,10 +1186,11 @@ export async function createTagAction(
   name: string,
   color?: string
 ): Promise<ActionResult & { tagId?: number }> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { success: false, error: "Não autenticado" }
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Não autenticado" };
   }
 
   try {
@@ -1205,10 +1222,11 @@ export async function updateItemTagsAction(
   itemId: number,
   tagIds: number[]
 ): Promise<ActionResult> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { success: false, error: "Não autenticado" }
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Não autenticado" };
   }
 
   try {
@@ -1257,10 +1275,11 @@ export async function updateItemTagsAction(
  * @returns Action result
  */
 export async function deleteTagAction(id: number): Promise<ActionResult> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { success: false, error: "Não autenticado" }
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Não autenticado" };
   }
 
   try {
@@ -1303,10 +1322,11 @@ export async function deleteTagAction(id: number): Promise<ActionResult> {
 export async function clearMediaUrlAction(
   id: number
 ): Promise<ActionResult> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { success: false, error: "Não autenticado" }
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Não autenticado" };
   }
 
   try {
@@ -1346,10 +1366,11 @@ export async function clearMediaUrlAction(
  * @returns Library stats
  */
 export async function getLibraryStatsAction(): Promise<LibraryStats | null> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return null
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return null;
   }
 
   try {
@@ -1471,10 +1492,11 @@ export async function getWizardTemplateDataAction(
     }
   }>
 } | null> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return null
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return null;
   }
 
   try {
@@ -1564,10 +1586,11 @@ export async function getWizardTemplateDataAction(
 export async function saveWizardVideoToLibraryAction(
   wizardId: number
 ): Promise<ActionResult & { libraryItemId?: number }> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { success: false, error: "Não autenticado" }
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
+    return { success: false, error: "Não autenticado" };
   }
 
   try {
