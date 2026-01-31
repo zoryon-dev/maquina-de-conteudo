@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createJob } from "@/lib/queue/jobs";
+import { triggerWorker } from "@/lib/queue/client";
 import { JobType } from "@/lib/queue/types";
 import { db } from "@/db";
 import { contentWizards } from "@/db/schema";
@@ -140,6 +141,12 @@ export async function POST(
         model: body.model,
       }
     );
+
+    // Trigger worker immediately to process jobs
+    // Fire and forget - don't wait for completion
+    triggerWorker().catch((err) => {
+      console.error("[QUEUE-THUMBNAIL] Failed to trigger worker:", err);
+    });
 
     const response: QueueThumbnailGenerationResponse = {
       success: true,

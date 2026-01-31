@@ -10,6 +10,7 @@ import { db } from "@/db";
 import { contentWizards } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { createJob } from "@/lib/queue/jobs";
+import { triggerWorker } from "@/lib/queue/client";
 import type { WizardImageGenerationPayload } from "@/lib/queue/types";
 import { JobType } from "@/lib/queue/types";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
@@ -23,10 +24,6 @@ export async function POST(
   try {
     const { id } = await params;
     const wizardId = parseInt(id, 10);
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'queue-image-generation/route.ts:entry',message:'Queue image generation called',data:{wizardId,dbUserId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
 
     if (isNaN(wizardId)) {
       return NextResponse.json({ error: "Invalid wizard ID" }, { status: 400 });
@@ -68,9 +65,11 @@ export async function POST(
 
     const jobId = await createJob(dbUserId, "wizard_image_generation" as JobType, payload);
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'queue-image-generation/route.ts:job-created',message:'Job created successfully',data:{jobId,wizardId,dbUserId,payloadUserId:payload.userId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
+    // Trigger worker immediately to process jobs
+    // Fire and forget - don't wait for completion
+    triggerWorker().catch((err) => {
+      console.error("[WIZARD-QUEUE] Failed to trigger worker:", err);
+    });
 
     return NextResponse.json({
       success: true,
