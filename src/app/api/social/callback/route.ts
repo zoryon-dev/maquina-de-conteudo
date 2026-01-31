@@ -26,8 +26,48 @@ import { NextResponse } from "next/server"
 import { auth, clerkClient } from "@clerk/nextjs/server"
 import { db } from "@/db"
 import { socialConnections, oauthSessions, users } from "@/db/schema"
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { SocialPlatform, SocialConnectionStatus } from "@/lib/social/types"
+
+/**
+ * Migrate all user data from old user ID to new user ID
+ * This is needed when a user's Clerk ID changes (e.g., after environment migration)
+ */
+async function migrateUserData(oldUserId: string, newUserId: string) {
+  console.log("[OAuth] Migrating user data from", oldUserId, "to", newUserId)
+
+  // List of tables with user_id foreign key to users table
+  const tablesToMigrate = [
+    "chats",
+    "zep_threads",
+    "documents",
+    "collections",
+    "library_items",
+    "posts",
+    "social_connections",
+    "oauth_sessions",
+    "wizard_sessions",
+    "jobs",
+    "calendar_posts",
+    "published_posts",
+    "scheduled_publishes",
+    "ai_processed_themes",
+  ]
+
+  for (const table of tablesToMigrate) {
+    try {
+      const result = await db.execute(
+        sql`UPDATE ${sql.identifier(table)} SET user_id = ${newUserId} WHERE user_id = ${oldUserId}`
+      )
+      console.log(`[OAuth] Migrated ${table}`)
+    } catch (error) {
+      // Table might not exist or have no matching records - that's OK
+      console.log(`[OAuth] Skipped ${table} (no records or table doesn't exist)`)
+    }
+  }
+
+  console.log("[OAuth] User data migration completed")
+}
 
 /**
  * Decoded OAuth state with type narrowing
@@ -88,18 +128,19 @@ async function ensureUserRecord(userId: string) {
   console.log("[OAuth] ensureUserRecord - checking user:", userId)
 
   try {
-    const existing = await db
+    // Check if user exists by ID
+    const existingById = await db
       .select({ id: users.id })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1)
 
-    if (existing.length > 0) {
-      console.log("[OAuth] User already exists in database")
+    if (existingById.length > 0) {
+      console.log("[OAuth] User already exists in database by ID")
       return
     }
 
-    console.log("[OAuth] User not found, fetching from Clerk...")
+    console.log("[OAuth] User not found by ID, fetching from Clerk...")
     const clerk = await clerkClient()
     const clerkUser = await clerk.users.getUser(userId)
     console.log("[OAuth] Clerk user found:", clerkUser.id, clerkUser.emailAddresses.length, "emails")
@@ -113,7 +154,51 @@ async function ensureUserRecord(userId: string) {
       throw new Error("Nenhum email encontrado para o usuário. Verifique sua conta Clerk.")
     }
 
-    console.log("[OAuth] Inserting user with email:", primaryEmail)
+    // Check if user exists by email (could have different Clerk ID from migration)
+    const existingByEmail = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, primaryEmail))
+      .limit(1)
+
+    if (existingByEmail.length > 0) {
+      const oldUserId = existingByEmail[0].id
+
+      // User exists with this email but different Clerk ID - need to migrate
+      console.log("[OAuth] User exists by email with old ID:", oldUserId, "- migrating to new Clerk ID:", userId)
+
+      // First, create the new user record
+      await db.insert(users).values({
+        id: clerkUser.id,
+        email: `migrating_${Date.now()}@temp.local`, // Temporary email to avoid unique constraint
+        name: [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null,
+        avatarUrl: clerkUser.imageUrl || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+
+      // Migrate all child records from old user to new user
+      // Note: This is needed because FKs have onDelete:cascade but NOT onUpdate:cascade
+      await migrateUserData(oldUserId, clerkUser.id)
+
+      // Delete the old user record (this won't cascade delete because we migrated the data)
+      await db.delete(users).where(eq(users.id, oldUserId))
+
+      // Update the new user with the correct email
+      await db
+        .update(users)
+        .set({
+          email: primaryEmail,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, clerkUser.id))
+
+      console.log("[OAuth] User migration completed successfully")
+      return
+    }
+
+    // Create new user
+    console.log("[OAuth] Inserting new user with email:", primaryEmail)
     await db.insert(users).values({
       id: clerkUser.id,
       email: primaryEmail,
