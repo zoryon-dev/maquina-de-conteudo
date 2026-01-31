@@ -95,14 +95,65 @@ async function handleUserCreated(data: any) {
     (email: any) => email.id === data.primary_email_address_id
   );
 
+  const emailAddress = primaryEmail?.email_address || "";
+
+  // Check if user already exists by Clerk ID
+  const existingById = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1);
+
+  if (existingById.length > 0) {
+    console.log("[Clerk Webhook] User already exists by ID:", id);
+    return;
+  }
+
+  // Check if email already exists (account recreation scenario)
+  if (emailAddress) {
+    const existingByEmail = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, emailAddress))
+      .limit(1);
+
+    if (existingByEmail.length > 0) {
+      // Email exists with different Clerk ID - update the existing record
+      console.log(
+        "[Clerk Webhook] Email already exists with old ID:",
+        existingByEmail[0].id,
+        "- updating to new Clerk ID:",
+        id
+      );
+
+      // Update existing user with new Clerk ID
+      await db
+        .update(users)
+        .set({
+          id: id,
+          name: [first_name, last_name].filter(Boolean).join(" ") || null,
+          avatarUrl: image_url || null,
+          updatedAt: new Date(),
+          deletedAt: null, // Reactivate if soft-deleted
+        })
+        .where(eq(users.email, emailAddress));
+
+      console.log("[Clerk Webhook] User ID updated successfully");
+      return;
+    }
+  }
+
+  // Create new user
   await db.insert(users).values({
     id,
-    email: primaryEmail?.email_address || "",
+    email: emailAddress,
     name: [first_name, last_name].filter(Boolean).join(" ") || null,
     avatarUrl: image_url || null,
     createdAt: new Date(),
     updatedAt: new Date(),
   });
+
+  console.log("[Clerk Webhook] Created new user:", id);
 }
 
 async function handleUserUpdated(data: any) {

@@ -55,28 +55,72 @@ const MAX_BULK_UPLOAD = 10
 
 /**
  * Ensure user exists in database (auto-create if missing)
- * This handles cases where Clerk webhook didn't sync the user
+ * This handles cases where Clerk webhook didn't sync the user.
+ * Also handles email migration when Clerk ID changes (e.g., account recreation).
  */
 async function ensureUserExists(userId: string) {
-  const [existingUser] = await db
+  // Check if user exists by Clerk ID
+  const [existingById] = await db
     .select()
     .from(users)
     .where(eq(users.id, userId))
     .limit(1)
 
-  if (!existingUser) {
-    // Get user data from Clerk
-    const { createClerkClient } = await import("@clerk/nextjs/server")
-    const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
-    const clerkUser = await clerkClient.users.getUser(userId)
-
-    await db.insert(users).values({
-      id: userId,
-      email: clerkUser.emailAddresses[0]?.emailAddress || "",
-      name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || clerkUser.username || "User",
-      avatarUrl: clerkUser.imageUrl,
-    })
+  if (existingById) {
+    return // User already exists
   }
+
+  // Get user data from Clerk
+  const { createClerkClient } = await import("@clerk/nextjs/server")
+  const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
+  const clerkUser = await clerkClient.users.getUser(userId)
+
+  const email = clerkUser.emailAddresses[0]?.emailAddress || ""
+  const name = `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || clerkUser.username || "User"
+
+  // Check if email already exists (account recreation scenario)
+  if (email) {
+    const [existingByEmail] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1)
+
+    if (existingByEmail) {
+      // Email exists with different Clerk ID - update the existing record
+      console.log(
+        "[Documents] Email already exists with old ID:",
+        existingByEmail.id,
+        "- updating to new Clerk ID:",
+        userId
+      )
+
+      await db
+        .update(users)
+        .set({
+          id: userId,
+          name,
+          avatarUrl: clerkUser.imageUrl,
+          updatedAt: new Date(),
+          deletedAt: null, // Reactivate if soft-deleted
+        })
+        .where(eq(users.email, email))
+
+      return
+    }
+  }
+
+  // Create new user
+  await db.insert(users).values({
+    id: userId,
+    email,
+    name,
+    avatarUrl: clerkUser.imageUrl,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  })
+
+  console.log("[Documents] Created new user:", userId)
 }
 
 /**

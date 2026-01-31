@@ -58,7 +58,7 @@ async function verifyClerkWebhook(request: NextRequest): Promise<boolean> {
 
 /**
  * Ensure user exists in database for webhook events.
- * Returns the DB userId (may differ from Clerk ID if email was reused).
+ * If email exists with different Clerk ID, updates to new Clerk ID for consistency.
  */
 async function ensureUserInDb(clerkUser: {
   id: string
@@ -92,10 +92,24 @@ async function ensureUserInDb(clerkUser: {
     .limit(1)
 
   if (existingByEmail.length > 0) {
+    const oldUserId = existingByEmail[0].id
     console.log(
-      `[ZepSync] Email ${primaryEmail} already exists with DB ID ${existingByEmail[0].id}, Clerk ID is ${clerkUserId} - REUSING DB ID`
+      `[ZepSync] Email ${primaryEmail} exists with old ID ${oldUserId}, updating to new Clerk ID ${clerkUserId}`
     )
-    return existingByEmail[0].id
+
+    // Update to new Clerk ID for consistency
+    await db
+      .update(users)
+      .set({
+        id: clerkUserId,
+        name: [clerkUser.first_name, clerkUser.last_name].filter(Boolean).join(" ") || null,
+        avatarUrl: clerkUser.image_url || null,
+        updatedAt: new Date(),
+        deletedAt: null,
+      })
+      .where(eq(users.email, primaryEmail))
+
+    return clerkUserId
   }
 
   // Fetch user from Clerk to get full profile if needed

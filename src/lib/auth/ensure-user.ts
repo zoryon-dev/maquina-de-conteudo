@@ -5,7 +5,11 @@
  * This is needed because Clerk doesn't automatically sync users to our database.
  *
  * Handles the case where a user's email already exists in the database
- * with a different Clerk ID (e.g., account was recreated).
+ * with a different Clerk ID (e.g., account was recreated or environment migration).
+ *
+ * IMPORTANT: When email exists with a different Clerk ID, this function
+ * updates the database record to use the new Clerk ID, ensuring consistency
+ * across all queries that use auth().userId directly.
  */
 
 import { auth } from '@clerk/nextjs/server';
@@ -19,9 +23,9 @@ import { eq } from 'drizzle-orm';
  * Creates the user record if it doesn't exist.
  *
  * If the user's email already exists with a different Clerk ID (account recreated),
- * returns the existing user instead of failing.
+ * updates the existing record with the new Clerk ID to maintain consistency.
  *
- * @returns The user ID (may be different from Clerk ID if email was reused)
+ * @returns The Clerk user ID (always synced with database after this call)
  * @throws Error if user is not authenticated or if sync fails
  */
 export async function ensureAuthenticatedUser(): Promise<string> {
@@ -29,8 +33,6 @@ export async function ensureAuthenticatedUser(): Promise<string> {
   if (!clerkUserId) {
     throw new Error('Unauthorized');
   }
-
-  console.log(`[Auth] Clerk userId: ${clerkUserId}`);
 
   // First, check if user exists by Clerk ID
   const existingById = await db
@@ -40,11 +42,10 @@ export async function ensureAuthenticatedUser(): Promise<string> {
     .limit(1);
 
   if (existingById.length > 0) {
-    console.log(`[Auth] User found by Clerk ID: ${clerkUserId}`);
     return clerkUserId;
   }
 
-  console.log(`[Auth] User not found by Clerk ID, checking by email...`);
+  console.log(`[Auth] User not found by Clerk ID ${clerkUserId}, checking by email...`);
 
   // User doesn't exist in DB by Clerk ID. Check if email exists.
   try {
@@ -58,8 +59,6 @@ export async function ensureAuthenticatedUser(): Promise<string> {
       throw new Error('No email address found for user');
     }
 
-    console.log(`[Auth] User email: ${primaryEmail}`);
-
     // Check if email already exists (possibly with different Clerk ID)
     const existingByEmail = await db
       .select({ id: users.id })
@@ -68,11 +67,27 @@ export async function ensureAuthenticatedUser(): Promise<string> {
       .limit(1);
 
     if (existingByEmail.length > 0) {
-      // Email already exists with different Clerk ID
-      // This happens when user recreated their Clerk account
-      // Return the existing user ID instead of creating a duplicate
-      console.log(`[Auth] Email ${primaryEmail} already exists with DB ID ${existingByEmail[0].id}, Clerk ID is ${clerkUserId} - REUSING DB ID`);
-      return existingByEmail[0].id;
+      const oldUserId = existingByEmail[0].id;
+
+      // Email exists with different Clerk ID - update to new Clerk ID
+      // This ensures consistency when auth().userId is used elsewhere
+      console.log(
+        `[Auth] Email ${primaryEmail} exists with old ID ${oldUserId}, updating to new Clerk ID ${clerkUserId}`
+      );
+
+      await db
+        .update(users)
+        .set({
+          id: clerkUserId,
+          name: [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || null,
+          avatarUrl: clerkUser.imageUrl || null,
+          updatedAt: new Date(),
+          deletedAt: null, // Reactivate if soft-deleted
+        })
+        .where(eq(users.email, primaryEmail));
+
+      console.log(`[Auth] User ID updated from ${oldUserId} to ${clerkUserId}`);
+      return clerkUserId;
     }
 
     // Create new user record
@@ -85,7 +100,7 @@ export async function ensureAuthenticatedUser(): Promise<string> {
       updatedAt: new Date(),
     });
 
-    console.log(`[Auth] Created new user record for Clerk ID ${clerkUserId}, email ${primaryEmail}`);
+    console.log(`[Auth] Created new user record for Clerk ID ${clerkUserId}`);
     return clerkUserId;
   } catch (error) {
     console.error('[Auth] Failed to sync user:', error);
