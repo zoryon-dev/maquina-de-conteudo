@@ -1047,6 +1047,41 @@ Studio supports multiple AI models for image generation:
 | Scheduling | ⚠️ Indirect | Via Library after publish |
 | Social Networks | ⚠️ Indirect | Via Library → Social Publishing |
 
+### Error Handling & Security (Feb 2026)
+
+Studio APIs follow the project's `toAppError()` pattern for consistent error handling:
+
+**API Routes Pattern:**
+```typescript
+import { toAppError, getErrorMessage, ValidationError } from "@/lib/errors"
+
+catch (error) {
+  const appError = toAppError(error, "STUDIO_SAVE_FAILED")
+  console.error("[StudioSave]", appError.code, ":", appError.message)
+  return NextResponse.json(
+    { success: false, error: getErrorMessage(appError), code: appError.code },
+    { status: appError.statusCode }
+  )
+}
+```
+
+**Client Components Pattern:**
+```typescript
+// Check response.ok BEFORE parsing JSON
+if (!response.ok) {
+  const error = await response.json().catch(() => ({}))
+  throw new Error(error.error || `Erro do servidor: ${response.status}`)
+}
+```
+
+**Security Measures:**
+| Measure | Implementation |
+|---------|----------------|
+| Atomic Updates | `WHERE id=X AND userId=Y` prevents race conditions |
+| Input Validation | Enum validation, parseInt checks, MAX_SLIDES (10) |
+| CSS Injection | `escapeCssUrl()` for background images |
+| Network Errors | TypeCheck for fetch failures with user-friendly messages |
+
 ---
 
 ## Wizard de Criação Architecture

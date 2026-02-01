@@ -469,6 +469,154 @@ const [fullscreenOpen, setFullscreenOpen] = useState(false);
 | Agendamento | ⚠️ Indireto | Via Library após publicar |
 | Redes Sociais | ⚠️ Indireto | Via Library → Social Publishing |
 
+## Error Handling & Segurança (Feb 2026)
+
+### Padrão toAppError() nas APIs
+
+Todas as API routes do Studio usam o padrão de error handling do projeto:
+
+```typescript
+import { toAppError, getErrorMessage, ValidationError, NotFoundError, ForbiddenError } from "@/lib/errors"
+
+export async function POST(request: Request) {
+  try {
+    // ... operações
+  } catch (error) {
+    const appError = toAppError(error, "STUDIO_SAVE_FAILED")
+    console.error("[StudioSave]", appError.code, ":", appError.message)
+    return NextResponse.json(
+      { success: false, error: getErrorMessage(appError), code: appError.code },
+      { status: appError.statusCode }
+    )
+  }
+}
+```
+
+### Validações Implementadas
+
+| API | Validação | Erro |
+|-----|-----------|------|
+| `/api/studio/ai-suggestions` | Enum type válido | ValidationError 400 |
+| `/api/studio/ai-suggestions` | Count clamp (1-5) | Silently clamped |
+| `/api/studio/save` | projectId parseInt válido | ValidationError 400 |
+| `/api/studio/save` | MAX_SLIDES (10) | ValidationError 400 |
+| `/api/studio/generate-image` | Model/style fallback | Warning log |
+
+### Atomic Updates (Race Condition Prevention)
+
+```typescript
+// Padrão: WHERE id=X AND userId=Y em única query
+const result = await db
+  .update(libraryItems)
+  .set({ title, content, updatedAt: new Date() })
+  .where(and(
+    eq(libraryItems.id, projectId),
+    eq(libraryItems.userId, userId)
+  ))
+  .returning({ id: libraryItems.id })
+
+if (result.length === 0) {
+  // Verificar se existe para diferenciar 404 de 403
+  const [exists] = await db.select({ id: libraryItems.id }).from(libraryItems).where(eq(libraryItems.id, projectId))
+  if (!exists) throw new NotFoundError("Projeto", String(projectId))
+  throw new ForbiddenError("Sem permissão para editar este projeto")
+}
+```
+
+### response.ok Pattern (Client Components)
+
+Todos os componentes cliente verificam HTTP status ANTES de parsear JSON:
+
+```typescript
+const response = await fetch(url, options)
+
+// Verificar HTTP status ANTES de parsear JSON
+if (!response.ok) {
+  const error = await response.json().catch(() => ({}))
+  throw new Error(error.error || `Erro do servidor: ${response.status}`)
+}
+
+const result = await response.json()
+if (!result.success) {
+  throw new Error(result.error || "Erro desconhecido")
+}
+```
+
+### Network Error Detection
+
+```typescript
+try {
+  const response = await fetch(url, options)
+  // ...
+} catch (error) {
+  // Detectar erro de rede (sem resposta do servidor)
+  if (error instanceof TypeError && error.message.includes("fetch")) {
+    toast.error("Erro de conexão. Verifique sua internet.")
+    return
+  }
+  toast.error(error instanceof Error ? error.message : "Erro desconhecido")
+}
+```
+
+### XSS Prevention (CSS URL Escape)
+
+```typescript
+// types.ts
+export function escapeCssUrl(url: string): string {
+  return url.replace(/['"()\\]/g, (char) => `\\${char}`).replace(/[\n\r]/g, "")
+}
+
+// 01-capa.ts
+const backgroundStyle = content.backgroundImageUrl
+  ? `background-image: url('${escapeCssUrl(content.backgroundImageUrl)}'); ...`
+  : `background-color: ${style.primaryColor};`
+```
+
+### MAX_SLIDES Constant
+
+```typescript
+// types.ts
+export const MAX_SLIDES = 10
+
+// studio-store.ts - Enforçado em addSlide
+if (state.slides.length >= MAX_SLIDES) {
+  console.warn(`[StudioStore] Cannot add slide: max ${MAX_SLIDES} reached`)
+  return state
+}
+
+// save/route.ts - Validado na API
+if (state.slides.length > MAX_SLIDES) {
+  throw new ValidationError(`Máximo de ${MAX_SLIDES} slides permitido`)
+}
+```
+
+### loadProject Validation
+
+```typescript
+loadProject: (projectState) => {
+  // Validar campos essenciais
+  if (projectState.slides && !Array.isArray(projectState.slides)) {
+    console.error("[StudioStore] Invalid slides in loadProject")
+    return
+  }
+  if (projectState.slides?.length === 0) {
+    console.error("[StudioStore] Cannot load project with empty slides")
+    return
+  }
+
+  set((state) => ({
+    ...state,
+    ...projectState,
+    // Garantir activeSlideIndex válido
+    activeSlideIndex: Math.min(
+      projectState.activeSlideIndex ?? state.activeSlideIndex,
+      (projectState.slides?.length ?? state.slides.length) - 1
+    ),
+    isDirty: false,
+  }))
+}
+```
+
 ## Próximos Passos (Opcionais)
 
 ### Melhorias Futuras
