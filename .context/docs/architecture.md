@@ -921,6 +921,134 @@ const status = await getSystemStatusAction()
 
 ---
 
+## Studio Visual Editor Architecture (Feb 2026)
+
+### Overview
+
+The **Studio** is a visual editor for creating Instagram carousels, posts and stories using professional HTML templates. It provides real-time preview with drag-and-drop slide management and AI-powered features.
+
+### Key Features
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| Templates (8) | Figma-style + Generic (Dark/White/Twitter/SuperHeadline) | ✅ |
+| Real-time Preview | iframe with transform scale | ✅ |
+| Fullscreen Preview | Dialog with navigation | ✅ |
+| Drag & Drop | @dnd-kit for slide reordering | ✅ |
+| Keyboard Shortcuts | Ctrl+S, Ctrl+D, arrows, etc. | ✅ |
+| AI Text Suggestions | headline, hook, context, conclusion | ✅ |
+| AI Image Generation | 4 models (Gemini, GPT-5, Seedream, Flux) | ✅ |
+| Save/Load | Database persistence via libraryItems | ✅ |
+| Publish | ScreenshotOne rendering → Library | ✅ |
+
+### Architecture
+
+```mermaid
+graph TD
+    Studio[/studio Page] --> Store[Zustand Store]
+    Store --> Editor[Editor Panel 40%]
+    Store --> Canvas[Canvas Panel 60%]
+
+    Editor --> Templates[Template Gallery]
+    Editor --> TextEditor[Text Editor]
+    Editor --> ImagePicker[Image Picker]
+    Editor --> ColorPicker[Color Picker]
+
+    Canvas --> Preview[iframe Preview]
+    Canvas --> Navigator[Slide Navigator]
+
+    ImagePicker --> Upload[Storage Upload]
+    ImagePicker --> AIGen[AI Generation]
+
+    AIGen --> Models{Model Selection}
+    Models --> Gemini[Gemini]
+    Models --> GPT5[GPT-5 Image]
+    Models --> Seedream[Seedream]
+    Models --> Flux[Flux]
+
+    subgraph Persistence
+        Store --> Save[/api/studio/save]
+        Save --> Library[libraryItems table]
+    end
+```
+
+### Database Integration
+
+**No migrations required.** Studio uses existing `libraryItems` table:
+
+```typescript
+{
+  userId: string,
+  type: "carousel" | "image" | "story",
+  status: "draft",
+  content: JSON.stringify({
+    studio: { slides, profile, header, aspectRatio },
+    caption, hashtags
+  }),
+  mediaUrl: JSON.stringify(imageUrls),  // PNG from ScreenshotOne
+  metadata: JSON.stringify({
+    source: "studio",  // Identifies Studio origin
+    version: "1.0",
+    slideCount: number
+  })
+}
+```
+
+### Publishing Flow
+
+```mermaid
+sequenceDiagram
+    participant Studio
+    participant API as /api/studio/publish
+    participant SS as ScreenshotOne
+    participant Storage as R2 Storage
+    participant DB as libraryItems
+
+    Studio->>API: POST {state}
+    loop For each slide
+        API->>API: renderSlideToHtml()
+        API->>SS: POST (html, 1080x1350)
+        SS-->>API: PNG buffer
+        API->>Storage: uploadFile()
+        Storage-->>API: URL
+    end
+    API->>DB: INSERT/UPDATE
+    API-->>Studio: { projectId, redirectUrl }
+```
+
+### AI Image Generation (Feb 2026)
+
+Studio supports multiple AI models for image generation:
+
+| Model | Provider | Description |
+|-------|----------|-------------|
+| `google/gemini-3-pro-image-preview` | Google | Fast & versatile (default) |
+| `openai/gpt-5-image` | OpenAI | High quality |
+| `bytedance-seed/seedream-4.5` | ByteDance | Artistic |
+| `black-forest-labs/flux.2-max` | Black Forest | Photorealistic |
+
+**API Endpoint:** `POST /api/studio/generate-image`
+
+```typescript
+// Request
+{ prompt: string, style: string, model: AiImageModel }
+
+// Response
+{ success: true, url: string, prompt: string }
+```
+
+### Integration Status
+
+| System | Status | Details |
+|--------|--------|---------|
+| Users (Clerk) | ✅ | userId in all operations |
+| Storage (R2/Local) | ✅ | Image upload |
+| Library | ✅ | Saves as libraryItem |
+| Scheduling | ⚠️ Indirect | Via Library after publish |
+| Social Networks | ⚠️ Indirect | Via Library → Social Publishing |
+
+---
+
 ## Wizard de Criação Architecture
 
 ### Overview

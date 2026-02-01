@@ -13,7 +13,8 @@
 - **[settings-page](serena:read?memory=settings-page.md)** - Página de configurações completa ⭐
 
 ### Features
-- **[discovery-patterns](serena:read?memory=discovery-patterns.md)** - Trending Discovery Service ⭐ NOVO
+- **[studio-patterns](serena:read?memory=studio-patterns.md)** - Editor Visual (Studio) com templates, IA e preview fullscreen ⭐ ATUALIZADO
+- **[discovery-patterns](serena:read?memory=discovery-patterns.md)** - Trending Discovery Service ⭐
 - **[calendar-patterns](serena:read?memory=calendar-patterns.md)** - Calendário editorial ⭐
 - **[library-patterns](serena:read?memory=library-patterns.md)** - Biblioteca de conteúdo ⭐
 - **[sources-page-refactor](serena:read?memory=sources-page-refactor.md)** - Página de fontes com RAG
