@@ -184,6 +184,8 @@ export interface TemplateMetadata {
   requiredFields: (keyof SlideContent)[];
   /** Se suporta imagem de fundo */
   supportsBackgroundImage: boolean;
+  /** Se suporta imagem central (slot de imagem) */
+  supportsImage: boolean;
   /** Se exibe swipe indicator por padrão */
   defaultShowSwipe: boolean;
 }
@@ -200,6 +202,7 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     recommendedUse: "cover",
     requiredFields: ["texto1"],
     supportsBackgroundImage: true,
+    supportsImage: false,
     defaultShowSwipe: true,
   },
   "201": {
@@ -209,6 +212,7 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     recommendedUse: "content",
     requiredFields: ["texto1", "texto2"],
     supportsBackgroundImage: false,
+    supportsImage: true,
     defaultShowSwipe: true,
   },
   "202": {
@@ -218,6 +222,7 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     recommendedUse: "content",
     requiredFields: ["texto1", "texto2", "texto3"],
     supportsBackgroundImage: false,
+    supportsImage: true,
     defaultShowSwipe: true,
   },
   "203": {
@@ -227,6 +232,7 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     recommendedUse: "content",
     requiredFields: ["texto1", "texto2"],
     supportsBackgroundImage: false,
+    supportsImage: true,
     defaultShowSwipe: true,
   },
   // === GENERIC TEMPLATES (headline/descrição) ===
@@ -237,6 +243,7 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     recommendedUse: "any",
     requiredFields: ["texto1", "texto2"],
     supportsBackgroundImage: false,
+    supportsImage: false,
     defaultShowSwipe: true,
   },
   "WHITE_MODE": {
@@ -246,6 +253,7 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     recommendedUse: "any",
     requiredFields: ["texto1", "texto2"],
     supportsBackgroundImage: false,
+    supportsImage: false,
     defaultShowSwipe: true,
   },
   "TWITTER": {
@@ -255,6 +263,7 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     recommendedUse: "any",
     requiredFields: ["texto1"],
     supportsBackgroundImage: false,
+    supportsImage: false,
     defaultShowSwipe: true,
   },
   "SUPER_HEADLINE": {
@@ -264,6 +273,7 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     recommendedUse: "cover",
     requiredFields: ["texto1"],
     supportsBackgroundImage: false,
+    supportsImage: false,
     defaultShowSwipe: true,
   },
 };

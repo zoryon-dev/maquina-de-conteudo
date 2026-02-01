@@ -345,6 +345,10 @@ export function ImagePicker() {
 
   const templateMeta = TEMPLATE_METADATA[activeSlide.template];
   const supportsBackgroundImage = templateMeta?.supportsBackgroundImage ?? false;
+  const supportsImage = templateMeta?.supportsImage ?? false;
+
+  // Se o template não suporta nenhum tipo de imagem, mostrar mensagem
+  const supportsAnyImage = supportsBackgroundImage || supportsImage;
 
   const handleImageUpload = async (
     file: File,
@@ -457,8 +461,8 @@ export function ImagePicker() {
           />
         )}
 
-        {/* Main Image (para outros templates) */}
-        {!supportsBackgroundImage && (
+        {/* Main Image (apenas para templates que suportam imagem central) */}
+        {supportsImage && (
           <ImageSlot
             label="Imagem Central"
             imageUrl={activeSlide.content.imageUrl}
@@ -470,10 +474,26 @@ export function ImagePicker() {
           />
         )}
 
+        {/* Mensagem quando template não suporta imagem */}
+        {!supportsAnyImage && (
+          <div className="py-8 px-4 text-center border border-dashed border-white/10 rounded-lg bg-white/[0.02]">
+            <ImageIcon className="w-10 h-10 text-white/20 mx-auto mb-3" />
+            <p className="text-sm text-white/50 mb-1">
+              Template sem imagem
+            </p>
+            <p className="text-xs text-white/30">
+              O template <span className="text-white/50">{templateMeta?.label}</span> não utiliza imagens.
+              Escolha outro template se precisar de imagem.
+            </p>
+          </div>
+        )}
+
         {/* Info */}
-        <p className="text-xs text-white/40">
-          Upload: JPG, PNG, WebP (max 5MB). IA: descreva a imagem desejada.
-        </p>
+        {supportsAnyImage && (
+          <p className="text-xs text-white/40">
+            Upload: JPG, PNG, WebP (max 5MB). IA: descreva a imagem desejada.
+          </p>
+        )}
       </div>
 
       {/* AI Generation Dialog */}
