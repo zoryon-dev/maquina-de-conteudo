@@ -9,7 +9,7 @@
 
 import Link from "next/link"
 import { Check, Type, Image, Layers, Video, Camera, MoreVertical, Edit2, Copy, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -23,6 +23,37 @@ import {
 import type { LibraryItemWithRelations } from "@/types/library"
 import { CONTENT_TYPE_CONFIGS, STATUS_CONFIGS } from "@/types/calendar"
 import { formatDate } from "@/lib/format"
+
+/**
+ * Extrai a caption de conteúdo JSON do Studio ou Wizard
+ * Retorna null se o conteúdo não for um formato conhecido ou for muito longo (HTML)
+ */
+function extractCaption(content: string | null): string | null {
+  if (!content) return null
+
+  try {
+    const parsed = JSON.parse(content)
+    // Studio format: { studio: {...}, caption: "...", hashtags: [...] }
+    if (parsed.caption && typeof parsed.caption === "string") {
+      return parsed.caption
+    }
+    // Wizard format: { cards: [...], caption: "..." }
+    if (parsed.cards && parsed.caption && typeof parsed.caption === "string") {
+      return parsed.caption
+    }
+    // Verifica se tem headline ou texto para usar como preview
+    if (parsed.studio?.slides?.[0]?.content?.texto1) {
+      return parsed.studio.slides[0].content.texto1
+    }
+  } catch {
+    // Se não é JSON válido, verifica se é texto simples (não HTML)
+    if (content.length < 500 && !content.includes("<") && !content.includes("{")) {
+      return content
+    }
+  }
+
+  return null
+}
 
 interface ContentRowProps {
   item: LibraryItemWithRelations
@@ -52,6 +83,9 @@ export function ContentRow({
   const typeConfig = CONTENT_TYPE_CONFIGS[item.type]
   const statusConfig = STATUS_CONFIGS[item.status]
   const TypeIcon = TYPE_ICONS[item.type] || Type
+
+  // Extrair caption do conteúdo JSON
+  const caption = useMemo(() => extractCaption(item.content), [item.content])
 
   return (
     <tr
@@ -103,9 +137,9 @@ export function ContentRow({
                 {item.title || "Sem título"}
               </p>
             </Link>
-            {item.content && (
+            {caption && (
               <p className="text-xs text-white/40 truncate max-w-md">
-                {item.content}
+                {caption}
               </p>
             )}
           </div>

@@ -5,6 +5,7 @@
  * - Campos para texto1, texto2, texto3
  * - Toggle de bold
  * - Sugestões IA integradas
+ * - Campos não suportados pelo template aparecem desabilitados
  */
 
 "use client";
@@ -13,7 +14,8 @@ import { useStudioStore, useActiveSlide } from "@/stores/studio-store";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { TEMPLATE_METADATA } from "@/lib/studio-templates/types";
+import { Badge } from "@/components/ui/badge";
+import { TEMPLATE_METADATA, type SlideContent } from "@/lib/studio-templates/types";
 import { AiSuggestionPanel } from "../ai-tools/ai-suggestion-panel";
 
 export function TextEditor() {
@@ -25,10 +27,15 @@ export function TextEditor() {
   const templateMeta = TEMPLATE_METADATA[activeSlide.template];
   const requiredFields = templateMeta?.requiredFields ?? [];
 
-  // Verificar se o template atual usa cada campo
-  const showTexto1 = true; // Todos os templates usam texto1
-  const showTexto2 = requiredFields.includes("texto2") || activeSlide.template !== "01_CAPA";
-  const showTexto3 = requiredFields.includes("texto3");
+  // Verificar se cada campo é suportado pelo template
+  const isFieldSupported = (field: keyof SlideContent): boolean => {
+    return requiredFields.includes(field);
+  };
+
+  // Campos texto1 é sempre suportado
+  const supportsTexto1 = true;
+  const supportsTexto2 = isFieldSupported("texto2");
+  const supportsTexto3 = isFieldSupported("texto3");
 
   const handleContentChange = (
     field: "texto1" | "texto2" | "texto3",
@@ -46,8 +53,8 @@ export function TextEditor() {
 
   return (
     <div className="space-y-4">
-      {/* Texto 1 */}
-      {showTexto1 && (
+      {/* Texto 1 - Sempre disponível */}
+      {supportsTexto1 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label
@@ -94,7 +101,7 @@ export function TextEditor() {
       )}
 
       {/* Texto 2 */}
-      {showTexto2 && (
+      {supportsTexto2 ? (
         <div className="space-y-2">
           <Label htmlFor="texto2" className="text-sm text-white/70">
             Texto 2 (Contexto)
@@ -112,10 +119,26 @@ export function TextEditor() {
             existingTexts={activeSlide.content}
           />
         </div>
+      ) : (
+        <div className="space-y-2 opacity-50">
+          <div className="flex items-center gap-2">
+            <Label className="text-sm text-white/40">
+              Texto 2 (Contexto)
+            </Label>
+            <Badge variant="outline" className="text-[10px] text-white/30 border-white/10">
+              Não usado
+            </Badge>
+          </div>
+          <Textarea
+            disabled
+            placeholder="Este campo não é usado no template selecionado"
+            className="bg-white/5 border-white/10 text-white/30 placeholder:text-white/20 resize-none min-h-[60px] cursor-not-allowed"
+          />
+        </div>
       )}
 
       {/* Texto 3 */}
-      {showTexto3 && (
+      {supportsTexto3 ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label htmlFor="texto3" className="text-sm text-white/70">
@@ -145,6 +168,22 @@ export function TextEditor() {
             type="conclusion"
             onSelect={(suggestion) => handleContentChange("texto3", suggestion)}
             existingTexts={activeSlide.content}
+          />
+        </div>
+      ) : (
+        <div className="space-y-2 opacity-50">
+          <div className="flex items-center gap-2">
+            <Label className="text-sm text-white/40">
+              Texto 3 (Conclusão)
+            </Label>
+            <Badge variant="outline" className="text-[10px] text-white/30 border-white/10">
+              Não usado
+            </Badge>
+          </div>
+          <Textarea
+            disabled
+            placeholder="Este campo não é usado no template selecionado"
+            className="bg-white/5 border-white/10 text-white/30 placeholder:text-white/20 resize-none min-h-[60px] cursor-not-allowed"
           />
         </div>
       )}

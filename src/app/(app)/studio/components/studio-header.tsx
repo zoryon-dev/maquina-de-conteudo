@@ -96,11 +96,16 @@ export function StudioHeader() {
   };
 
   const handleSave = async () => {
+    // Validar título antes de salvar
+    const state = useStudioStore.getState();
+    if (!state.projectTitle || state.projectTitle.trim() === "" || state.projectTitle === "Novo Projeto") {
+      toast.error("Defina um título para o projeto antes de salvar");
+      setIsEditingTitle(true);
+      return;
+    }
+
     try {
       setSaving(true);
-
-      // Obter estado completo do store
-      const state = useStudioStore.getState();
 
       const response = await fetch("/api/studio/save", {
         method: "POST",
@@ -148,26 +153,31 @@ export function StudioHeader() {
   };
 
   const handlePublish = async () => {
+    // Validar título antes de publicar
+    const state = useStudioStore.getState();
+    if (!state.projectTitle || state.projectTitle.trim() === "" || state.projectTitle === "Novo Projeto") {
+      toast.error("Defina um título para o projeto antes de publicar");
+      setIsEditingTitle(true);
+      return;
+    }
+
+    // Validar que há slides
+    if (state.slides.length === 0) {
+      toast.error("Adicione pelo menos um slide antes de publicar");
+      return;
+    }
+
+    // Validar que os slides têm conteúdo
+    const hasEmptySlides = state.slides.some(
+      (slide) => !slide.content.texto1.trim()
+    );
+    if (hasEmptySlides) {
+      toast.error("Preencha o texto de todos os slides antes de publicar");
+      return;
+    }
+
     try {
       setPublishing(true);
-
-      // Obter estado completo do store
-      const state = useStudioStore.getState();
-
-      // Validar que há slides
-      if (state.slides.length === 0) {
-        toast.error("Adicione pelo menos um slide antes de publicar");
-        return;
-      }
-
-      // Validar que os slides têm conteúdo
-      const hasEmptySlides = state.slides.some(
-        (slide) => !slide.content.texto1.trim()
-      );
-      if (hasEmptySlides) {
-        toast.error("Preencha o texto de todos os slides antes de publicar");
-        return;
-      }
 
       toast.info("Gerando imagens... Isso pode levar alguns segundos.");
 

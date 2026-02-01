@@ -11,12 +11,18 @@
 "use client";
 
 import { useState } from "react";
-import { Paintbrush, Copy } from "lucide-react";
+import { Paintbrush, Copy, Info } from "lucide-react";
 import { useStudioStore, useActiveSlide } from "@/stores/studio-store";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ColorInputProps {
   label: string;
@@ -116,10 +122,14 @@ export function ColorPicker() {
     (state) => state.applyStyleToAllSlides
   );
   const slides = useStudioStore((state) => state.slides);
+  const activeSlideIndex = useStudioStore((state) => state.activeSlideIndex);
 
   const [applyToAll, setApplyToAll] = useState(false);
 
   if (!activeSlide) return null;
+
+  // Verificar se é o último slide (swipe não aparece no último)
+  const isLastSlide = activeSlideIndex === slides.length - 1;
 
   const handleColorChange = (
     field: "backgroundColor" | "textColor" | "primaryColor",
@@ -175,16 +185,36 @@ export function ColorPicker() {
       />
 
       {/* Swipe Indicator Toggle */}
-      <div className="flex items-center justify-between">
-        <Label className="text-sm text-white/70">
-          Mostrar "Arraste pro lado"
-        </Label>
-        <Switch
-          checked={activeSlide.style.showSwipeIndicator}
-          onCheckedChange={(checked) =>
-            updateSlideStyle(activeSlide.id, { showSwipeIndicator: checked })
-          }
-        />
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Label className="text-sm text-white/70">
+              Mostrar "Arraste pro lado"
+            </Label>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="w-3.5 h-3.5 text-white/40 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[200px]">
+                  <p>O indicador de arraste é ocultado automaticamente no último slide do carrossel.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <Switch
+            checked={activeSlide.style.showSwipeIndicator}
+            onCheckedChange={(checked) =>
+              updateSlideStyle(activeSlide.id, { showSwipeIndicator: checked })
+            }
+            disabled={isLastSlide}
+          />
+        </div>
+        {isLastSlide && (
+          <p className="text-xs text-white/40">
+            Este é o último slide — o indicador de arraste não será exibido.
+          </p>
+        )}
       </div>
 
       {/* Quick Theme */}
