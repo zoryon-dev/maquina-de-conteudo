@@ -53,6 +53,12 @@ export function StudioPage() {
         }),
       });
 
+      // Verificar HTTP status ANTES de parsear JSON
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || `Erro do servidor: ${response.status}`);
+      }
+
       const result = await response.json();
 
       if (!result.success) {
@@ -62,7 +68,12 @@ export function StudioPage() {
       setDirty(false);
       toast.success("Projeto salvo com sucesso!");
     } catch (error) {
-      console.error("[STUDIO-PAGE] Save error:", error);
+      console.error("[StudioPage] Save error:", error);
+      // Detectar erro de rede
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        toast.error("Erro de conexão. Verifique sua internet.");
+        return;
+      }
       toast.error(error instanceof Error ? error.message : "Erro ao salvar projeto");
     } finally {
       setSaving(false);

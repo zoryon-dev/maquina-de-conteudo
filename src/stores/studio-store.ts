@@ -24,6 +24,7 @@ import {
   DEFAULT_PROFILE,
   DEFAULT_HEADER,
   getRecommendedTemplate,
+  MAX_SLIDES,
 } from "@/lib/studio-templates/types";
 
 // ============================================================================
@@ -110,6 +111,12 @@ export const useStudioStore = create<StudioStore>()(
         // ============ SLIDES ============
         addSlide: (template, atIndex) => {
           set((state) => {
+            // Enforçar limite de slides (Instagram carousel limit)
+            if (state.slides.length >= MAX_SLIDES) {
+              console.warn(`[StudioStore] Cannot add slide: max ${MAX_SLIDES} reached`);
+              return state;
+            }
+
             const totalSlides = state.slides.length + 1;
             const insertIndex = atIndex ?? state.slides.length;
 
@@ -314,9 +321,26 @@ export const useStudioStore = create<StudioStore>()(
         },
 
         loadProject: (projectState) => {
+          // Validar campos essenciais
+          if (projectState.slides && !Array.isArray(projectState.slides)) {
+            console.error("[StudioStore] Invalid slides in loadProject");
+            return;
+          }
+          if (projectState.slides?.length === 0) {
+            console.error("[StudioStore] Cannot load project with empty slides");
+            return;
+          }
+
           set((state) => ({
             ...state,
             ...projectState,
+            // TODO: Consider migrating to activeSlideId for better stability when slides are reordered
+            // Current index-based approach handles edge cases but is fragile
+            // Garantir activeSlideIndex válido
+            activeSlideIndex: Math.min(
+              projectState.activeSlideIndex ?? state.activeSlideIndex,
+              (projectState.slides?.length ?? state.slides.length) - 1
+            ),
             isDirty: false,
           }));
         },
@@ -367,10 +391,10 @@ export const useProfile = () => useStudioStore((state) => state.profile);
 export const useHeader = () => useStudioStore((state) => state.header);
 
 /**
- * Seletor para verificar se pode adicionar mais slides (máx 10)
+ * Seletor para verificar se pode adicionar mais slides (máx MAX_SLIDES)
  */
 export const useCanAddSlide = () =>
-  useStudioStore((state) => state.slides.length < 10);
+  useStudioStore((state) => state.slides.length < MAX_SLIDES);
 
 /**
  * Seletor para verificar se pode remover slides

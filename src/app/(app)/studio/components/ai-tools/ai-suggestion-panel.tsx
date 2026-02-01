@@ -68,6 +68,12 @@ export function AiSuggestionPanel({
         }),
       });
 
+      // Verificar HTTP status ANTES de parsear JSON
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || `Erro do servidor: ${response.status}`);
+      }
+
       const result = await response.json();
 
       if (!result.success) {
@@ -76,7 +82,12 @@ export function AiSuggestionPanel({
 
       setSuggestions(result.suggestions);
     } catch (error) {
-      console.error("[AI-SUGGESTION] Error:", error);
+      console.error("[AiSuggestion] Error:", error);
+      // Detectar erro de rede
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        toast.error("Erro de conexão. Verifique sua internet.");
+        return;
+      }
       toast.error(error instanceof Error ? error.message : "Erro ao gerar sugestões");
     } finally {
       setIsLoading(false);

@@ -20,9 +20,9 @@
  * - 202: Slide padrão (texto → texto → imagem → texto bold)
  * - 203: Slide com swipe indicator
  *
- * Generic Templates (headline/descrição):
- * - DARK_MODE: Fundo escuro com gradiente e CTA
- * - WHITE_MODE: Fundo claro minimalista
+ * Generic Templates (com diferentes layouts):
+ * - DARK_MODE: Fundo escuro com gradiente, inclui footer com perfil
+ * - WHITE_MODE: Fundo claro minimalista, inclui footer com perfil
  * - TWITTER: Estilo tweet com avatar e verificado
  * - SUPER_HEADLINE: Headline gigante com grid de fundo
  */
@@ -406,3 +406,14 @@ export function escapeHtml(text: string): string {
   };
   return text.replace(/[&<>"']/g, (m) => map[m] || m);
 }
+
+/**
+ * Escapa URL para uso seguro em CSS url()
+ * Previne CSS injection
+ */
+export function escapeCssUrl(url: string): string {
+  return url.replace(/['"()\\]/g, (char) => `\\${char}`).replace(/[\n\r]/g, "");
+}
+
+/** Maximum slides per project (Instagram carousel limit) */
+export const MAX_SLIDES = 10;

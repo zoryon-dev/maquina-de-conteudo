@@ -53,6 +53,12 @@ export function ProfileEditor() {
         body: formData,
       });
 
+      // Verificar HTTP status ANTES de parsear JSON
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || `Erro do servidor: ${response.status}`);
+      }
+
       const result = await response.json();
 
       if (!result.success) {
@@ -62,7 +68,12 @@ export function ProfileEditor() {
       updateProfile({ avatarUrl: result.url });
       toast.success("Avatar atualizado!");
     } catch (error) {
-      console.error("[PROFILE-EDITOR] Upload error:", error);
+      console.error("[ProfileEditor] Upload error:", error);
+      // Detectar erro de rede
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        toast.error("Erro de conexão. Verifique sua internet.");
+        return;
+      }
       toast.error(error instanceof Error ? error.message : "Erro ao carregar imagem");
     } finally {
       setIsUploading(false);

@@ -9,8 +9,10 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { libraryItems } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { StudioState } from "@/lib/studio-templates/types";
+import { MAX_SLIDES } from "@/lib/studio-templates/types";
+import { toAppError, getErrorMessage, ValidationError, NotFoundError, ForbiddenError } from "@/lib/errors";
 
 // ============================================================================
 // TYPES
@@ -30,7 +32,7 @@ export async function POST(request: Request) {
 
   if (!userId) {
     return NextResponse.json(
-      { success: false, error: "Não autenticado" },
+      { success: false, error: "Não autenticado", code: "AUTH_ERROR" },
       { status: 401 }
     );
   }
@@ -40,10 +42,12 @@ export async function POST(request: Request) {
     const { projectId, state } = body;
 
     if (!state || !state.slides || state.slides.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Estado do projeto inválido" },
-        { status: 400 }
-      );
+      throw new ValidationError("Estado do projeto inválido");
+    }
+
+    // Validar limite de slides
+    if (state.slides.length > MAX_SLIDES) {
+      throw new ValidationError(`Máximo de ${MAX_SLIDES} slides permitido`);
     }
 
     // Determinar tipo baseado no contentType
@@ -66,35 +70,33 @@ export async function POST(request: Request) {
     };
 
     if (projectId) {
-      // Atualizar projeto existente
-      const [existing] = await db
-        .select()
-        .from(libraryItems)
-        .where(eq(libraryItems.id, projectId))
-        .limit(1);
-
-      if (!existing) {
-        return NextResponse.json(
-          { success: false, error: "Projeto não encontrado" },
-          { status: 404 }
-        );
-      }
-
-      if (existing.userId !== userId) {
-        return NextResponse.json(
-          { success: false, error: "Sem permissão para editar este projeto" },
-          { status: 403 }
-        );
-      }
-
-      await db
+      // Atualizar projeto existente - usar atomic update para evitar race condition
+      const result = await db
         .update(libraryItems)
         .set({
           title: state.projectTitle,
           content: JSON.stringify(contentData),
           updatedAt: new Date(),
         })
-        .where(eq(libraryItems.id, projectId));
+        .where(and(
+          eq(libraryItems.id, projectId),
+          eq(libraryItems.userId, userId)
+        ))
+        .returning({ id: libraryItems.id });
+
+      if (result.length === 0) {
+        // Verificar se existe para diferenciar 404 de 403
+        const [exists] = await db
+          .select({ id: libraryItems.id })
+          .from(libraryItems)
+          .where(eq(libraryItems.id, projectId))
+          .limit(1);
+
+        if (!exists) {
+          throw new NotFoundError("Projeto", String(projectId));
+        }
+        throw new ForbiddenError("Sem permissão para editar este projeto");
+      }
 
       return NextResponse.json({
         success: true,
@@ -128,13 +130,15 @@ export async function POST(request: Request) {
     }
 
   } catch (error) {
-    console.error("[STUDIO-SAVE] Error:", error);
+    const appError = toAppError(error, "STUDIO_SAVE_FAILED");
+    console.error("[StudioSave]", appError.code, ":", appError.message);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Erro ao salvar projeto",
+        error: getErrorMessage(appError),
+        code: appError.code,
       },
-      { status: 500 }
+      { status: appError.statusCode }
     );
   }
 }
@@ -148,7 +152,7 @@ export async function GET(request: Request) {
 
   if (!userId) {
     return NextResponse.json(
-      { success: false, error: "Não autenticado" },
+      { success: false, error: "Não autenticado", code: "AUTH_ERROR" },
       { status: 401 }
     );
   }
@@ -158,30 +162,27 @@ export async function GET(request: Request) {
     const projectId = searchParams.get("projectId");
 
     if (!projectId) {
-      return NextResponse.json(
-        { success: false, error: "ID do projeto não especificado" },
-        { status: 400 }
-      );
+      throw new ValidationError("ID do projeto não especificado");
+    }
+
+    // Validar que projectId é um número válido
+    const projectIdNum = parseInt(projectId, 10);
+    if (isNaN(projectIdNum) || projectIdNum <= 0) {
+      throw new ValidationError("ID do projeto inválido", { projectId });
     }
 
     const [item] = await db
       .select()
       .from(libraryItems)
-      .where(eq(libraryItems.id, parseInt(projectId)))
+      .where(eq(libraryItems.id, projectIdNum))
       .limit(1);
 
     if (!item) {
-      return NextResponse.json(
-        { success: false, error: "Projeto não encontrado" },
-        { status: 404 }
-      );
+      throw new NotFoundError("Projeto", projectId);
     }
 
     if (item.userId !== userId) {
-      return NextResponse.json(
-        { success: false, error: "Sem permissão para acessar este projeto" },
-        { status: 403 }
-      );
+      throw new ForbiddenError("Sem permissão para acessar este projeto");
     }
 
     // Parse content
@@ -198,8 +199,11 @@ export async function GET(request: Request) {
             projectTitle: item.title || "Projeto sem título",
           };
         }
-      } catch {
-        // Content não é JSON válido
+      } catch (parseError) {
+        console.warn("[StudioLoad] Failed to parse project content:", {
+          projectId: item.id,
+          error: parseError instanceof Error ? parseError.message : String(parseError),
+        });
       }
     }
 
@@ -217,13 +221,15 @@ export async function GET(request: Request) {
     });
 
   } catch (error) {
-    console.error("[STUDIO-LOAD] Error:", error);
+    const appError = toAppError(error, "STUDIO_LOAD_FAILED");
+    console.error("[StudioLoad]", appError.code, ":", appError.message);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Erro ao carregar projeto",
+        error: getErrorMessage(appError),
+        code: appError.code,
       },
-      { status: 500 }
+      { status: appError.statusCode }
     );
   }
 }

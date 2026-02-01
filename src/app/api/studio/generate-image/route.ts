@@ -10,6 +10,7 @@ import { auth } from "@clerk/nextjs/server";
 import { generateAiImage } from "@/lib/wizard-services/image-generation.service";
 import { getStorageProvider } from "@/lib/storage";
 import type { VisualStyle, ColorOption, AiImageModel } from "@/lib/wizard-services/image-types";
+import { toAppError, getErrorMessage, ValidationError } from "@/lib/errors";
 
 // ============================================================================
 // TYPES
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
 
   if (!userId) {
     return NextResponse.json(
-      { success: false, error: "Não autenticado" },
+      { success: false, error: "Não autenticado", code: "AUTH_ERROR" },
       { status: 401 }
     );
   }
@@ -56,22 +57,28 @@ export async function POST(request: Request) {
     const { prompt, style = "minimal", model } = body;
 
     if (!prompt || prompt.trim().length < 3) {
-      return NextResponse.json(
-        { success: false, error: "Prompt muito curto. Descreva a imagem desejada." },
-        { status: 400 }
-      );
+      throw new ValidationError("Prompt muito curto. Descreva a imagem desejada.");
     }
 
-    // Validar modelo se fornecido
-    const selectedModel: AiImageModel = model && VALID_MODELS.includes(model)
-      ? model
-      : "google/gemini-3-pro-image-preview";
+    // Validar modelo se fornecido, com logging de fallback
+    let selectedModel: AiImageModel = "google/gemini-3-pro-image-preview";
+    if (model) {
+      if (VALID_MODELS.includes(model)) {
+        selectedModel = model;
+      } else {
+        console.warn("[StudioGenerateImage] Invalid model, using fallback:", { requested: model, fallback: selectedModel });
+      }
+    }
 
-    console.log(`[STUDIO-GENERATE-IMAGE] Generating image with model: ${selectedModel}`);
-    console.log(`[STUDIO-GENERATE-IMAGE] Prompt: "${prompt.slice(0, 50)}..."`);
+    console.log(`[StudioGenerateImage] Generating image with model: ${selectedModel}`);
+    console.log(`[StudioGenerateImage] Prompt: "${prompt.slice(0, 50)}..."`);
 
-    // Mapear estilo para tipos do sistema
-    const styleConfig = STYLE_MAP[style] || STYLE_MAP.minimal;
+    // Mapear estilo para tipos do sistema, com logging de fallback
+    const styleConfig = STYLE_MAP[style];
+    if (!styleConfig) {
+      console.warn("[StudioGenerateImage] Invalid style, using fallback:", { requested: style, fallback: "minimal" });
+    }
+    const finalStyleConfig = styleConfig || STYLE_MAP.minimal;
 
     // Gerar imagem usando o serviço existente
     const result = await generateAiImage({
@@ -82,8 +89,8 @@ export async function POST(request: Request) {
         method: "ai",
         aiOptions: {
           model: selectedModel,
-          style: styleConfig.style,
-          color: styleConfig.color,
+          style: finalStyleConfig.style,
+          color: finalStyleConfig.color,
           mood: "calmo",
           additionalContext: "Imagem para Instagram, sem texto sobreposto, alta qualidade visual.",
         },
@@ -91,11 +98,8 @@ export async function POST(request: Request) {
     });
 
     if (!result.success || !result.data) {
-      console.error("[STUDIO-GENERATE-IMAGE] Generation failed:", result.error);
-      return NextResponse.json(
-        { success: false, error: result.error || "Erro ao gerar imagem" },
-        { status: 500 }
-      );
+      console.error("[StudioGenerateImage] Generation failed:", result.error);
+      throw new Error(result.error || "Erro ao gerar imagem");
     }
 
     // A imagem vem como base64, precisamos fazer upload para storage
@@ -115,7 +119,7 @@ export async function POST(request: Request) {
         contentType: "image/png",
       });
 
-      console.log(`[STUDIO-GENERATE-IMAGE] Image uploaded: ${uploadResult.url}`);
+      console.log(`[StudioGenerateImage] Image uploaded: ${uploadResult.url}`);
 
       return NextResponse.json({
         success: true,
@@ -132,13 +136,15 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error("[STUDIO-GENERATE-IMAGE] Error:", error);
+    const appError = toAppError(error, "STUDIO_GENERATE_IMAGE_FAILED");
+    console.error("[StudioGenerateImage]", appError.code, ":", appError.message);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Erro ao gerar imagem",
+        error: getErrorMessage(appError),
+        code: appError.code,
       },
-      { status: 500 }
+      { status: appError.statusCode }
     );
   }
 }

@@ -16,7 +16,7 @@
  */
 
 import type { StudioSlide, StudioProfile, StudioHeader } from "./types";
-import { escapeHtml, INSTAGRAM_DIMENSIONS } from "./types";
+import { escapeHtml, escapeCssUrl, INSTAGRAM_DIMENSIONS } from "./types";
 
 export interface CapaTemplateInput {
   slide: StudioSlide;
@@ -32,8 +32,9 @@ export function generate01CapaHtml(input: CapaTemplateInput): string {
   const { content, style } = slide;
 
   // Usar imagem de fundo se disponível, senão usar cor de fundo
+  // Usar escapeCssUrl para prevenir CSS injection
   const backgroundStyle = content.backgroundImageUrl
-    ? `background-image: url('${escapeHtml(content.backgroundImageUrl)}'); background-size: cover; background-position: center;`
+    ? `background-image: url('${escapeCssUrl(content.backgroundImageUrl)}'); background-size: cover; background-position: center;`
     : `background-color: ${style.primaryColor};`;
 
   const html = `<!DOCTYPE html>

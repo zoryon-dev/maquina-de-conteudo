@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getStorageProvider } from "@/lib/storage";
+import { toAppError, getErrorMessage, ValidationError } from "@/lib/errors";
 
 // ============================================================================
 // CONSTANTS
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
 
   if (!userId) {
     return NextResponse.json(
-      { success: false, error: "Não autenticado" },
+      { success: false, error: "Não autenticado", code: "AUTH_ERROR" },
       { status: 401 }
     );
   }
@@ -83,26 +84,17 @@ export async function POST(request: Request) {
     const projectId = formData.get("projectId") as string | null;
 
     if (!file) {
-      return NextResponse.json(
-        { success: false, error: "Nenhum arquivo enviado" },
-        { status: 400 }
-      );
+      throw new ValidationError("Nenhum arquivo enviado");
     }
 
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { success: false, error: `Arquivo muito grande. Máximo: ${MAX_FILE_SIZE / (1024 * 1024)}MB` },
-        { status: 400 }
-      );
+      throw new ValidationError(`Arquivo muito grande. Máximo: ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
     }
 
     // Validate MIME type (first check)
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { success: false, error: "Tipo de arquivo não permitido. Use: PNG, JPG, WebP ou GIF" },
-        { status: 400 }
-      );
+      throw new ValidationError("Tipo de arquivo não permitido. Use: PNG, JPG, WebP ou GIF");
     }
 
     // Convert file to buffer
@@ -112,10 +104,7 @@ export async function POST(request: Request) {
     // Validate by magic bytes (second check)
     const detectedType = detectImageType(buffer);
     if (!detectedType) {
-      return NextResponse.json(
-        { success: false, error: "Arquivo não é uma imagem válida" },
-        { status: 400 }
-      );
+      throw new ValidationError("Arquivo não é uma imagem válida");
     }
 
     // Generate storage key
@@ -142,13 +131,15 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error("[STUDIO-UPLOAD] Error:", error);
+    const appError = toAppError(error, "STUDIO_UPLOAD_FAILED");
+    console.error("[StudioUpload]", appError.code, ":", appError.message);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Erro ao fazer upload",
+        error: getErrorMessage(appError),
+        code: appError.code,
       },
-      { status: 500 }
+      { status: appError.statusCode }
     );
   }
 }

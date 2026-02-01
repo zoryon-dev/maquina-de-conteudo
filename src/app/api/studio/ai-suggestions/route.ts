@@ -15,12 +15,17 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { generateText } from "ai";
 import { openrouter, DEFAULT_TEXT_MODEL } from "@/lib/ai/config";
+import { toAppError, getErrorMessage, ValidationError, ConfigError } from "@/lib/errors";
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 type SuggestionType = "headline" | "hook" | "context" | "conclusion" | "hashtags";
+
+const VALID_SUGGESTION_TYPES: SuggestionType[] = ["headline", "hook", "context", "conclusion", "hashtags"];
+const MAX_SUGGESTIONS = 5;
+const MIN_SUGGESTIONS = 1;
 
 interface SuggestionRequest {
   type: SuggestionType;
@@ -140,28 +145,28 @@ export async function POST(request: Request) {
 
   if (!userId) {
     return NextResponse.json(
-      { success: false, error: "Não autenticado" },
+      { success: false, error: "Não autenticado", code: "AUTH_ERROR" },
       { status: 401 }
     );
   }
 
-  if (!openrouter) {
-    return NextResponse.json(
-      { success: false, error: "IA não configurada" },
-      { status: 503 }
-    );
-  }
-
   try {
-    const body: SuggestionRequest = await request.json();
-    const { type, context, count = 3 } = body;
+    if (!openrouter) {
+      throw new ConfigError("IA não configurada. Configure OPENROUTER_API_KEY.");
+    }
 
-    if (!type) {
-      return NextResponse.json(
-        { success: false, error: "Tipo de sugestão não especificado" },
-        { status: 400 }
+    const body: SuggestionRequest = await request.json();
+    const { type, context, count: rawCount = 3 } = body;
+
+    // Validar tipo de sugestão
+    if (!type || !VALID_SUGGESTION_TYPES.includes(type as SuggestionType)) {
+      throw new ValidationError(
+        `Tipo de sugestão inválido. Use: ${VALID_SUGGESTION_TYPES.join(", ")}`
       );
     }
+
+    // Validar e clampar count
+    const count = Math.min(MAX_SUGGESTIONS, Math.max(MIN_SUGGESTIONS, Number(rawCount) || 3));
 
     // Gerar prompt
     const prompt = getPromptForType(type, context, count);
@@ -189,13 +194,15 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error("[AI-SUGGESTIONS] Error:", error);
+    const appError = toAppError(error, "AI_SUGGESTIONS_FAILED");
+    console.error("[AiSuggestions]", appError.code, ":", appError.message);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Erro ao gerar sugestões",
+        error: getErrorMessage(appError),
+        code: appError.code,
       },
-      { status: 500 }
+      { status: appError.statusCode }
     );
   }
 }

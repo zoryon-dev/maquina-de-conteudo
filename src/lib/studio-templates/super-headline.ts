@@ -22,7 +22,8 @@ export interface TemplateSuperHeadlineInput {
 }
 
 /**
- * Processa texto com marcadores **bold** para destaque
+ * Processa texto com marcadores **texto** para destaque
+ * Aplica cor de destaque e estilo itálico ao texto entre **
  */
 function processHighlight(text: string, highlightColor: string): string {
   return text.replace(

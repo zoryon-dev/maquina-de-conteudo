@@ -9,10 +9,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { libraryItems } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getStorageProvider } from "@/lib/storage";
 import { renderSlideToHtml } from "@/lib/studio-templates/renderer";
 import type { StudioState, StudioSlide, StudioProfile, StudioHeader } from "@/lib/studio-templates/types";
+import { toAppError, getErrorMessage, ValidationError, NotFoundError, ForbiddenError, ConfigError, NetworkError } from "@/lib/errors";
 
 // ============================================================================
 // CONSTANTS
@@ -94,7 +95,7 @@ export async function POST(request: Request) {
 
   if (!userId) {
     return NextResponse.json(
-      { success: false, error: "Não autenticado" },
+      { success: false, error: "Não autenticado", code: "AUTH_ERROR" },
       { status: 401 }
     );
   }
@@ -104,21 +105,15 @@ export async function POST(request: Request) {
     const { projectId, state } = body;
 
     if (!state || !state.slides || state.slides.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Estado do projeto inválido" },
-        { status: 400 }
-      );
+      throw new ValidationError("Estado do projeto inválido");
     }
 
     // Verificar configuração
     if (!SCREENSHOT_ONE_ACCESS_KEY) {
-      return NextResponse.json(
-        { success: false, error: "ScreenshotOne não configurado. Configure SCREENSHOT_ONE_ACCESS_KEY." },
-        { status: 503 }
-      );
+      throw new ConfigError("ScreenshotOne não configurado. Configure SCREENSHOT_ONE_ACCESS_KEY.");
     }
 
-    console.log(`[STUDIO-PUBLISH] Starting publish for ${state.slides.length} slides`);
+    console.log(`[StudioPublish] Starting publish for ${state.slides.length} slides`);
 
     // Renderizar todos os slides
     const storage = getStorageProvider();
@@ -128,7 +123,7 @@ export async function POST(request: Request) {
     for (let i = 0; i < state.slides.length; i++) {
       const slide = state.slides[i];
 
-      console.log(`[STUDIO-PUBLISH] Rendering slide ${i + 1}/${state.slides.length}`);
+      console.log(`[StudioPublish] Rendering slide ${i + 1}/${state.slides.length}`);
 
       try {
         // Renderizar para imagem
@@ -148,11 +143,15 @@ export async function POST(request: Request) {
 
         imageUrls.push(uploadResult.url);
 
-        console.log(`[STUDIO-PUBLISH] Slide ${i + 1} uploaded: ${uploadResult.url}`);
+        console.log(`[StudioPublish] Slide ${i + 1} uploaded: ${uploadResult.url}`);
 
       } catch (slideError) {
-        console.error(`[STUDIO-PUBLISH] Error rendering slide ${i + 1}:`, slideError);
-        throw new Error(`Erro ao renderizar slide ${i + 1}: ${slideError instanceof Error ? slideError.message : "Erro desconhecido"}`);
+        console.error(`[StudioPublish] Error rendering slide ${i + 1}:`, slideError);
+        // Erro de renderização específico
+        throw new NetworkError(
+          `Erro ao renderizar slide ${i + 1}: ${slideError instanceof Error ? slideError.message : "Erro desconhecido"}`,
+          { slideIndex: i, slideId: slide.id }
+        );
       }
     }
 
@@ -178,21 +177,8 @@ export async function POST(request: Request) {
     let savedProjectId: number;
 
     if (projectId) {
-      // Atualizar projeto existente
-      const [existing] = await db
-        .select()
-        .from(libraryItems)
-        .where(eq(libraryItems.id, projectId))
-        .limit(1);
-
-      if (!existing || existing.userId !== userId) {
-        return NextResponse.json(
-          { success: false, error: "Projeto não encontrado ou sem permissão" },
-          { status: 404 }
-        );
-      }
-
-      await db
+      // Atualizar projeto existente - usar atomic update
+      const result = await db
         .update(libraryItems)
         .set({
           title: state.projectTitle,
@@ -207,7 +193,25 @@ export async function POST(request: Request) {
             publishedAt: new Date().toISOString(),
           }),
         })
-        .where(eq(libraryItems.id, projectId));
+        .where(and(
+          eq(libraryItems.id, projectId),
+          eq(libraryItems.userId, userId)
+        ))
+        .returning({ id: libraryItems.id });
+
+      if (result.length === 0) {
+        // Verificar se existe para diferenciar 404 de 403
+        const [exists] = await db
+          .select({ id: libraryItems.id })
+          .from(libraryItems)
+          .where(eq(libraryItems.id, projectId))
+          .limit(1);
+
+        if (!exists) {
+          throw new NotFoundError("Projeto", String(projectId));
+        }
+        throw new ForbiddenError("Sem permissão para editar este projeto");
+      }
 
       savedProjectId = projectId;
 
@@ -234,7 +238,7 @@ export async function POST(request: Request) {
       savedProjectId = newItem.id;
     }
 
-    console.log(`[STUDIO-PUBLISH] Published successfully. Project ID: ${savedProjectId}`);
+    console.log(`[StudioPublish] Published successfully. Project ID: ${savedProjectId}`);
 
     return NextResponse.json({
       success: true,
@@ -245,13 +249,24 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error("[STUDIO-PUBLISH] Error:", error);
+    const appError = toAppError(error, "STUDIO_PUBLISH_FAILED");
+    console.error("[StudioPublish]", appError.code, ":", appError.message);
+
+    // Erro específico de renderização (ScreenshotOne)
+    if (appError.message.includes("ScreenshotOne") || appError.message.includes("renderizar slide")) {
+      return NextResponse.json(
+        { success: false, error: "Erro ao renderizar slides. Tente novamente.", code: "RENDER_FAILED" },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Erro ao publicar projeto",
+        error: getErrorMessage(appError),
+        code: appError.code,
       },
-      { status: 500 }
+      { status: appError.statusCode }
     );
   }
 }
