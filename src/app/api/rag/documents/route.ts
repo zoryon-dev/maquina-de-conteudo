@@ -64,7 +64,6 @@ export async function GET() {
       .select({
         id: documentCollections.id,
         name: documentCollections.name,
-        description: documentCollections.description,
         createdAt: documentCollections.createdAt,
       })
       .from(documentCollections)
