@@ -323,10 +323,10 @@ export function DocumentSelectorDialog({
 
         {/* Content */}
         {!isLoading && !error && (
-          <div className="flex-1 overflow-hidden flex flex-col space-y-4">
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col space-y-4">
             {/* Collections */}
             {filteredCollections.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-2 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs text-white/60 flex items-center gap-2">
                     <Folder className="w-3.5 h-3.5" />
@@ -352,7 +352,7 @@ export function DocumentSelectorDialog({
                     </Button>
                   </div>
                 </div>
-                <ScrollArea className="h-32 pr-4">
+                <ScrollArea className="h-32 pr-4 flex-shrink-0">
                   <div className="space-y-1">
                     {filteredCollections.map((collection) => {
                       const isSelected = selectedCollections.has(collection.id);
@@ -412,8 +412,8 @@ export function DocumentSelectorDialog({
 
             {/* Documents */}
             {filteredDocuments.length > 0 && (
-              <div className="space-y-2 flex-1 overflow-hidden flex flex-col">
-                <div className="flex items-center justify-between">
+              <div className="space-y-2 flex-1 min-h-0 overflow-hidden flex flex-col">
+                <div className="flex items-center justify-between flex-shrink-0">
                   <Label className="text-xs text-white/60 flex items-center gap-2">
                     <FileText className="w-3.5 h-3.5" />
                     Documentos ({filteredDocuments.length})
@@ -438,7 +438,7 @@ export function DocumentSelectorDialog({
                     </Button>
                   </div>
                 </div>
-                <ScrollArea className="flex-1 pr-4">
+                <ScrollArea className="flex-1 min-h-0 pr-4">
                   <div className="space-y-1">
                     {filteredDocuments.map((doc) => {
                       const isSelected = selectedDocs.has(doc.id);

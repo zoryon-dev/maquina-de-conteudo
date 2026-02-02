@@ -313,6 +313,27 @@ export type {
 } from "./user-variables.service";
 
 // ============================================================================
+// CONTENT MAPPER (Wizard → Studio Integration)
+// ============================================================================
+
+export {
+  mapCarouselToStudio,
+  mapGeneratedContentToStudio,
+  createStudioStateFromMappedContent,
+  selectTemplateForSlide,
+  generateImagePromptForSlide,
+  extractImagePrompts,
+  updateSlidesWithImages,
+  validateMappedContent,
+  DEFAULT_MAPPING_CONFIG,
+} from "./content-mapper";
+
+export type {
+  ContentMappingConfig,
+  MappedContent,
+} from "./content-mapper";
+
+// ============================================================================
 // SERVICE STATUS
 // ============================================================================
 

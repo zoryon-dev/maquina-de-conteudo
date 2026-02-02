@@ -41,8 +41,14 @@ import {
   Step5ImageGeneration,
   type GeneratedContent as Step5GeneratedContent,
 } from "./steps/step-5-image-generation";
+import { StepVisualEditor } from "./steps/step-visual-editor";
 import type { ImageGenerationConfig, GeneratedImage } from "@/lib/wizard-services/client";
-import type { VideoDuration } from "@/lib/wizard-services/types";
+import type { VideoDuration, ZoryonCarousel } from "@/lib/wizard-services/types";
+import {
+  mapCarouselToStudio,
+  type ContentMappingConfig,
+} from "@/lib/wizard-services/content-mapper";
+import type { FigmaTemplate } from "@/lib/studio-templates/types";
 
 // Combined form data type for the wizard
 export interface WizardFormData {
@@ -68,6 +74,14 @@ export interface WizardFormData {
   generatedImages?: GeneratedImage[];
   selectedVideoTitle?: VideoTitleOption; // NEW: Selected title for video thumbnail
   generatedThumbnailData?: GeneratedThumbnailData; // NEW: Generated thumbnail data
+  // v4.1: Visual template integration
+  visualTemplate?: string;
+  visualTemplateConfig?: {
+    applyToAllSlides?: boolean;
+    autoGenerateImages?: boolean;
+    useBrandColors?: boolean;
+  };
+  mappedStudioContent?: import("@/lib/wizard-services/content-mapper").MappedContent;
 }
 
 interface Wizard {
@@ -346,10 +360,44 @@ export function WizardPage({
   const handleContentApproval = async (approvedContent: string) => {
     if (!wizardId) return;
 
+    // Map content to Studio format if visual template is selected
+    let mappedStudioContent = formData.mappedStudioContent;
+
+    if (formData.visualTemplate && formData.contentType === "carousel") {
+      try {
+        // Parse the generated content to ZoryonCarousel format
+        const parsedContent = JSON.parse(approvedContent);
+
+        // Check if it's a ZoryonCarousel structure
+        if (parsedContent.throughline && parsedContent.capa && parsedContent.slides) {
+          const carousel = parsedContent as ZoryonCarousel;
+
+          // Build mapping config from user preferences
+          const mappingConfig: Partial<ContentMappingConfig> = {
+            contentTemplate: formData.visualTemplate as FigmaTemplate,
+            uniformTemplate: formData.visualTemplateConfig?.applyToAllSlides ?? true,
+            generateImagePrompts: formData.visualTemplateConfig?.autoGenerateImages ?? false,
+          };
+
+          // Map the carousel to Studio format
+          mappedStudioContent = mapCarouselToStudio(carousel, mappingConfig);
+
+          console.log("[Wizard] Content mapped to Studio format:", {
+            template: formData.visualTemplate,
+            slidesCount: mappedStudioContent.slides.length,
+          });
+        }
+      } catch (err) {
+        // If parsing fails, continue without mapping
+        console.warn("[Wizard] Failed to map content to Studio format:", err);
+      }
+    }
+
     // Save approved content to formData
     setFormData((prev) => ({
       ...prev,
       generatedContent: approvedContent,
+      mappedStudioContent,
     }));
 
     // Determine next step based on content type
@@ -358,16 +406,28 @@ export function WizardPage({
     if (contentType === "video") {
       // Videos go to title selection
       setCurrentStep("titles-selection");
-    } else if (contentType === "carousel") {
-      // Carousels go to image generation
-      setCurrentStep("image-generation");
-    } else if (contentType === "image") {
-      // Images go to image generation
+    } else if (contentType === "carousel" && mappedStudioContent) {
+      // Carousels with visual template go to visual editor first
+      setCurrentStep("visual-editor");
+    } else if (contentType === "carousel" || contentType === "image") {
+      // Carousels without template and images go to image generation
       setCurrentStep("image-generation");
     } else {
       // Text posts go directly to completion
       setCurrentStep("completed");
     }
+  };
+
+  // Step 3.6: Handle visual editor save
+  const handleVisualEditorSave = (updatedContent: import("@/lib/wizard-services/content-mapper").MappedContent) => {
+    // Update formData with edited content from visual editor
+    setFormData((prev) => ({
+      ...prev,
+      mappedStudioContent: updatedContent,
+    }));
+
+    // Proceed to image generation
+    setCurrentStep("image-generation");
   };
 
   // Step 3.5: Handle title selection and proceed to thumbnail configuration
@@ -745,6 +805,23 @@ export function WizardPage({
               onApprove={handleContentApproval}
               onRegenerate={handleRegenerate}
               onBack={() => setCurrentStep("narratives")}
+            />
+          </motion.div>
+        )}
+
+        {currentStep === "visual-editor" && formData.mappedStudioContent && (
+          <motion.div
+            key="visual-editor"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <StepVisualEditor
+              mappedContent={formData.mappedStudioContent}
+              onSave={handleVisualEditorSave}
+              onBack={() => setCurrentStep("content-approval")}
+              onSkip={() => setCurrentStep("image-generation")}
             />
           </motion.div>
         )}

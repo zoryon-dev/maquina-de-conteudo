@@ -20,6 +20,7 @@ export type WizardStepValue =
   | "titles-selection"
   | "generation"
   | "thumbnail-config"
+  | "visual-editor"
   | "image-generation"
   | "completed";
 
@@ -55,6 +56,11 @@ const NON_VIDEO_STEPS: WizardStep[] = [
     value: "generation",
     label: "Geração",
     description: "Gerando seu conteúdo",
+  },
+  {
+    value: "visual-editor",
+    label: "Visual",
+    description: "Ajuste o design",
   },
   {
     value: "image-generation",

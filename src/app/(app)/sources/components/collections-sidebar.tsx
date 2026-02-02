@@ -75,6 +75,7 @@ export function CollectionsSidebar({
 }: CollectionsSidebarProps) {
   const [collections, setCollections] = React.useState<CollectionWithExpanded[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
+  const [showCreateDialog, setShowCreateDialog] = React.useState(false)
   const [isCreating, setIsCreating] = React.useState(false)
   const [isEditing, setIsEditing] = React.useState(false)
   const [editingCollection, setEditingCollection] = React.useState<DocumentCollectionWithCount | null>(null)
@@ -201,7 +202,7 @@ export function CollectionsSidebar({
         toast.success("Coleção criada com sucesso!")
         setNewCollectionName("")
         setSelectedColor(null)
-        setIsCreating(false)
+        setShowCreateDialog(false)
         fetchCollections()
         onRefresh?.()
       } else {
@@ -410,7 +411,7 @@ export function CollectionsSidebar({
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => setIsCreating(true)}
+          onClick={() => setShowCreateDialog(true)}
           className="h-6 px-2 text-white/60 hover:text-white hover:bg-white/5"
         >
           <Plus className="h-3.5 w-3.5" />
@@ -455,7 +456,7 @@ export function CollectionsSidebar({
       </div>
 
       {/* Create Collection Dialog */}
-      <Dialog open={isCreating} onOpenChange={setIsCreating}>
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="sm:max-w-md bg-zinc-900 border-white/10">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
@@ -517,7 +518,7 @@ export function CollectionsSidebar({
               type="button"
               variant="ghost"
               onClick={() => {
-                setIsCreating(false)
+                setShowCreateDialog(false)
                 setNewCollectionName("")
                 setSelectedColor(null)
               }}
