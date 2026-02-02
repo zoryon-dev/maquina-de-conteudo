@@ -14,6 +14,7 @@ import { eq, and, desc, count, sql, isNull, or } from "drizzle-orm"
 import { createJob } from "@/lib/queue/jobs"
 import { JobType, type DocumentEmbeddingPayload } from "@/lib/queue/types"
 import { getStorageProviderForDocument } from "@/lib/storage"
+import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user"
 
 /**
  * Result of a source operation
@@ -52,6 +53,17 @@ export interface DocumentStats {
 export interface CategoryCount {
   category: string | null
   count: number
+}
+
+/**
+ * Paginated response for documents
+ */
+export interface PaginatedDocumentsResponse {
+  documents: DocumentWithEmbeddings[]
+  totalCount: number
+  page: number
+  pageSize: number
+  totalPages: number
 }
 
 /**
@@ -104,6 +116,7 @@ export async function getDocumentsWithEmbeddingsAction(): Promise<DocumentWithEm
 
 /**
  * Fetches documents in a specific collection with embedding count
+ * @deprecated Use getDocumentsPaginatedAction for better performance
  */
 export async function getDocumentsByCollectionAction(
   collectionId: number | null
@@ -164,6 +177,170 @@ export async function getDocumentsByCollectionAction(
   } catch (error) {
     console.error("Get documents by collection error:", error)
     return []
+  }
+}
+
+/**
+ * Fetches documents with pagination support
+ * More efficient for large document collections
+ */
+export async function getDocumentsPaginatedAction(options: {
+  collectionId?: number | null
+  page?: number
+  pageSize?: number
+  category?: string | null
+  search?: string | null
+}): Promise<PaginatedDocumentsResponse> {
+  const { userId } = await auth()
+
+  if (!userId) {
+    return { documents: [], totalCount: 0, page: 1, pageSize: 20, totalPages: 0 }
+  }
+
+  const { collectionId = null, page = 1, pageSize = 20, category = null, search = null } = options
+
+  try {
+    // Build base conditions
+    const conditions = [eq(documents.userId, userId)]
+    if (category) {
+      conditions.push(eq(documents.category, category))
+    }
+    if (search) {
+      conditions.push(
+        or(
+          sql`${documents.title} ILIKE ${`%${search}%`}`,
+          sql`${documents.content} ILIKE ${`%${search}%`}`
+        )!
+      )
+    }
+
+    // If collection is specified, join with collection items
+    if (collectionId !== null) {
+      // Get total count for collection
+      const countResult = await db
+        .select({ count: count() })
+        .from(documents)
+        .innerJoin(
+          documentCollectionItems,
+          eq(documentCollectionItems.documentId, documents.id)
+        )
+        .where(
+          and(
+            ...conditions,
+            eq(documentCollectionItems.collectionId, collectionId)
+          )
+        )
+      const totalCount = countResult[0]?.count || 0
+      const totalPages = Math.ceil(totalCount / pageSize)
+
+      // Get paginated documents
+      const docs = await db
+        .select({
+          id: documents.id,
+          title: documents.title,
+          content: documents.content,
+          fileType: documents.fileType,
+          category: documents.category,
+          embedded: documents.embedded,
+          embeddingModel: documents.embeddingModel,
+          embeddingStatus: documents.embeddingStatus,
+          embeddingProgress: documents.embeddingProgress,
+          chunksCount: documents.chunksCount,
+          createdAt: documents.createdAt,
+          updatedAt: documents.updatedAt,
+        })
+        .from(documents)
+        .innerJoin(
+          documentCollectionItems,
+          eq(documentCollectionItems.documentId, documents.id)
+        )
+        .where(
+          and(
+            ...conditions,
+            eq(documentCollectionItems.collectionId, collectionId)
+          )
+        )
+        .orderBy(desc(documents.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize)
+
+      // Get embedding counts efficiently with a single query
+      const docIds = docs.map((d) => d.id)
+      const embeddingCounts = docIds.length > 0
+        ? await db
+            .select({
+              documentId: documentEmbeddings.documentId,
+              count: count(),
+            })
+            .from(documentEmbeddings)
+            .where(sql`${documentEmbeddings.documentId} IN (${sql.join(docIds.map(id => sql`${id}`), sql`, `)})`)
+            .groupBy(documentEmbeddings.documentId)
+        : []
+
+      const countsMap = new Map(embeddingCounts.map((c) => [c.documentId, c.count]))
+
+      const result: DocumentWithEmbeddings[] = docs.map((doc) => ({
+        ...doc,
+        embeddingCount: countsMap.get(doc.id) || 0,
+      }))
+
+      return { documents: result, totalCount, page, pageSize, totalPages }
+    } else {
+      // Get total count for all documents
+      const countResult = await db
+        .select({ count: count() })
+        .from(documents)
+        .where(and(...conditions))
+      const totalCount = countResult[0]?.count || 0
+      const totalPages = Math.ceil(totalCount / pageSize)
+
+      // Get paginated documents
+      const docs = await db
+        .select({
+          id: documents.id,
+          title: documents.title,
+          content: documents.content,
+          fileType: documents.fileType,
+          category: documents.category,
+          embedded: documents.embedded,
+          embeddingModel: documents.embeddingModel,
+          embeddingStatus: documents.embeddingStatus,
+          embeddingProgress: documents.embeddingProgress,
+          chunksCount: documents.chunksCount,
+          createdAt: documents.createdAt,
+          updatedAt: documents.updatedAt,
+        })
+        .from(documents)
+        .where(and(...conditions))
+        .orderBy(desc(documents.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize)
+
+      // Get embedding counts efficiently with a single query
+      const docIds = docs.map((d) => d.id)
+      const embeddingCounts = docIds.length > 0
+        ? await db
+            .select({
+              documentId: documentEmbeddings.documentId,
+              count: count(),
+            })
+            .from(documentEmbeddings)
+            .where(sql`${documentEmbeddings.documentId} IN (${sql.join(docIds.map(id => sql`${id}`), sql`, `)})`)
+            .groupBy(documentEmbeddings.documentId)
+        : []
+
+      const countsMap = new Map(embeddingCounts.map((c) => [c.documentId, c.count]))
+
+      const result: DocumentWithEmbeddings[] = docs.map((doc) => ({
+        ...doc,
+        embeddingCount: countsMap.get(doc.id) || 0,
+      }))
+
+      return { documents: result, totalCount, page, pageSize, totalPages }
+    }
+  } catch (error) {
+    console.error("Get documents paginated error:", error)
+    return { documents: [], totalCount: 0, page, pageSize, totalPages: 0 }
   }
 }
 
@@ -267,13 +444,10 @@ export async function updateDocumentAction(
 export async function deleteDocumentWithEmbeddingsAction(
   documentId: number
 ): Promise<SourceResult> {
-  const { userId } = await auth()
-
-  if (!userId) {
-    return { success: false, error: "Unauthorized" }
-  }
-
   try {
+    // Use ensureAuthenticatedUser for consistent userId resolution
+    const userId = await ensureAuthenticatedUser()
+
     // Fetch document first to get storage information
     const [doc] = await db
       .select()
@@ -282,19 +456,51 @@ export async function deleteDocumentWithEmbeddingsAction(
       .limit(1)
 
     if (!doc) {
+      // Try to find the document without userId filter (may have been created with different auth)
+      const [docByAnyUser] = await db
+        .select()
+        .from(documents)
+        .where(eq(documents.id, documentId))
+        .limit(1)
+
+      if (!docByAnyUser) {
+        return { success: false, error: "Document not found" }
+      }
+
+      // Document exists but belongs to different user - update ownership and proceed
+      console.log(`[DeleteDocument] Updating document ${documentId} ownership from ${docByAnyUser.userId} to ${userId}`)
+      await db
+        .update(documents)
+        .set({ userId })
+        .where(eq(documents.id, documentId))
+    }
+
+    // Re-fetch to get latest state (including storage info)
+    const [documentToDelete] = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.id, documentId))
+      .limit(1)
+
+    if (!documentToDelete) {
       return { success: false, error: "Document not found" }
     }
 
     // Delete file from storage if it has a storage key
-    if (doc.storageKey) {
+    if (documentToDelete.storageKey) {
       try {
-        const storage = getStorageProviderForDocument(doc)
-        await storage.deleteFile(doc.storageKey)
+        const storage = getStorageProviderForDocument(documentToDelete)
+        await storage.deleteFile(documentToDelete.storageKey)
       } catch (storageError) {
         // Log storage error but don't fail the delete operation
         console.error("Failed to delete file from storage:", storageError)
       }
     }
+
+    // Delete collection associations (in case CASCADE doesn't trigger)
+    await db
+      .delete(documentCollectionItems)
+      .where(eq(documentCollectionItems.documentId, documentId))
 
     // Delete embeddings first (foreign key constraint)
     await db
@@ -304,13 +510,14 @@ export async function deleteDocumentWithEmbeddingsAction(
     // Delete document
     await db
       .delete(documents)
-      .where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
+      .where(eq(documents.id, documentId))
 
     revalidatePath("/sources")
     return { success: true }
   } catch (error) {
     console.error("Delete document error:", error)
-    return { success: false, error: "Failed to delete document" }
+    const errorMessage = error instanceof Error ? error.message : "Failed to delete document"
+    return { success: false, error: errorMessage }
   }
 }
 

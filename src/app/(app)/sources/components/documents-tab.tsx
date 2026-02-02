@@ -19,6 +19,10 @@ import {
   X,
   FolderOpen,
   Trash2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -154,22 +158,59 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
   const [moveDialogOpen, setMoveDialogOpen] = React.useState(false)
   const [isDeleting, setIsDeleting] = React.useState(false)
 
-  // Fetch documents and stats
+  // Pagination state
+  const [page, setPage] = React.useState(1)
+  const [pageSize] = React.useState(20)
+  const [totalCount, setTotalCount] = React.useState(0)
+  const [totalPages, setTotalPages] = React.useState(1)
+
+  // Debounced search to avoid too many API calls
+  const [debouncedSearch, setDebouncedSearch] = React.useState(searchQuery)
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  // Fetch documents and stats with pagination
   const fetchData = React.useCallback(async () => {
     setIsLoading(true)
     try {
-      const collectionParam = selectedCollectionId
-        ? `?collectionId=${selectedCollectionId}`
-        : ""
+      // Build query params for pagination
+      const params = new URLSearchParams()
+      params.set("page", page.toString())
+      params.set("pageSize", pageSize.toString())
+      if (selectedCollectionId) {
+        params.set("collectionId", selectedCollectionId.toString())
+      }
+      if (selectedCategory) {
+        params.set("category", selectedCategory)
+      }
+      if (debouncedSearch.trim()) {
+        params.set("search", debouncedSearch.trim())
+      }
+
       const [docsResponse, statsResponse] = await Promise.all([
-        fetch(`/api/sources/documents${collectionParam}`),
+        fetch(`/api/sources/documents?${params.toString()}`),
         fetch("/api/sources/stats"),
       ])
 
       if (docsResponse.ok && statsResponse.ok) {
         const docsData = await docsResponse.json()
         const statsData: DocumentStats = await statsResponse.json()
-        setDocuments(docsData)
+
+        // Handle paginated response
+        if (docsData.documents && Array.isArray(docsData.documents)) {
+          setDocuments(docsData.documents)
+          setTotalCount(docsData.totalCount || 0)
+          setTotalPages(docsData.totalPages || 1)
+        } else if (Array.isArray(docsData)) {
+          // Fallback for legacy non-paginated response
+          setDocuments(docsData)
+          setTotalCount(docsData.length)
+          setTotalPages(1)
+        }
         setStats(statsData)
       }
     } catch (error) {
@@ -177,7 +218,7 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
     } finally {
       setIsLoading(false)
     }
-  }, [selectedCollectionId])
+  }, [selectedCollectionId, page, pageSize, selectedCategory, debouncedSearch])
 
   // Process pending embedding jobs
   const handleProcessEmbeddings = React.useCallback(async () => {
@@ -215,21 +256,17 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
     }
   }, [fetchData])
 
+  // Reset page when filters change (uses debouncedSearch to avoid premature reset)
+  React.useEffect(() => {
+    setPage(1)
+  }, [selectedCollectionId, selectedCategory, debouncedSearch])
+
   React.useEffect(() => {
     fetchData()
   }, [fetchData])
 
-  // Filter documents
-  const filteredDocuments = React.useMemo(() => {
-    return documents.filter((doc) => {
-      const matchesCategory = !selectedCategory || doc.category === selectedCategory
-      const matchesSearch =
-        !searchQuery ||
-        doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doc.content.toLowerCase().includes(searchQuery.toLowerCase())
-      return matchesCategory && matchesSearch
-    })
-  }, [documents, selectedCategory, searchQuery])
+  // Documents are already filtered server-side via pagination API
+  const filteredDocuments = documents
 
   // Selection handlers
   const handleToggleSelection = () => {
@@ -273,7 +310,7 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
       const response = await fetch("/api/sources/documents", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+        body: JSON.stringify({ documentIds: Array.from(selectedIds) }),
       })
 
       const result: ActionResult = await response.json()
@@ -466,6 +503,88 @@ export function DocumentsTab({ selectedCollectionId, onRefresh }: DocumentsTabPr
               />
             ))}
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4 border-t border-white/5">
+              <p className="text-xs text-white/50">
+                Mostrando {((page - 1) * pageSize) + 1} a {Math.min(page * pageSize, totalCount)} de {totalCount} documentos
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPage(1)}
+                  disabled={page === 1}
+                  className="h-8 w-8 p-0 text-white/60 hover:text-white hover:bg-white/5 disabled:opacity-30"
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="h-8 w-8 p-0 text-white/60 hover:text-white hover:bg-white/5 disabled:opacity-30"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center gap-1 px-2">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum: number
+                    if (totalPages <= 5) {
+                      pageNum = i + 1
+                    } else if (page <= 3) {
+                      pageNum = i + 1
+                    } else if (page >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i
+                    } else {
+                      pageNum = page - 2 + i
+                    }
+                    return (
+                      <Button
+                        key={pageNum}
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPage(pageNum)}
+                        className={cn(
+                          "h-8 w-8 p-0 text-sm",
+                          page === pageNum
+                            ? "bg-primary text-black hover:bg-primary/90"
+                            : "text-white/60 hover:text-white hover:bg-white/5"
+                        )}
+                      >
+                        {pageNum}
+                      </Button>
+                    )
+                  })}
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="h-8 w-8 p-0 text-white/60 hover:text-white hover:bg-white/5 disabled:opacity-30"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPage(totalPages)}
+                  disabled={page === totalPages}
+                  className="h-8 w-8 p-0 text-white/60 hover:text-white hover:bg-white/5 disabled:opacity-30"
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <div className="text-center py-12">

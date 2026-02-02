@@ -8,8 +8,15 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
-import { documents } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import {
+  documents,
+  documentCollections,
+  documentCollectionItems,
+} from "@/db/schema";
+import { eq, and, desc, count, sql } from "drizzle-orm";
+
+/** Maximum characters for content preview */
+const PREVIEW_LENGTH = 200;
 
 export async function GET() {
   const { userId } = await auth();
@@ -23,6 +30,7 @@ export async function GET() {
       .select({
         id: documents.id,
         title: documents.title,
+        content: documents.content,
         category: documents.category,
         embedded: documents.embedded,
         chunksCount: documents.chunksCount,
@@ -33,18 +41,61 @@ export async function GET() {
       .where(and(eq(documents.userId, userId), eq(documents.embedded, true)))
       .orderBy(desc(documents.updatedAt));
 
-    // Add embedding counts to documents
+    // Add embedding counts and content preview to documents
     const documentsWithCounts = allDocuments.map((doc) => ({
-      ...doc,
+      id: doc.id,
+      title: doc.title,
+      category: doc.category,
+      embedded: doc.embedded,
+      chunksCount: doc.chunksCount,
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
+      contentPreview:
+        doc.content.length > PREVIEW_LENGTH
+          ? doc.content.substring(0, PREVIEW_LENGTH) + "..."
+          : doc.content,
       _count: {
         embeddings: doc.chunksCount || 0,
       },
     }));
 
-    // Return empty collections for now - the feature can be added later
+    // Fetch collections with document count
+    const collectionsWithCount = await db
+      .select({
+        id: documentCollections.id,
+        name: documentCollections.name,
+        description: documentCollections.description,
+        createdAt: documentCollections.createdAt,
+      })
+      .from(documentCollections)
+      .where(eq(documentCollections.userId, userId))
+      .orderBy(desc(documentCollections.createdAt));
+
+    // Get document counts for each collection (only embedded documents)
+    const collectionDocCounts = await db
+      .select({
+        collectionId: documentCollectionItems.collectionId,
+        count: count(),
+      })
+      .from(documentCollectionItems)
+      .innerJoin(documents, eq(documents.id, documentCollectionItems.documentId))
+      .where(and(eq(documents.userId, userId), eq(documents.embedded, true)))
+      .groupBy(documentCollectionItems.collectionId);
+
+    const countMap = new Map(
+      collectionDocCounts.map((c) => [c.collectionId, c.count])
+    );
+
+    const collectionsWithDocCount = collectionsWithCount.map((col) => ({
+      ...col,
+      _count: {
+        documents: countMap.get(col.id) || 0,
+      },
+    }));
+
     return NextResponse.json({
       documents: documentsWithCounts,
-      collections: [],
+      collections: collectionsWithDocCount,
     });
   } catch (error) {
     console.error("[RAG-DOCUMENTS-API] Error:", error);

@@ -49,23 +49,71 @@ const REQUEST_TIMEOUT = 60000; // 1 minute
 /**
  * Parses content string to extract template-specific fields
  * Attempts to parse as JSON, falls back to generic title/content
+ *
+ * Maps various field formats to the expected TemplateData structure:
+ * - ZoryonCarousel v4.2: { titulo, corpo }
+ * - GeneratedSlide: { title, content }
+ * - Twitter template expects: { headline, paragrafo1, paragrafo2, destaque }
  */
 function parseTemplateData(content: string, title?: string): TemplateData {
   // Try to parse as JSON first
   try {
     const parsed = JSON.parse(content);
     if (typeof parsed === "object" && parsed !== null) {
-      return parsed as TemplateData;
+      // Map fields to TemplateData format
+      // Support both ZoryonCarousel (titulo/corpo) and GeneratedSlide (title/content) formats
+      const headline =
+        parsed.headline || parsed.titulo || parsed.title || title || "";
+      const bodyContent =
+        parsed.descricao || parsed.corpo || parsed.content || "";
+
+      // For Twitter template: split body into paragraphs if needed
+      // Check if paragrafo1/paragrafo2 are already defined
+      let paragrafo1 = parsed.paragrafo1 || "";
+      let paragrafo2 = parsed.paragrafo2 || "";
+      let destaque = parsed.destaque || "";
+
+      // If paragrafo1 is empty but we have bodyContent, use it
+      if (!paragrafo1 && bodyContent) {
+        // Split by double newline or use full content
+        const paragraphs = bodyContent.split(/\n\n+/).filter(Boolean);
+        paragrafo1 = paragraphs[0] || bodyContent;
+        paragrafo2 = paragraphs[1] || "";
+        // Use third paragraph as destaque if available
+        if (paragraphs.length >= 3 && !destaque) {
+          destaque = paragraphs[2];
+        }
+      }
+
+      return {
+        ...parsed,
+        title: title || parsed.title || parsed.titulo,
+        headline,
+        content: bodyContent,
+        descricao: bodyContent,
+        paragrafo1,
+        paragrafo2,
+        destaque,
+        subtitulo: parsed.subtitulo || parsed.subtitulo || "",
+      };
     }
   } catch {
     // Not JSON, use fallback
   }
 
   // Fallback: generic content structure
+  // Split content into paragraphs for Twitter template
+  const paragraphs = content.split(/\n\n+/).filter(Boolean);
+
   return {
     title: title,
     content: content,
-    headline: title,
+    headline: title || "",
+    descricao: content,
+    paragrafo1: paragraphs[0] || content,
+    paragrafo2: paragraphs[1] || "",
+    destaque: paragraphs[2] || "",
+    subtitulo: "",
   };
 }
 

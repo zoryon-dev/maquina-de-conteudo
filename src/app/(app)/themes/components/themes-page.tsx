@@ -1189,7 +1189,7 @@ export function ThemesPage() {
       const data = await response.json()
       toast.success("Wizard criado!")
 
-      router.push(`/wizard?edit=${data.wizardId}`)
+      router.push(`/wizard?wizardId=${data.wizardId}`)
     } catch (error) {
       toast.error("Erro ao criar Wizard")
     }

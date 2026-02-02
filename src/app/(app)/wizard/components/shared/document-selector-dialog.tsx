@@ -23,6 +23,12 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText,
@@ -33,6 +39,7 @@ import {
   Loader2,
   Filter,
   X,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +48,10 @@ export interface Document {
   title: string;
   category: string;
   embedded: boolean;
+  contentPreview?: string;
+  chunksCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
   _count: {
     embeddings: number | null;
   };
@@ -469,23 +480,41 @@ export function DocumentSelectorDialog({
                                 isSelected ? "text-primary" : "text-white/40"
                               )}
                             />
-                            <span
-                              className="flex-1 text-sm text-white/80 truncate"
-                              title={doc.title}
-                            >
-                              {doc.title}
-                            </span>
+                            <TooltipProvider delayDuration={300}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span
+                                    className="flex-1 text-sm text-white/80 truncate cursor-help"
+                                  >
+                                    {doc.title}
+                                  </span>
+                                </TooltipTrigger>
+                                {doc.contentPreview && (
+                                  <TooltipContent
+                                    side="bottom"
+                                    align="start"
+                                    className="max-w-md bg-[#1a1a2e] border-white/10 text-white/80 text-xs p-3"
+                                  >
+                                    <p className="font-medium text-white mb-1">{doc.title}</p>
+                                    <p className="text-white/60 line-clamp-4">
+                                      {doc.contentPreview}
+                                    </p>
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            </TooltipProvider>
                             <Badge
                               variant="outline"
-                              className={cn("text-xs", catInfo.color)}
+                              className={cn("text-xs flex-shrink-0", catInfo.color)}
                             >
                               {catInfo.label}
                             </Badge>
                             <Badge
                               variant="outline"
-                              className="text-xs bg-white/5 border-white/10 text-white/60"
+                              className="text-xs bg-white/5 border-white/10 text-white/60 flex-shrink-0"
+                              title="Número de chunks indexados"
                             >
-                              {doc._count.embeddings || 0}
+                              {doc._count.embeddings || 0} chunks
                             </Badge>
                           </div>
                         </motion.div>
@@ -501,18 +530,33 @@ export function DocumentSelectorDialog({
               filteredCollections.length === 0 &&
               filteredDocuments.length === 0 && (
                 <div className="flex-1 flex items-center justify-center py-12">
-                  <div className="text-center space-y-3">
-                    <FileText className="w-12 h-12 text-white/20 mx-auto" />
-                    <p className="text-sm text-white/40">
-                      {searchQuery || selectedCategory
-                        ? "Nenhum documento encontrado com os filtros atuais."
-                        : "Nenhum documento com embeddings encontrado."}
-                    </p>
-                    <p className="text-xs text-white/30">
-                      {searchQuery || selectedCategory
-                        ? "Tente ajustar os filtros."
-                        : "Faça upload de documentos na página Fontes para começar."}
-                    </p>
+                  <div className="text-center space-y-4">
+                    <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto">
+                      <FileText className="w-8 h-8 text-white/20" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-white/60 font-medium">
+                        {searchQuery || selectedCategory
+                          ? "Nenhum documento encontrado"
+                          : "Nenhum documento indexado"}
+                      </p>
+                      <p className="text-xs text-white/40 max-w-xs mx-auto">
+                        {searchQuery || selectedCategory
+                          ? "Tente ajustar os filtros de busca para encontrar documentos."
+                          : "Adicione documentos na página Fontes e processe os embeddings para usar o RAG."}
+                      </p>
+                    </div>
+                    {!searchQuery && !selectedCategory && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-white/5 border-white/10 text-white/80 hover:bg-white/10"
+                        onClick={() => window.open("/sources", "_blank")}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                        Ir para Fontes
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}
