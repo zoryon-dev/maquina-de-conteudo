@@ -159,6 +159,7 @@ export interface BuiltPrompt {
 
 /**
  * Valores padrão para os campos
+ * NOTE: subject and setting are empty - use createImagePromptFields() for validation
  */
 export const DEFAULT_IMAGE_FIELDS: ImagePromptFields = {
   subject: "",
@@ -176,3 +177,76 @@ export const DEFAULT_IMAGE_FIELDS: ImagePromptFields = {
   avoidElements: "",
   additionalNotes: "",
 };
+
+// ============================================================================
+// VALIDATION
+// ============================================================================
+
+/**
+ * Validation result for ImagePromptFields
+ */
+export interface ImageFieldsValidation {
+  valid: boolean;
+  errors: string[];
+}
+
+/**
+ * Validates ImagePromptFields and returns validation result
+ * Use this before sending fields to the API to get helpful error messages
+ *
+ * @example
+ * const validation = validateImagePromptFields(fields);
+ * if (!validation.valid) {
+ *   console.error(validation.errors);
+ * }
+ */
+export function validateImagePromptFields(fields: ImagePromptFields): ImageFieldsValidation {
+  const errors: string[] = [];
+
+  // Required fields
+  if (!fields.subject || fields.subject.trim().length === 0) {
+    errors.push("Subject is required - describe what/who appears in the image");
+  }
+  if (!fields.setting || fields.setting.trim().length === 0) {
+    errors.push("Setting is required - describe where the scene takes place");
+  }
+
+  // Text-related validation
+  if (fields.includeText) {
+    if (!fields.textContent || fields.textContent.trim().length === 0) {
+      errors.push("Text content is required when includeText is enabled");
+    }
+    if (!fields.textPlacement) {
+      errors.push("Text placement is required when includeText is enabled");
+    }
+    if (!fields.textStyle) {
+      errors.push("Text style is required when includeText is enabled");
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * Creates a validated ImagePromptFields object
+ * Throws an error if required fields are missing or invalid
+ *
+ * @example
+ * const fields = createImagePromptFields({
+ *   ...DEFAULT_IMAGE_FIELDS,
+ *   subject: "woman entrepreneur",
+ *   setting: "modern office",
+ * });
+ */
+export function createImagePromptFields(fields: ImagePromptFields): ImagePromptFields {
+  const validation = validateImagePromptFields(fields);
+
+  if (!validation.valid) {
+    throw new Error(`Invalid ImagePromptFields: ${validation.errors.join(". ")}`);
+  }
+
+  return fields;
+}

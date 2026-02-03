@@ -203,13 +203,9 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
       console.log("[ThemeWizardAPI] Wizard created successfully:", wizard.id)
 
-      // Mark the theme as produced
-      await db
-        .update(themes)
-        .set({ producedAt: new Date() })
-        .where(eq(themes.id, themeId));
-
-      console.log("[ThemeWizardAPI] Theme marked as produced:", themeId)
+      // NOTE: Theme producedAt is now set when content is actually saved to library
+      // (in save-carousel route) to avoid race condition where wizard creation
+      // succeeds but content generation fails, leaving theme incorrectly marked as produced.
 
       return NextResponse.json({
         wizardId: wizard.id,

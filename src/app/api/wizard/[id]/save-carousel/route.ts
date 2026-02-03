@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
-import { contentWizards, libraryItems } from "@/db/schema";
+import { contentWizards, libraryItems, themes } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import type { StudioSlide, StudioProfile, StudioHeader } from "@/lib/studio-templates/types";
 import type { PostType, ContentStatus } from "@/db/schema";
@@ -173,6 +173,17 @@ export async function POST(
         updatedAt: new Date(),
       })
       .where(eq(contentWizards.id, wizardId));
+
+    // Mark the origin theme as produced (if wizard was created from a theme)
+    // This is done here instead of wizard creation to avoid race condition
+    // where wizard is created but content generation fails
+    if (wizard.themeId) {
+      await db
+        .update(themes)
+        .set({ producedAt: new Date() })
+        .where(eq(themes.id, wizard.themeId));
+      console.log(`[SaveCarousel] Theme ${wizard.themeId} marked as produced`);
+    }
 
     console.log(`[SaveCarousel] Wizard ${wizardId} saved to library item ${libraryItem.id}`);
 

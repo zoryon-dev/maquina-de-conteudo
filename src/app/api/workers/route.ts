@@ -1449,6 +1449,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     });
 
     let generatedSEO: any = null;
+    let seoWarning: string | undefined;
 
     try {
       // Parse generated content to extract script context
@@ -1459,7 +1460,9 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         } else {
           scriptContent = wizard.generatedContent;
         }
-      } catch {
+      } catch (parseError) {
+        console.warn(`[WIZARD-THUMBNAIL] Failed to parse generatedContent JSON:`, parseError instanceof Error ? parseError.message : String(parseError));
+        // Continue with null scriptContent - SEO will be generated with less context
       }
 
       // Extract development topics for timestamps
@@ -1504,8 +1507,10 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
           .where(eq(contentWizards.id, wizardId));
       }
     } catch (seoError) {
-      console.error(`[WIZARD-THUMBNAIL] Error generating SEO:`, seoError);
-      // Continue without SEO - don't fail the job
+      const seoErrorMsg = seoError instanceof Error ? seoError.message : String(seoError);
+      console.error(`[WIZARD-THUMBNAIL] Error generating SEO:`, seoErrorMsg);
+      // Continue without SEO - don't fail the job, but track the warning
+      seoWarning = `SEO generation failed: ${seoErrorMsg}. Video was created without YouTube SEO metadata.`;
     }
 
     // 6. Update wizard as completed and save to library
@@ -1524,11 +1529,15 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       .where(eq(contentWizards.id, wizardId));
 
     // 7. Save video to library automatically
+    let libraryWarning: string | undefined;
+    let savedLibraryItemId: number | undefined;
+
     try {
       const { saveWizardVideoToLibraryAction } = await import("@/app/(app)/library/actions/library-actions");
       const libraryResult = await saveWizardVideoToLibraryAction(wizardId);
 
       if (libraryResult.success) {
+        savedLibraryItemId = libraryResult.libraryItemId;
         // Update wizard with library item ID
         await db
           .update(contentWizards)
@@ -1536,16 +1545,28 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
             libraryItemId: libraryResult.libraryItemId,
           })
           .where(eq(contentWizards.id, wizardId));
+      } else {
+        libraryWarning = `Library save returned failure: ${(libraryResult as any).error || "Unknown error"}`;
       }
     } catch (libraryError) {
-      console.error(`[WIZARD-THUMBNAIL] Error saving video to library:`, libraryError);
+      const libraryErrorMsg = libraryError instanceof Error ? libraryError.message : String(libraryError);
+      console.error(`[WIZARD-THUMBNAIL] Error saving video to library:`, libraryErrorMsg);
       // Don't fail the job if library save fails - thumbnail is still successful
+      libraryWarning = `Failed to save video to library: ${libraryErrorMsg}. Thumbnail was generated successfully but video is not in your library.`;
     }
+
+    // Build warnings array for response
+    const warnings: string[] = [];
+    if (seoWarning) warnings.push(seoWarning);
+    if (libraryWarning) warnings.push(libraryWarning);
 
     return {
       success: true,
       thumbnail: thumbnailResult.data,
       wizardId,
+      libraryItemId: savedLibraryItemId,
+      // Include warnings so caller knows about partial failures
+      warnings: warnings.length > 0 ? warnings : undefined,
     };
   },
 };

@@ -152,10 +152,12 @@ export async function POST(request: Request) {
 
     // Validar modelo se fornecido
     let selectedModel: AiImageModel = "google/gemini-3-pro-image-preview";
+    let modelFallbackWarning: string | undefined;
     if (model) {
       if (VALID_MODELS.includes(model)) {
         selectedModel = model;
       } else {
+        modelFallbackWarning = `Modelo "${model}" inválido. Usando "${selectedModel}" como fallback. Modelos válidos: ${VALID_MODELS.join(", ")}`;
         console.warn("[StudioGenerateImage] Invalid model, using fallback:", { requested: model, fallback: selectedModel });
       }
     }
@@ -271,6 +273,8 @@ export async function POST(request: Request) {
       mode: isModularMode ? "modular" : "legacy",
       presetId: presetId || null,
       model: selectedModel,
+      // Warning if model was replaced with fallback
+      warning: modelFallbackWarning || undefined,
     });
 
   } catch (error) {
