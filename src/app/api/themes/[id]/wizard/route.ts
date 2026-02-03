@@ -76,6 +76,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
     let wizardObjective = theme.briefing || undefined; // objective not in themes schema
     let referenceUrl = theme.sourceUrl;
     let suggestedContentType: 'image' | 'carousel' | 'video' | 'text' | undefined = undefined;
+    let processingWarnings: string[] = [];
 
     // Process theme based on source type using AI
     if (theme.sourceType === 'perplexity') {
@@ -99,7 +100,9 @@ export async function POST(req: NextRequest, context: RouteContext) {
         referenceUrl = processed.referenceUrl;
         console.log("[ThemeWizardAPI] Perplexity theme processed successfully")
       } catch (processorError) {
-        console.error('[ThemeWizardAPI] Perplexity processing failed:', processorError);
+        const errorMsg = processorError instanceof Error ? processorError.message : String(processorError);
+        console.error('[ThemeWizardAPI] Perplexity processing failed:', errorMsg);
+        processingWarnings.push(`AI processing failed: ${errorMsg}. Using original theme data.`);
       }
     } else if (theme.sourceType === 'instagram') {
       try {
@@ -119,8 +122,10 @@ export async function POST(req: NextRequest, context: RouteContext) {
         wizardObjective = processed.objective;
         suggestedContentType = processed.suggestedContentType;
       } catch (processorError) {
-        console.error('[ThemeWizardAPI] Instagram processing failed:', processorError);
+        const errorMsg = processorError instanceof Error ? processorError.message : String(processorError);
+        console.error('[ThemeWizardAPI] Instagram processing failed:', errorMsg);
         suggestedContentType = 'image'; // Default for Instagram
+        processingWarnings.push(`Instagram processing failed: ${errorMsg}. Using default content type 'image'.`);
       }
     } else if (theme.sourceType === 'youtube') {
       try {
@@ -140,8 +145,10 @@ export async function POST(req: NextRequest, context: RouteContext) {
         wizardObjective = processed.objective;
         suggestedContentType = processed.suggestedContentType;
       } catch (processorError) {
-        console.error('[ThemeWizardAPI] YouTube processing failed:', processorError);
+        const errorMsg = processorError instanceof Error ? processorError.message : String(processorError);
+        console.error('[ThemeWizardAPI] YouTube processing failed:', errorMsg);
         suggestedContentType = 'video'; // Default for YouTube
+        processingWarnings.push(`YouTube processing failed: ${errorMsg}. Using default content type 'video'.`);
       }
     }
 
@@ -165,6 +172,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       hasReferenceUrl: !!referenceUrl,
       hasTargetAudience: !!theme.targetAudience,
       hasExtractedContent: !!theme.briefing,
+      themeId: themeId,
     })
 
     try {
@@ -179,6 +187,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
           referenceUrl: referenceUrl || undefined,
           objective: wizardObjective || undefined,
           targetAudience: theme.targetAudience || undefined,
+          // Link to origin theme for tracking
+          themeId: themeId,
           // Pre-fill with briefing if available
           extractedContent: theme.briefing
             ? {
@@ -193,6 +203,10 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
       console.log("[ThemeWizardAPI] Wizard created successfully:", wizard.id)
 
+      // NOTE: Theme producedAt is now set when content is actually saved to library
+      // (in save-carousel route) to avoid race condition where wizard creation
+      // succeeds but content generation fails, leaving theme incorrectly marked as produced.
+
       return NextResponse.json({
         wizardId: wizard.id,
         theme: {
@@ -200,6 +214,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
           title: theme.title,
           theme: theme.theme,
         },
+        // Include warnings so frontend can display them to user
+        warnings: processingWarnings.length > 0 ? processingWarnings : undefined,
       });
     } catch (dbError) {
       console.error('[ThemeWizardAPI] Database error creating wizard:', dbError);

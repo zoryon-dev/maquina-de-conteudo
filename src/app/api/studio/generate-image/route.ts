@@ -2,15 +2,18 @@
  * POST /api/studio/generate-image
  *
  * Gera uma imagem usando IA para o Studio.
- * Usa o serviço de geração de imagens existente.
+ * Suporta dois modos:
+ * 1. Modular: campos estruturados (fields) concatenados de forma previsível
+ * 2. Legado: prompt simples com estilo
  */
 
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { generateAiImage } from "@/lib/wizard-services/image-generation.service";
 import { getStorageProvider } from "@/lib/storage";
-import type { VisualStyle, ColorOption, AiImageModel } from "@/lib/wizard-services/image-types";
+import type { AiImageModel } from "@/lib/wizard-services/image-types";
 import { toAppError, getErrorMessage, ValidationError } from "@/lib/errors";
+import { buildPrompt, validateFields, buildSimplePrompt } from "@/lib/image-generation/build-prompt";
+import type { ImagePromptFields } from "@/types/image-generation";
 
 // ============================================================================
 // TYPES
@@ -24,19 +27,110 @@ const VALID_MODELS: AiImageModel[] = [
   "black-forest-labs/flux.2-max",
 ];
 
+/**
+ * Request body para geração de imagem
+ * Suporta dois formatos:
+ * 1. fields: objeto com campos estruturados (novo sistema modular)
+ * 2. prompt: string simples (modo legado)
+ */
 interface GenerateImageRequest {
-  prompt: string;
+  /** Campos estruturados para geração modular */
+  fields?: ImagePromptFields;
+  /** Prompt simples (modo legado) */
+  prompt?: string;
+  /** Estilo simples (modo legado) */
   style?: "realistic" | "artistic" | "minimal" | "vibrant";
+  /** Modelo de IA a usar */
   model?: AiImageModel;
+  /** ID do preset aplicado (para tracking) */
+  presetId?: string;
 }
 
-// Mapeamento de estilos simples para tipos do sistema
-const STYLE_MAP: Record<string, { style: VisualStyle; color: ColorOption }> = {
-  realistic: { style: "realista", color: "vibrante" },
-  artistic: { style: "abstrato", color: "vibrante" },
-  minimal: { style: "minimalista", color: "claro" },
-  vibrant: { style: "moderno", color: "neon" },
-};
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+/**
+ * Extracts image URL from OpenRouter response
+ * Handles various response formats from different models
+ */
+function extractImageUrlFromResponse(response: unknown): string | null {
+  const data = response as Record<string, unknown>;
+
+  const buildDataUrl = (base64: string, mimeType?: string): string => {
+    const safeMimeType = mimeType && typeof mimeType === "string" ? mimeType : "image/png";
+    return `data:${safeMimeType};base64,${base64}`;
+  };
+
+  // Check choices array (standard OpenRouter format)
+  if (Array.isArray(data.choices)) {
+    const firstChoice = data.choices[0] as Record<string, unknown> | undefined;
+    const message = firstChoice?.message as Record<string, unknown> | undefined;
+
+    // Check for images array (Gemini format)
+    if (Array.isArray(message?.images) && message.images.length > 0) {
+      const firstImage = message.images[0] as Record<string, unknown>;
+
+      // Check inlineData (Gemini base64 format)
+      if (firstImage.inlineData && typeof firstImage.inlineData === "object") {
+        const inlineData = firstImage.inlineData as Record<string, unknown>;
+        if (inlineData.data && typeof inlineData.data === "string") {
+          return buildDataUrl(inlineData.data, inlineData.mimeType as string | undefined);
+        }
+      }
+
+      // Check direct url
+      if (firstImage.url && typeof firstImage.url === "string") {
+        return firstImage.url;
+      }
+
+      // Check image_url wrapper
+      if (firstImage.image_url && typeof firstImage.image_url === "object") {
+        const imageUrl = (firstImage.image_url as Record<string, unknown>).url;
+        if (typeof imageUrl === "string") return imageUrl;
+      }
+    }
+
+    // Check content array (multimodal format)
+    const content = message?.content;
+    if (Array.isArray(content)) {
+      for (const item of content) {
+        if (typeof item === "object" && item !== null) {
+          const itemObj = item as Record<string, unknown>;
+          if (itemObj.image_url && typeof itemObj.image_url === "object") {
+            const url = (itemObj.image_url as Record<string, unknown>).url;
+            if (typeof url === "string") return url;
+          }
+          if (itemObj.url && typeof itemObj.url === "string") {
+            return itemObj.url;
+          }
+        }
+      }
+    }
+
+    // Check string content (direct URL or JSON)
+    if (typeof content === "string") {
+      if (content.startsWith("http://") || content.startsWith("https://")) {
+        return content;
+      }
+      try {
+        const parsed = JSON.parse(content);
+        if (parsed.url && typeof parsed.url === "string") return parsed.url;
+        if (parsed.image && typeof parsed.image === "string") return parsed.image;
+      } catch (parseError) {
+        // Content is not JSON - this is expected for plain text/URL responses
+        console.debug("[StudioGenerateImage] Content is not JSON, trying other extraction methods");
+      }
+    }
+  }
+
+  // Check direct fields
+  if (data.url && typeof data.url === "string") return data.url;
+  if (data.image && typeof data.image === "string") return data.image;
+
+  return null;
+}
 
 // ============================================================================
 // ROUTE HANDLER
@@ -54,65 +148,109 @@ export async function POST(request: Request) {
 
   try {
     const body: GenerateImageRequest = await request.json();
-    const { prompt, style = "minimal", model } = body;
+    const { fields, prompt, style = "minimal", model, presetId } = body;
 
-    if (!prompt || prompt.trim().length < 3) {
-      throw new ValidationError("Prompt muito curto. Descreva a imagem desejada.");
-    }
-
-    // Validar modelo se fornecido, com logging de fallback
+    // Validar modelo se fornecido
     let selectedModel: AiImageModel = "google/gemini-3-pro-image-preview";
+    let modelFallbackWarning: string | undefined;
     if (model) {
       if (VALID_MODELS.includes(model)) {
         selectedModel = model;
       } else {
+        modelFallbackWarning = `Modelo "${model}" inválido. Usando "${selectedModel}" como fallback. Modelos válidos: ${VALID_MODELS.join(", ")}`;
         console.warn("[StudioGenerateImage] Invalid model, using fallback:", { requested: model, fallback: selectedModel });
       }
     }
 
-    console.log(`[StudioGenerateImage] Generating image with model: ${selectedModel}`);
-    console.log(`[StudioGenerateImage] Prompt: "${prompt.slice(0, 50)}..."`);
+    let builtPrompt: { prompt: string; negativePrompt: string; previewText: string };
+    let isModularMode = false;
 
-    // Mapear estilo para tipos do sistema, com logging de fallback
-    const styleConfig = STYLE_MAP[style];
-    if (!styleConfig) {
-      console.warn("[StudioGenerateImage] Invalid style, using fallback:", { requested: style, fallback: "minimal" });
+    // ═══════════════════════════════════════════════════════════════
+    // MODO 1: Campos Estruturados (Modular)
+    // ═══════════════════════════════════════════════════════════════
+    if (fields) {
+      isModularMode = true;
+
+      // Validar campos obrigatórios
+      const validation = validateFields(fields);
+      if (!validation.valid) {
+        throw new ValidationError(validation.errors.join(". "));
+      }
+
+      // Construir prompt de forma previsível
+      builtPrompt = buildPrompt(fields);
+
+      console.log(`[StudioGenerateImage] Modular mode with model: ${selectedModel}`);
+      console.log(`[StudioGenerateImage] Preset: ${presetId || "none"}`);
+      console.log(`[StudioGenerateImage] Preview: "${builtPrompt.previewText}"`);
+      console.log(`[StudioGenerateImage] Full prompt: "${builtPrompt.prompt.slice(0, 200)}..."`);
     }
-    const finalStyleConfig = styleConfig || STYLE_MAP.minimal;
+    // ═══════════════════════════════════════════════════════════════
+    // MODO 2: Prompt Simples (Legado)
+    // ═══════════════════════════════════════════════════════════════
+    else if (prompt) {
+      if (prompt.trim().length < 3) {
+        throw new ValidationError("Prompt muito curto. Descreva a imagem desejada.");
+      }
 
-    // Gerar imagem usando o serviço existente
-    const result = await generateAiImage({
-      slideNumber: 1,
-      totalSlides: 1,
-      slideContent: prompt,
-      config: {
-        method: "ai",
-        aiOptions: {
-          model: selectedModel,
-          style: finalStyleConfig.style,
-          color: finalStyleConfig.color,
-          mood: "calmo",
-          additionalContext: "Imagem para Instagram, sem texto sobreposto, alta qualidade visual.",
-        },
+      builtPrompt = buildSimplePrompt(prompt, style);
+
+      console.log(`[StudioGenerateImage] Legacy mode with model: ${selectedModel}`);
+      console.log(`[StudioGenerateImage] Style: ${style}`);
+      console.log(`[StudioGenerateImage] Prompt: "${builtPrompt.prompt.slice(0, 150)}..."`);
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // ERRO: Nenhum input válido
+    // ═══════════════════════════════════════════════════════════════
+    else {
+      throw new ValidationError("Forneça 'fields' (modo modular) ou 'prompt' (modo simples).");
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CHAMAR API DE GERAÇÃO
+    // ═══════════════════════════════════════════════════════════════
+    const imageResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.OPENROUTER_APP_URL || "https://maquina-deconteudo.com",
+        "X-Title": process.env.OPENROUTER_APP_NAME || "Máquina de Conteúdo",
       },
+      body: JSON.stringify({
+        model: selectedModel,
+        modalities: ["image", "text"],
+        messages: [{ role: "user", content: builtPrompt.prompt }],
+        max_tokens: 1000,
+      }),
     });
 
-    if (!result.success || !result.data) {
-      console.error("[StudioGenerateImage] Generation failed:", result.error);
-      throw new Error(result.error || "Erro ao gerar imagem");
+    if (!imageResponse.ok) {
+      const errorText = await imageResponse.text();
+      console.error("[StudioGenerateImage] Generation failed:", imageResponse.status, errorText);
+      throw new Error(`Erro ao gerar imagem: ${imageResponse.status}`);
     }
 
-    // A imagem vem como base64, precisamos fazer upload para storage
-    const imageUrl = result.data.imageUrl;
+    const imageData = await imageResponse.json();
+    const imageUrl = extractImageUrlFromResponse(imageData);
+
+    if (!imageUrl) {
+      console.error("[StudioGenerateImage] No image URL in response:", JSON.stringify(imageData).slice(0, 500));
+      throw new Error("Não foi possível extrair a imagem da resposta");
+    }
+
+    // A imagem vem como base64 ou URL, precisamos processar
+    const generatedImageUrl = imageUrl;
+    let finalUrl = generatedImageUrl;
 
     // Se for base64, fazer upload para storage
-    if (imageUrl.startsWith("data:")) {
+    if (generatedImageUrl.startsWith("data:")) {
       const storage = getStorageProvider();
       const timestamp = Date.now();
       const key = `studio/${userId}/generated/${timestamp}.png`;
 
       // Converter base64 para buffer
-      const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, "");
+      const base64Data = generatedImageUrl.replace(/^data:image\/\w+;base64,/, "");
       const imageBuffer = Buffer.from(base64Data, "base64");
 
       const uploadResult = await storage.uploadFile(imageBuffer, key, {
@@ -120,19 +258,23 @@ export async function POST(request: Request) {
       });
 
       console.log(`[StudioGenerateImage] Image uploaded: ${uploadResult.url}`);
-
-      return NextResponse.json({
-        success: true,
-        url: uploadResult.url,
-        prompt: prompt,
-      });
+      finalUrl = uploadResult.url;
     }
 
-    // Se já for URL, retornar diretamente
+    // Retornar resposta com informações adicionais para modo modular
     return NextResponse.json({
       success: true,
-      url: imageUrl,
-      prompt: prompt,
+      url: finalUrl,
+      // Informações do prompt para debug/display
+      promptUsed: builtPrompt.prompt,
+      negativePrompt: builtPrompt.negativePrompt,
+      previewText: builtPrompt.previewText,
+      // Metadata
+      mode: isModularMode ? "modular" : "legacy",
+      presetId: presetId || null,
+      model: selectedModel,
+      // Warning if model was replaced with fallback
+      warning: modelFallbackWarning || undefined,
     });
 
   } catch (error) {

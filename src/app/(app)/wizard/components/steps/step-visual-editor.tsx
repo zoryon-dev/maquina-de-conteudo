@@ -27,6 +27,9 @@ import {
   LayoutTemplate,
   Eye,
   X,
+  Upload,
+  Loader2,
+  Wand2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,8 +38,19 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { renderSlideToHtml } from "@/lib/studio-templates/renderer";
 import {
@@ -98,6 +112,171 @@ const AVAILABLE_TEMPLATES: { value: FigmaTemplate; label: string; description: s
   { value: "SUPER_HEADLINE", label: "Super Headline", description: "Apenas título impactante" },
 ];
 
+// AI Image generation models
+const AI_IMAGE_MODELS = [
+  { value: "google/gemini-3-pro-image-preview", label: "Gemini", description: "Google - Rápido e versátil" },
+  { value: "openai/gpt-5-image", label: "GPT-5 Image", description: "OpenAI - Alta qualidade" },
+  { value: "bytedance-seed/seedream-4.5", label: "Seedream", description: "ByteDance - Artístico" },
+  { value: "black-forest-labs/flux.2-max", label: "Flux", description: "Black Forest - Fotorrealista" },
+];
+
+// ============================================================================
+// AI GENERATION DIALOG
+// ============================================================================
+
+interface AiGenerateDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onGenerate: (prompt: string, style: string, model: string) => Promise<void>;
+  isGenerating: boolean;
+}
+
+function AiGenerateDialog({
+  open,
+  onOpenChange,
+  onGenerate,
+  isGenerating,
+}: AiGenerateDialogProps) {
+  const [prompt, setPrompt] = useState("");
+  const [style, setStyle] = useState("minimal");
+  const [model, setModel] = useState("google/gemini-3-pro-image-preview");
+
+  const handleGenerate = async () => {
+    if (!prompt.trim()) {
+      toast.error("Digite uma descrição para a imagem");
+      return;
+    }
+    await onGenerate(prompt, style, model);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px] bg-[#1a1a2e] border-white/10 text-white">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            Gerar Imagem com IA
+          </DialogTitle>
+          <DialogDescription className="text-white/60">
+            Descreva a imagem que você quer criar. A IA vai gerar uma imagem baseada na sua descrição.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          {/* Prompt Input */}
+          <div className="space-y-2">
+            <Label className="text-white/70">Descrição da imagem</Label>
+            <Textarea
+              placeholder="Ex: Uma xícara de café em uma mesa de madeira, luz natural entrando pela janela, estilo minimalista"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              className="min-h-[100px] bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-primary"
+              disabled={isGenerating}
+            />
+          </div>
+
+          {/* Style & Model Selectors - Side by Side */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Style Selector */}
+            <div className="space-y-2">
+              <Label className="text-white/70">Estilo visual</Label>
+              <Select value={style} onValueChange={setStyle} disabled={isGenerating}>
+                <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  <SelectItem value="minimal" className="text-white hover:bg-white/10">
+                    Minimalista
+                  </SelectItem>
+                  <SelectItem value="realistic" className="text-white hover:bg-white/10">
+                    Realista
+                  </SelectItem>
+                  <SelectItem value="artistic" className="text-white hover:bg-white/10">
+                    Artístico
+                  </SelectItem>
+                  <SelectItem value="vibrant" className="text-white hover:bg-white/10">
+                    Vibrante
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Model Selector */}
+            <div className="space-y-2">
+              <Label className="text-white/70">Modelo IA</Label>
+              <Select value={model} onValueChange={setModel} disabled={isGenerating}>
+                <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a2e] border-white/10">
+                  {AI_IMAGE_MODELS.map((m) => (
+                    <SelectItem key={m.value} value={m.value} className="text-white hover:bg-white/10">
+                      <div className="flex flex-col">
+                        <span>{m.label}</span>
+                        <span className="text-[10px] text-white/40">{m.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Suggestions */}
+          <div className="space-y-2">
+            <Label className="text-white/50 text-xs">Sugestões rápidas</Label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                "Abstrato geométrico",
+                "Natureza minimalista",
+                "Tecnologia futurista",
+                "Pessoa trabalhando",
+              ].map((suggestion) => (
+                <button
+                  key={suggestion}
+                  onClick={() => setPrompt(suggestion)}
+                  disabled={isGenerating}
+                  className="px-2 py-1 text-xs bg-white/5 hover:bg-white/10 rounded border border-white/10 text-white/60 hover:text-white transition-colors disabled:opacity-50"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isGenerating}
+            className="bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleGenerate}
+            disabled={isGenerating || !prompt.trim()}
+            className="gap-2 bg-primary text-black hover:bg-primary/90"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Gerando...
+              </>
+            ) : (
+              <>
+                <Wand2 className="w-4 h-4" />
+                Gerar Imagem
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
@@ -117,10 +296,17 @@ export function StepVisualEditor({
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
 
   // UI state
-  const [activeTab, setActiveTab] = useState<"preview" | "colors" | "text">("preview");
+  const [activeTab, setActiveTab] = useState<"preview" | "colors" | "text" | "images">("preview");
   const [scale, setScale] = useState(0.3);
   const [autoScale, setAutoScale] = useState(true);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
+
+  // Image generation state
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [showAiDialog, setShowAiDialog] = useState(false);
+  const [targetImageField, setTargetImageField] = useState<"imageUrl" | "backgroundImageUrl">("imageUrl");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const activeSlide = slides[activeSlideIndex];
@@ -246,6 +432,149 @@ export function StepVisualEditor({
         index === 0 ? slide : { ...slide, template }
       )
     );
+  }, []);
+
+  // Check if current template supports images
+  const currentTemplateSupportsImage = useMemo(() => {
+    const metadata = TEMPLATE_METADATA[activeSlide?.template];
+    return metadata?.supportsImage || metadata?.supportsBackgroundImage;
+  }, [activeSlide]);
+
+  const currentTemplateMeta = useMemo(() => {
+    return activeSlide ? TEMPLATE_METADATA[activeSlide.template] : null;
+  }, [activeSlide]);
+
+  // Handle image upload
+  const handleImageUpload = useCallback(async (
+    file: File,
+    field: "imageUrl" | "backgroundImageUrl"
+  ) => {
+    try {
+      setIsUploadingImage(true);
+
+      // Upload to storage via API
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("purpose", field === "backgroundImageUrl" ? "background" : "slide");
+
+      const response = await fetch("/api/studio/upload-image", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || `Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || "Upload failed");
+      }
+
+      // Update slide with image URL
+      setSlides((prev) =>
+        prev.map((slide, idx) =>
+          idx === activeSlideIndex
+            ? { ...slide, content: { ...slide.content, [field]: result.url } }
+            : slide
+        )
+      );
+      toast.success("Imagem carregada com sucesso!");
+    } catch (error) {
+      console.error("[VisualEditor] Upload error:", error);
+      toast.error(error instanceof Error ? error.message : "Erro ao carregar imagem");
+    } finally {
+      setIsUploadingImage(false);
+    }
+  }, [activeSlideIndex]);
+
+  // Handle image removal
+  const handleImageRemove = useCallback((field: "imageUrl" | "backgroundImageUrl") => {
+    setSlides((prev) =>
+      prev.map((slide, idx) =>
+        idx === activeSlideIndex
+          ? { ...slide, content: { ...slide.content, [field]: undefined } }
+          : slide
+      )
+    );
+  }, [activeSlideIndex]);
+
+  // Handle file input change
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate type
+      if (!file.type.startsWith("image/")) {
+        toast.error("Por favor, selecione uma imagem válida");
+        return;
+      }
+      // Validate size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("A imagem deve ter no máximo 5MB");
+        return;
+      }
+      handleImageUpload(file, targetImageField);
+    }
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, [handleImageUpload, targetImageField]);
+
+  // Handle AI image generation
+  const handleAiGenerate = useCallback(async (prompt: string, style: string, model: string) => {
+    try {
+      setIsGeneratingImage(true);
+      setShowAiDialog(false);
+
+      toast.info("Gerando imagem... Isso pode levar alguns segundos.");
+
+      const response = await fetch("/api/studio/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, style, model }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || `Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || "Generation failed");
+      }
+
+      // Update slide with generated image
+      setSlides((prev) =>
+        prev.map((slide, idx) =>
+          idx === activeSlideIndex
+            ? { ...slide, content: { ...slide.content, [targetImageField]: result.url } }
+            : slide
+        )
+      );
+      toast.success("Imagem gerada com sucesso!");
+    } catch (error) {
+      console.error("[VisualEditor] AI generation error:", error);
+      toast.error(error instanceof Error ? error.message : "Erro ao gerar imagem");
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  }, [activeSlideIndex, targetImageField]);
+
+  // Open AI dialog
+  const openAiDialog = useCallback((field: "imageUrl" | "backgroundImageUrl") => {
+    setTargetImageField(field);
+    setShowAiDialog(true);
+  }, []);
+
+  // Trigger file upload
+  const triggerFileUpload = useCallback((field: "imageUrl" | "backgroundImageUrl") => {
+    setTargetImageField(field);
+    fileInputRef.current?.click();
   }, []);
 
   // Handle save
@@ -446,20 +775,21 @@ export function StepVisualEditor({
               { id: "preview", label: "Info", icon: Eye },
               { id: "colors", label: "Cores", icon: Palette },
               { id: "text", label: "Texto", icon: Type },
+              { id: "images", label: "Imagens", icon: ImageIcon },
             ].map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id as typeof activeTab)}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-all",
+                  "flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-md text-xs font-medium transition-all",
                   activeTab === tab.id
                     ? "bg-white/10 text-white"
                     : "text-white/50 hover:text-white/70"
                 )}
               >
                 <tab.icon className="w-3.5 h-3.5" />
-                {tab.label}
+                <span className="hidden sm:inline">{tab.label}</span>
               </button>
             ))}
           </div>
@@ -726,6 +1056,184 @@ export function StepVisualEditor({
                 )}
               </motion.div>
             )}
+
+            {activeTab === "images" && (
+              <motion.div
+                key="images"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-4"
+              >
+                {currentTemplateSupportsImage ? (
+                  <>
+                    {/* Background Image (for templates that support it) */}
+                    {currentTemplateMeta?.supportsBackgroundImage && (
+                      <div className="space-y-2">
+                        <Label className="text-xs text-white/70 flex items-center gap-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-primary" />
+                          Imagem de Fundo
+                        </Label>
+
+                        {activeSlide.content.backgroundImageUrl ? (
+                          <div className="relative group">
+                            <div className="aspect-video rounded-lg overflow-hidden bg-white/5 border border-white/10">
+                              <img
+                                src={activeSlide.content.backgroundImageUrl}
+                                alt="Background"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <button
+                              onClick={() => handleImageRemove("backgroundImageUrl")}
+                              className="absolute top-2 right-2 p-1.5 bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
+                            >
+                              <X className="w-4 h-4 text-white" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => triggerFileUpload("backgroundImageUrl")}
+                            disabled={isUploadingImage || isGeneratingImage}
+                            className="w-full aspect-video rounded-lg border-2 border-dashed border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isUploadingImage && targetImageField === "backgroundImageUrl" ? (
+                              <>
+                                <Loader2 className="w-6 h-6 text-white/40 animate-spin" />
+                                <span className="text-xs text-white/50">Enviando...</span>
+                              </>
+                            ) : isGeneratingImage && targetImageField === "backgroundImageUrl" ? (
+                              <>
+                                <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                                <span className="text-xs text-primary">Gerando com IA...</span>
+                              </>
+                            ) : (
+                              <>
+                                <ImageIcon className="w-6 h-6 text-white/40" />
+                                <span className="text-xs text-white/50">Clique para upload</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => triggerFileUpload("backgroundImageUrl")}
+                            disabled={isUploadingImage || isGeneratingImage}
+                            className="flex-1 gap-1.5 h-7 text-[10px] bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
+                          >
+                            <Upload className="w-3 h-3" />
+                            Upload
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openAiDialog("backgroundImageUrl")}
+                            disabled={isUploadingImage || isGeneratingImage}
+                            className="flex-1 gap-1.5 h-7 text-[10px] bg-primary/10 border-primary/30 text-primary hover:bg-primary/20"
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            Gerar IA
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Main Image (for templates that support it) */}
+                    {currentTemplateMeta?.supportsImage && (
+                      <div className="space-y-2">
+                        <Label className="text-xs text-white/70 flex items-center gap-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-primary" />
+                          Imagem Central
+                        </Label>
+
+                        {activeSlide.content.imageUrl ? (
+                          <div className="relative group">
+                            <div className="aspect-video rounded-lg overflow-hidden bg-white/5 border border-white/10">
+                              <img
+                                src={activeSlide.content.imageUrl}
+                                alt="Image"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <button
+                              onClick={() => handleImageRemove("imageUrl")}
+                              className="absolute top-2 right-2 p-1.5 bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
+                            >
+                              <X className="w-4 h-4 text-white" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => triggerFileUpload("imageUrl")}
+                            disabled={isUploadingImage || isGeneratingImage}
+                            className="w-full aspect-video rounded-lg border-2 border-dashed border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isUploadingImage && targetImageField === "imageUrl" ? (
+                              <>
+                                <Loader2 className="w-6 h-6 text-white/40 animate-spin" />
+                                <span className="text-xs text-white/50">Enviando...</span>
+                              </>
+                            ) : isGeneratingImage && targetImageField === "imageUrl" ? (
+                              <>
+                                <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                                <span className="text-xs text-primary">Gerando com IA...</span>
+                              </>
+                            ) : (
+                              <>
+                                <ImageIcon className="w-6 h-6 text-white/40" />
+                                <span className="text-xs text-white/50">Clique para upload</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => triggerFileUpload("imageUrl")}
+                            disabled={isUploadingImage || isGeneratingImage}
+                            className="flex-1 gap-1.5 h-7 text-[10px] bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
+                          >
+                            <Upload className="w-3 h-3" />
+                            Upload
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openAiDialog("imageUrl")}
+                            disabled={isUploadingImage || isGeneratingImage}
+                            className="flex-1 gap-1.5 h-7 text-[10px] bg-primary/10 border-primary/30 text-primary hover:bg-primary/20"
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            Gerar IA
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Info */}
+                    <p className="text-[10px] text-white/40">
+                      Upload: JPG, PNG, WebP (max 5MB). Clique em &quot;Gerar IA&quot; para criar imagens com inteligência artificial.
+                    </p>
+                  </>
+                ) : (
+                  <div className="py-8 px-4 text-center border border-dashed border-white/10 rounded-lg bg-white/[0.02]">
+                    <ImageIcon className="w-10 h-10 text-white/20 mx-auto mb-3" />
+                    <p className="text-sm text-white/50 mb-1">
+                      Template sem suporte a imagem
+                    </p>
+                    <p className="text-xs text-white/30">
+                      O template <span className="text-white/50">{currentTemplateMeta?.label}</span> não utiliza imagens.
+                      Troque para outro template na aba &quot;Info&quot; se precisar de imagem.
+                    </p>
+                  </div>
+                )}
+              </motion.div>
+            )}
           </AnimatePresence>
 
           {/* Info Box */}
@@ -779,6 +1287,23 @@ export function StepVisualEditor({
           </Button>
         </div>
       </motion.div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
+      {/* AI Generation Dialog */}
+      <AiGenerateDialog
+        open={showAiDialog}
+        onOpenChange={setShowAiDialog}
+        onGenerate={handleAiGenerate}
+        isGenerating={isGeneratingImage}
+      />
 
       {/* Fullscreen Dialog */}
       <FullscreenPreviewDialog

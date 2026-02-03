@@ -1010,35 +1010,46 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       .where(eq(contentWizards.id, wizardId));
 
     // 5. Sync to library (create library item from generated content)
-    const libraryResult = await createLibraryItemFromWizard({
-      wizardId,
-      userId,
-      generatedContent,
-      contentType: contentType as any,
-      wizardMetadata: {
-        theme: wizard.theme,
-        objective: wizard.objective,
-        targetAudience: wizard.targetAudience,
-        context: wizard.context,
-      },
-    });
+    // SKIP for carousel and image types - they go through Visual Studio where user can edit
+    // and save manually with images already embedded
+    const skipLibrarySync = contentType === "carousel" || contentType === "image";
 
-    if (libraryResult.success && libraryResult.libraryItemId) {
-      // Update wizard with the library item ID
-      await db
-        .update(contentWizards)
-        .set({ libraryItemId: libraryResult.libraryItemId })
-        .where(eq(contentWizards.id, wizardId));
+    let libraryItemId: number | undefined;
+
+    if (!skipLibrarySync) {
+      const libraryResult = await createLibraryItemFromWizard({
+        wizardId,
+        userId,
+        generatedContent,
+        contentType: contentType as any,
+        wizardMetadata: {
+          theme: wizard.theme,
+          objective: wizard.objective,
+          targetAudience: wizard.targetAudience,
+          context: wizard.context,
+        },
+      });
+
+      if (libraryResult.success && libraryResult.libraryItemId) {
+        // Update wizard with the library item ID
+        await db
+          .update(contentWizards)
+          .set({ libraryItemId: libraryResult.libraryItemId })
+          .where(eq(contentWizards.id, wizardId));
+        libraryItemId = libraryResult.libraryItemId;
+      } else {
+        // Log error but don't fail the wizard - content was successfully generated
+        console.error(`[WIZARD-DEBUG] WORKER: Library sync failed for wizard ${wizardId}:`, libraryResult.error);
+      }
     } else {
-      // Log error but don't fail the wizard - content was successfully generated
-      console.error(`[WIZARD-DEBUG] WORKER: Library sync failed for wizard ${wizardId}:`, libraryResult.error);
+      console.log(`[WIZARD-DEBUG] WORKER: Skipping library sync for ${contentType} (will be saved via Visual Studio)`);
     }
 
     return {
       success: true,
       generatedContent,
       wizardId,
-      libraryItemId: libraryResult.success ? libraryResult.libraryItemId : undefined,
+      libraryItemId,
     };
   },
 
@@ -1320,12 +1331,23 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:wizard_image_generation-complete',message:'Image generation completed',data:{wizardId,imagesGenerated:newImages.length,libraryItemId:wizard.libraryItemId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
     // #endregion
 
+    // Build warning message if any uploads fell back to base64
+    let uploadWarning: string | undefined;
+    if (uploadFallbacks.length > 0) {
+      uploadWarning = `${uploadFallbacks.length} image(s) could not be uploaded to storage and are using base64 URLs. ` +
+        `This may cause performance issues and larger database storage. ` +
+        `Failed slides: ${uploadFallbacks.map(f => `#${f.slideNumber} (${f.error})`).join(", ")}`;
+      console.warn(`[WIZARD-IMAGE] Upload fallback warning:`, uploadWarning);
+    }
+
     return {
       success: true,
       images: newImages,
       wizardId,
       libraryItemId: wizard.libraryItemId,
       uploadFallbacks: uploadFallbacks.length > 0 ? uploadFallbacks : undefined,
+      // Include explicit warning message for callers
+      warning: uploadWarning,
     };
   },
 
@@ -1438,6 +1460,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     });
 
     let generatedSEO: any = null;
+    let seoWarning: string | undefined;
 
     try {
       // Parse generated content to extract script context
@@ -1448,7 +1471,9 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         } else {
           scriptContent = wizard.generatedContent;
         }
-      } catch {
+      } catch (parseError) {
+        console.warn(`[WIZARD-THUMBNAIL] Failed to parse generatedContent JSON:`, parseError instanceof Error ? parseError.message : String(parseError));
+        // Continue with null scriptContent - SEO will be generated with less context
       }
 
       // Extract development topics for timestamps
@@ -1493,8 +1518,10 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
           .where(eq(contentWizards.id, wizardId));
       }
     } catch (seoError) {
-      console.error(`[WIZARD-THUMBNAIL] Error generating SEO:`, seoError);
-      // Continue without SEO - don't fail the job
+      const seoErrorMsg = seoError instanceof Error ? seoError.message : String(seoError);
+      console.error(`[WIZARD-THUMBNAIL] Error generating SEO:`, seoErrorMsg);
+      // Continue without SEO - don't fail the job, but track the warning
+      seoWarning = `SEO generation failed: ${seoErrorMsg}. Video was created without YouTube SEO metadata.`;
     }
 
     // 6. Update wizard as completed and save to library
@@ -1513,11 +1540,15 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       .where(eq(contentWizards.id, wizardId));
 
     // 7. Save video to library automatically
+    let libraryWarning: string | undefined;
+    let savedLibraryItemId: number | undefined;
+
     try {
       const { saveWizardVideoToLibraryAction } = await import("@/app/(app)/library/actions/library-actions");
       const libraryResult = await saveWizardVideoToLibraryAction(wizardId);
 
       if (libraryResult.success) {
+        savedLibraryItemId = libraryResult.libraryItemId;
         // Update wizard with library item ID
         await db
           .update(contentWizards)
@@ -1525,16 +1556,28 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
             libraryItemId: libraryResult.libraryItemId,
           })
           .where(eq(contentWizards.id, wizardId));
+      } else {
+        libraryWarning = `Library save returned failure: ${(libraryResult as any).error || "Unknown error"}`;
       }
     } catch (libraryError) {
-      console.error(`[WIZARD-THUMBNAIL] Error saving video to library:`, libraryError);
+      const libraryErrorMsg = libraryError instanceof Error ? libraryError.message : String(libraryError);
+      console.error(`[WIZARD-THUMBNAIL] Error saving video to library:`, libraryErrorMsg);
       // Don't fail the job if library save fails - thumbnail is still successful
+      libraryWarning = `Failed to save video to library: ${libraryErrorMsg}. Thumbnail was generated successfully but video is not in your library.`;
     }
+
+    // Build warnings array for response
+    const warnings: string[] = [];
+    if (seoWarning) warnings.push(seoWarning);
+    if (libraryWarning) warnings.push(libraryWarning);
 
     return {
       success: true,
       thumbnail: thumbnailResult.data,
       wizardId,
+      libraryItemId: savedLibraryItemId,
+      // Include warnings so caller knows about partial failures
+      warnings: warnings.length > 0 ? warnings : undefined,
     };
   },
 };

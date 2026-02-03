@@ -20,8 +20,9 @@ export type WizardStepValue =
   | "titles-selection"
   | "generation"
   | "thumbnail-config"
-  | "visual-editor"
-  | "image-generation"
+  | "visual-editor"      // Legacy - kept for backwards compatibility
+  | "image-generation"   // Legacy - kept for backwards compatibility
+  | "visual-studio"      // New unified visual editor step
   | "completed";
 
 interface WizardStep {
@@ -31,6 +32,7 @@ interface WizardStep {
 }
 
 // Steps for non-video content (text, image, carousel, story)
+// Unified flow: Briefing → Processing → Narratives → Text Approval → Visual Studio
 const NON_VIDEO_STEPS: WizardStep[] = [
   {
     value: "input",
@@ -48,24 +50,19 @@ const NON_VIDEO_STEPS: WizardStep[] = [
     description: "Escolha uma opção",
   },
   {
-    value: "content-approval",
-    label: "Aprovação",
-    description: "Revise o conteúdo",
-  },
-  {
     value: "generation",
     label: "Geração",
     description: "Gerando seu conteúdo",
   },
   {
-    value: "visual-editor",
-    label: "Visual",
-    description: "Ajuste o design",
+    value: "content-approval",
+    label: "Texto",
+    description: "Aprove o conteúdo",
   },
   {
-    value: "image-generation",
-    label: "Imagem",
-    description: "Gere visual (opcional)",
+    value: "visual-studio",
+    label: "Visual",
+    description: "Design final",
   },
 ];
 

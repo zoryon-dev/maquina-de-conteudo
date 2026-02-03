@@ -44,7 +44,6 @@ import {
   CollapsibleSection,
 } from "@/components/ui/collapsible";
 import { DocumentConfigForm } from "../shared/document-config-form";
-import { VisualTemplateSelector } from "../shared/visual-template-selector";
 import type { PostType } from "@/db/schema";
 import { TEXT_MODELS, DEFAULT_TEXT_MODEL, type ModelProvider } from "@/lib/models";
 import type { ImageGenerationConfig } from "@/lib/wizard-services/image-types";
@@ -296,30 +295,6 @@ export function Step1Inputs({
                 <Plus className="w-4 h-4" />
               </button>
             </div>
-          </div>
-        </motion.section>
-      )}
-
-      {/* Visual Template Selector (for carousel and image) */}
-      {(data.contentType === "carousel" || data.contentType === "image") && (
-        <motion.section
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          className="mb-6"
-        >
-          <div className="p-5 rounded-2xl border border-white/10 bg-white/[0.02]">
-            <VisualTemplateSelector
-              selectedTemplate={data.visualTemplate}
-              config={data.visualTemplateConfig}
-              onTemplateChange={(template) =>
-                onChange({ ...data, visualTemplate: template })
-              }
-              onConfigChange={(config) =>
-                onChange({ ...data, visualTemplateConfig: config })
-              }
-              contentType={data.contentType}
-            />
           </div>
         </motion.section>
       )}

@@ -78,23 +78,69 @@ export function ContentCard({
   }, [item.metadata])
 
   const imageProcessing = metadata.imageProcessing
-  const isImageProcessing = imageProcessing?.status === "processing" ||
-                           imageProcessing?.status === "pending"
+  // Don't show processing badge for Visual Studio items (they already have images embedded)
+  const isFromVisualStudio = metadata.source === "wizard-visual-studio"
+  const isImageProcessing = !isFromVisualStudio && (
+    imageProcessing?.status === "processing" ||
+    imageProcessing?.status === "pending"
+  )
 
   // Get preview URL or placeholder
   // Parse mediaUrl if it's a JSON string (stored as JSON in DB)
+  // Fallback: extract from content.slides if mediaUrl is empty
   const mediaUrls: string[] = useMemo(() => {
-    if (!item.mediaUrl) return []
-    try {
-      const parsed = typeof item.mediaUrl === "string"
-        ? JSON.parse(item.mediaUrl)
-        : item.mediaUrl
-      return Array.isArray(parsed) ? parsed : [item.mediaUrl]
-    } catch {
-      // If not valid JSON, treat as single URL
-      return [item.mediaUrl]
+    // Try mediaUrl first (preferred)
+    if (item.mediaUrl) {
+      try {
+        const parsed = typeof item.mediaUrl === "string"
+          ? JSON.parse(item.mediaUrl)
+          : item.mediaUrl
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed
+        }
+        if (typeof parsed === "string") {
+          return [parsed]
+        }
+      } catch {
+        // If not valid JSON, treat as single URL
+        return [item.mediaUrl]
+      }
     }
-  }, [item.mediaUrl])
+
+    // Fallback: extract images from content (for Visual Studio items)
+    if (item.content) {
+      try {
+        const content = typeof item.content === "string"
+          ? JSON.parse(item.content)
+          : item.content
+
+        const urls: string[] = []
+
+        // Check slides array for images
+        if (content.slides && Array.isArray(content.slides)) {
+          for (const slide of content.slides) {
+            const slideContent = slide.content || slide
+            if (slideContent.imageUrl) {
+              urls.push(slideContent.imageUrl)
+            } else if (slideContent.backgroundImageUrl) {
+              urls.push(slideContent.backgroundImageUrl)
+            }
+          }
+        }
+
+        // Check profile avatar as last resort
+        if (urls.length === 0 && content.profile?.avatarUrl) {
+          urls.push(content.profile.avatarUrl)
+        }
+
+        return urls
+      } catch {
+        // Ignore parsing errors
+      }
+    }
+
+    return []
+  }, [item.mediaUrl, item.content])
   const hasMedia = mediaUrls.length > 0
   const previewUrl = hasMedia ? mediaUrls[0] : null
 
