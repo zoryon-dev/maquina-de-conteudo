@@ -16,6 +16,7 @@ import { eq, and } from "drizzle-orm";
 import type { StudioSlide, StudioProfile, StudioHeader } from "@/lib/studio-templates/types";
 import type { PostType, ContentStatus } from "@/db/schema";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
+import { toAppError, getErrorMessage, ValidationError } from "@/lib/errors";
 
 interface SaveCarouselRequest {
   slides: StudioSlide[];
@@ -56,6 +57,14 @@ export async function POST(
       return NextResponse.json(
         { error: "Slides are required" },
         { status: 400 }
+      );
+    }
+
+    // Validate contentType
+    const VALID_CONTENT_TYPES: PostType[] = ["carousel", "image", "text", "video", "story"];
+    if (!contentType || !VALID_CONTENT_TYPES.includes(contentType)) {
+      throw new ValidationError(
+        `Invalid content type: "${contentType}". Must be one of: ${VALID_CONTENT_TYPES.join(", ")}`
       );
     }
 
@@ -173,14 +182,15 @@ export async function POST(
       message: "Carousel saved to library successfully",
     });
   } catch (error) {
-    console.error("[SaveCarousel] Error:", error);
+    const appError = toAppError(error, "SAVE_CAROUSEL_FAILED");
+    console.error("[SaveCarousel] Error:", appError.code, "-", appError.message);
 
     return NextResponse.json(
       {
-        error: "Failed to save carousel",
-        details: error instanceof Error ? error.message : "Unknown error",
+        error: getErrorMessage(appError),
+        code: appError.code,
       },
-      { status: 500 }
+      { status: appError.statusCode }
     );
   }
 }

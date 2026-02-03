@@ -118,8 +118,9 @@ function extractImageUrlFromResponse(response: unknown): string | null {
         const parsed = JSON.parse(content);
         if (parsed.url && typeof parsed.url === "string") return parsed.url;
         if (parsed.image && typeof parsed.image === "string") return parsed.image;
-      } catch {
-        // Not JSON
+      } catch (parseError) {
+        // Content is not JSON - this is expected for plain text/URL responses
+        console.debug("[StudioGenerateImage] Content is not JSON, trying other extraction methods");
       }
     }
   }
@@ -236,18 +237,8 @@ export async function POST(request: Request) {
       throw new Error("Não foi possível extrair a imagem da resposta");
     }
 
-    const result = {
-      success: true,
-      data: { imageUrl },
-    };
-
-    if (!result.success || !result.data) {
-      console.error("[StudioGenerateImage] Generation failed:", (result as any).error);
-      throw new Error((result as any).error || "Erro ao gerar imagem");
-    }
-
     // A imagem vem como base64 ou URL, precisamos processar
-    const generatedImageUrl = result.data.imageUrl;
+    const generatedImageUrl = imageUrl;
     let finalUrl = generatedImageUrl;
 
     // Se for base64, fazer upload para storage
