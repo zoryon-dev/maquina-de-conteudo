@@ -75,12 +75,32 @@ export default async function LibraryDetailRootPage(props: LibraryDetailPageProp
   }
 
   // Parse content for carousel slides
+  // Handles both Visual Studio format (content as object) and legacy format (content as string)
   let carouselSlides: Array<{ title?: string; content: string; imagePrompt?: string }> = []
   if (item.type === "carousel" && item.content) {
     try {
       const parsed = JSON.parse(item.content)
       if (parsed.slides && Array.isArray(parsed.slides)) {
-        carouselSlides = parsed.slides
+        carouselSlides = parsed.slides.map((slide: any) => {
+          // Visual Studio format: content is an object with texto1, texto2, etc.
+          if (slide.content && typeof slide.content === "object") {
+            const textParts: string[] = []
+            if (slide.content.texto1) textParts.push(slide.content.texto1)
+            if (slide.content.texto2) textParts.push(slide.content.texto2)
+            if (slide.content.texto3) textParts.push(slide.content.texto3)
+            return {
+              title: slide.content.texto1 || slide.title,
+              content: textParts.join("\n\n") || "Slide sem texto",
+              imagePrompt: slide.imagePrompt,
+            }
+          }
+          // Legacy format: content is already a string
+          return {
+            title: slide.title,
+            content: typeof slide.content === "string" ? slide.content : "Slide sem texto",
+            imagePrompt: slide.imagePrompt,
+          }
+        })
       }
     } catch {
       // Not valid carousel JSON
