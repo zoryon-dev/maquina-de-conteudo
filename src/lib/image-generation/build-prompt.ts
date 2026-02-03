@@ -8,6 +8,30 @@
 import type { ImagePromptFields, BuiltPrompt } from "@/types/image-generation";
 
 // ============================================================================
+// SANITIZAÇÃO DE INPUT
+// ============================================================================
+
+/**
+ * Sanitiza input do usuário para prevenir prompt injection
+ * Remove caracteres que podem ser usados para manipular o prompt
+ *
+ * @param input - String de input do usuário
+ * @returns String sanitizada
+ */
+function sanitizePromptInput(input: string): string {
+  return input
+    // Remove quebras de linha que podem separar instruções
+    .replace(/[\r\n]+/g, " ")
+    // Remove aspas duplas que podem fechar strings de prompt
+    .replace(/"/g, "'")
+    // Remove caracteres de controle
+    .replace(/[\x00-\x1F\x7F]/g, "")
+    // Remove múltiplos espaços
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// ============================================================================
 // MAPAS DE TRADUÇÃO
 // ============================================================================
 
@@ -93,10 +117,18 @@ const ASPECT_RATIO_MAP: Record<ImagePromptFields["aspectRatio"], string> = {
 export function buildPrompt(fields: ImagePromptFields): BuiltPrompt {
   const promptParts: string[] = [];
 
+  // Sanitize user inputs to prevent prompt injection
+  const safeSubject = sanitizePromptInput(fields.subject);
+  const safeSetting = sanitizePromptInput(fields.setting);
+  const safeMood = fields.mood ? sanitizePromptInput(fields.mood) : "";
+  const safeTextContent = fields.textContent ? sanitizePromptInput(fields.textContent) : "";
+  const safeAdditionalNotes = fields.additionalNotes ? sanitizePromptInput(fields.additionalNotes) : "";
+  const safeAvoidElements = fields.avoidElements ? sanitizePromptInput(fields.avoidElements) : "";
+
   // ═══════════════════════════════════════════════════════════════
   // 1. SUJEITO E CENÁRIO (Core da imagem)
   // ═══════════════════════════════════════════════════════════════
-  promptParts.push(`${fields.subject}, set in ${fields.setting}`);
+  promptParts.push(`${safeSubject}, set in ${safeSetting}`);
 
   // ═══════════════════════════════════════════════════════════════
   // 2. ENQUADRAMENTO
@@ -121,27 +153,27 @@ export function buildPrompt(fields: ImagePromptFields): BuiltPrompt {
   // ═══════════════════════════════════════════════════════════════
   // 6. MOOD (se fornecido)
   // ═══════════════════════════════════════════════════════════════
-  if (fields.mood && fields.mood.trim()) {
-    promptParts.push(`conveying a ${fields.mood} mood and atmosphere`);
+  if (safeMood) {
+    promptParts.push(`conveying a ${safeMood} mood and atmosphere`);
   }
 
   // ═══════════════════════════════════════════════════════════════
   // 7. TEXTO NA IMAGEM (se solicitado)
   // ═══════════════════════════════════════════════════════════════
-  if (fields.includeText && fields.textContent && fields.textContent.trim()) {
+  if (fields.includeText && safeTextContent) {
     const placement = fields.textPlacement || "center";
     const style = fields.textStyle ? TEXT_STYLE_MAP[fields.textStyle] : "clean readable typography";
 
     promptParts.push(
-      `with text overlay saying "${fields.textContent}" positioned at the ${placement} of the image, ${style}`
+      `with text overlay saying '${safeTextContent}' positioned at the ${placement} of the image, ${style}`
     );
   }
 
   // ═══════════════════════════════════════════════════════════════
   // 8. NOTAS ADICIONAIS (se fornecidas)
   // ═══════════════════════════════════════════════════════════════
-  if (fields.additionalNotes && fields.additionalNotes.trim()) {
-    promptParts.push(fields.additionalNotes);
+  if (safeAdditionalNotes) {
+    promptParts.push(safeAdditionalNotes);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -167,8 +199,8 @@ export function buildPrompt(fields: ImagePromptFields): BuiltPrompt {
   ];
 
   // Adiciona elementos que o usuário quer evitar
-  if (fields.avoidElements && fields.avoidElements.trim()) {
-    negativePromptParts.push(fields.avoidElements);
+  if (safeAvoidElements) {
+    negativePromptParts.push(safeAvoidElements);
   }
 
   // Se NÃO quer texto, adiciona ao negativo

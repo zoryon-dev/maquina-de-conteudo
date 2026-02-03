@@ -1331,12 +1331,23 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:wizard_image_generation-complete',message:'Image generation completed',data:{wizardId,imagesGenerated:newImages.length,libraryItemId:wizard.libraryItemId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
     // #endregion
 
+    // Build warning message if any uploads fell back to base64
+    let uploadWarning: string | undefined;
+    if (uploadFallbacks.length > 0) {
+      uploadWarning = `${uploadFallbacks.length} image(s) could not be uploaded to storage and are using base64 URLs. ` +
+        `This may cause performance issues and larger database storage. ` +
+        `Failed slides: ${uploadFallbacks.map(f => `#${f.slideNumber} (${f.error})`).join(", ")}`;
+      console.warn(`[WIZARD-IMAGE] Upload fallback warning:`, uploadWarning);
+    }
+
     return {
       success: true,
       images: newImages,
       wizardId,
       libraryItemId: wizard.libraryItemId,
       uploadFallbacks: uploadFallbacks.length > 0 ? uploadFallbacks : undefined,
+      // Include explicit warning message for callers
+      warning: uploadWarning,
     };
   },
 

@@ -250,3 +250,65 @@ export function createImagePromptFields(fields: ImagePromptFields): ImagePromptF
 
   return fields;
 }
+
+// ============================================================================
+// DISCRIMINATED UNIONS (Type-safe alternative)
+// ============================================================================
+
+/**
+ * Base fields without text overlay
+ */
+interface ImagePromptFieldsBase {
+  subject: string;
+  setting: string;
+  shotType: "close-up" | "medium" | "wide" | "detail" | "overhead";
+  lighting: "natural" | "studio" | "golden-hour" | "dramatic" | "soft" | "neon";
+  colorPalette: "warm" | "cool" | "vibrant" | "muted" | "pastel" | "dark" | "b&w";
+  photoStyle: "editorial" | "lifestyle" | "corporate" | "candid" | "artistic" | "minimal" | "bold";
+  aspectRatio: "1:1" | "4:5" | "9:16" | "16:9";
+  mood?: string;
+  avoidElements?: string;
+  additionalNotes?: string;
+}
+
+/**
+ * Image fields WITH text overlay - all text fields required
+ */
+export interface ImagePromptFieldsWithText extends ImagePromptFieldsBase {
+  includeText: true;
+  textContent: string;
+  textPlacement: "top" | "center" | "bottom";
+  textStyle: "bold-sans" | "elegant-serif" | "handwritten" | "minimal";
+}
+
+/**
+ * Image fields WITHOUT text overlay - text fields not allowed
+ */
+export interface ImagePromptFieldsWithoutText extends ImagePromptFieldsBase {
+  includeText: false;
+  textContent?: never;
+  textPlacement?: never;
+  textStyle?: never;
+}
+
+/**
+ * Strictly typed ImagePromptFields using discriminated union
+ * Use this type when you want compile-time enforcement of text field dependencies
+ *
+ * @example
+ * // This is valid:
+ * const withText: StrictImagePromptFields = {
+ *   ...baseFields,
+ *   includeText: true,
+ *   textContent: "Hello",
+ *   textPlacement: "center",
+ *   textStyle: "bold-sans",
+ * };
+ *
+ * // This would be a compile error (missing textContent when includeText is true):
+ * const invalid: StrictImagePromptFields = {
+ *   ...baseFields,
+ *   includeText: true, // Error! Missing required text fields
+ * };
+ */
+export type StrictImagePromptFields = ImagePromptFieldsWithText | ImagePromptFieldsWithoutText;
