@@ -31,6 +31,9 @@ import {
   Folder,
   List,
   Grid as GridIcon,
+  CheckCircle2,
+  SlidersHorizontal,
+  X,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -52,6 +55,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Switch } from "@/components/ui/switch"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
@@ -66,6 +75,12 @@ import type { Theme, ThemeStatus, ThemeSourceType } from "@/db/schema"
 interface FilterOptions {
   status?: ThemeStatus
   search?: string
+  produced?: 'true' | 'false' | 'all'
+  sourceType?: ThemeSourceType
+  minScore?: number
+  maxScore?: number
+  startDate?: string
+  endDate?: string
 }
 
 type ViewMode = "grid" | "list"
@@ -91,6 +106,26 @@ interface FilterBarProps {
 }
 
 function FilterBar({ filters, onFiltersChange, resultCount, viewMode, onViewModeChange }: FilterBarProps) {
+  const activeFiltersCount = [
+    filters.status,
+    filters.sourceType,
+    filters.minScore !== undefined,
+    filters.maxScore !== undefined,
+    filters.startDate,
+    filters.endDate,
+  ].filter(Boolean).length
+
+  const clearAdvancedFilters = () => {
+    onFiltersChange({
+      ...filters,
+      sourceType: undefined,
+      minScore: undefined,
+      maxScore: undefined,
+      startDate: undefined,
+      endDate: undefined,
+    })
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-3">
       {/* Search */}
@@ -104,12 +139,30 @@ function FilterBar({ filters, onFiltersChange, resultCount, viewMode, onViewMode
         />
       </div>
 
+      {/* Hide Produced Toggle */}
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-white/10 bg-white/[0.02]">
+        <Switch
+          id="hide-produced"
+          checked={filters.produced === 'false'}
+          onCheckedChange={(checked) =>
+            onFiltersChange({
+              ...filters,
+              produced: checked ? 'false' : 'all'
+            })
+          }
+          className="data-[state=checked]:bg-primary"
+        />
+        <label htmlFor="hide-produced" className="text-xs text-white/70 cursor-pointer whitespace-nowrap">
+          Ocultar produzidos
+        </label>
+      </div>
+
       {/* Status Filter */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             className="gap-2 border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white"
           >
             <Filter className="size-4" />
@@ -134,6 +187,143 @@ function FilterBar({ filters, onFiltersChange, resultCount, viewMode, onViewMode
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Advanced Filters */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className={`gap-2 border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white ${
+              activeFiltersCount > 0 ? 'border-primary/50' : ''
+            }`}
+          >
+            <SlidersHorizontal className="size-4" />
+            Filtros
+            {activeFiltersCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 text-[10px] rounded-full bg-primary text-black">
+                {activeFiltersCount}
+              </span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-72 p-4 bg-[#0f0f1a] border-white/10">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium text-white">Filtros Avançados</h4>
+              {activeFiltersCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs text-white/50 hover:text-white"
+                  onClick={clearAdvancedFilters}
+                >
+                  <X className="size-3 mr-1" />
+                  Limpar
+                </Button>
+              )}
+            </div>
+
+            {/* Source Type */}
+            <div className="space-y-2">
+              <Label className="text-xs text-white/70">Fonte</Label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-between border-white/20 bg-white/5 text-white hover:bg-white/10"
+                  >
+                    {filters.sourceType === "youtube" && (
+                      <span className="flex items-center gap-2"><Youtube className="size-3 text-red-500" /> YouTube</span>
+                    )}
+                    {filters.sourceType === "instagram" && (
+                      <span className="flex items-center gap-2"><Instagram className="size-3 text-pink-500" /> Instagram</span>
+                    )}
+                    {filters.sourceType === "perplexity" && (
+                      <span className="flex items-center gap-2"><Sparkles className="size-3 text-purple-400" /> Perplexity</span>
+                    )}
+                    {filters.sourceType === "manual" && "Manual"}
+                    {!filters.sourceType && "Todas as fontes"}
+                    <Filter className="size-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => onFiltersChange({ ...filters, sourceType: undefined })}>
+                    Todas as fontes
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onFiltersChange({ ...filters, sourceType: "youtube" })}>
+                    <Youtube className="size-4 mr-2 text-red-500" /> YouTube
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onFiltersChange({ ...filters, sourceType: "instagram" })}>
+                    <Instagram className="size-4 mr-2 text-pink-500" /> Instagram
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onFiltersChange({ ...filters, sourceType: "perplexity" })}>
+                    <Sparkles className="size-4 mr-2 text-purple-400" /> Perplexity
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onFiltersChange({ ...filters, sourceType: "manual" })}>
+                    Manual
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            {/* Score Range */}
+            <div className="space-y-2">
+              <Label className="text-xs text-white/70">Score de Engajamento</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  placeholder="Min"
+                  value={filters.minScore ?? ""}
+                  onChange={(e) => onFiltersChange({
+                    ...filters,
+                    minScore: e.target.value ? parseInt(e.target.value, 10) : undefined
+                  })}
+                  className="h-8 text-xs bg-white/5 border-white/10"
+                />
+                <span className="text-white/30">—</span>
+                <Input
+                  type="number"
+                  placeholder="Max"
+                  value={filters.maxScore ?? ""}
+                  onChange={(e) => onFiltersChange({
+                    ...filters,
+                    maxScore: e.target.value ? parseInt(e.target.value, 10) : undefined
+                  })}
+                  className="h-8 text-xs bg-white/5 border-white/10"
+                />
+              </div>
+            </div>
+
+            {/* Date Range */}
+            <div className="space-y-2">
+              <Label className="text-xs text-white/70">Período</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={filters.startDate ?? ""}
+                  onChange={(e) => onFiltersChange({
+                    ...filters,
+                    startDate: e.target.value || undefined
+                  })}
+                  className="h-8 text-xs bg-white/5 border-white/10"
+                />
+                <span className="text-white/30">—</span>
+                <Input
+                  type="date"
+                  value={filters.endDate ?? ""}
+                  onChange={(e) => onFiltersChange({
+                    ...filters,
+                    endDate: e.target.value || undefined
+                  })}
+                  className="h-8 text-xs bg-white/5 border-white/10"
+                />
+              </div>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
 
       {/* Result count */}
       <span className="text-sm text-white/70">
@@ -196,6 +386,8 @@ function ThemeCard({ theme, onClick, onDelete, onCreateWizard }: ThemeCardProps)
     archived: "bg-white/10 text-white/70 border-white/10",
   }
 
+  const isProduced = theme.producedAt !== null
+
   return (
     <Card
       className="group overflow-hidden border-white/10 bg-white/[0.02] backdrop-blur-xl transition-all hover:border-primary/50 text-white cursor-pointer"
@@ -205,7 +397,7 @@ function ThemeCard({ theme, onClick, onDelete, onCreateWizard }: ThemeCardProps)
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {platformIcon}
               <Badge
                 variant="outline"
@@ -213,6 +405,15 @@ function ThemeCard({ theme, onClick, onDelete, onCreateWizard }: ThemeCardProps)
               >
                 {theme.status || "ativo"}
               </Badge>
+              {isProduced && (
+                <Badge
+                  variant="outline"
+                  className="text-xs bg-primary/10 text-primary border-primary/30"
+                >
+                  <CheckCircle2 className="size-3 mr-1" />
+                  Produzido
+                </Badge>
+              )}
             </div>
             <h3 className="mt-2 truncate font-semibold text-white group-hover:!text-primary transition-colors">
               {theme.title}
@@ -776,6 +977,15 @@ function ThemeDetailDialog({
                     {theme.status === "draft" && "Rascunho"}
                     {theme.status === "archived" && "Arquivado"}
                   </Badge>
+                  {theme.producedAt && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs bg-primary/10 text-primary border-primary/30 shrink-0"
+                    >
+                      <CheckCircle2 className="size-3 mr-1" />
+                      Produzido
+                    </Badge>
+                  )}
                   {theme.category && (
                     <Badge variant="outline" className="text-xs text-white/70 border-white/10 shrink-0">
                       <Folder className="size-3 mr-1" />
@@ -965,6 +1175,15 @@ function ThemeDetailDialog({
                   </p>
                 </div>
               )}
+              {theme.producedAt && (
+                <div className="space-y-1">
+                  <Label className="text-white/60 text-xs">Produzido em</Label>
+                  <p className="text-white/80 flex items-center gap-1">
+                    <CheckCircle2 className="size-3 text-primary" />
+                    {new Date(theme.producedAt).toLocaleDateString("pt-BR")}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Source URL */}
@@ -1112,6 +1331,12 @@ export function ThemesPage() {
       const params = new URLSearchParams()
       if (filters.status) params.append("status", filters.status)
       if (filters.search) params.append("search", filters.search)
+      if (filters.produced) params.append("produced", filters.produced)
+      if (filters.sourceType) params.append("sourceType", filters.sourceType)
+      if (filters.minScore !== undefined) params.append("minScore", filters.minScore.toString())
+      if (filters.maxScore !== undefined) params.append("maxScore", filters.maxScore.toString())
+      if (filters.startDate) params.append("startDate", filters.startDate)
+      if (filters.endDate) params.append("endDate", filters.endDate)
       params.append("page", page.toString())
       params.append("limit", limit.toString())
 
@@ -1141,12 +1366,12 @@ export function ThemesPage() {
 
   useEffect(() => {
     fetchThemes()
-  }, [filters.status, filters.search, page, limit])
+  }, [filters.status, filters.search, filters.produced, filters.sourceType, filters.minScore, filters.maxScore, filters.startDate, filters.endDate, page, limit])
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1)
-  }, [filters.status, filters.search])
+  }, [filters.status, filters.search, filters.produced, filters.sourceType, filters.minScore, filters.maxScore, filters.startDate, filters.endDate])
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage)

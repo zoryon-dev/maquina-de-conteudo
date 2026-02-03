@@ -31,6 +31,13 @@ export async function GET(req: NextRequest) {
     const page = searchParams.get('page');
     const limit = searchParams.get('limit');
 
+    // New filter params
+    const produced = searchParams.get('produced') as 'true' | 'false' | 'all' | null;
+    const minScore = searchParams.get('minScore');
+    const maxScore = searchParams.get('maxScore');
+    const startDate = searchParams.get('startDate') || undefined;
+    const endDate = searchParams.get('endDate') || undefined;
+
     if (stats) {
       const themeStats = await getThemeStatsAction();
       return NextResponse.json(themeStats);
@@ -43,6 +50,12 @@ export async function GET(req: NextRequest) {
       sourceType: sourceType || undefined,
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
+      // New filters
+      produced: produced || undefined,
+      minScore: minScore ? parseInt(minScore, 10) : undefined,
+      maxScore: maxScore ? parseInt(maxScore, 10) : undefined,
+      startDate,
+      endDate,
     };
 
     const themes = await getThemesAction(filters);

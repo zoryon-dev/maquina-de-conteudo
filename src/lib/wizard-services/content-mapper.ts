@@ -367,29 +367,80 @@ export function mapCarouselToStudio(
 
 /**
  * Maps GeneratedContent (legacy format) to StudioSlides
+ * Supports both carousel (multiple slides) and image (single slide) types
  */
 export function mapGeneratedContentToStudio(
   content: GeneratedContent,
   config: Partial<ContentMappingConfig> = {}
 ): MappedContent | null {
-  // Only carousel type is supported for now
-  if (content.type !== "carousel" || !content.slides) {
-    return null;
-  }
-
   const finalConfig: ContentMappingConfig = {
     ...DEFAULT_MAPPING_CONFIG,
     ...config,
   };
-
-  const slides: StudioSlide[] = [];
-  const totalSlides = content.slides.length;
 
   // Style to use
   const baseStyle: SlideStyle = {
     ...DEFAULT_SLIDE_STYLE,
     ...finalConfig.style,
   };
+
+  // Build profile and header (common for all types)
+  const profile: StudioProfile = {
+    ...DEFAULT_PROFILE,
+    ...finalConfig.profile,
+  };
+
+  const header: StudioHeader = {
+    ...DEFAULT_HEADER,
+    ...finalConfig.header,
+  };
+
+  // Handle image type (single slide)
+  if (content.type === "image") {
+    const imagePrompt = (content.metadata as any)?.imagePrompt || "";
+
+    // Create a single slide for image post
+    const slideContent: SlideContent = {
+      texto1: content.caption?.split("\n")[0] || "Imagem",
+      texto1Bold: true,
+      texto2: content.cta || "",
+      texto3: "",
+      texto3Bold: false,
+      imageUrl: undefined, // Will be generated/uploaded in Visual Studio
+      backgroundImageUrl: undefined,
+    };
+
+    const slides: StudioSlide[] = [{
+      id: crypto.randomUUID(),
+      template: finalConfig.coverTemplate, // Use cover template for single image
+      content: slideContent,
+      style: {
+        ...baseStyle,
+        showSwipeIndicator: false, // Single image, no swipe needed
+      },
+      // Store imagePrompt for AI generation in Visual Studio
+      metadata: {
+        imagePrompt,
+        originalCaption: content.caption,
+      },
+    } as StudioSlide & { metadata?: Record<string, unknown> }];
+
+    return {
+      slides,
+      profile,
+      header,
+      caption: content.caption || "",
+      hashtags: content.hashtags || [],
+    };
+  }
+
+  // Handle carousel type (multiple slides)
+  if (content.type !== "carousel" || !content.slides) {
+    return null;
+  }
+
+  const slides: StudioSlide[] = [];
+  const totalSlides = content.slides.length;
 
   content.slides.forEach((slide, index) => {
     const isFirst = index === 0;
@@ -426,17 +477,6 @@ export function mapGeneratedContentToStudio(
       },
     });
   });
-
-  // Build profile and header
-  const profile: StudioProfile = {
-    ...DEFAULT_PROFILE,
-    ...finalConfig.profile,
-  };
-
-  const header: StudioHeader = {
-    ...DEFAULT_HEADER,
-    ...finalConfig.header,
-  };
 
   return {
     slides,

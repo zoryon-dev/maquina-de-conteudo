@@ -165,6 +165,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       hasReferenceUrl: !!referenceUrl,
       hasTargetAudience: !!theme.targetAudience,
       hasExtractedContent: !!theme.briefing,
+      themeId: themeId,
     })
 
     try {
@@ -179,6 +180,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
           referenceUrl: referenceUrl || undefined,
           objective: wizardObjective || undefined,
           targetAudience: theme.targetAudience || undefined,
+          // Link to origin theme for tracking
+          themeId: themeId,
           // Pre-fill with briefing if available
           extractedContent: theme.briefing
             ? {
@@ -192,6 +195,14 @@ export async function POST(req: NextRequest, context: RouteContext) {
         .returning();
 
       console.log("[ThemeWizardAPI] Wizard created successfully:", wizard.id)
+
+      // Mark the theme as produced
+      await db
+        .update(themes)
+        .set({ producedAt: new Date() })
+        .where(eq(themes.id, themeId));
+
+      console.log("[ThemeWizardAPI] Theme marked as produced:", themeId)
 
       return NextResponse.json({
         wizardId: wizard.id,

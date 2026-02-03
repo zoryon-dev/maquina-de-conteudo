@@ -531,6 +531,9 @@ export const contentWizards = pgTable(
       { onDelete: "set null" }
     ),
 
+    // Theme origin (when created from a saved theme)
+    themeId: integer("theme_id").references(() => themes.id, { onDelete: "set null" }),
+
     // Job tracking
     jobId: integer("job_id").references(() => jobs.id, { onDelete: "set null" }),
     jobStatus: jobStatusEnum("job_status"), // "pending" | "processing" | "completed" | "failed"
@@ -553,6 +556,7 @@ export const contentWizards = pgTable(
     index("content_wizards_created_at_idx").on(table.createdAt),
     index("content_wizards_library_item_id_idx").on(table.libraryItemId),
     index("content_wizards_job_id_idx").on(table.jobId),
+    index("content_wizards_theme_id_idx").on(table.themeId),
   ]
 );
 
@@ -830,6 +834,10 @@ export const contentWizardsRelations = relations(contentWizards, ({ one }) => ({
     fields: [contentWizards.jobId],
     references: [jobs.id],
   }),
+  theme: one(themes, {
+    fields: [contentWizards.themeId],
+    references: [themes.id],
+  }),
 }));
 
 // ========================================
@@ -910,6 +918,9 @@ export const themes = pgTable(
     tags: jsonb("tags").$type<string[]>(),
     status: themeStatusEnum("status").default("active"),
 
+    // Production tracking
+    producedAt: timestamp("produced_at"), // NULL = não produzido ainda
+
     // Timestamps
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -921,6 +932,7 @@ export const themes = pgTable(
     index("themes_created_at_idx").on(table.createdAt),
     index("themes_trending_at_idx").on(table.trendingAt),
     index("themes_deleted_at_idx").on(table.deletedAt),
+    index("themes_produced_at_idx").on(table.userId, table.producedAt),
   ]
 );
 

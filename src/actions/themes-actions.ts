@@ -10,7 +10,7 @@
 import { ensureAuthenticatedUser } from '@/lib/auth/ensure-user';
 import { db } from '@/db';
 import { themes, themeTags, tags } from '@/db/schema';
-import { eq, and, isNull, desc, ilike, inArray, sql } from 'drizzle-orm';
+import { eq, and, isNull, isNotNull, desc, ilike, inArray, sql, gte, lte } from 'drizzle-orm';
 import type {
   Theme,
   NewTheme,
@@ -30,6 +30,12 @@ export interface ThemeFilters {
   sourceType?: ThemeSourceType;
   page?: number;
   limit?: number;
+  // New filters
+  produced?: 'true' | 'false' | 'all'; // Filter by production status
+  minScore?: number; // Minimum engagement score
+  maxScore?: number; // Maximum engagement score
+  startDate?: string; // ISO date string - filter by createdAt
+  endDate?: string; // ISO date string - filter by createdAt
 }
 
 export interface PaginatedThemesResponse {
@@ -91,6 +97,33 @@ export async function getThemesAction(filters?: ThemeFilters): Promise<Paginated
 
   if (filters?.search) {
     conditions.push(ilike(themes.title, `%${filters.search}%`));
+  }
+
+  // Filter by production status
+  if (filters?.produced === 'true') {
+    conditions.push(isNotNull(themes.producedAt));
+  } else if (filters?.produced === 'false') {
+    conditions.push(isNull(themes.producedAt));
+  }
+  // 'all' or undefined = no filter
+
+  // Filter by engagement score range
+  if (filters?.minScore !== undefined) {
+    conditions.push(gte(themes.engagementScore, filters.minScore));
+  }
+  if (filters?.maxScore !== undefined) {
+    conditions.push(lte(themes.engagementScore, filters.maxScore));
+  }
+
+  // Filter by date range (createdAt)
+  if (filters?.startDate) {
+    conditions.push(gte(themes.createdAt, new Date(filters.startDate)));
+  }
+  if (filters?.endDate) {
+    // Add 1 day to include the end date fully
+    const endDatePlusOne = new Date(filters.endDate);
+    endDatePlusOne.setDate(endDatePlusOne.getDate() + 1);
+    conditions.push(lte(themes.createdAt, endDatePlusOne));
   }
 
   // Get total count

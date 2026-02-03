@@ -20,7 +20,7 @@
 - Layouts com `max-w-6xl` e padding consistente
 - Header do `AppLayout` usa padding vertical (`pt-5 pb-5`) no container glassmorphism
 - Itens de lista clicáveis com checkbox: usar `div` com `role="button"` e `tabIndex` para evitar `<button>` aninhado
-- Botões `outline` no dark mode precisam cores explícitas (ex.: `bg-white/5`, `text-white/80`, `border-white/20`)
+- Botões `outline` no dark mode precisam cores explícitas (ex.: `bg-white/5`, `text-white/80`, `border-white/20`, `hover:bg-white/10`, `hover:text-white`)
 - Logging: evitar `console.log`/`console.warn`/`console.info`/`console.debug` no app; manter apenas `console.error` quando necessário (falhas/observabilidade), sem vazar tokens/segredos
 - Scripts de migração devem validar `DATABASE_URL` dentro da função antes de usar `neon()` para evitar erro de tipo no build
 - Seleção de tipo "Vídeo" no wizard deve redirecionar para `/wizard?type=video`

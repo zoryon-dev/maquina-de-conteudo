@@ -1010,35 +1010,46 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       .where(eq(contentWizards.id, wizardId));
 
     // 5. Sync to library (create library item from generated content)
-    const libraryResult = await createLibraryItemFromWizard({
-      wizardId,
-      userId,
-      generatedContent,
-      contentType: contentType as any,
-      wizardMetadata: {
-        theme: wizard.theme,
-        objective: wizard.objective,
-        targetAudience: wizard.targetAudience,
-        context: wizard.context,
-      },
-    });
+    // SKIP for carousel and image types - they go through Visual Studio where user can edit
+    // and save manually with images already embedded
+    const skipLibrarySync = contentType === "carousel" || contentType === "image";
 
-    if (libraryResult.success && libraryResult.libraryItemId) {
-      // Update wizard with the library item ID
-      await db
-        .update(contentWizards)
-        .set({ libraryItemId: libraryResult.libraryItemId })
-        .where(eq(contentWizards.id, wizardId));
+    let libraryItemId: number | undefined;
+
+    if (!skipLibrarySync) {
+      const libraryResult = await createLibraryItemFromWizard({
+        wizardId,
+        userId,
+        generatedContent,
+        contentType: contentType as any,
+        wizardMetadata: {
+          theme: wizard.theme,
+          objective: wizard.objective,
+          targetAudience: wizard.targetAudience,
+          context: wizard.context,
+        },
+      });
+
+      if (libraryResult.success && libraryResult.libraryItemId) {
+        // Update wizard with the library item ID
+        await db
+          .update(contentWizards)
+          .set({ libraryItemId: libraryResult.libraryItemId })
+          .where(eq(contentWizards.id, wizardId));
+        libraryItemId = libraryResult.libraryItemId;
+      } else {
+        // Log error but don't fail the wizard - content was successfully generated
+        console.error(`[WIZARD-DEBUG] WORKER: Library sync failed for wizard ${wizardId}:`, libraryResult.error);
+      }
     } else {
-      // Log error but don't fail the wizard - content was successfully generated
-      console.error(`[WIZARD-DEBUG] WORKER: Library sync failed for wizard ${wizardId}:`, libraryResult.error);
+      console.log(`[WIZARD-DEBUG] WORKER: Skipping library sync for ${contentType} (will be saved via Visual Studio)`);
     }
 
     return {
       success: true,
       generatedContent,
       wizardId,
-      libraryItemId: libraryResult.success ? libraryResult.libraryItemId : undefined,
+      libraryItemId,
     };
   },
 
