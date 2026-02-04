@@ -21,7 +21,7 @@ const baseImageSchema = z.object({
     z.string().startsWith("data:image/", "Must be a valid data URL or HTTP URL")
   ),
   thumbnailUrl: z.string().url().optional(),
-  config: z.record(z.unknown()).default({}),
+  config: z.record(z.string(), z.unknown()).default({}),
   createdAt: z.string().datetime({ message: "createdAt must be ISO datetime string" }),
 });
 
@@ -105,8 +105,8 @@ export function safeValidateGeneratedImages(data: unknown): {
   }
 
   // Format error message
-  const errorMessages = result.error.errors.map(
-    (e) => `${e.path.join(".")}: ${e.message}`
+  const errorMessages = result.error.issues.map(
+    (issue) => `${issue.path.join(".")}: ${issue.message}`
   );
 
   return {
