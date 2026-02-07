@@ -44,6 +44,19 @@ export const jobTypeEnum = pgEnum("job_type", [
   "social_publish_instagram",
   "social_publish_facebook",
   "social_metrics_fetch",
+  // Article Wizard job types
+  "article_research",
+  "article_outline",
+  "article_section_production",
+  "article_assembly",
+  "article_seo_geo_check",
+  "article_optimization",
+  "article_metadata",
+  "article_cross_format",
+  "site_intelligence_crawl",
+  "site_intelligence_analyze",
+  "article_extension_diagnose",
+  "article_extension_expand",
 ]);
 
 export const jobStatusEnum = pgEnum("job_status", [
@@ -89,6 +102,64 @@ export const publishedPostStatusEnum = pgEnum("published_post_status", [
   "published",
   "failed",
   "cancelled",
+]);
+
+// ========================================
+// ARTICLE WIZARD ENUMS
+// ========================================
+
+// Article wizard step enum (separado do wizard de social media)
+export const articleWizardStepEnum = pgEnum("article_wizard_step", [
+  "inputs",
+  "research",
+  "outline",
+  "production",
+  "assembly",
+  "seo_geo_check",
+  "optimization",
+  "metadata",
+  "cross_format",
+  "completed",
+  "abandoned",
+]);
+
+// Site intelligence status enum
+export const siteIntelligenceStatusEnum = pgEnum("site_intelligence_status", [
+  "pending",
+  "crawling",
+  "analyzing",
+  "complete",
+  "error",
+]);
+
+// Article link status enum
+export const articleLinkStatusEnum = pgEnum("article_link_status", [
+  "suggested",
+  "approved",
+  "rejected",
+  "inserted",
+]);
+
+// Article extension status enum
+export const articleExtensionStatusEnum = pgEnum("article_extension_status", [
+  "pending",
+  "diagnosed",
+  "in_progress",
+  "complete",
+]);
+
+// Article derivation format enum
+export const articleDerivationFormatEnum = pgEnum("article_derivation_format", [
+  "linkedin",
+  "video_script",
+  "carousel",
+]);
+
+// Article derivation status enum
+export const articleDerivationStatusEnum = pgEnum("article_derivation_status", [
+  "generated",
+  "edited",
+  "published",
 ]);
 
 // 1. USERS - Sincronizado com Clerk
@@ -863,6 +934,282 @@ export const publishedPostsRelations = relations(publishedPosts, ({ one }) => ({
 }));
 
 // ========================================
+// ARTICLE WIZARD TABLES
+// ========================================
+
+// Projects - Multi-site support para o Article Wizard
+export const projects = pgTable(
+  "projects",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    siteUrl: text("site_url"),
+    brandPresets: jsonb("brand_presets"),
+    settings: jsonb("settings"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    deletedAt: timestamp("deleted_at"),
+  },
+  (table) => [
+    index("projects_user_id_idx").on(table.userId),
+  ]
+);
+
+// Articles - Artigos do Article Wizard
+export const articles = pgTable(
+  "articles",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    projectId: integer("project_id")
+      .references(() => projects.id, { onDelete: "set null" }),
+
+    // Wizard state
+    currentStep: articleWizardStepEnum("current_step").notNull().default("inputs"),
+
+    // Inputs
+    mode: text("mode").default("create"), // "create" | "extend"
+    title: text("title"),
+    primaryKeyword: text("primary_keyword"),
+    secondaryKeywords: jsonb("secondary_keywords").$type<string[]>(),
+    articleType: text("article_type"), // "how-to", "listicle", "guia", etc.
+    targetWordCount: integer("target_word_count").default(2000),
+    referenceUrl: text("reference_url"),
+    referenceMotherUrl: text("reference_mother_url"),
+    model: text("model"),
+    customInstructions: text("custom_instructions"),
+    authorName: text("author_name"),
+
+    // RAG config
+    ragConfig: jsonb("rag_config").$type<{
+      mode?: "auto" | "manual" | "off";
+      threshold?: number;
+      maxChunks?: number;
+      documents?: number[];
+      collections?: number[];
+    }>(),
+
+    // Processing results
+    extractedBaseContent: jsonb("extracted_base_content"),
+    extractedMotherContent: jsonb("extracted_mother_content"),
+    researchResults: jsonb("research_results"),
+    synthesizedResearch: jsonb("synthesized_research"),
+
+    // Outlines (3 propostas)
+    generatedOutlines: jsonb("generated_outlines").$type<Array<{
+      id: string;
+      title: string;
+      description: string;
+      sections: Array<{
+        heading: string;
+        subheadings: string[];
+        estimatedWords: number;
+        keyPoints: string[];
+      }>;
+      estimatedTotalWords: number;
+      differentiator: string;
+    }>>(),
+    selectedOutlineId: text("selected_outline_id"),
+
+    // Production (seção a seção)
+    producedSections: jsonb("produced_sections").$type<Array<{
+      sectionId: string;
+      heading: string;
+      content: string;
+      wordCount: number;
+      status: "pending" | "generating" | "completed" | "failed";
+    }>>(),
+
+    // Assembled article
+    assembledContent: text("assembled_content"),
+    assembledWithLinks: text("assembled_with_links"),
+
+    // SEO + GEO scores
+    seoScore: integer("seo_score"),
+    geoScore: integer("geo_score"),
+    seoReport: jsonb("seo_report"),
+    geoReport: jsonb("geo_report"),
+
+    // Optimized content
+    optimizedContent: text("optimized_content"),
+
+    // Final output
+    finalTitle: text("final_title"),
+    finalContent: text("final_content"),
+    finalWordCount: integer("final_word_count"),
+
+    // Job tracking
+    jobId: integer("job_id").references(() => jobs.id, { onDelete: "set null" }),
+    jobStatus: jobStatusEnum("job_status"),
+    processingProgress: jsonb("processing_progress").$type<{
+      stage: string;
+      percent: number;
+      message: string;
+    }>(),
+    jobError: text("job_error"),
+
+    // Timestamps
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    publishedAt: timestamp("published_at"),
+    deletedAt: timestamp("deleted_at"),
+  },
+  (table) => [
+    index("articles_user_id_idx").on(table.userId),
+    index("articles_project_id_idx").on(table.projectId),
+    index("articles_current_step_idx").on(table.currentStep),
+    index("articles_created_at_idx").on(table.createdAt),
+  ]
+);
+
+// Site Intelligence - Dados de análise do site do projeto
+export const siteIntelligence = pgTable(
+  "site_intelligence",
+  {
+    id: serial("id").primaryKey(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    siteUrl: text("site_url").notNull(),
+    urlMap: jsonb("url_map").default({}),
+    brandVoiceProfile: jsonb("brand_voice_profile").default({}),
+    keywordGaps: jsonb("keyword_gaps").default({}),
+    competitorUrls: jsonb("competitor_urls").$type<string[]>(),
+    crawledAt: timestamp("crawled_at"),
+    urlsCount: integer("urls_count").default(0),
+    status: siteIntelligenceStatusEnum("status").notNull().default("pending"),
+    error: text("error"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("site_intelligence_project_id_idx").on(table.projectId),
+    index("site_intelligence_status_idx").on(table.status),
+  ]
+);
+
+// Article Links - Links internos sugeridos/inseridos
+export const articleLinks = pgTable(
+  "article_links",
+  {
+    id: serial("id").primaryKey(),
+    articleId: integer("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "cascade" }),
+    targetUrl: text("target_url").notNull(),
+    anchorText: text("anchor_text").notNull(),
+    relevanceScore: integer("relevance_score").default(0),
+    isReverse: boolean("is_reverse").default(false),
+    status: articleLinkStatusEnum("status").notNull().default("suggested"),
+    insertionPoint: text("insertion_point"),
+    rationale: text("rationale"),
+    insertedAt: timestamp("inserted_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("article_links_article_id_idx").on(table.articleId),
+    index("article_links_status_idx").on(table.status),
+  ]
+);
+
+// Article Metadata - Metadados SEO (meta titles, descriptions, schemas)
+export const articleMetadata = pgTable(
+  "article_metadata",
+  {
+    id: serial("id").primaryKey(),
+    articleId: integer("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "cascade" }),
+    metaTitles: jsonb("meta_titles").default([]),
+    metaDescriptions: jsonb("meta_descriptions").default([]),
+    slug: text("slug"),
+    altTexts: jsonb("alt_texts").default([]),
+    schemaArticle: jsonb("schema_article").default({}),
+    schemaFaq: jsonb("schema_faq"),
+    schemaHowto: jsonb("schema_howto"),
+    schemaBreadcrumb: jsonb("schema_breadcrumb"),
+    reverseAnchors: jsonb("reverse_anchors").default([]),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("article_metadata_article_id_idx").on(table.articleId),
+  ]
+);
+
+// Article GEO Scores - Scores de Generative Engine Optimization
+export const articleGeoScores = pgTable(
+  "article_geo_scores",
+  {
+    id: serial("id").primaryKey(),
+    articleId: integer("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "cascade" }),
+    overallScore: integer("overall_score").default(0),
+    directAnswers: integer("direct_answers").default(0),
+    citableData: integer("citable_data").default(0),
+    extractableStructure: integer("extractable_structure").default(0),
+    authorityEeat: integer("authority_eeat").default(0),
+    topicCoverage: integer("topic_coverage").default(0),
+    schemaMetadata: integer("schema_metadata").default(0),
+    report: jsonb("report").default({}),
+    priorityFixes: jsonb("priority_fixes").default([]),
+    analyzedAt: timestamp("analyzed_at").defaultNow(),
+  },
+  (table) => [
+    index("article_geo_scores_article_id_idx").on(table.articleId),
+  ]
+);
+
+// Article Extensions - Modo extensão (diagnóstico + expansão)
+export const articleExtensions = pgTable(
+  "article_extensions",
+  {
+    id: serial("id").primaryKey(),
+    articleId: integer("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "cascade" }),
+    originalUrl: text("original_url").notNull(),
+    diagnosis: jsonb("diagnosis").default({}),
+    selectedFixes: jsonb("selected_fixes").default([]),
+    generatedContent: jsonb("generated_content").default({}),
+    status: articleExtensionStatusEnum("status").notNull().default("pending"),
+    appliedAt: timestamp("applied_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("article_extensions_article_id_idx").on(table.articleId),
+  ]
+);
+
+// Article Derivations - Derivações cross-format (LinkedIn, vídeo, carrossel)
+export const articleDerivations = pgTable(
+  "article_derivations",
+  {
+    id: serial("id").primaryKey(),
+    articleId: integer("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "cascade" }),
+    format: articleDerivationFormatEnum("format").notNull(),
+    content: jsonb("content").default({}),
+    status: articleDerivationStatusEnum("status").notNull().default("generated"),
+    publishedAt: timestamp("published_at"),
+    publishedUrl: text("published_url"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("article_derivations_article_id_idx").on(table.articleId),
+    index("article_derivations_format_idx").on(table.format),
+  ]
+);
+
+// ========================================
 // DISCOVERY THEMES TABLES
 // ========================================
 
@@ -973,6 +1320,51 @@ export const themeTagsRelations = relations(themeTags, ({ one }) => ({
     fields: [themeTags.tagId],
     references: [tags.id],
   }),
+}));
+
+// ========================================
+// ARTICLE WIZARD RELATIONS
+// ========================================
+
+export const projectsRelations = relations(projects, ({ one, many }) => ({
+  user: one(users, { fields: [projects.userId], references: [users.id] }),
+  articles: many(articles),
+  siteIntelligence: many(siteIntelligence),
+}));
+
+export const articlesRelations = relations(articles, ({ one, many }) => ({
+  user: one(users, { fields: [articles.userId], references: [users.id] }),
+  project: one(projects, { fields: [articles.projectId], references: [projects.id] }),
+  job: one(jobs, { fields: [articles.jobId], references: [jobs.id] }),
+  links: many(articleLinks),
+  articleMetadata: many(articleMetadata),
+  geoScores: many(articleGeoScores),
+  extensions: many(articleExtensions),
+  derivations: many(articleDerivations),
+}));
+
+export const siteIntelligenceRelations = relations(siteIntelligence, ({ one }) => ({
+  project: one(projects, { fields: [siteIntelligence.projectId], references: [projects.id] }),
+}));
+
+export const articleLinksRelations = relations(articleLinks, ({ one }) => ({
+  article: one(articles, { fields: [articleLinks.articleId], references: [articles.id] }),
+}));
+
+export const articleMetadataRelations = relations(articleMetadata, ({ one }) => ({
+  article: one(articles, { fields: [articleMetadata.articleId], references: [articles.id] }),
+}));
+
+export const articleGeoScoresRelations = relations(articleGeoScores, ({ one }) => ({
+  article: one(articles, { fields: [articleGeoScores.articleId], references: [articles.id] }),
+}));
+
+export const articleExtensionsRelations = relations(articleExtensions, ({ one }) => ({
+  article: one(articles, { fields: [articleExtensions.articleId], references: [articles.id] }),
+}));
+
+export const articleDerivationsRelations = relations(articleDerivations, ({ one }) => ({
+  article: one(articles, { fields: [articleDerivations.articleId], references: [articles.id] }),
 }));
 
 // ========================================
@@ -1208,6 +1600,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   socialConnections: many(socialConnections),
   publishedPosts: many(publishedPosts),
   themes: many(themes),
+  projects: many(projects),
+  articles: many(articles),
 }));
 
 // ========================================
@@ -1302,3 +1696,27 @@ export type Theme = typeof themes.$inferSelect;
 export type NewTheme = typeof themes.$inferInsert;
 export type ThemeTag = typeof themeTags.$inferSelect;
 export type NewThemeTag = typeof themeTags.$inferInsert;
+
+// ========================================
+// TYPE EXPORTS - ARTICLE WIZARD
+// ========================================
+
+export type Project = typeof projects.$inferSelect;
+export type NewProject = typeof projects.$inferInsert;
+export type Article = typeof articles.$inferSelect;
+export type NewArticle = typeof articles.$inferInsert;
+export type ArticleWizardStep = typeof articleWizardStepEnum.enumValues[number];
+export type SiteIntelligenceRecord = typeof siteIntelligence.$inferSelect;
+export type NewSiteIntelligence = typeof siteIntelligence.$inferInsert;
+export type ArticleLink = typeof articleLinks.$inferSelect;
+export type NewArticleLink = typeof articleLinks.$inferInsert;
+export type ArticleMetadataRecord = typeof articleMetadata.$inferSelect;
+export type NewArticleMetadata = typeof articleMetadata.$inferInsert;
+export type ArticleGeoScore = typeof articleGeoScores.$inferSelect;
+export type NewArticleGeoScore = typeof articleGeoScores.$inferInsert;
+export type ArticleExtension = typeof articleExtensions.$inferSelect;
+export type NewArticleExtension = typeof articleExtensions.$inferInsert;
+export type ArticleDerivation = typeof articleDerivations.$inferSelect;
+export type NewArticleDerivation = typeof articleDerivations.$inferInsert;
+export type ArticleDerivationFormat = typeof articleDerivationFormatEnum.enumValues[number];
+export type ArticleDerivationStatus = typeof articleDerivationStatusEnum.enumValues[number];

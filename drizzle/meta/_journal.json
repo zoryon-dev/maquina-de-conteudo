@@ -1,0 +1,153 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1768591323926,
+      "tag": "0000_fast_matthew_murdock",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1768617757868,
+      "tag": "0001_breezy_meltdown",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1768676845532,
+      "tag": "0002_cuddly_galactus",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1768699676337,
+      "tag": "0003_long_mephistopheles",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1768751231492,
+      "tag": "0004_safe_sabra",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1768785951643,
+      "tag": "0005_flashy_luckman",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1768830854118,
+      "tag": "0006_soft_maginty",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1768867025521,
+      "tag": "0007_yummy_azazel",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1769113558960,
+      "tag": "0008_grey_ravenous",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1769126517813,
+      "tag": "0009_dear_iron_monger",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1769130312362,
+      "tag": "0010_misty_sentry",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1769180687315,
+      "tag": "0011_gifted_vengeance",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1769402774210,
+      "tag": "0012_demonic_ezekiel",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1769457325579,
+      "tag": "0013_complete_lethal_legion",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1769467090000,
+      "tag": "0014_social_connections_page_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1769508000000,
+      "tag": "0015_oauth_sessions",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1769714770591,
+      "tag": "0016_bouncy_grey_gargoyle",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1769714780000,
+      "tag": "0017_add_content_wizards_missing_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1769900000000,
+      "tag": "0018_add_theme_produced_tracking",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1770144704698,
+      "tag": "0019_large_tusk",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1770459944024,
+      "tag": "0020_optimal_nico_minoru",
+      "breakpoints": true
+    }
+  ]
+}
