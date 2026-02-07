@@ -799,6 +799,14 @@ case "article_outline":
 ### Objetivo
 Implementar toda a interface do Article Wizard, reutilizando componentes UI existentes.
 
+> **✅ STATUS: CONCLUÍDA**
+> - Etapa 2.1 (Páginas): `page.tsx`, `articles-list-page.tsx`, `new/page.tsx`, `[id]/page.tsx`
+> - Etapa 2.2 (Orchestrator): `article-wizard-page.tsx` com auto-save, polling, step transitions
+> - Etapa 2.3 (Steps): 8 steps (inputs, research, outline, production, assembly, seo-geo, optimization, metadata)
+> - Etapa 2.4 (Navbar): "Artigos" adicionado ao menu "Criar" com ícone FileText
+> - Shared: `article-steps-indicator.tsx` com 8 steps lineares + progress bar
+> - Componentes reutilizados: CollapsibleSection, Button, Input, Label, Textarea
+
 ### Etapa 2.1 — Página de Entrada
 
 #### Tarefa 2.1.1 — Articles List Page

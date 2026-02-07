@@ -13,6 +13,7 @@ import {
   Lightbulb,
   Search,
   Palette,
+  FileText,
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -54,6 +55,7 @@ export function AppLayout({ children, className }: AppLayoutProps) {
         icon: Wand2,
         children: [
           { name: "Wizard", url: "/wizard", icon: Wand2 },
+          { name: "Artigos", url: "/articles", icon: FileText },
           { name: "Studio", url: "/studio", icon: Palette },
           { name: "ZoryAI", url: "/chat", icon: Sparkles },
         ],
