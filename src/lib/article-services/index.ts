@@ -44,6 +44,15 @@ export type { GeoOptimizationResult } from "./services/geo-optimizer.service";
 export { diagnoseArticle, planExpansion, expandArticle } from "./services/extension.service";
 export type { ExtensionDiagnosis, ExpansionPlanResult, ExpansionResult } from "./services/extension.service";
 
+// Cross-Format
+export {
+  deriveLinkedInPost,
+  deriveVideoScript,
+  deriveCarousel,
+  deriveAllFormats,
+} from "./services/cross-format.service";
+export type { DerivationResults } from "./services/cross-format.service";
+
 // Pipeline handlers (used by worker)
 export {
   handleArticleResearch,

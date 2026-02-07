@@ -40,3 +40,10 @@ export {
   getExpansionPlannerPrompt,
   getContentExpanderPrompt,
 } from "./extension";
+
+// Cross-format prompts (CROSS-01, CROSS-02, CROSS-03)
+export {
+  getLinkedInDeriverPrompt,
+  getVideoScriptDeriverPrompt,
+  getCarouselDeriverPrompt,
+} from "./cross-format";

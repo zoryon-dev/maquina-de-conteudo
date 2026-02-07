@@ -1214,7 +1214,7 @@ Checkboxes para selecionar fixes com preview de impacto.
 
 ---
 
-## Fase 7 — Derivação Cross-Format (Integração) {#fase-7}
+## Fase 7 — Derivação Cross-Format (Integração) ✅ CONCLUÍDA {#fase-7}
 
 ### Objetivo
 Gerar LinkedIn, Vídeo Curto e Carrossel a partir do artigo finalizado.
