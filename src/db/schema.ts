@@ -983,6 +983,14 @@ export const articles = pgTable(
     referenceUrl: text("reference_url"),
     referenceMotherUrl: text("reference_mother_url"),
     model: text("model"),
+    modelConfig: jsonb("model_config").$type<{
+      default?: string;
+      research?: string;
+      outline?: string;
+      production?: string;
+      optimization?: string;
+      image?: string;
+    }>(),
     customInstructions: text("custom_instructions"),
     authorName: text("author_name"),
 
@@ -1190,6 +1198,31 @@ export const articleExtensions = pgTable(
   },
   (table) => [
     index("article_extensions_article_id_idx").on(table.articleId),
+  ]
+);
+
+// Article Images - Imagens geradas para artigos (featured, inline, social)
+export const articleImages = pgTable(
+  "article_images",
+  {
+    id: serial("id").primaryKey(),
+    articleId: integer("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "cascade" }),
+    imageType: text("image_type").notNull(), // "featured" | "inline" | "social_share"
+    imageUrl: text("image_url").notNull(),
+    storageKey: text("storage_key"),
+    promptUsed: text("prompt_used"),
+    negativePrompt: text("negative_prompt"),
+    generationConfig: jsonb("generation_config"),
+    modelUsed: text("model_used"),
+    altText: text("alt_text"),
+    position: integer("position"), // For inline images ordering
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("article_images_article_id_idx").on(table.articleId),
+    index("article_images_type_idx").on(table.imageType),
   ]
 );
 
@@ -1726,3 +1759,5 @@ export type ArticleDerivation = typeof articleDerivations.$inferSelect;
 export type NewArticleDerivation = typeof articleDerivations.$inferInsert;
 export type ArticleDerivationFormat = typeof articleDerivationFormatEnum.enumValues[number];
 export type ArticleDerivationStatus = typeof articleDerivationStatusEnum.enumValues[number];
+export type ArticleImage = typeof articleImages.$inferSelect;
+export type NewArticleImage = typeof articleImages.$inferInsert;

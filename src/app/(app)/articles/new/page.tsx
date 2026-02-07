@@ -1,17 +1,12 @@
 /**
  * New Article Page
  *
- * Creates a new article via API and redirects to the wizard.
+ * Renders the Article Wizard without a pre-existing article.
+ * The wizard handles article creation when the user submits the inputs form.
  */
 
-import { redirect } from "next/navigation"
-import { currentUser } from "@clerk/nextjs/server"
+import { ArticleWizardPage } from "../components/article-wizard-page"
 
-export default async function NewArticlePage() {
-  const user = await currentUser()
-  if (!user) redirect("/sign-in")
-
-  // Redirect to articles page with new=true param
-  // The ArticleWizardPage will handle creating the article
-  redirect("/articles?new=true")
+export default function NewArticlePage() {
+  return <ArticleWizardPage />
 }

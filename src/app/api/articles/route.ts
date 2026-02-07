@@ -29,6 +29,7 @@ export async function POST(request: Request) {
       customInstructions,
       authorName,
       model,
+      modelConfig,
     } = body;
 
     if (!primaryKeyword) {
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
         customInstructions: customInstructions ?? null,
         authorName: authorName ?? null,
         model: model ?? null,
+        modelConfig: modelConfig ?? null,
         currentStep: "inputs",
       })
       .returning();

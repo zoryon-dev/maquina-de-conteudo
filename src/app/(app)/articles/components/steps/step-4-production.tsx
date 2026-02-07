@@ -40,10 +40,13 @@ export function Step4Production({ article, onComplete, onRefresh }: Step4Product
     if (!data || !isMountedRef.current) return
 
     if (data.currentStep !== "production") {
+      console.log(`[Step4Production] Poll: step changed to "${data.currentStep}", calling onComplete`)
       onComplete()
       return
     }
 
+    const p = data.processingProgress as ProcessingProgress | null
+    console.log(`[Step4Production] Poll: step="${data.currentStep}", progress=${p?.percent}%, msg="${p?.message}"`)
     pollingRef.current = setTimeout(poll, 3000)
   }, [onRefresh, onComplete])
 

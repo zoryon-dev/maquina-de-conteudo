@@ -2,6 +2,7 @@
  * Article Wizard — Step 3: Outline Selection
  *
  * Displays 3 outline proposals. User selects one to proceed.
+ * Polls the API while outlines are being generated.
  */
 
 "use client"
@@ -12,26 +13,86 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { Article } from "@/db/schema"
 import type { ArticleOutline } from "@/lib/article-services/types"
-import { useState } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
+
+interface ProcessingProgress {
+  stage?: string
+  percent?: number
+  message?: string
+}
 
 interface Step3OutlineProps {
   article: Article | null
   onSelect: (outlineId: string) => Promise<void>
+  onRefresh: () => Promise<Article | null>
   isSubmitting: boolean
 }
 
-export function Step3Outline({ article, onSelect, isSubmitting }: Step3OutlineProps) {
+export function Step3Outline({ article, onSelect, onRefresh, isSubmitting }: Step3OutlineProps) {
   const [selectedId, setSelectedId] = useState<string | null>(
     article?.selectedOutlineId ?? null,
   )
 
   const outlines = (article?.generatedOutlines as ArticleOutline[] | null) ?? []
+  const progress = article?.processingProgress as ProcessingProgress | null
+
+  // Polling while outlines are being generated
+  const pollingRef = useRef<NodeJS.Timeout | null>(null)
+  const isMountedRef = useRef(true)
+
+  const poll = useCallback(async () => {
+    const data = await onRefresh()
+    if (!data || !isMountedRef.current) {
+      console.log(`[Step3Outline] Poll: no data or unmounted (data=${!!data}, mounted=${isMountedRef.current})`)
+      return
+    }
+
+    const updatedOutlines = (data.generatedOutlines as ArticleOutline[] | null) ?? []
+    if (updatedOutlines.length > 0) {
+      console.log(`[Step3Outline] Poll: outlines ready (${updatedOutlines.length} outlines)`)
+      return
+    }
+
+    const p = data.processingProgress as ProcessingProgress | null
+    console.log(`[Step3Outline] Poll: waiting (step="${data.currentStep}", progress=${p?.percent}%, msg="${p?.message}")`)
+    pollingRef.current = setTimeout(poll, 2500)
+  }, [onRefresh])
+
+  useEffect(() => {
+    isMountedRef.current = true
+
+    // Only poll if we don't have outlines yet
+    if (outlines.length === 0) {
+      pollingRef.current = setTimeout(poll, 2500)
+    }
+
+    return () => {
+      isMountedRef.current = false
+      if (pollingRef.current) clearTimeout(pollingRef.current)
+    }
+  }, [poll, outlines.length])
 
   if (!outlines.length) {
+    const currentMessage = progress?.message ?? "Gerando outlines..."
+    const currentPercent = progress?.percent ?? 0
+
     return (
-      <div className="flex flex-col items-center gap-4 py-16">
-        <Loader2 size={32} className="animate-spin text-primary" />
-        <p className="text-white/50">Gerando outlines...</p>
+      <div className="max-w-lg mx-auto py-12 space-y-8">
+        <div className="text-center space-y-2">
+          <Loader2 size={32} className="animate-spin text-primary mx-auto" />
+          <h2 className="text-xl font-semibold text-white">Gerando Outlines</h2>
+          <p className="text-white/50 text-sm">{currentMessage}</p>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+          <motion.div
+            className="h-full bg-primary"
+            initial={{ width: 0 }}
+            animate={{ width: `${currentPercent}%` }}
+            transition={{ duration: 0.5 }}
+          />
+        </div>
       </div>
     )
   }

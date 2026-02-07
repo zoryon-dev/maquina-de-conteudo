@@ -33,10 +33,17 @@ export async function runArticleResearch(params: {
   secondaryKeywords?: string[];
   articleType: string;
   model: string;
+  userVariablesPrompt?: string;
+  ragContext?: string;
   onProgress?: (stage: string, percent: number, message: string) => Promise<void>;
 }): Promise<ServiceResult<ArticleResearchResult>> {
   const result: ArticleResearchResult = {};
-  const systemPrompt = getArticleSystemPrompt();
+  let systemPrompt = getArticleSystemPrompt();
+
+  // Enrich system prompt with user variables if available
+  if (params.userVariablesPrompt) {
+    systemPrompt += `\n\n${params.userVariablesPrompt}`;
+  }
 
   try {
     // Step 1: Extract base article content (Firecrawl)
@@ -99,6 +106,12 @@ export async function runArticleResearch(params: {
       }
     }
     result.researchResults = searchResults.join("\n\n---\n\n");
+
+    // Step 3.5: Append RAG context if available
+    if (params.ragContext) {
+      result.researchResults = (result.researchResults || "") +
+        "\n\n--- CONTEXTO DA BASE DE CONHECIMENTO ---\n" + params.ragContext;
+    }
 
     // Step 4: Synthesize research
     await params.onProgress?.("synthesis", 75, "Sintetizando pesquisa...");

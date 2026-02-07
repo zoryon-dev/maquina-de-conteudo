@@ -34,6 +34,15 @@ const PROCESSING_STEPS = new Set<ArticleStepValue>([
   "optimization",
 ])
 
+export interface ArticleModelConfig {
+  default?: string
+  research?: string
+  outline?: string
+  production?: string
+  optimization?: string
+  image?: string
+}
+
 export interface ArticleFormData {
   title?: string
   primaryKeyword?: string
@@ -45,6 +54,7 @@ export interface ArticleFormData {
   customInstructions?: string
   authorName?: string
   model?: string
+  modelConfig?: ArticleModelConfig
   selectedOutlineId?: string
   projectId?: number
 }
@@ -71,8 +81,9 @@ export function ArticleWizardPage({
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Cleanup on unmount
+  // Cleanup on unmount (reset isMountedRef on every mount to handle StrictMode)
   useEffect(() => {
+    isMountedRef.current = true
     return () => {
       isMountedRef.current = false
       if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current)
@@ -83,6 +94,7 @@ export function ArticleWizardPage({
   // Load existing article
   useEffect(() => {
     if (!propArticleId) return
+    isMountedRef.current = true
 
     const loadArticle = async () => {
       try {
@@ -109,6 +121,7 @@ export function ArticleWizardPage({
           selectedOutlineId: data.selectedOutlineId ?? undefined,
           projectId: data.projectId ?? undefined,
         })
+
       } catch (err) {
         if (isMountedRef.current) {
           setError(err instanceof Error ? err.message : "Erro ao carregar artigo")
@@ -149,7 +162,11 @@ export function ArticleWizardPage({
       const response = await fetch(`/api/articles/${articleId}`)
       if (!response.ok) return null
       const data: Article = await response.json()
-      if (isMountedRef.current) setArticle(data)
+      if (isMountedRef.current) {
+        setArticle(data)
+      } else {
+        console.warn("[ArticleWizard] refreshArticle: isMountedRef is false, skipping setArticle")
+      }
       return data
     } catch {
       return null
@@ -159,6 +176,7 @@ export function ArticleWizardPage({
   // Polling for processing steps
   const startPolling = useCallback(() => {
     if (pollingRef.current) clearTimeout(pollingRef.current)
+    console.log(`[ArticleWizard] startPolling (currentStep="${currentStep}")`)
 
     const poll = async () => {
       const data = await refreshArticle()
@@ -172,6 +190,7 @@ export function ArticleWizardPage({
 
       // Check if step has advanced
       if (data.currentStep !== currentStep) {
+        console.log(`[ArticleWizard] Poll: step advanced "${currentStep}" → "${data.currentStep}"`)
         setCurrentStep(data.currentStep as ArticleStepValue)
         return // Stop polling — step changed
       }
@@ -179,17 +198,27 @@ export function ArticleWizardPage({
       // Continue polling if still processing
       if (progress && progress.percent !== undefined && progress.percent < 100) {
         pollingRef.current = setTimeout(poll, 2000)
+      } else {
+        console.log(`[ArticleWizard] Poll: done (percent=${progress?.percent}, step="${data.currentStep}")`)
       }
     }
 
     pollingRef.current = setTimeout(poll, 2000)
   }, [refreshArticle, currentStep])
 
+  // Map API stage names to UI step names (some stages differ from enum values)
+  const STAGE_TO_UI_STEP: Record<string, ArticleStepValue> = {
+    section_production: "production",
+  }
+
   // Submit a pipeline stage
   const submitStage = async (stage: string) => {
     if (!articleId) return
     setIsSubmitting(true)
     setError(null)
+
+    const uiStep = STAGE_TO_UI_STEP[stage] ?? (stage as ArticleStepValue)
+    console.log(`[ArticleWizard] submitStage: "${stage}" → UI step "${uiStep}"`)
 
     try {
       const response = await fetch(`/api/articles/${articleId}/submit`, {
@@ -203,8 +232,8 @@ export function ArticleWizardPage({
         throw new Error(data.error)
       }
 
-      // Move to the processing step
-      setCurrentStep(stage as ArticleStepValue)
+      // Move to the processing step (use mapped UI step)
+      setCurrentStep(uiStep)
       startPolling()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao enviar")
@@ -215,6 +244,7 @@ export function ArticleWizardPage({
 
   // Step 1: Create article & submit research
   const handleSubmitInputs = async () => {
+    console.log("[ArticleWizard] handleSubmitInputs: starting")
     setIsSubmitting(true)
     setError(null)
 
@@ -237,8 +267,8 @@ export function ArticleWizardPage({
         setArticleId(id)
         setArticle(newArticle)
 
-        // Update URL
-        router.replace(`/articles/${id}`, { scroll: false })
+        // Update URL without remount (avoid killing this component's state)
+        window.history.replaceState(null, "", `/articles/${id}`)
       } else {
         // Save inputs
         await fetch(`/api/articles/${id}`, {
@@ -290,6 +320,7 @@ export function ArticleWizardPage({
 
   // Handle polling completion (processing steps auto-advance)
   const handleProcessingComplete = async (nextStep: ArticleStepValue) => {
+    console.log(`[ArticleWizard] handleProcessingComplete → "${nextStep}"`)
     if (pollingRef.current) clearTimeout(pollingRef.current)
     await refreshArticle()
     setCurrentStep(nextStep)
@@ -376,6 +407,7 @@ export function ArticleWizardPage({
             <Step3Outline
               article={article}
               onSelect={handleOutlineSelected}
+              onRefresh={refreshArticle}
               isSubmitting={isSubmitting}
             />
           )}

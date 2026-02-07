@@ -80,6 +80,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       "customInstructions",
       "authorName",
       "model",
+      "modelConfig",
       "currentStep",
       "selectedOutlineId",
       "finalTitle",

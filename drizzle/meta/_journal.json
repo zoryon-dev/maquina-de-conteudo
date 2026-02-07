@@ -148,6 +148,27 @@
       "when": 1770459944024,
       "tag": "0020_optimal_nico_minoru",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1770475674181,
+      "tag": "0021_calm_quasimodo",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1770497192424,
+      "tag": "0022_foamy_solo",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1770497946371,
+      "tag": "0023_marvelous_tomas",
+      "breakpoints": true
     }
   ]
 }

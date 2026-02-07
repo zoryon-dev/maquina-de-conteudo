@@ -41,11 +41,13 @@ export function Step2Research({ article, onComplete, onRefresh }: Step2ResearchP
 
     // Check if step changed (research complete → outline)
     if (data.currentStep !== "research") {
+      console.log(`[Step2Research] Poll: step changed to "${data.currentStep}", calling onComplete`)
       onComplete()
       return
     }
 
-    // Continue polling
+    const p = data.processingProgress as ProcessingProgress | null
+    console.log(`[Step2Research] Poll: step="${data.currentStep}", progress=${p?.percent}%`)
     pollingRef.current = setTimeout(poll, 2500)
   }, [onRefresh, onComplete])
 

@@ -15,6 +15,29 @@ export function getArticleModel(userModel?: string): string {
   return userModel || ARTICLE_DEFAULT_MODEL;
 }
 
+export type ArticlePipelineStep = "research" | "outline" | "production" | "optimization" | "image";
+
+interface ModelConfig {
+  default?: string;
+  research?: string;
+  outline?: string;
+  production?: string;
+  optimization?: string;
+  image?: string;
+}
+
+/**
+ * Resolves the model to use for a given pipeline step.
+ * Fallback chain: modelConfig[step] → modelConfig.default → article.model → env default
+ */
+export function getModelForStep(
+  modelConfig: ModelConfig | null | undefined,
+  articleModel: string | null | undefined,
+  step: ArticlePipelineStep,
+): string {
+  return modelConfig?.[step] ?? modelConfig?.default ?? articleModel ?? ARTICLE_DEFAULT_MODEL;
+}
+
 export async function articleLlmCall(params: {
   model: string;
   systemPrompt: string;

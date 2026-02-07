@@ -13,7 +13,10 @@
 import { db } from "@/db";
 import { articles } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { getArticleModel } from "./llm";
+import { getArticleModel, getModelForStep, type ArticlePipelineStep } from "./llm";
+import { createJob } from "@/lib/queue/jobs";
+import { triggerWorker } from "@/lib/queue/client";
+import { JobType } from "@/lib/queue/types";
 import { runArticleResearch } from "./research.service";
 import { generateOutlines } from "./outline.service";
 import { produceSections } from "./section-producer.service";
@@ -27,6 +30,8 @@ import { analyzeInterlinking } from "./interlinking.service";
 import { generateArticleMetadata } from "./metadata.service";
 import type { ArticleOutline, ProducedSection, SiteUrlMapEntry, BrandVoiceProfile } from "../types";
 import { siteIntelligence, articleLinks, articleMetadata } from "@/db/schema";
+import { getUserVariables, enhancePromptWithVariables, type UserVariables } from "@/lib/wizard-services/user-variables.service";
+import { assembleRagContext } from "@/lib/rag/assembler";
 
 // ============================================================================
 // SAFE JSONB PARSING (ref: known-error 032-json-parse-object-error)
@@ -43,6 +48,59 @@ export function parseJSONB<T>(value: unknown): T | null {
     }
   }
   return null;
+}
+
+// ============================================================================
+// USER CONTEXT — Variables + RAG
+// ============================================================================
+
+interface UserContext {
+  variables: UserVariables;
+  variablesPrompt: string;
+  ragContext: string;
+}
+
+async function getUserContext(
+  userId: string,
+  ragConfig: { mode?: string; threshold?: number; maxChunks?: number; documents?: number[]; collections?: number[] } | null,
+  ragQuery: string,
+): Promise<UserContext> {
+  // Fetch user variables (always — graceful if empty)
+  const variables = await getUserVariables(userId);
+  const { context: variablesPrompt } = await import("@/lib/wizard-services/user-variables.service").then(
+    (m) => m.formatVariablesForPrompt(variables),
+  );
+
+  // Fetch RAG context if configured
+  let ragContext = "";
+  const shouldUseRag = ragConfig && ragConfig.mode !== "off";
+  if (shouldUseRag) {
+    try {
+      const ragResult = await assembleRagContext(userId, ragQuery, {
+        threshold: ragConfig.threshold,
+        maxChunks: ragConfig.maxChunks,
+        documentIds: ragConfig.documents,
+      });
+      if (ragResult.context) {
+        ragContext = ragResult.context;
+      }
+    } catch (err) {
+      console.warn("[Article Pipeline] RAG context fetch failed, continuing without:", err instanceof Error ? err.message : err);
+    }
+  }
+
+  return { variables, variablesPrompt, ragContext };
+}
+
+// ============================================================================
+// MODEL RESOLUTION HELPER
+// ============================================================================
+
+type ModelConfigType = { default?: string; research?: string; outline?: string; production?: string; optimization?: string; image?: string };
+
+function resolveModel(article: { model: string | null; modelConfig: unknown }, step: ArticlePipelineStep): string {
+  const config = parseJSONB<ModelConfigType>(article.modelConfig);
+  return getModelForStep(config, article.model, step);
 }
 
 // ============================================================================
@@ -65,10 +123,19 @@ async function updateArticleProgress(
 
 export async function handleArticleResearch(payload: unknown): Promise<void> {
   const { articleId } = payload as { articleId: number };
+  console.log(`[Article Pipeline] handleArticleResearch: starting for article ${articleId}`);
   const [article] = await db.select().from(articles).where(eq(articles.id, articleId)).limit(1);
   if (!article) throw new Error(`Article ${articleId} not found`);
 
-  const model = getArticleModel(article.model ?? undefined);
+  const model = resolveModel(article, "research");
+
+  // Fetch user context (variables + RAG)
+  const ragConfig = parseJSONB<{ mode?: string; threshold?: number; maxChunks?: number; documents?: number[]; collections?: number[] }>(article.ragConfig);
+  const userCtx = await getUserContext(
+    article.userId,
+    ragConfig,
+    `Research context for article about: ${article.primaryKeyword}`,
+  );
 
   const result = await runArticleResearch({
     referenceUrl: article.referenceUrl ?? undefined,
@@ -77,6 +144,8 @@ export async function handleArticleResearch(payload: unknown): Promise<void> {
     secondaryKeywords: parseJSONB<string[]>(article.secondaryKeywords) ?? undefined,
     articleType: article.articleType || "guia",
     model,
+    userVariablesPrompt: userCtx.variablesPrompt,
+    ragContext: userCtx.ragContext,
     onProgress: async (stage, percent, message) => {
       await updateArticleProgress(articleId, {
         processingProgress: { stage, percent, message },
@@ -86,13 +155,25 @@ export async function handleArticleResearch(payload: unknown): Promise<void> {
 
   if (!result.success) throw new Error(result.error);
 
+  console.log(`[Article Pipeline] Research complete for article ${articleId}, auto-chaining outline`);
+
   await updateArticleProgress(articleId, {
     extractedBaseContent: result.data.extractedBaseContent ? { content: result.data.extractedBaseContent } : null,
     extractedMotherContent: result.data.extractedMotherContent ? { content: result.data.extractedMotherContent } : null,
     researchResults: result.data.researchResults ? { raw: result.data.researchResults } : null,
     synthesizedResearch: result.data.synthesizedResearch ? { raw: result.data.synthesizedResearch } : null,
     currentStep: "outline",
+    processingProgress: { stage: "outline", percent: 0, message: "Iniciando geração de outlines..." },
   });
+
+  // Auto-create outline job so the pipeline continues
+  await createJob(article.userId, JobType.ARTICLE_OUTLINE, {
+    articleId: article.id,
+    userId: article.userId,
+  });
+  if (process.env.NODE_ENV === "development") {
+    triggerWorker().catch(console.error);
+  }
 }
 
 // ============================================================================
@@ -101,11 +182,16 @@ export async function handleArticleResearch(payload: unknown): Promise<void> {
 
 export async function handleArticleOutline(payload: unknown): Promise<void> {
   const { articleId } = payload as { articleId: number };
+  console.log(`[Article Pipeline] handleArticleOutline: starting for article ${articleId}`);
   const [article] = await db.select().from(articles).where(eq(articles.id, articleId)).limit(1);
   if (!article) throw new Error(`Article ${articleId} not found`);
 
-  const model = getArticleModel(article.model ?? undefined);
+  const model = resolveModel(article, "outline");
   const synthesized = parseJSONB<{ raw: string }>(article.synthesizedResearch);
+
+  // Fetch user variables for prompt enrichment
+  const userVariables = await getUserVariables(article.userId);
+  const { context: variablesPrompt } = (await import("@/lib/wizard-services/user-variables.service")).formatVariablesForPrompt(userVariables);
 
   const result = await generateOutlines({
     primaryKeyword: article.primaryKeyword!,
@@ -113,11 +199,15 @@ export async function handleArticleOutline(payload: unknown): Promise<void> {
     articleType: article.articleType || "guia",
     targetWordCount: article.targetWordCount || 2000,
     synthesizedResearch: synthesized?.raw || "",
-    customInstructions: article.customInstructions ?? undefined,
+    customInstructions: article.customInstructions
+      ? `${article.customInstructions}${variablesPrompt ? `\n\n${variablesPrompt}` : ""}`
+      : variablesPrompt || undefined,
     model,
   });
 
   if (!result.success) throw new Error(result.error);
+
+  console.log(`[Article Pipeline] Outline generation complete for article ${articleId} (${result.data.length} outlines)`);
 
   await updateArticleProgress(articleId, {
     generatedOutlines: result.data,
@@ -131,10 +221,11 @@ export async function handleArticleOutline(payload: unknown): Promise<void> {
 
 export async function handleArticleSectionProduction(payload: unknown): Promise<void> {
   const { articleId } = payload as { articleId: number };
+  console.log(`[Article Pipeline] handleArticleSectionProduction: starting for article ${articleId}`);
   const [article] = await db.select().from(articles).where(eq(articles.id, articleId)).limit(1);
   if (!article) throw new Error(`Article ${articleId} not found`);
 
-  const model = getArticleModel(article.model ?? undefined);
+  const model = resolveModel(article, "production");
   const outlines = parseJSONB<ArticleOutline[]>(article.generatedOutlines);
   const selectedId = article.selectedOutlineId;
 
@@ -147,13 +238,38 @@ export async function handleArticleSectionProduction(payload: unknown): Promise<
 
   const synthesized = parseJSONB<{ raw: string }>(article.synthesizedResearch);
 
+  // Fetch user context (variables + RAG + brand voice)
+  const ragConfig = parseJSONB<{ mode?: string; threshold?: number; maxChunks?: number; documents?: number[]; collections?: number[] }>(article.ragConfig);
+  const userCtx = await getUserContext(
+    article.userId,
+    ragConfig,
+    `Content production for article about: ${article.primaryKeyword} - ${selectedOutline.title}`,
+  );
+
+  // Load brand voice from site intelligence
+  let brandVoiceProfile: BrandVoiceProfile | undefined;
+  if (article.projectId) {
+    const [si] = await db
+      .select({ brandVoiceProfile: siteIntelligence.brandVoiceProfile })
+      .from(siteIntelligence)
+      .where(eq(siteIntelligence.projectId, article.projectId))
+      .limit(1);
+    if (si?.brandVoiceProfile) {
+      brandVoiceProfile = parseJSONB<BrandVoiceProfile>(si.brandVoiceProfile) ?? undefined;
+    }
+  }
+
   const result = await produceSections({
     outline: selectedOutline,
     primaryKeyword: article.primaryKeyword!,
     secondaryKeywords: parseJSONB<string[]>(article.secondaryKeywords) ?? undefined,
     articleType: article.articleType || "guia",
     synthesizedResearch: synthesized?.raw || "",
-    customInstructions: article.customInstructions ?? undefined,
+    ragContext: userCtx.ragContext || undefined,
+    brandVoiceProfile,
+    customInstructions: article.customInstructions
+      ? `${article.customInstructions}${userCtx.variablesPrompt ? `\n\n${userCtx.variablesPrompt}` : ""}`
+      : userCtx.variablesPrompt || undefined,
     model,
     onProgress: async (sectionIndex, totalSections, heading) => {
       await updateArticleProgress(articleId, {
@@ -170,10 +286,22 @@ export async function handleArticleSectionProduction(payload: unknown): Promise<
 
   if (!result.success) throw new Error(result.error);
 
+  console.log(`[Article Pipeline] Section production complete for article ${articleId}, auto-chaining assembly`);
+
   await updateArticleProgress(articleId, {
     producedSections: result.data,
-    currentStep: "assembly",
+    // Keep currentStep as "production" — assembly will change it to "assembly" when done
+    processingProgress: { stage: "assembly", percent: 0, message: "Montando artigo completo..." },
   });
+
+  // Auto-create assembly job (same pattern as research → outline)
+  await createJob(article.userId, JobType.ARTICLE_ASSEMBLY, {
+    articleId: article.id,
+    userId: article.userId,
+  });
+  if (process.env.NODE_ENV === "development") {
+    triggerWorker().catch(console.error);
+  }
 }
 
 // ============================================================================
@@ -182,10 +310,11 @@ export async function handleArticleSectionProduction(payload: unknown): Promise<
 
 export async function handleArticleAssembly(payload: unknown): Promise<void> {
   const { articleId } = payload as { articleId: number };
+  console.log(`[Article Pipeline] handleArticleAssembly: starting for article ${articleId}`);
   const [article] = await db.select().from(articles).where(eq(articles.id, articleId)).limit(1);
   if (!article) throw new Error(`Article ${articleId} not found`);
 
-  const model = getArticleModel(article.model ?? undefined);
+  const model = resolveModel(article, "production");
   const sections = parseJSONB<ProducedSection[]>(article.producedSections);
   if (!sections?.length) throw new Error("No produced sections found");
 
@@ -199,9 +328,11 @@ export async function handleArticleAssembly(payload: unknown): Promise<void> {
 
   if (!result.success) throw new Error(result.error);
 
+  console.log(`[Article Pipeline] Assembly complete for article ${articleId}`);
+
   await updateArticleProgress(articleId, {
     assembledContent: result.data.assembledArticle,
-    currentStep: "seo_geo_check",
+    currentStep: "assembly", // Review step — user reviews assembled content then submits SEO
     processingProgress: { stage: "assembly", percent: 100, message: "Artigo montado!" },
   });
 }
@@ -212,10 +343,11 @@ export async function handleArticleAssembly(payload: unknown): Promise<void> {
 
 export async function handleArticleSeoGeoCheck(payload: unknown): Promise<void> {
   const { articleId } = payload as { articleId: number };
+  console.log(`[Article Pipeline] handleArticleSeoGeoCheck: starting for article ${articleId}`);
   const [article] = await db.select().from(articles).where(eq(articles.id, articleId)).limit(1);
   if (!article) throw new Error(`Article ${articleId} not found`);
 
-  const model = getArticleModel(article.model ?? undefined);
+  const model = resolveModel(article, "optimization");
   const content = article.assembledContent || article.optimizedContent;
   if (!content) throw new Error("No assembled content found");
 
@@ -276,10 +408,11 @@ export async function handleArticleSeoGeoCheck(payload: unknown): Promise<void> 
 
 export async function handleArticleOptimization(payload: unknown): Promise<void> {
   const { articleId } = payload as { articleId: number };
+  console.log(`[Article Pipeline] handleArticleOptimization: starting for article ${articleId}`);
   const [article] = await db.select().from(articles).where(eq(articles.id, articleId)).limit(1);
   if (!article) throw new Error(`Article ${articleId} not found`);
 
-  const model = getArticleModel(article.model ?? undefined);
+  const model = resolveModel(article, "optimization");
   const content = article.assembledContent;
   const seoReport = parseJSONB<Record<string, unknown>>(article.seoReport);
   const geoReport = parseJSONB<Record<string, unknown>>(article.geoReport);
@@ -375,7 +508,7 @@ export async function handleArticleInterlinking(payload: unknown): Promise<void>
   const [article] = await db.select().from(articles).where(eq(articles.id, articleId)).limit(1);
   if (!article) throw new Error(`Article ${articleId} not found`);
 
-  const model = getArticleModel(article.model ?? undefined);
+  const model = resolveModel(article, "optimization");
   const content = article.optimizedContent || article.assembledContent;
   if (!content) throw new Error("No article content found");
 
@@ -462,7 +595,7 @@ export async function handleArticleMetadata(payload: unknown): Promise<void> {
   const [article] = await db.select().from(articles).where(eq(articles.id, articleId)).limit(1);
   if (!article) throw new Error(`Article ${articleId} not found`);
 
-  const model = getArticleModel(article.model ?? undefined);
+  const model = resolveModel(article, "optimization");
   const content = article.optimizedContent || article.assembledContent;
   if (!content) throw new Error("No article content found");
 

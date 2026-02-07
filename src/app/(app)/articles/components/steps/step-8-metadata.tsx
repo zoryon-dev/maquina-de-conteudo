@@ -18,6 +18,8 @@ import {
   Link2,
   Tags,
   Sparkles,
+  ImageIcon,
+  RefreshCw,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -25,7 +27,17 @@ import { InterlinkingReview } from "../shared/interlinking-review"
 import { MetadataPreview } from "../shared/metadata-preview"
 import type { Article } from "@/db/schema"
 
-type TabId = "article" | "links" | "metadata"
+type TabId = "article" | "links" | "metadata" | "image"
+
+interface ArticleImageRecord {
+  id: number
+  imageType: string
+  imageUrl: string
+  altText?: string | null
+  promptUsed?: string | null
+  modelUsed?: string | null
+  createdAt: string
+}
 
 interface Step8MetadataProps {
   article: Article | null
@@ -40,6 +52,8 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
   const [metadata, setMetadata] = useState<any>(null)
   const [isGeneratingLinks, setIsGeneratingLinks] = useState(false)
   const [isGeneratingMeta, setIsGeneratingMeta] = useState(false)
+  const [featuredImage, setFeaturedImage] = useState<ArticleImageRecord | null>(null)
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false)
 
   const content = article?.finalContent || article?.optimizedContent || ""
   const seoScore = article?.seoScore
@@ -58,6 +72,20 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (data?.links) setLinks(data.links)
+      })
+      .catch(() => {})
+  }, [article?.id])
+
+  // Load featured image
+  useEffect(() => {
+    if (!article?.id) return
+    fetch(`/api/articles/${article.id}/images`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.images?.length > 0) {
+          const featured = data.images.find((img: ArticleImageRecord) => img.imageType === "featured")
+          if (featured) setFeaturedImage(featured)
+        }
       })
       .catch(() => {})
   }, [article?.id])
@@ -127,6 +155,26 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
     }
   }
 
+  const handleGenerateImage = async () => {
+    if (!article?.id) return
+    setIsGeneratingImage(true)
+    try {
+      const res = await fetch(`/api/articles/${article.id}/images`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ autoPrompt: true, imageType: "featured" }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data?.image) setFeaturedImage(data.image)
+      }
+    } catch {
+      // Silent fail
+    } finally {
+      setIsGeneratingImage(false)
+    }
+  }
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(content)
@@ -161,6 +209,7 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
 
   const TABS: { id: TabId; label: string; icon: typeof FileText; count?: number }[] = [
     { id: "article", label: "Artigo", icon: FileText },
+    { id: "image", label: "Imagem", icon: ImageIcon },
     { id: "links", label: "Links", icon: Link2, count: links.length },
     { id: "metadata", label: "Metadados", icon: Tags },
   ]
@@ -265,6 +314,65 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
               return <p key={i} className="text-white/70 text-sm leading-relaxed mb-2">{line}</p>
             })}
           </div>
+        </div>
+      )}
+
+      {activeTab === "image" && (
+        <div className="space-y-4">
+          {!featuredImage && !isGeneratingImage && (
+            <div className="text-center py-8 space-y-3">
+              <ImageIcon className="h-8 w-8 text-white/20 mx-auto" />
+              <p className="text-sm text-white/40">
+                Gere uma imagem destacada automaticamente a partir do conteúdo do artigo
+              </p>
+              <Button
+                size="sm"
+                onClick={handleGenerateImage}
+                className="bg-primary text-black hover:bg-primary/90"
+              >
+                <Sparkles className="h-3.5 w-3.5 mr-1" />
+                Gerar Imagem Destacada
+              </Button>
+            </div>
+          )}
+          {isGeneratingImage && (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <p className="text-sm text-white/50">Gerando imagem destacada...</p>
+            </div>
+          )}
+          {featuredImage && !isGeneratingImage && (
+            <div className="space-y-4">
+              <div className="relative rounded-xl border border-white/10 overflow-hidden bg-white/[0.02]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={featuredImage.imageUrl}
+                  alt={featuredImage.altText || "Imagem destacada do artigo"}
+                  className="w-full aspect-video object-cover"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-white/40 space-y-1">
+                  {featuredImage.modelUsed && (
+                    <p>Modelo: {featuredImage.modelUsed}</p>
+                  )}
+                  {featuredImage.altText && (
+                    <p>Alt: {featuredImage.altText}</p>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleGenerateImage}
+                  className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                  Regenerar
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

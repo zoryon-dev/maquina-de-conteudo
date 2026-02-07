@@ -16,13 +16,35 @@ import {
   MessageSquare,
   Target,
   User,
+  Cpu,
+  ChevronDown,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { CollapsibleSection } from "@/components/ui/collapsible"
-import type { ArticleFormData } from "../article-wizard-page"
+import type { ArticleFormData, ArticleModelConfig } from "../article-wizard-page"
+
+const TEXT_MODELS = [
+  { value: "openai/gpt-5-mini", label: "GPT-5 Mini", provider: "OpenAI" },
+  { value: "openai/gpt-5.1", label: "GPT-5.1", provider: "OpenAI" },
+  { value: "openai/gpt-4.1-mini", label: "GPT-4.1 Mini", provider: "OpenAI" },
+  { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5", provider: "Anthropic" },
+  { value: "anthropic/claude-opus-4.5", label: "Claude Opus 4.5", provider: "Anthropic" },
+  { value: "anthropic/claude-haiku-4.5", label: "Claude Haiku 4.5", provider: "Anthropic" },
+  { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash", provider: "Google" },
+  { value: "google/gemini-3-pro-preview", label: "Gemini 3 Pro", provider: "Google" },
+  { value: "x-ai/grok-4.1-fast", label: "Grok 4.1 Fast", provider: "xAI" },
+  { value: "x-ai/grok-4", label: "Grok 4", provider: "xAI" },
+]
+
+const MODEL_STEPS: Array<{ key: keyof ArticleModelConfig; label: string }> = [
+  { key: "research", label: "Pesquisa" },
+  { key: "outline", label: "Outline" },
+  { key: "production", label: "Produção" },
+  { key: "optimization", label: "Otimização" },
+]
 
 const ARTICLE_TYPES = [
   { value: "guia", label: "Guia Completo", description: "Tutorial passo a passo" },
@@ -59,6 +81,7 @@ export function Step1Inputs({
   const [secondaryInput, setSecondaryInput] = useState(
     formData.secondaryKeywords?.join(", ") || "",
   )
+  const [showAdvancedModels, setShowAdvancedModels] = useState(false)
 
   const handleSecondaryChange = (val: string) => {
     setSecondaryInput(val)
@@ -69,10 +92,20 @@ export function Step1Inputs({
     updateField("secondaryKeywords", keywords.length > 0 ? keywords : undefined)
   }
 
+  const updateModelConfig = (key: keyof ArticleModelConfig, value: string) => {
+    const current = formData.modelConfig || {}
+    const updated = { ...current, [key]: value || undefined }
+    // Remove empty keys
+    for (const k of Object.keys(updated) as Array<keyof ArticleModelConfig>) {
+      if (!updated[k]) delete updated[k]
+    }
+    updateField("modelConfig", Object.keys(updated).length > 0 ? updated : undefined)
+  }
+
   const canSubmit = !!formData.primaryKeyword?.trim()
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6">
       {/* Section 1: Keywords */}
       <CollapsibleSection
         title="1. Keywords"
@@ -227,6 +260,79 @@ export function Step1Inputs({
               className={inputClasses}
             />
           </div>
+
+          {/* Model Selection */}
+          <div>
+            <Label className="text-white/70 text-sm flex items-center gap-2 mb-2">
+              <Cpu size={14} />
+              Modelo de IA
+            </Label>
+            <select
+              value={formData.modelConfig?.default || formData.model || ""}
+              onChange={(e) => {
+                if (e.target.value) {
+                  updateModelConfig("default", e.target.value)
+                } else {
+                  // Clear model config default
+                  const current = formData.modelConfig || {}
+                  const { default: _, ...rest } = current
+                  updateField("modelConfig", Object.keys(rest).length > 0 ? rest : undefined)
+                }
+              }}
+              className={`w-full h-10 rounded-md px-3 text-sm ${inputClasses}`}
+            >
+              <option value="" className="bg-[#1a1a2e]">Padrão do sistema</option>
+              {["OpenAI", "Anthropic", "Google", "xAI"].map((provider) => (
+                <optgroup key={provider} label={provider} className="bg-[#1a1a2e]">
+                  {TEXT_MODELS.filter((m) => m.provider === provider).map((m) => (
+                    <option key={m.value} value={m.value} className="bg-[#1a1a2e]">
+                      {m.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <p className="text-white/30 text-xs mt-1">
+              Usado em todas as etapas do pipeline
+            </p>
+          </div>
+
+          {/* Advanced: Per-step model */}
+          <button
+            type="button"
+            onClick={() => setShowAdvancedModels(!showAdvancedModels)}
+            className="flex items-center gap-2 text-white/40 hover:text-white/60 text-xs transition-colors"
+          >
+            <ChevronDown
+              size={12}
+              className={`transition-transform ${showAdvancedModels ? "rotate-180" : ""}`}
+            />
+            Modelo por etapa (avançado)
+          </button>
+
+          {showAdvancedModels && (
+            <div className="space-y-3 pl-3 border-l border-white/10">
+              {MODEL_STEPS.map((step) => (
+                <div key={step.key}>
+                  <Label className="text-white/50 text-xs mb-1 block">
+                    {step.label}
+                  </Label>
+                  <select
+                    value={formData.modelConfig?.[step.key] || ""}
+                    onChange={(e) => updateModelConfig(step.key, e.target.value)}
+                    className={`w-full h-9 rounded-md px-3 text-xs ${inputClasses}`}
+                  >
+                    <option value="" className="bg-[#1a1a2e]">Usar modelo padrão</option>
+                    {TEXT_MODELS.map((m) => (
+                      <option key={m.value} value={m.value} className="bg-[#1a1a2e]">
+                        {m.label} ({m.provider})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </CollapsibleSection>
 
