@@ -51,6 +51,7 @@ export const jobTypeEnum = pgEnum("job_type", [
   "article_assembly",
   "article_seo_geo_check",
   "article_optimization",
+  "article_interlinking",
   "article_metadata",
   "article_cross_format",
   "site_intelligence_crawl",

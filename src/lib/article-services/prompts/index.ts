@@ -24,3 +24,9 @@ export {
   getBrandVoiceExtractorPrompt,
   getKeywordGapAnalyzerPrompt,
 } from "./site-intelligence";
+
+// Interlinking prompt (IL-01)
+export { getInterlinkingPrompt } from "./interlinking";
+
+// Metadata prompt (META-01)
+export { getMetadataGeneratorPrompt } from "./metadata";

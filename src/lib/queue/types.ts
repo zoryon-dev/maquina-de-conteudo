@@ -23,6 +23,8 @@ export enum JobType {
   ARTICLE_ASSEMBLY = "article_assembly",
   ARTICLE_SEO_GEO_CHECK = "article_seo_geo_check",
   ARTICLE_OPTIMIZATION = "article_optimization",
+  ARTICLE_INTERLINKING = "article_interlinking",
+  ARTICLE_METADATA = "article_metadata",
   // Site Intelligence jobs
   SITE_INTELLIGENCE_CRAWL = "site_intelligence_crawl",
   SITE_INTELLIGENCE_ANALYZE = "site_intelligence_analyze",

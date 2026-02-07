@@ -25,6 +25,8 @@ const STAGE_TO_JOB_TYPE: Record<string, JobType> = {
   assembly: JobType.ARTICLE_ASSEMBLY,
   seo_geo_check: JobType.ARTICLE_SEO_GEO_CHECK,
   optimization: JobType.ARTICLE_OPTIMIZATION,
+  interlinking: JobType.ARTICLE_INTERLINKING,
+  metadata: JobType.ARTICLE_METADATA,
 };
 
 const STAGE_TO_NEXT_STEP: Record<string, string> = {
@@ -34,6 +36,8 @@ const STAGE_TO_NEXT_STEP: Record<string, string> = {
   assembly: "assembly",
   seo_geo_check: "seo_geo_check",
   optimization: "optimization",
+  interlinking: "metadata", // After interlinking, moves to metadata step
+  metadata: "metadata",
 };
 
 type RouteContext = { params: Promise<{ id: string }> };

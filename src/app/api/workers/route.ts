@@ -57,6 +57,8 @@ import {
   handleArticleAssembly,
   handleArticleSeoGeoCheck,
   handleArticleOptimization,
+  handleArticleInterlinking,
+  handleArticleMetadata,
   crawlSite,
   extractBrandVoice,
   analyzeKeywordGaps,
@@ -1627,6 +1629,16 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
   article_optimization: async (payload: unknown) => {
     await handleArticleOptimization(payload);
     return { success: true, stage: "optimization" };
+  },
+
+  article_interlinking: async (payload: unknown) => {
+    await handleArticleInterlinking(payload);
+    return { success: true, stage: "interlinking" };
+  },
+
+  article_metadata: async (payload: unknown) => {
+    await handleArticleMetadata(payload);
+    return { success: true, stage: "metadata" };
   },
 
   // ========================================================================

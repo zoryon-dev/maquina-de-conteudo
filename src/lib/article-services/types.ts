@@ -137,12 +137,15 @@ export interface SeoMetadataPackage {
     text: string;
     charCount: number;
     includesKeyword: boolean;
+    ctrScore?: number;
+    style?: string;
   }>;
   metaDescriptions: Array<{
     text: string;
     charCount: number;
     includesKeyword: boolean;
     includesCta: boolean;
+    style?: string;
   }>;
   slug: string;
   altTexts: Array<{
@@ -157,7 +160,9 @@ export interface SeoMetadataPackage {
     sourceUrl: string;
     anchorText: string;
     context: string;
+    targetArticleTypes?: string[];
   }>;
+  suggestedCategory?: string;
 }
 
 // ============================================================================
@@ -170,12 +175,19 @@ export interface InterlinkingSuggestion {
   relevanceScore: number;
   insertionPoint: string;
   rationale: string;
+  targetTitle?: string;
+  contextSentence?: string;
+  naturalnessScore?: number;
+  readerValueScore?: number;
 }
 
 export interface ReverseLinkSuggestion {
   sourceUrl: string;
   anchorText: string;
   insertionContext: string;
+  sourceTitle?: string;
+  relevanceScore?: number;
+  rationale?: string;
 }
 
 // ============================================================================

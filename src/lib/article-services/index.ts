@@ -27,6 +27,13 @@ export {
   isSiteIntelligenceFresh,
 } from "./services/site-intelligence.service";
 
+// Interlinking
+export { analyzeInterlinking } from "./services/interlinking.service";
+export type { InterlinkingResult } from "./services/interlinking.service";
+
+// Metadata
+export { generateArticleMetadata } from "./services/metadata.service";
+
 // Pipeline handlers (used by worker)
 export {
   handleArticleResearch,
@@ -35,4 +42,6 @@ export {
   handleArticleAssembly,
   handleArticleSeoGeoCheck,
   handleArticleOptimization,
+  handleArticleInterlinking,
+  handleArticleMetadata,
 } from "./services/pipeline.service";
