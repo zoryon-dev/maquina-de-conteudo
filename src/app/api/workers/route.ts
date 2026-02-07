@@ -20,7 +20,7 @@ import { jobs, documents, documentEmbeddings, contentWizards, libraryItems } fro
 import { eq, and, desc } from "drizzle-orm";
 import { splitDocumentIntoChunks } from "@/lib/voyage/chunking";
 import { generateEmbeddingsBatch } from "@/lib/voyage/embeddings";
-import type { DocumentEmbeddingPayload, WizardNarrativesPayload, WizardGenerationPayload, WizardImageGenerationPayload, WizardThumbnailGenerationPayload } from "@/lib/queue/types";
+import type { DocumentEmbeddingPayload, WizardNarrativesPayload, WizardGenerationPayload, WizardImageGenerationPayload, WizardThumbnailGenerationPayload, ArticlePipelinePayload } from "@/lib/queue/types";
 import type { WizardProcessingProgress } from "@/db/schema";
 
 // Wizard services - background job processing
@@ -48,6 +48,16 @@ import {
 
 import type { SynthesizerInput, SynthesizedResearch, ResearchPlannerOutput, ResearchQuery } from "@/lib/wizard-services";
 import type { SearchResult } from "@/lib/wizard-services/types";
+
+// Article Wizard pipeline handlers
+import {
+  handleArticleResearch,
+  handleArticleOutline,
+  handleArticleSectionProduction,
+  handleArticleAssembly,
+  handleArticleSeoGeoCheck,
+  handleArticleOptimization,
+} from "@/lib/article-services";
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -1579,6 +1589,40 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       // Include warnings so caller knows about partial failures
       warnings: warnings.length > 0 ? warnings : undefined,
     };
+  },
+
+  // ========================================================================
+  // ARTICLE WIZARD PIPELINE HANDLERS
+  // ========================================================================
+
+  article_research: async (payload: unknown) => {
+    await handleArticleResearch(payload);
+    return { success: true, stage: "research" };
+  },
+
+  article_outline: async (payload: unknown) => {
+    await handleArticleOutline(payload);
+    return { success: true, stage: "outline" };
+  },
+
+  article_section_production: async (payload: unknown) => {
+    await handleArticleSectionProduction(payload);
+    return { success: true, stage: "section_production" };
+  },
+
+  article_assembly: async (payload: unknown) => {
+    await handleArticleAssembly(payload);
+    return { success: true, stage: "assembly" };
+  },
+
+  article_seo_geo_check: async (payload: unknown) => {
+    await handleArticleSeoGeoCheck(payload);
+    return { success: true, stage: "seo_geo_check" };
+  },
+
+  article_optimization: async (payload: unknown) => {
+    await handleArticleOptimization(payload);
+    return { success: true, stage: "optimization" };
   },
 };
 

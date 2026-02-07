@@ -613,6 +613,13 @@ mkdir -p src/app/api/articles/site-intelligence/crawl
 
 ## Fase 1 — Pipeline Base de Artigos (9 Prompts) {#fase-1}
 
+> **✅ STATUS: CONCLUÍDA**
+> - Etapa 1.1 (Prompts): 10 prompts em `prompts/base-pipeline.ts` + `extractArticleJSON` utility
+> - Etapa 1.2 (Services): 8 services (llm, research, outline, section-producer, assembler, seo-analyzer, seo-optimizer, title-generator) + pipeline orchestrator
+> - Etapa 1.3 (API Routes): CRUD `/api/articles`, submit `/api/articles/[id]/submit`, 6 article handlers no worker
+> - Queue types: `ArticlePipelinePayload` + 6 `JobType` entries
+> - Fix: `db.query.articles` → `db.select().from(articles)` (db sem schema generic)
+
 ### Objetivo
 Implementar os 9 prompts do pipeline base que geram um artigo do zero.
 
