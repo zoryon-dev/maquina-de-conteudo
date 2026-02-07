@@ -969,6 +969,13 @@ Adicionar item "Artigos" com ícone `FileText` do Lucide.
 
 ## Fase 3 — Módulo Site Intelligence (Pré-Pipeline) {#fase-3}
 
+> **STATUS:** ✅ CONCLUÍDA
+> - Etapa 3.1: Services (crawlSite, extractBrandVoice, analyzeKeywordGaps) + Prompts (SI-02, SI-03)
+> - Etapa 3.2: API routes (GET/POST SI, POST crawl trigger) + Worker handlers (crawl → auto-analyze pipeline)
+> - Etapa 3.3: Settings UI (Projects tab com SI dashboard) + Projects API + Cache 7 dias
+> - JobTypes: SITE_INTELLIGENCE_CRAWL, SITE_INTELLIGENCE_ANALYZE
+> - Arquivos criados: 6 novos, 5 modificados
+
 ### Objetivo
 Implementar crawling do site, extração de brand voice e análise de gaps.
 

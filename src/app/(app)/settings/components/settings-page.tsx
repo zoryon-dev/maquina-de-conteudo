@@ -15,6 +15,7 @@ import { ModelsSection } from "./sections/models-section"
 import { PromptsSection } from "./sections/prompts-section"
 import { VariablesSection } from "./sections/variables-section"
 import { SocialSection } from "./sections/social-section"
+import { ProjectsSection } from "./sections/projects-section"
 
 /**
  * Loading skeleton for settings content
@@ -86,6 +87,7 @@ export function SettingsPage() {
               <VariablesSection />
             )}
             {activeTab === "social" && <SocialSection />}
+            {activeTab === "projects" && <ProjectsSection />}
           </>
         )}
       </div>

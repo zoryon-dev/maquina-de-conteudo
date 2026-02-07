@@ -23,6 +23,9 @@ export enum JobType {
   ARTICLE_ASSEMBLY = "article_assembly",
   ARTICLE_SEO_GEO_CHECK = "article_seo_geo_check",
   ARTICLE_OPTIMIZATION = "article_optimization",
+  // Site Intelligence jobs
+  SITE_INTELLIGENCE_CRAWL = "site_intelligence_crawl",
+  SITE_INTELLIGENCE_ANALYZE = "site_intelligence_analyze",
 }
 
 // Status dos jobs
@@ -243,6 +246,17 @@ export interface ArticlePipelinePayload {
   userId: string;
 }
 
+/**
+ * Payload for site intelligence jobs (crawl + analyze)
+ */
+export interface SiteIntelligencePayload {
+  siteIntelligenceId: number;
+  projectId: number;
+  siteUrl: string;
+  competitorUrls?: string[];
+  userId: string;
+}
+
 // Tipo union de todos os payloads
 export type JobPayload =
   | AiTextGenerationPayload
@@ -255,7 +269,8 @@ export type JobPayload =
   | WizardGenerationPayload
   | WizardImageGenerationPayload
   | WizardThumbnailGenerationPayload
-  | ArticlePipelinePayload;
+  | ArticlePipelinePayload
+  | SiteIntelligencePayload;
 
 // Estrutura de um job
 export interface QueueJob {

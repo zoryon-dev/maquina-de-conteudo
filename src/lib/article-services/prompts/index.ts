@@ -18,3 +18,9 @@ export {
   getTitleGeneratorPrompt,
   extractArticleJSON,
 } from "./base-pipeline";
+
+// Site Intelligence prompts (SI-02, SI-03)
+export {
+  getBrandVoiceExtractorPrompt,
+  getKeywordGapAnalyzerPrompt,
+} from "./site-intelligence";

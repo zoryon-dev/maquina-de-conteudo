@@ -7,7 +7,7 @@
 "use client"
 
 import * as React from "react"
-import { Server, Cpu, MessageSquare, Sliders, Share2 } from "lucide-react"
+import { Server, Cpu, MessageSquare, Sliders, Share2, Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 /**
@@ -19,6 +19,7 @@ export type TabValue =
   | "prompts"
   | "variables"
   | "social"
+  | "projects"
 
 /**
  * Tab configuration
@@ -60,6 +61,12 @@ const TABS: TabConfig[] = [
     label: "Redes Sociais",
     icon: Share2,
     description: "Instagram e Facebook",
+  },
+  {
+    value: "projects",
+    label: "Projetos",
+    icon: Globe,
+    description: "Site Intelligence e projetos",
   },
 ]
 

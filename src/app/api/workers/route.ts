@@ -20,7 +20,7 @@ import { jobs, documents, documentEmbeddings, contentWizards, libraryItems } fro
 import { eq, and, desc } from "drizzle-orm";
 import { splitDocumentIntoChunks } from "@/lib/voyage/chunking";
 import { generateEmbeddingsBatch } from "@/lib/voyage/embeddings";
-import type { DocumentEmbeddingPayload, WizardNarrativesPayload, WizardGenerationPayload, WizardImageGenerationPayload, WizardThumbnailGenerationPayload, ArticlePipelinePayload } from "@/lib/queue/types";
+import type { DocumentEmbeddingPayload, WizardNarrativesPayload, WizardGenerationPayload, WizardImageGenerationPayload, WizardThumbnailGenerationPayload, ArticlePipelinePayload, SiteIntelligencePayload } from "@/lib/queue/types";
 import type { WizardProcessingProgress } from "@/db/schema";
 
 // Wizard services - background job processing
@@ -57,7 +57,11 @@ import {
   handleArticleAssembly,
   handleArticleSeoGeoCheck,
   handleArticleOptimization,
+  crawlSite,
+  extractBrandVoice,
+  analyzeKeywordGaps,
 } from "@/lib/article-services";
+import { siteIntelligence } from "@/db/schema";
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -1623,6 +1627,148 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
   article_optimization: async (payload: unknown) => {
     await handleArticleOptimization(payload);
     return { success: true, stage: "optimization" };
+  },
+
+  // ========================================================================
+  // SITE INTELLIGENCE HANDLERS
+  // ========================================================================
+
+  /**
+   * Site Intelligence — Crawl Handler
+   *
+   * 1. Crawl site URLs via Firecrawl /map
+   * 2. Extract brand voice from sample pages
+   * 3. Store urlMap + brandVoice in siteIntelligence table
+   * 4. Create analyze job automatically
+   */
+  site_intelligence_crawl: async (payload: unknown) => {
+    const { siteIntelligenceId, projectId, siteUrl, competitorUrls, userId } =
+      payload as SiteIntelligencePayload;
+
+    // 1. Crawl site
+    await db
+      .update(siteIntelligence)
+      .set({ status: "crawling", updatedAt: new Date() })
+      .where(eq(siteIntelligence.id, siteIntelligenceId));
+
+    const crawlResult = await crawlSite(siteUrl, { maxPages: 50 });
+
+    if (!crawlResult.success) {
+      await db
+        .update(siteIntelligence)
+        .set({ status: "error", error: crawlResult.error, updatedAt: new Date() })
+        .where(eq(siteIntelligence.id, siteIntelligenceId));
+      throw new Error(`Crawl failed: ${crawlResult.error}`);
+    }
+
+    const urlMap = crawlResult.data ?? [];
+
+    // 2. Extract brand voice from top pages (up to 5)
+    const sampleUrls = urlMap
+      .sort((a, b) => (b.wordCount ?? 0) - (a.wordCount ?? 0))
+      .slice(0, 5)
+      .map((e) => e.url);
+
+    let brandVoice = null;
+    if (sampleUrls.length > 0) {
+      const brandResult = await extractBrandVoice({
+        brandName: new URL(siteUrl).hostname,
+        sampleUrls,
+        model: "google/gemini-2.0-flash-001",
+      });
+      if (brandResult.success) {
+        brandVoice = brandResult.data;
+      }
+    }
+
+    // 3. Save results
+    await db
+      .update(siteIntelligence)
+      .set({
+        urlMap: urlMap as any,
+        brandVoiceProfile: brandVoice as any,
+        crawledAt: new Date(),
+        status: "analyzing",
+        updatedAt: new Date(),
+      })
+      .where(eq(siteIntelligence.id, siteIntelligenceId));
+
+    // 4. Auto-create analyze job if there are competitors
+    if (competitorUrls && competitorUrls.length > 0) {
+      const { createJob: createJobFn } = await import("@/lib/queue/jobs");
+      const { JobType: JT } = await import("@/lib/queue/types");
+      await createJobFn(userId, JT.SITE_INTELLIGENCE_ANALYZE as any, {
+        siteIntelligenceId,
+        projectId,
+        siteUrl,
+        competitorUrls,
+        userId,
+      });
+
+      const isDev = process.env.NODE_ENV === "development";
+      if (isDev) {
+        const { triggerWorker } = await import("@/lib/queue/client");
+        triggerWorker().catch(() => {});
+      }
+    } else {
+      // No competitors — mark as complete
+      await db
+        .update(siteIntelligence)
+        .set({ status: "complete", updatedAt: new Date() })
+        .where(eq(siteIntelligence.id, siteIntelligenceId));
+    }
+
+    return { success: true, urlMapSize: urlMap.length, hasBrandVoice: !!brandVoice };
+  },
+
+  /**
+   * Site Intelligence — Analyze Handler
+   *
+   * 1. Load existing urlMap from DB
+   * 2. Run keyword gap analysis vs competitors
+   * 3. Store keywordGaps and mark as ready
+   */
+  site_intelligence_analyze: async (payload: unknown) => {
+    const { siteIntelligenceId, siteUrl, competitorUrls, userId } =
+      payload as SiteIntelligencePayload;
+
+    // 1. Get SI record with urlMap
+    const [si] = await db
+      .select()
+      .from(siteIntelligence)
+      .where(eq(siteIntelligence.id, siteIntelligenceId))
+      .limit(1);
+
+    if (!si) {
+      throw new Error(`SiteIntelligence ${siteIntelligenceId} not found`);
+    }
+
+    await db
+      .update(siteIntelligence)
+      .set({ status: "analyzing", updatedAt: new Date() })
+      .where(eq(siteIntelligence.id, siteIntelligenceId));
+
+    // 2. Run keyword gap analysis
+    const urlMap = (si.urlMap as any[]) || [];
+    const gaps = await analyzeKeywordGaps({
+      siteUrlMap: urlMap,
+      competitorUrls: competitorUrls || [],
+      targetNiche: new URL(siteUrl).hostname,
+      model: "google/gemini-2.0-flash-001",
+    });
+
+    // 3. Save results
+    await db
+      .update(siteIntelligence)
+      .set({
+        keywordGaps: gaps.success ? (gaps.data as any) : null,
+        status: "complete",
+        error: gaps.success ? null : gaps.error,
+        updatedAt: new Date(),
+      })
+      .where(eq(siteIntelligence.id, siteIntelligenceId));
+
+    return { success: true, gapsFound: gaps.success ? gaps.data?.length ?? 0 : 0 };
   },
 };
 

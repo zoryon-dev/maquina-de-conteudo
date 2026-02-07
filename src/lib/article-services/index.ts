@@ -19,6 +19,14 @@ export { analyzeSeo } from "./services/seo-analyzer.service";
 export { optimizeSeo } from "./services/seo-optimizer.service";
 export { generateTitles } from "./services/title-generator.service";
 
+// Site Intelligence
+export {
+  crawlSite,
+  extractBrandVoice,
+  analyzeKeywordGaps,
+  isSiteIntelligenceFresh,
+} from "./services/site-intelligence.service";
+
 // Pipeline handlers (used by worker)
 export {
   handleArticleResearch,

@@ -196,23 +196,37 @@ export interface SiteUrlMapEntry {
 
 export interface BrandVoiceProfile {
   tone: string;
-  vocabulary: string[];
-  sentencePatterns: string[];
-  formatting: {
+  formalityLevel?: string;
+  personality?: string;
+  person?: string;
+  vocabularyPatterns?: string[];
+  avoidedTerms?: string[];
+  writingGuidelines?: string[];
+  samplePhrases?: Record<string, string[]>;
+  // Legacy fields
+  vocabulary?: string[];
+  sentencePatterns?: string[];
+  formatting?: {
     headingStyle: string;
     paragraphLength: string;
     listUsage: string;
   };
-  avoidPatterns: string[];
+  avoidPatterns?: string[];
 }
 
 export interface KeywordGap {
   keyword: string;
+  searchVolumeEstimate?: "alto" | "médio" | "baixo";
+  competitionLevel?: "alto" | "médio" | "baixo";
+  suggestedArticleType?: string;
+  suggestedAngle?: string;
+  priorityScore?: number;
+  isCritical?: boolean;
+  // Legacy fields
   searchVolume?: number;
   difficulty?: number;
   currentPosition?: number;
-  opportunity: "high" | "medium" | "low";
-  suggestedArticleType?: ArticleType;
+  opportunity?: "high" | "medium" | "low";
 }
 
 // ============================================================================
