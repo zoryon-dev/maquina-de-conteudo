@@ -34,6 +34,12 @@ export type { InterlinkingResult } from "./services/interlinking.service";
 // Metadata
 export { generateArticleMetadata } from "./services/metadata.service";
 
+// GEO
+export { analyzeGeo } from "./services/geo-analyzer.service";
+export type { GeoAnalysisResult } from "./services/geo-analyzer.service";
+export { optimizeGeo } from "./services/geo-optimizer.service";
+export type { GeoOptimizationResult } from "./services/geo-optimizer.service";
+
 // Pipeline handlers (used by worker)
 export {
   handleArticleResearch,

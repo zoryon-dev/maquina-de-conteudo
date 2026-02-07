@@ -109,23 +109,36 @@ export interface SeoReport {
 
 export interface GeoSubScore {
   score: number;
-  findings: string[];
+  issues: string[];
   recommendations: string[];
+  // criterion-specific extras
+  statsFound?: number;
+  statsWithoutSource?: number;
+  missingSubtopics?: string[];
+}
+
+export interface GeoPriorityFix {
+  fix: string;
+  impact: "alto" | "médio" | "baixo";
+  effort: "alto" | "médio" | "baixo";
+  criterion: string;
+  estimatedScoreImprovement: number;
 }
 
 export interface GeoReport {
   overallScore: number;
+  targetQueries?: string[];
   directAnswers: GeoSubScore;
   citableData: GeoSubScore;
   extractableStructure: GeoSubScore;
   authorityEeat: GeoSubScore;
   topicCoverage: GeoSubScore;
   schemaMetadata: GeoSubScore;
-  priorityFixes: Array<{
-    area: string;
-    fix: string;
-    impact: "high" | "medium" | "low";
-  }>;
+  priorityFixes: GeoPriorityFix[];
+  aiCitationProbability?: {
+    score: number;
+    assessment: string;
+  };
 }
 
 // ============================================================================

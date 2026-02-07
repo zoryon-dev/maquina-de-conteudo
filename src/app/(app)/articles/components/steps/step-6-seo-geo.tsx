@@ -1,13 +1,15 @@
 /**
  * Article Wizard — Step 6: SEO/GEO Check
  *
- * Shows SEO score dashboard with checks and suggestions.
- * Triggers optimization when ready.
+ * Shows SEO + GEO scores side by side.
+ * SEO: checklist with pass/warn/fail.
+ * GEO: 6-criteria breakdown with expandable details.
+ * Both run in parallel on the pipeline.
  */
 
 "use client"
 
-import { useEffect, useRef, useCallback } from "react"
+import { useEffect, useRef, useCallback, useState } from "react"
 import { motion } from "framer-motion"
 import {
   CheckCircle2,
@@ -15,10 +17,15 @@ import {
   XCircle,
   Loader2,
   Zap,
+  Search,
+  Bot,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { GeoScoreCard } from "../shared/geo-score-card"
 import type { Article } from "@/db/schema"
+
+type TabId = "seo" | "geo"
 
 interface SeoCheck {
   criterion: string
@@ -31,6 +38,19 @@ interface SeoReport {
   overallScore: number
   checks: SeoCheck[]
   suggestions: string[]
+}
+
+interface GeoReport {
+  overallScore: number
+  targetQueries?: string[]
+  directAnswers: { score: number; issues: string[]; recommendations: string[] }
+  citableData: { score: number; issues: string[]; recommendations: string[] }
+  extractableStructure: { score: number; issues: string[]; recommendations: string[] }
+  authorityEeat: { score: number; issues: string[]; recommendations: string[] }
+  topicCoverage: { score: number; issues: string[]; recommendations: string[]; missingSubtopics?: string[] }
+  schemaMetadata: { score: number; issues: string[]; recommendations: string[] }
+  priorityFixes?: Array<{ fix: string; impact: string; effort: string; criterion: string; estimatedScoreImprovement: number }>
+  aiCitationProbability?: { score: number; assessment: string }
 }
 
 interface Step6SeoGeoProps {
@@ -60,9 +80,12 @@ export function Step6SeoGeo({
 }: Step6SeoGeoProps) {
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
   const isMountedRef = useRef(true)
+  const [activeTab, setActiveTab] = useState<TabId>("seo")
 
   const seoReport = article?.seoReport as SeoReport | null
+  const geoReport = article?.geoReport as GeoReport | null
   const seoScore = article?.seoScore
+  const geoScore = article?.geoScore
 
   // Poll until SEO report is available
   const poll = useCallback(async () => {
@@ -90,7 +113,7 @@ export function Step6SeoGeo({
     return (
       <div className="flex flex-col items-center gap-4 py-16">
         <Loader2 size={32} className="animate-spin text-primary" />
-        <p className="text-white/50">Analisando SEO...</p>
+        <p className="text-white/50">Analisando SEO e GEO...</p>
       </div>
     )
   }
@@ -100,88 +123,168 @@ export function Step6SeoGeo({
   const warnCount = checks.filter((c) => c.status === "warn").length
   const failCount = checks.filter((c) => c.status === "fail").length
 
+  const TABS: { id: TabId; label: string; icon: typeof Search; score?: number | null }[] = [
+    { id: "seo", label: "SEO", icon: Search, score: seoScore },
+    { id: "geo", label: "GEO", icon: Bot, score: geoScore },
+  ]
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-white">SEO Check</h2>
-        <p className="text-sm text-white/50 mt-1">
-          Resultado da análise de SEO do artigo
-        </p>
-      </div>
-
-      {/* Score */}
-      <div className="flex items-center gap-8">
-        <div className="text-center">
-          <div
-            className={cn(
-              "text-5xl font-bold",
-              seoScore != null && seoScore >= 80
-                ? "text-green-400"
-                : seoScore != null && seoScore >= 60
-                  ? "text-yellow-400"
-                  : "text-red-400",
-            )}
-          >
-            {seoScore ?? "?"}
-          </div>
-          <p className="text-white/40 text-xs mt-1">SEO Score</p>
-        </div>
-
-        <div className="flex gap-4 text-sm">
-          <span className="flex items-center gap-1 text-green-400">
-            <CheckCircle2 size={14} /> {passCount}
-          </span>
-          <span className="flex items-center gap-1 text-yellow-400">
-            <AlertTriangle size={14} /> {warnCount}
-          </span>
-          <span className="flex items-center gap-1 text-red-400">
-            <XCircle size={14} /> {failCount}
-          </span>
-        </div>
-      </div>
-
-      {/* Checks */}
-      <div className="space-y-2 max-h-[40vh] overflow-y-auto">
-        {checks
-          .sort((a, b) => {
-            const order = { fail: 0, warn: 1, pass: 2 }
-            return order[a.status] - order[b.status]
-          })
-          .map((check, i) => {
-            const Icon = STATUS_ICON[check.status]
-            return (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="flex items-start gap-3 px-4 py-3 rounded-lg bg-white/[0.02] border border-white/5"
-              >
-                <Icon size={16} className={cn("mt-0.5 flex-shrink-0", STATUS_COLOR[check.status])} />
-                <div className="min-w-0">
-                  <p className="text-white/80 text-sm font-medium">{check.criterion}</p>
-                  <p className="text-white/40 text-xs mt-0.5">{check.message}</p>
-                </div>
-                <span className="text-[10px] text-white/30 ml-auto flex-shrink-0 uppercase">
-                  {check.priority}
-                </span>
-              </motion.div>
-            )
-          })}
-      </div>
-
-      {/* Suggestions */}
-      {seoReport.suggestions?.length > 0 && (
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h3 className="text-sm font-medium text-white/60 mb-2">Sugestões</h3>
-          <ul className="space-y-1">
-            {seoReport.suggestions.map((s, i) => (
-              <li key={i} className="text-xs text-white/40 flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                {s}
-              </li>
-            ))}
-          </ul>
+          <h2 className="text-xl font-semibold text-white">SEO & GEO Check</h2>
+          <p className="text-sm text-white/50 mt-1">
+            Análise de SEO tradicional e AI-Readiness (GEO)
+          </p>
+        </div>
+
+        {/* Score summary */}
+        <div className="flex items-center gap-4">
+          {seoScore != null && (
+            <div className="text-center">
+              <div className={cn(
+                "text-2xl font-bold",
+                seoScore >= 80 ? "text-green-400" : seoScore >= 60 ? "text-yellow-400" : "text-red-400",
+              )}>
+                {seoScore}
+              </div>
+              <p className="text-[10px] text-white/30">SEO</p>
+            </div>
+          )}
+          {geoScore != null && (
+            <div className="text-center">
+              <div className={cn(
+                "text-2xl font-bold",
+                geoScore >= 80 ? "text-green-400" : geoScore >= 60 ? "text-yellow-400" : "text-red-400",
+              )}>
+                {geoScore}
+              </div>
+              <p className="text-[10px] text-white/30">GEO</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-white/5 pb-px">
+        {TABS.map((tab) => {
+          const Icon = tab.icon
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg transition-colors",
+                activeTab === tab.id
+                  ? "text-white bg-white/5 border-b-2 border-primary"
+                  : "text-white/50 hover:text-white/70",
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {tab.label}
+              {tab.score != null && (
+                <span className={cn(
+                  "text-[10px] px-1.5 py-0.5 rounded-full ml-1",
+                  tab.score >= 80 ? "bg-green-400/10 text-green-400" : tab.score >= 60 ? "bg-yellow-400/10 text-yellow-400" : "bg-red-400/10 text-red-400",
+                )}>
+                  {tab.score}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* SEO Tab */}
+      {activeTab === "seo" && (
+        <div className="space-y-4">
+          {/* Status counts */}
+          <div className="flex gap-4 text-sm">
+            <span className="flex items-center gap-1 text-green-400">
+              <CheckCircle2 size={14} /> {passCount}
+            </span>
+            <span className="flex items-center gap-1 text-yellow-400">
+              <AlertTriangle size={14} /> {warnCount}
+            </span>
+            <span className="flex items-center gap-1 text-red-400">
+              <XCircle size={14} /> {failCount}
+            </span>
+          </div>
+
+          {/* Checks */}
+          <div className="space-y-2 max-h-[40vh] overflow-y-auto">
+            {checks
+              .sort((a, b) => {
+                const order = { fail: 0, warn: 1, pass: 2 }
+                return order[a.status] - order[b.status]
+              })
+              .map((check, i) => {
+                const Icon = STATUS_ICON[check.status]
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="flex items-start gap-3 px-4 py-3 rounded-lg bg-white/[0.02] border border-white/5"
+                  >
+                    <Icon size={16} className={cn("mt-0.5 flex-shrink-0", STATUS_COLOR[check.status])} />
+                    <div className="min-w-0">
+                      <p className="text-white/80 text-sm font-medium">{check.criterion}</p>
+                      <p className="text-white/40 text-xs mt-0.5">{check.message}</p>
+                    </div>
+                    <span className="text-[10px] text-white/30 ml-auto flex-shrink-0 uppercase">
+                      {check.priority}
+                    </span>
+                  </motion.div>
+                )
+              })}
+          </div>
+
+          {/* Suggestions */}
+          {seoReport.suggestions?.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-white/60 mb-2">Sugestões</h3>
+              <ul className="space-y-1">
+                {seoReport.suggestions.map((s, i) => (
+                  <li key={i} className="text-xs text-white/40 flex items-start gap-2">
+                    <span className="text-primary mt-0.5">•</span>
+                    {s}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* GEO Tab */}
+      {activeTab === "geo" && (
+        <div>
+          {geoReport ? (
+            <GeoScoreCard
+              overallScore={geoReport.overallScore}
+              directAnswers={geoReport.directAnswers}
+              citableData={geoReport.citableData}
+              extractableStructure={geoReport.extractableStructure}
+              authorityEeat={geoReport.authorityEeat}
+              topicCoverage={geoReport.topicCoverage}
+              schemaMetadata={geoReport.schemaMetadata}
+              priorityFixes={geoReport.priorityFixes}
+              aiCitationProbability={geoReport.aiCitationProbability}
+            />
+          ) : (
+            <div className="text-center py-8 space-y-2">
+              <Bot className="h-8 w-8 text-white/20 mx-auto" />
+              <p className="text-sm text-white/40">
+                A análise GEO não está disponível para este artigo.
+              </p>
+              <p className="text-xs text-white/30">
+                O GEO check pode ter falhado ou não foi executado.
+              </p>
+            </div>
+          )}
         </div>
       )}
 

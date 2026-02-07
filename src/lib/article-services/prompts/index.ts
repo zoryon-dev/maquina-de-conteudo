@@ -30,3 +30,6 @@ export { getInterlinkingPrompt } from "./interlinking";
 
 // Metadata prompt (META-01)
 export { getMetadataGeneratorPrompt } from "./metadata";
+
+// GEO prompts (GEO-01, GEO-02)
+export { getGeoAnalyzerPrompt, getGeoOptimizerPrompt } from "./geo";
