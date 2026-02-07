@@ -33,3 +33,10 @@ export { getMetadataGeneratorPrompt } from "./metadata";
 
 // GEO prompts (GEO-01, GEO-02)
 export { getGeoAnalyzerPrompt, getGeoOptimizerPrompt } from "./geo";
+
+// Extension prompts (EXT-01, EXT-02, EXT-03)
+export {
+  getArticleDiagnosticianPrompt,
+  getExpansionPlannerPrompt,
+  getContentExpanderPrompt,
+} from "./extension";

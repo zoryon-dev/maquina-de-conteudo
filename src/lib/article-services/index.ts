@@ -40,6 +40,10 @@ export type { GeoAnalysisResult } from "./services/geo-analyzer.service";
 export { optimizeGeo } from "./services/geo-optimizer.service";
 export type { GeoOptimizationResult } from "./services/geo-optimizer.service";
 
+// Extension
+export { diagnoseArticle, planExpansion, expandArticle } from "./services/extension.service";
+export type { ExtensionDiagnosis, ExpansionPlanResult, ExpansionResult } from "./services/extension.service";
+
 // Pipeline handlers (used by worker)
 export {
   handleArticleResearch,

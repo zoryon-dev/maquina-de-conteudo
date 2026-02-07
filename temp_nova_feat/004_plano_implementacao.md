@@ -1162,7 +1162,7 @@ Modificar `step-6-seo-geo.tsx` para mostrar SEO e GEO lado a lado.
 
 ---
 
-## Fase 6 — Modo Extensão (Pipeline Alternativo) {#fase-6}
+## Fase 6 — Modo Extensão (Pipeline Alternativo) {#fase-6} ✅ CONCLUÍDA
 
 ### Objetivo
 Implementar pipeline de análise e expansão de artigos existentes.

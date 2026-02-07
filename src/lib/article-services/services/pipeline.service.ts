@@ -32,7 +32,7 @@ import { siteIntelligence, articleLinks, articleMetadata } from "@/db/schema";
 // SAFE JSONB PARSING (ref: known-error 032-json-parse-object-error)
 // ============================================================================
 
-function parseJSONB<T>(value: unknown): T | null {
+export function parseJSONB<T>(value: unknown): T | null {
   if (value === null || value === undefined) return null;
   if (typeof value === "object") return value as T;
   if (typeof value === "string") {

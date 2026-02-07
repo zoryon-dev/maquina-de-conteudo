@@ -1054,6 +1054,11 @@ export const articles = pgTable(
     }>(),
     jobError: text("job_error"),
 
+    // Extension mode (EXT-01, EXT-02, EXT-03)
+    extensionDiagnosis: jsonb("extension_diagnosis"),
+    extensionPlan: jsonb("extension_plan"),
+    extensionExpandedContent: text("extension_expanded_content"),
+
     // Timestamps
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
