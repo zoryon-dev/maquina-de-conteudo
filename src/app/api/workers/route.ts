@@ -20,7 +20,7 @@ import { jobs, documents, documentEmbeddings, contentWizards, libraryItems } fro
 import { eq, and, desc } from "drizzle-orm";
 import { splitDocumentIntoChunks } from "@/lib/voyage/chunking";
 import { generateEmbeddingsBatch } from "@/lib/voyage/embeddings";
-import type { DocumentEmbeddingPayload, WizardNarrativesPayload, WizardGenerationPayload, WizardImageGenerationPayload, WizardThumbnailGenerationPayload } from "@/lib/queue/types";
+import type { DocumentEmbeddingPayload, WizardNarrativesPayload, WizardGenerationPayload, WizardImageGenerationPayload, WizardThumbnailGenerationPayload, ArticlePipelinePayload, SiteIntelligencePayload } from "@/lib/queue/types";
 import type { WizardProcessingProgress } from "@/db/schema";
 
 // Wizard services - background job processing
@@ -48,6 +48,23 @@ import {
 
 import type { SynthesizerInput, SynthesizedResearch, ResearchPlannerOutput, ResearchQuery } from "@/lib/wizard-services";
 import type { SearchResult } from "@/lib/wizard-services/types";
+
+// Article Wizard pipeline handlers
+import {
+  handleArticleResearch,
+  handleArticleOutline,
+  handleArticleSectionProduction,
+  handleArticleAssembly,
+  handleArticleSeoGeoCheck,
+  handleArticleOptimization,
+  handleArticleInterlinking,
+  handleArticleMetadata,
+  crawlSite,
+  extractBrandVoice,
+  analyzeKeywordGaps,
+} from "@/lib/article-services";
+import { ARTICLE_DEFAULT_MODEL } from "@/lib/article-services/services/llm";
+import { siteIntelligence } from "@/db/schema";
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -88,8 +105,8 @@ import { getStorageProvider } from "@/lib/storage";
  * For Vercel Cron jobs, use: /api/workers?secret={CRON_SECRET}
  * For direct calls, use: Authorization: Bearer {CRON_SECRET}
  */
-const CRON_SECRET = process.env.CRON_SECRET || "dev-cron-secret";
-const WORKER_SECRET = process.env.WORKER_SECRET || process.env.CRON_SECRET || "dev-secret";
+const CRON_SECRET = process.env.CRON_SECRET;
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.CRON_SECRET;
 
 /**
  * Validates that required API keys are configured
@@ -1067,20 +1084,12 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     const { wizardId, userId, config } =
       payload as WizardImageGenerationPayload;
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:wizard_image_generation-entry',message:'Handler started',data:{wizardId,userId,hasConfig:!!config,configMethod:config?.method},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
-
     // 1. Get wizard
     const [wizard] = await db
       .select()
       .from(contentWizards)
       .where(and(eq(contentWizards.id, wizardId), eq(contentWizards.userId, userId)))
       .limit(1);
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:wizard_image_generation-wizard-query',message:'Wizard query result',data:{wizardId,userId,wizardFound:!!wizard,wizardUserId:wizard?.userId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
 
     if (!wizard) {
       throw new Error(`Wizard ${wizardId} not found for user ${userId}`);
@@ -1176,10 +1185,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
           .where(eq(libraryItems.id, wizard.libraryItemId!));
       }
     }
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:wizard_image_generation-before-loop',message:'Starting image generation loop',data:{wizardId,slidesCount:slides.length,effectiveMethod:effectiveConfig.method},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
 
     // 5. Generate images for each slide
     const newImages: any[] = [];
@@ -1306,9 +1311,15 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         const currentMetadata = parseMetadataSafely(libraryItem.metadata);
 
         // Merge with existing mediaUrls if any
-        const existingMediaUrls = libraryItem.mediaUrl
-          ? JSON.parse(libraryItem.mediaUrl)
-          : [];
+        let existingMediaUrls: string[] = [];
+        if (libraryItem.mediaUrl) {
+          try {
+            existingMediaUrls = JSON.parse(libraryItem.mediaUrl);
+          } catch {
+            // mediaUrl may be a plain string URL instead of JSON array
+            existingMediaUrls = [libraryItem.mediaUrl];
+          }
+        }
         const allMediaUrls = [...existingMediaUrls, ...uploadedImageUrls];
 
         await db
@@ -1326,10 +1337,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
           .where(eq(libraryItems.id, wizard.libraryItemId!));
       }
     }
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:wizard_image_generation-complete',message:'Image generation completed',data:{wizardId,imagesGenerated:newImages.length,libraryItemId:wizard.libraryItemId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
 
     // Build warning message if any uploads fell back to base64
     let uploadWarning: string | undefined;
@@ -1580,18 +1587,199 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       warnings: warnings.length > 0 ? warnings : undefined,
     };
   },
+
+  // ========================================================================
+  // ARTICLE WIZARD PIPELINE HANDLERS
+  // ========================================================================
+
+  article_research: async (payload: unknown) => {
+    await handleArticleResearch(payload);
+    return { success: true, stage: "research" };
+  },
+
+  article_outline: async (payload: unknown) => {
+    await handleArticleOutline(payload);
+    return { success: true, stage: "outline" };
+  },
+
+  article_section_production: async (payload: unknown) => {
+    await handleArticleSectionProduction(payload);
+    return { success: true, stage: "section_production" };
+  },
+
+  article_assembly: async (payload: unknown) => {
+    await handleArticleAssembly(payload);
+    return { success: true, stage: "assembly" };
+  },
+
+  article_seo_geo_check: async (payload: unknown) => {
+    await handleArticleSeoGeoCheck(payload);
+    return { success: true, stage: "seo_geo_check" };
+  },
+
+  article_optimization: async (payload: unknown) => {
+    await handleArticleOptimization(payload);
+    return { success: true, stage: "optimization" };
+  },
+
+  article_interlinking: async (payload: unknown) => {
+    await handleArticleInterlinking(payload);
+    return { success: true, stage: "interlinking" };
+  },
+
+  article_metadata: async (payload: unknown) => {
+    await handleArticleMetadata(payload);
+    return { success: true, stage: "metadata" };
+  },
+
+  // ========================================================================
+  // SITE INTELLIGENCE HANDLERS
+  // ========================================================================
+
+  /**
+   * Site Intelligence — Crawl Handler
+   *
+   * 1. Crawl site URLs via Firecrawl /map
+   * 2. Extract brand voice from sample pages
+   * 3. Store urlMap + brandVoice in siteIntelligence table
+   * 4. Create analyze job automatically
+   */
+  site_intelligence_crawl: async (payload: unknown) => {
+    const { siteIntelligenceId, projectId, siteUrl, competitorUrls, userId } =
+      payload as SiteIntelligencePayload;
+
+    // 1. Crawl site
+    await db
+      .update(siteIntelligence)
+      .set({ status: "crawling", updatedAt: new Date() })
+      .where(eq(siteIntelligence.id, siteIntelligenceId));
+
+    const crawlResult = await crawlSite(siteUrl, { maxPages: 50 });
+
+    if (!crawlResult.success) {
+      await db
+        .update(siteIntelligence)
+        .set({ status: "error", error: crawlResult.error, updatedAt: new Date() })
+        .where(eq(siteIntelligence.id, siteIntelligenceId));
+      throw new Error(`Crawl failed: ${crawlResult.error}`);
+    }
+
+    const urlMap = crawlResult.data ?? [];
+
+    // 2. Extract brand voice from top pages (up to 5)
+    const sampleUrls = urlMap
+      .sort((a, b) => (b.wordCount ?? 0) - (a.wordCount ?? 0))
+      .slice(0, 5)
+      .map((e) => e.url);
+
+    let brandVoice = null;
+    if (sampleUrls.length > 0) {
+      const brandResult = await extractBrandVoice({
+        brandName: new URL(siteUrl).hostname,
+        sampleUrls,
+        model: ARTICLE_DEFAULT_MODEL,
+      });
+      if (brandResult.success) {
+        brandVoice = brandResult.data;
+      }
+    }
+
+    // 3. Save results
+    await db
+      .update(siteIntelligence)
+      .set({
+        urlMap: urlMap as any,
+        brandVoiceProfile: brandVoice as any,
+        crawledAt: new Date(),
+        status: "analyzing",
+        updatedAt: new Date(),
+      })
+      .where(eq(siteIntelligence.id, siteIntelligenceId));
+
+    // 4. Auto-create analyze job if there are competitors
+    if (competitorUrls && competitorUrls.length > 0) {
+      const { createJob: createJobFn } = await import("@/lib/queue/jobs");
+      const { JobType: JT } = await import("@/lib/queue/types");
+      await createJobFn(userId, JT.SITE_INTELLIGENCE_ANALYZE as any, {
+        siteIntelligenceId,
+        projectId,
+        siteUrl,
+        competitorUrls,
+        userId,
+      });
+
+      const isDev = process.env.NODE_ENV === "development";
+      if (isDev) {
+        const { triggerWorker } = await import("@/lib/queue/client");
+        triggerWorker().catch(console.error);
+      }
+    } else {
+      // No competitors — mark as complete
+      await db
+        .update(siteIntelligence)
+        .set({ status: "complete", updatedAt: new Date() })
+        .where(eq(siteIntelligence.id, siteIntelligenceId));
+    }
+
+    return { success: true, urlMapSize: urlMap.length, hasBrandVoice: !!brandVoice };
+  },
+
+  /**
+   * Site Intelligence — Analyze Handler
+   *
+   * 1. Load existing urlMap from DB
+   * 2. Run keyword gap analysis vs competitors
+   * 3. Store keywordGaps and mark as ready
+   */
+  site_intelligence_analyze: async (payload: unknown) => {
+    const { siteIntelligenceId, siteUrl, competitorUrls, userId } =
+      payload as SiteIntelligencePayload;
+
+    // 1. Get SI record with urlMap
+    const [si] = await db
+      .select()
+      .from(siteIntelligence)
+      .where(eq(siteIntelligence.id, siteIntelligenceId))
+      .limit(1);
+
+    if (!si) {
+      throw new Error(`SiteIntelligence ${siteIntelligenceId} not found`);
+    }
+
+    await db
+      .update(siteIntelligence)
+      .set({ status: "analyzing", updatedAt: new Date() })
+      .where(eq(siteIntelligence.id, siteIntelligenceId));
+
+    // 2. Run keyword gap analysis
+    const urlMap = (si.urlMap as any[]) || [];
+    const gaps = await analyzeKeywordGaps({
+      siteUrlMap: urlMap,
+      competitorUrls: competitorUrls || [],
+      targetNiche: new URL(siteUrl).hostname,
+      model: ARTICLE_DEFAULT_MODEL,
+    });
+
+    // 3. Save results
+    await db
+      .update(siteIntelligence)
+      .set({
+        keywordGaps: gaps.success ? (gaps.data as any) : null,
+        status: "complete",
+        error: gaps.success ? null : gaps.error,
+        updatedAt: new Date(),
+      })
+      .where(eq(siteIntelligence.id, siteIntelligenceId));
+
+    return { success: true, gapsFound: gaps.success ? gaps.data?.length ?? 0 : 0 };
+  },
 };
 
 export async function POST(request: Request) {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:POST-entry',message:'Worker POST called',data:{url:request.url,method:request.method},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
   // Verificar autenticação - múltiplos métodos suportados:
 
-  // 1. Vercel Cron header (x-vercel-cron) - enviado automaticamente pelo Vercel Cron Jobs
-  const isVercelCron = request.headers.get("x-vercel-cron") === "true";
-
-  // 2. Vercel Cron Secret (x-vercel-cron-secret) - configurado nas settings do projeto Vercel
+  // 1. Vercel Cron Secret (x-vercel-cron-secret) - configurado nas settings do projeto Vercel
+  // NOTA: x-vercel-cron header sozinho NÃO é seguro (spoofável por qualquer cliente)
   const vercelCronSecret = request.headers.get("x-vercel-cron-secret");
   const configuredCronSecret = process.env.CRON_SECRET;
 
@@ -1610,10 +1798,9 @@ export async function POST(request: Request) {
   // Validar autenticação
   // SEGURANÇA: Removido query parameter - secrets em query params ficam em logs de acesso
   const isValidSecret =
-    isVercelCron || // Vercel Cron autenticado pelo header
-    vercelCronSecret === configuredCronSecret || // Vercel Cron com secret
-    bearerSecret === CRON_SECRET || // Authorization header
-    bearerSecret === WORKER_SECRET ||
+    (vercelCronSecret && configuredCronSecret && vercelCronSecret === configuredCronSecret) || // Vercel Cron com secret
+    (bearerSecret && CRON_SECRET && bearerSecret === CRON_SECRET) || // Authorization header
+    (bearerSecret && WORKER_SECRET && bearerSecret === WORKER_SECRET) ||
     testMode; // Development test mode (localhost apenas)
 
   if (!isValidSecret) {
@@ -1644,9 +1831,6 @@ export async function POST(request: Request) {
     }
 
     if (!jobId) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:no-jobs',message:'No jobs to process',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       return NextResponse.json({
         message: "No jobs to process",
         processed: false,
@@ -1685,10 +1869,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:processing-job',message:'Processing job',data:{jobId,jobType:job.type,jobUserId:job.userId,jobStatus:job.status},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
-
     // Buscar handler para o tipo de job
     const handler = jobHandlers[job.type];
 
@@ -1710,14 +1890,8 @@ export async function POST(request: Request) {
 
     try {
       result = await handler(job.payload);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:handler-success',message:'Handler completed successfully',data:{jobId,jobType:job.type,hasResult:!!result},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
     } catch (err) {
       error = err instanceof Error ? err.message : "Unknown error";
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:handler-error',message:'Handler threw error',data:{jobId,jobType:job.type,error,stack:err instanceof Error ? err.stack?.substring(0,500) : undefined},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
     }
 
     const duration = Date.now() - startTime;
@@ -1740,7 +1914,8 @@ export async function POST(request: Request) {
           try {
             await enqueueJobFn(jobId, job.priority ?? undefined);
           } catch (enqueueError) {
-            // Job stays in DB as pending, will be picked up by fallback
+            console.warn("[Worker] Failed to re-enqueue job to Redis, falling back to DB polling:",
+              jobId, enqueueError instanceof Error ? enqueueError.message : enqueueError)
           }
         }
 

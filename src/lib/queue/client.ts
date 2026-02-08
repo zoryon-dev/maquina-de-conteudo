@@ -168,7 +168,11 @@ export async function triggerWorker(options?: { waitForJobId?: number; timeoutMs
     ? "http://localhost:3000"
     : (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000");
   const workerUrl = `${baseUrl}/api/workers`;
-  const workerSecret = process.env.WORKER_SECRET || process.env.CRON_SECRET || "dev-secret";
+  const workerSecret = process.env.WORKER_SECRET || process.env.CRON_SECRET;
+  if (!workerSecret) {
+    console.warn("[Queue] WORKER_SECRET/CRON_SECRET not set, skipping worker trigger");
+    return { success: false, message: "WORKER_SECRET/CRON_SECRET not configured" };
+  }
 
   try {
     // If waitForJobId is provided, poll until that job completes or timeout

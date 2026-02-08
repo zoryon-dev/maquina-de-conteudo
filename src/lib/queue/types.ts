@@ -15,7 +15,19 @@ export enum JobType {
   WIZARD_NARRATIVES = "wizard_narratives",
   WIZARD_GENERATION = "wizard_generation",
   WIZARD_IMAGE_GENERATION = "wizard_image_generation",
-  WIZARD_THUMBNAIL_GENERATION = "wizard_thumbnail_generation", // NOVO
+  WIZARD_THUMBNAIL_GENERATION = "wizard_thumbnail_generation",
+  // Article Wizard jobs
+  ARTICLE_RESEARCH = "article_research",
+  ARTICLE_OUTLINE = "article_outline",
+  ARTICLE_SECTION_PRODUCTION = "article_section_production",
+  ARTICLE_ASSEMBLY = "article_assembly",
+  ARTICLE_SEO_GEO_CHECK = "article_seo_geo_check",
+  ARTICLE_OPTIMIZATION = "article_optimization",
+  ARTICLE_INTERLINKING = "article_interlinking",
+  ARTICLE_METADATA = "article_metadata",
+  // Site Intelligence jobs
+  SITE_INTELLIGENCE_CRAWL = "site_intelligence_crawl",
+  SITE_INTELLIGENCE_ANALYZE = "site_intelligence_analyze",
 }
 
 // Status dos jobs
@@ -225,6 +237,28 @@ export interface WizardThumbnailGenerationPayload {
   model?: string;
 }
 
+/**
+ * Payload for article wizard pipeline jobs
+ * All article pipeline stages use this same payload shape
+ */
+export interface ArticlePipelinePayload {
+  /** Article ID */
+  articleId: number;
+  /** User ID for authorization */
+  userId: string;
+}
+
+/**
+ * Payload for site intelligence jobs (crawl + analyze)
+ */
+export interface SiteIntelligencePayload {
+  siteIntelligenceId: number;
+  projectId: number;
+  siteUrl: string;
+  competitorUrls?: string[];
+  userId: string;
+}
+
 // Tipo union de todos os payloads
 export type JobPayload =
   | AiTextGenerationPayload
@@ -236,7 +270,9 @@ export type JobPayload =
   | WizardNarrativesPayload
   | WizardGenerationPayload
   | WizardImageGenerationPayload
-  | WizardThumbnailGenerationPayload;
+  | WizardThumbnailGenerationPayload
+  | ArticlePipelinePayload
+  | SiteIntelligencePayload;
 
 // Estrutura de um job
 export interface QueueJob {

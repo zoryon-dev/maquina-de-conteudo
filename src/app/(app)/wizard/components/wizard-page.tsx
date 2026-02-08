@@ -143,6 +143,7 @@ export function WizardPage({
   // Load wizard data if wizardId is provided
   useEffect(() => {
     if (!propWizardId) return;
+    isMountedRef.current = true;
 
     const loadWizard = async () => {
       try {
@@ -193,9 +194,10 @@ export function WizardPage({
     };
   }, [propWizardId]);
 
-  // Auto-save effect (debounced)
+  // Auto-save effect (debounced) — skip while loading existing wizard
   const autoSave = useCallback(async (data: WizardFormData) => {
     if (!wizardId) return;
+    if (propWizardId && !wizard) return;
 
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
@@ -212,7 +214,7 @@ export function WizardPage({
         // Silent fail - auto-save error
       }
     }, 1000);
-  }, [wizardId]);
+  }, [wizardId, propWizardId, wizard]);
 
   useEffect(() => {
     autoSave(formData);
