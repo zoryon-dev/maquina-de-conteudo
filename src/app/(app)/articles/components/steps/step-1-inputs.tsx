@@ -20,6 +20,7 @@ import {
   ChevronDown,
   FolderOpen,
   Loader2,
+  Plus,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -93,6 +94,8 @@ export function Step1Inputs({
   const [showAdvancedModels, setShowAdvancedModels] = useState(false)
   const [categories, setCategories] = useState<ArticleCategory[]>([])
   const [isLoadingCategories, setIsLoadingCategories] = useState(true)
+  const [newCategoryName, setNewCategoryName] = useState("")
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false)
 
   useEffect(() => {
     fetch("/api/articles/categories")
@@ -103,6 +106,26 @@ export function Step1Inputs({
       .catch(() => {})
       .finally(() => setIsLoadingCategories(false))
   }, [])
+
+  const handleCreateCategory = async () => {
+    const name = newCategoryName.trim()
+    if (!name) return
+    setIsCreatingCategory(true)
+    try {
+      const res = await fetch("/api/articles/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      })
+      if (res.ok) {
+        const cat: ArticleCategory = await res.json()
+        setCategories((prev) => [...prev, cat])
+        setNewCategoryName("")
+        updateField("categoryId", cat.id)
+      }
+    } catch { /* silent */ }
+    setIsCreatingCategory(false)
+  }
 
   const handleSecondaryChange = (val: string) => {
     setSecondaryInput(val)
@@ -191,40 +214,73 @@ export function Step1Inputs({
       </CollapsibleSection>
 
       {/* Section 3: Category */}
-      {categories.length > 0 && (
-        <CollapsibleSection
-          title="3. Categoria"
-          description="Organize seu artigo por tema"
-          icon={FolderOpen}
-          defaultOpen
-        >
-          {isLoadingCategories ? (
-            <div className="flex items-center gap-2 py-4">
-              <Loader2 size={16} className="animate-spin text-white/30" />
-              <span className="text-sm text-white/30">Carregando categorias...</span>
+      <CollapsibleSection
+        title="3. Categoria"
+        description="Organize seu artigo por tema"
+        icon={FolderOpen}
+        defaultOpen={categories.length > 0}
+      >
+        {isLoadingCategories ? (
+          <div className="flex items-center gap-2 py-4">
+            <Loader2 size={16} className="animate-spin text-white/30" />
+            <span className="text-sm text-white/30">Carregando categorias...</span>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {categories.length > 0 && (
+              <div className="grid grid-cols-2 gap-2">
+                {categories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() =>
+                      updateField("categoryId", formData.categoryId === cat.id ? undefined : cat.id)
+                    }
+                    className={`text-left px-3 py-2.5 rounded-lg border transition-all text-sm ${
+                      formData.categoryId === cat.id
+                        ? "border-primary/50 bg-primary/10 text-white"
+                        : "border-white/10 bg-white/[0.02] text-white/70 hover:border-white/20"
+                    }`}
+                  >
+                    <span className="font-medium block">{cat.name}</span>
+                    <span className="text-[11px] text-white/40 block mt-0.5">{cat.slug}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Inline category creation */}
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Nova categoria..."
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); handleCreateCategory() }
+                }}
+                className={`flex-1 h-9 text-sm ${inputClasses}`}
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleCreateCategory}
+                disabled={!newCategoryName.trim() || isCreatingCategory}
+                className="h-9 bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
+              >
+                {isCreatingCategory ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Plus size={14} />
+                )}
+              </Button>
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() =>
-                    updateField("categoryId", formData.categoryId === cat.id ? undefined : cat.id)
-                  }
-                  className={`text-left px-3 py-2.5 rounded-lg border transition-all text-sm ${
-                    formData.categoryId === cat.id
-                      ? "border-primary/50 bg-primary/10 text-white"
-                      : "border-white/10 bg-white/[0.02] text-white/70 hover:border-white/20"
-                  }`}
-                >
-                  <span className="font-medium block">{cat.name}</span>
-                  <span className="text-[11px] text-white/40 block mt-0.5">{cat.slug}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </CollapsibleSection>
-      )}
+            {categories.length === 0 && (
+              <p className="text-white/30 text-xs">
+                Crie categorias para organizar seus artigos por tema
+              </p>
+            )}
+          </div>
+        )}
+      </CollapsibleSection>
 
       {/* Section 4: References */}
       <CollapsibleSection
