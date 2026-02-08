@@ -4,17 +4,26 @@
  * Central export for all article wizard prompts.
  */
 
-// Base pipeline prompts (01-10)
+// Base pipeline prompts (01-10) — V2 unified SEO+GEO
 export {
+  // V2 functions (primary)
+  getArticleSystemPromptV2,
+  getArticleSynthesizerPromptV2,
+  getOutlineGeneratorPromptV2,
+  getSectionProducerPromptV2,
+  getUnifiedAnalyzerPrompt,
+  getUnifiedOptimizerPrompt,
+  // Backwards-compat aliases
   getArticleSystemPrompt,
-  getBaseArticleAnalyzerPrompt,
-  getMotherArticleAnalyzerPrompt,
   getArticleSynthesizerPrompt,
   getOutlineGeneratorPrompt,
   getSectionProducerPrompt,
-  getAssemblerPrompt,
   getSeoAnalyzerPrompt,
   getSeoOptimizerPrompt,
+  // Unchanged functions
+  getBaseArticleAnalyzerPrompt,
+  getMotherArticleAnalyzerPrompt,
+  getAssemblerPrompt,
   getTitleGeneratorPrompt,
   extractArticleJSON,
 } from "./base-pipeline";
@@ -28,10 +37,14 @@ export {
 // Interlinking prompt (IL-01)
 export { getInterlinkingPrompt } from "./interlinking";
 
-// Metadata prompt (META-01)
-export { getMetadataGeneratorPrompt } from "./metadata";
+// Metadata prompt (META-01-B) + schema mapping
+export {
+  getMetadataGeneratorPromptV2,
+  getMetadataGeneratorPrompt,
+  SCHEMA_MAPPING,
+} from "./metadata";
 
-// GEO prompts (GEO-01, GEO-02)
+// GEO prompts (DEPRECATED — use unified functions from base-pipeline)
 export { getGeoAnalyzerPrompt, getGeoOptimizerPrompt } from "./geo";
 
 // Extension prompts (EXT-01, EXT-02, EXT-03)

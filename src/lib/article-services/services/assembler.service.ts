@@ -6,7 +6,7 @@
  */
 
 import type { ServiceResult, ProducedSection, SiteUrlMapEntry } from "../types";
-import { getArticleSystemPrompt, getAssemblerPrompt, extractArticleJSON } from "../prompts";
+import { getArticleSystemPromptV2, getAssemblerPrompt, extractArticleJSON } from "../prompts";
 import { articleLlmCall } from "./llm";
 
 export interface AssemblyResult {
@@ -17,6 +17,9 @@ export interface AssemblyResult {
     suggestions: Array<{ anchorText: string; targetUrl: string; contextSentence: string; relevanceScore: number }>;
     reverseSuggestions: Array<{ sourceUrl: string; anchorText: string; insertionContext: string }>;
   };
+  // V2 GEO metadata extracted from HTML comments
+  citableSnippets?: Array<{ query: string; location: number }>;
+  schemaHints?: Array<{ type: string; location: number }>;
 }
 
 interface AssemblerResponse {
@@ -30,6 +33,25 @@ interface AssemblerResponse {
   };
 }
 
+/** Extract V2 GEO HTML comments from assembled article content */
+function extractGeoComments(content: string) {
+  const citableSnippets: Array<{ query: string; location: number }> = [];
+  const schemaHints: Array<{ type: string; location: number }> = [];
+
+  const citableRe = /<!--\s*citable-snippet:\s*(.+?)\s*-->/g;
+  let match: RegExpExecArray | null;
+  while ((match = citableRe.exec(content)) !== null) {
+    citableSnippets.push({ query: match[1], location: match.index });
+  }
+
+  const schemaRe = /<!--\s*schema-hint:\s*(.+?)\s*-->/g;
+  while ((match = schemaRe.exec(content)) !== null) {
+    schemaHints.push({ type: match[1], location: match.index });
+  }
+
+  return { citableSnippets, schemaHints };
+}
+
 export async function assembleArticle(params: {
   sections: ProducedSection[];
   primaryKeyword: string;
@@ -41,7 +63,7 @@ export async function assembleArticle(params: {
   model: string;
 }): Promise<ServiceResult<AssemblyResult>> {
   try {
-    const systemPrompt = getArticleSystemPrompt();
+    const systemPrompt = getArticleSystemPromptV2();
     const userMessage = getAssemblerPrompt({
       sections: params.sections,
       primaryKeyword: params.primaryKeyword,
@@ -65,12 +87,15 @@ export async function assembleArticle(params: {
     }
 
     const il = parsed.interlinking || { links_inserted: [], suggestions: [], reverse_suggestions: [] };
+    const geoComments = extractGeoComments(parsed.assembled_article);
 
     return {
       success: true,
       data: {
         assembledArticle: parsed.assembled_article,
         wordCount: parsed.word_count || parsed.assembled_article.split(/\s+/).length,
+        citableSnippets: geoComments.citableSnippets.length > 0 ? geoComments.citableSnippets : undefined,
+        schemaHints: geoComments.schemaHints.length > 0 ? geoComments.schemaHints : undefined,
         interlinking: {
           linksInserted: (il.links_inserted || []).map((l) => ({
             anchorText: l.anchor_text,
