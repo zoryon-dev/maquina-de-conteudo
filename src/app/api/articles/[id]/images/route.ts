@@ -11,7 +11,7 @@ import { articles, articleImages } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
 import { getStorageProvider } from "@/lib/storage";
-import { generateArticleImagePrompt, generateAltText } from "@/lib/article-services/services/image-prompt.service";
+import { generateArticleImagePrompt, optimizeUserImagePrompt, generateAltText } from "@/lib/article-services/services/image-prompt.service";
 import { buildPrompt, validateFields } from "@/lib/image-generation/build-prompt";
 import type { ImagePromptFields } from "@/types/image-generation";
 import type { AiImageModel } from "@/lib/wizard-services/image-types";
@@ -131,6 +131,7 @@ export async function GET(request: Request, { params }: RouteContext) {
 
 interface GenerateRequest {
   autoPrompt?: boolean;
+  userPrompt?: string;
   fields?: ImagePromptFields;
   imageType?: "featured" | "inline" | "social_share";
   model?: AiImageModel;
@@ -160,6 +161,7 @@ export async function POST(request: Request, { params }: RouteContext) {
     const body: GenerateRequest = await request.json();
     const {
       autoPrompt = true,
+      userPrompt,
       fields,
       imageType = "featured",
       model,
@@ -174,7 +176,15 @@ export async function POST(request: Request, { params }: RouteContext) {
     // Build prompt
     let builtPrompt: { prompt: string; negativePrompt: string; previewText: string };
 
-    if (fields) {
+    if (userPrompt && userPrompt.trim()) {
+      // User custom prompt mode: optimize the user's description
+      builtPrompt = optimizeUserImagePrompt(userPrompt.trim(), {
+        title: article.finalTitle || article.title,
+        primaryKeyword: article.primaryKeyword,
+        articleType: article.articleType,
+        customInstructions: article.customInstructions,
+      });
+    } else if (fields) {
       // Manual mode: user-provided fields
       const validation = validateFields(fields);
       if (!validation.valid) {

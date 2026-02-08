@@ -198,58 +198,98 @@ export function Step6SeoGeo({
 
       {/* SEO Tab */}
       {activeTab === "seo" && (
-        <div className="space-y-4">
-          {/* Status counts */}
-          <div className="flex gap-4 text-sm">
-            <span className="flex items-center gap-1 text-green-400">
-              <CheckCircle2 size={14} /> {passCount}
-            </span>
-            <span className="flex items-center gap-1 text-yellow-400">
-              <AlertTriangle size={14} /> {warnCount}
-            </span>
-            <span className="flex items-center gap-1 text-red-400">
-              <XCircle size={14} /> {failCount}
-            </span>
+        <div className="space-y-5">
+          {/* Score bar */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-white/60">Score SEO geral</span>
+              <span className={cn(
+                "font-bold",
+                (seoScore ?? 0) >= 80 ? "text-green-400" : (seoScore ?? 0) >= 60 ? "text-yellow-400" : "text-red-400",
+              )}>
+                {seoScore ?? 0}/100
+              </span>
+            </div>
+            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+              <motion.div
+                className={cn(
+                  "h-full rounded-full",
+                  (seoScore ?? 0) >= 80 ? "bg-green-400" : (seoScore ?? 0) >= 60 ? "bg-yellow-400" : "bg-red-400",
+                )}
+                initial={{ width: 0 }}
+                animate={{ width: `${seoScore ?? 0}%` }}
+                transition={{ duration: 0.8 }}
+              />
+            </div>
           </div>
 
-          {/* Checks */}
-          <div className="space-y-2 max-h-[40vh] overflow-y-auto">
-            {checks
-              .sort((a, b) => {
-                const order = { fail: 0, warn: 1, pass: 2 }
-                return order[a.status] - order[b.status]
-              })
-              .map((check, i) => {
-                const Icon = STATUS_ICON[check.status]
-                return (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="flex items-start gap-3 px-4 py-3 rounded-lg bg-white/[0.02] border border-white/5"
-                  >
-                    <Icon size={16} className={cn("mt-0.5 flex-shrink-0", STATUS_COLOR[check.status])} />
-                    <div className="min-w-0">
-                      <p className="text-white/80 text-sm font-medium">{check.criterion}</p>
-                      <p className="text-white/40 text-xs mt-0.5">{check.message}</p>
-                    </div>
-                    <span className="text-[10px] text-white/30 ml-auto flex-shrink-0 uppercase">
-                      {check.priority}
-                    </span>
-                  </motion.div>
-                )
-              })}
+          {/* Status summary pills */}
+          <div className="flex gap-3">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-400/5 border border-green-400/10">
+              <CheckCircle2 size={14} className="text-green-400" />
+              <span className="text-sm text-green-400 font-medium">{passCount}</span>
+              <span className="text-xs text-green-400/60">ok</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-yellow-400/5 border border-yellow-400/10">
+              <AlertTriangle size={14} className="text-yellow-400" />
+              <span className="text-sm text-yellow-400 font-medium">{warnCount}</span>
+              <span className="text-xs text-yellow-400/60">atenção</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-400/5 border border-red-400/10">
+              <XCircle size={14} className="text-red-400" />
+              <span className="text-sm text-red-400 font-medium">{failCount}</span>
+              <span className="text-xs text-red-400/60">falha</span>
+            </div>
           </div>
+
+          {/* Priority categories */}
+          {(["high", "medium", "low"] as const).map((priority) => {
+            const priorityChecks = checks.filter((c) => c.priority === priority)
+            if (priorityChecks.length === 0) return null
+            const priorityPass = priorityChecks.filter((c) => c.status === "pass").length
+            const priorityPercent = Math.round((priorityPass / priorityChecks.length) * 100)
+            const priorityLabels = { high: "Alta Prioridade", medium: "Média Prioridade", low: "Baixa Prioridade" }
+
+            return (
+              <div key={priority} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-white/50">{priorityLabels[priority]}</span>
+                  <span className="text-xs text-white/30">{priorityPass}/{priorityChecks.length} ok</span>
+                </div>
+                <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                  <div
+                    className={cn("h-full rounded-full transition-all", priorityPercent >= 80 ? "bg-green-400" : priorityPercent >= 50 ? "bg-yellow-400" : "bg-red-400")}
+                    style={{ width: `${priorityPercent}%` }}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  {priorityChecks
+                    .sort((a, b) => { const order = { fail: 0, warn: 1, pass: 2 }; return order[a.status] - order[b.status] })
+                    .map((check, i) => {
+                      const Icon = STATUS_ICON[check.status]
+                      return (
+                        <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/5">
+                          <Icon size={14} className={cn("mt-0.5 flex-shrink-0", STATUS_COLOR[check.status])} />
+                          <div className="min-w-0">
+                            <p className="text-white/80 text-xs font-medium">{check.criterion}</p>
+                            <p className="text-white/40 text-[11px] mt-0.5">{check.message}</p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                </div>
+              </div>
+            )
+          })}
 
           {/* Suggestions */}
           {seoReport.suggestions?.length > 0 && (
-            <div>
-              <h3 className="text-sm font-medium text-white/60 mb-2">Sugestões</h3>
-              <ul className="space-y-1">
+            <div className="rounded-xl border border-primary/10 bg-primary/[0.02] p-4 space-y-2">
+              <h3 className="text-sm font-medium text-primary/80">Sugestões de Melhoria</h3>
+              <ul className="space-y-1.5">
                 {seoReport.suggestions.map((s, i) => (
-                  <li key={i} className="text-xs text-white/40 flex items-start gap-2">
-                    <span className="text-primary mt-0.5">•</span>
+                  <li key={i} className="text-xs text-white/50 flex items-start gap-2">
+                    <span className="text-primary mt-0.5 flex-shrink-0">→</span>
                     {s}
                   </li>
                 ))}

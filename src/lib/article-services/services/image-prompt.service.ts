@@ -53,6 +53,37 @@ export function generateArticleImagePrompt(
 }
 
 /**
+ * Optimizes a user-provided image description into a professional prompt.
+ * Uses article context to add SEO-relevant details and proper image generation syntax.
+ */
+export function optimizeUserImagePrompt(
+  userDescription: string,
+  context: ArticleImageContext,
+): BuiltPrompt {
+  const parts: string[] = [];
+
+  // Start with user intent
+  parts.push(userDescription.trim());
+
+  // Add article context
+  if (context.primaryKeyword) {
+    parts.push(`related to ${context.primaryKeyword}`);
+  }
+
+  // Article type visual hints
+  if (context.articleType && ARTICLE_TYPE_VISUAL_MAP[context.articleType]) {
+    parts.push(ARTICLE_TYPE_VISUAL_MAP[context.articleType]);
+  }
+
+  // Blog header format
+  parts.push("landscape 16:9 aspect ratio, blog header format");
+  parts.push("professional quality, clean composition, no text overlay");
+
+  const prompt = parts.join(". ") + ".";
+  return buildSimplePrompt(prompt, "minimal");
+}
+
+/**
  * Generates an alt text suggestion from article context.
  */
 export function generateAltText(context: ArticleImageContext): string {

@@ -22,6 +22,7 @@ import {
   RefreshCw,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { InterlinkingReview } from "../shared/interlinking-review"
 import { MetadataPreview } from "../shared/metadata-preview"
@@ -54,6 +55,7 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
   const [isGeneratingMeta, setIsGeneratingMeta] = useState(false)
   const [featuredImage, setFeaturedImage] = useState<ArticleImageRecord | null>(null)
   const [isGeneratingImage, setIsGeneratingImage] = useState(false)
+  const [userImagePrompt, setUserImagePrompt] = useState("")
 
   const content = article?.finalContent || article?.optimizedContent || ""
   const seoScore = article?.seoScore
@@ -159,10 +161,17 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
     if (!article?.id) return
     setIsGeneratingImage(true)
     try {
+      const body: Record<string, unknown> = { imageType: "featured" }
+      if (userImagePrompt.trim()) {
+        body.userPrompt = userImagePrompt.trim()
+      } else {
+        body.autoPrompt = true
+      }
+
       const res = await fetch(`/api/articles/${article.id}/images`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ autoPrompt: true, imageType: "featured" }),
+        body: JSON.stringify(body),
       })
       if (res.ok) {
         const data = await res.json()
@@ -320,19 +329,29 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
       {activeTab === "image" && (
         <div className="space-y-4">
           {!featuredImage && !isGeneratingImage && (
-            <div className="text-center py-8 space-y-3">
+            <div className="text-center py-8 space-y-4">
               <ImageIcon className="h-8 w-8 text-white/20 mx-auto" />
               <p className="text-sm text-white/40">
-                Gere uma imagem destacada automaticamente a partir do conteúdo do artigo
+                Descreva a imagem que deseja ou gere automaticamente
               </p>
-              <Button
-                size="sm"
-                onClick={handleGenerateImage}
-                className="bg-primary text-black hover:bg-primary/90"
-              >
-                <Sparkles className="h-3.5 w-3.5 mr-1" />
-                Gerar Imagem Destacada
-              </Button>
+              <div className="max-w-md mx-auto space-y-3">
+                <Input
+                  value={userImagePrompt}
+                  onChange={(e) => setUserImagePrompt(e.target.value)}
+                  placeholder="Ex: Uma ilustração minimalista de um laptop com gráficos subindo..."
+                  className="!border-white/10 !bg-white/[0.02] !text-white !placeholder:text-white/30 focus-visible:!border-primary/50 text-sm"
+                />
+                <div className="flex items-center justify-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleGenerateImage}
+                    className="bg-primary text-black hover:bg-primary/90"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 mr-1" />
+                    {userImagePrompt.trim() ? "Gerar com Meu Prompt" : "Gerar Automaticamente"}
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
           {isGeneratingImage && (
@@ -361,15 +380,23 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
                     <p>Alt: {featuredImage.altText}</p>
                   )}
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleGenerateImage}
-                  className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
-                >
-                  <RefreshCw className="h-3.5 w-3.5 mr-1" />
-                  Regenerar
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={userImagePrompt}
+                    onChange={(e) => setUserImagePrompt(e.target.value)}
+                    placeholder="Novo prompt (opcional)..."
+                    className="!border-white/10 !bg-white/[0.02] !text-white !placeholder:text-white/30 focus-visible:!border-primary/50 text-xs h-8 max-w-[240px]"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleGenerateImage}
+                    className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                    Regenerar
+                  </Button>
+                </div>
               </div>
             </div>
           )}
