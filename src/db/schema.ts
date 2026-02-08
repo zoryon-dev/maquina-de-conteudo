@@ -58,6 +58,7 @@ export const jobTypeEnum = pgEnum("job_type", [
   "site_intelligence_analyze",
   "article_extension_diagnose",
   "article_extension_expand",
+  "creative_studio_generate",
 ]);
 
 export const jobStatusEnum = pgEnum("job_status", [
@@ -1692,6 +1693,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   projects: many(projects),
   articles: many(articles),
   articleCategories: many(articleCategories),
+  creativeProjects: many(creativeProjects),
 }));
 
 // ========================================
@@ -1815,3 +1817,189 @@ export type ArticleDerivationFormat = typeof articleDerivationFormatEnum.enumVal
 export type ArticleDerivationStatus = typeof articleDerivationStatusEnum.enumValues[number];
 export type ArticleImage = typeof articleImages.$inferSelect;
 export type NewArticleImage = typeof articleImages.$inferInsert;
+
+// ========================================
+// CREATIVE STUDIO ENUMS
+// ========================================
+
+// Creative Studio mode
+export const creativeStudioModeEnum = pgEnum("creative_studio_mode", [
+  "create",     // Modo 1: text-to-image
+  "vary",       // Modo 2: image-to-image
+  "replicate",  // Modo 3: reference-to-image
+]);
+
+// Creative project status
+export const creativeProjectStatusEnum = pgEnum("creative_project_status", [
+  "draft",
+  "generating",
+  "completed",
+  "error",
+]);
+
+// Creative variation type (Modo 2)
+export const creativeVariationTypeEnum = pgEnum("creative_variation_type", [
+  "resize",
+  "restyle",
+  "inpaint",
+]);
+
+// Creative text mode (Modo 1)
+export const creativeTextModeEnum = pgEnum("creative_text_mode", [
+  "ai_embedded",
+  "canvas_overlay",
+]);
+
+// ========================================
+// CREATIVE STUDIO TABLES
+// ========================================
+
+// Creative Projects — Projetos de geração de imagem
+export const creativeProjects = pgTable(
+  "creative_projects",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    // Core
+    mode: creativeStudioModeEnum("mode").notNull(),
+    title: text("title"),
+    status: creativeProjectStatusEnum("status").default("draft").notNull(),
+
+    // Config compartilhada
+    selectedFormats: jsonb("selected_formats").$type<string[]>().default([]),
+    quantityPerFormat: integer("quantity_per_format").default(1),
+    selectedModel: text("selected_model"),
+    presetUsed: text("preset_used"),
+
+    // Modo 1: Criar
+    prompt: text("prompt"),
+    textMode: creativeTextModeEnum("text_mode"),
+    textConfig: jsonb("text_config"),
+
+    // Modo 2: Variar
+    sourceImageUrl: text("source_image_url"),
+    sourceImageKey: text("source_image_key"),
+    variationType: creativeVariationTypeEnum("variation_type"),
+    variationConfig: jsonb("variation_config"),
+
+    // Modo 3: Replicar
+    referenceImageUrl: text("reference_image_url"),
+    referenceImageKey: text("reference_image_key"),
+    userPhotoUrl: text("user_photo_url"),
+    userPhotoKey: text("user_photo_key"),
+    extractedAnalysis: jsonb("extracted_analysis"),
+    userEdits: jsonb("user_edits"),
+
+    // Job tracking
+    jobId: integer("job_id").references(() => jobs.id, { onDelete: "set null" }),
+    jobError: text("job_error"),
+
+    // Timestamps
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("creative_projects_user_id_idx").on(table.userId),
+    index("creative_projects_status_idx").on(table.status),
+    index("creative_projects_created_at_idx").on(table.createdAt),
+    index("creative_projects_mode_idx").on(table.mode),
+  ]
+);
+
+// Creative Outputs — Imagens geradas
+export const creativeOutputs = pgTable(
+  "creative_outputs",
+  {
+    id: serial("id").primaryKey(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => creativeProjects.id, { onDelete: "cascade" }),
+
+    // Imagem
+    imageUrl: text("image_url").notNull(),
+    storageKey: text("storage_key"),
+    thumbnailUrl: text("thumbnail_url"),
+    format: text("format").notNull(), // "1:1", "4:5", etc
+    width: integer("width"),
+    height: integer("height"),
+
+    // Geração
+    generationPrompt: text("generation_prompt"),
+    modelUsed: text("model_used"),
+    generationTimeMs: integer("generation_time_ms"),
+
+    // Status
+    isFavorite: boolean("is_favorite").default(false),
+    metadata: jsonb("metadata"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("creative_outputs_project_id_idx").on(table.projectId),
+    index("creative_outputs_format_idx").on(table.format),
+  ]
+);
+
+// Creative Templates — Templates pré-prontos para prompts
+export const creativeTemplates = pgTable(
+  "creative_templates",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(),
+    category: text("category").notNull(),
+    description: text("description"),
+    previewUrl: text("preview_url"),
+    promptTemplate: text("prompt_template").notNull(),
+    textConfigTemplate: jsonb("text_config_template"),
+    defaultFormat: text("default_format").default("1:1"),
+    isActive: boolean("is_active").default(true),
+    sortOrder: integer("sort_order").default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("creative_templates_category_idx").on(table.category),
+    index("creative_templates_active_idx").on(table.isActive),
+  ]
+);
+
+// ========================================
+// CREATIVE STUDIO RELATIONS
+// ========================================
+
+export const creativeProjectsRelations = relations(creativeProjects, ({ one, many }) => ({
+  user: one(users, {
+    fields: [creativeProjects.userId],
+    references: [users.id],
+  }),
+  job: one(jobs, {
+    fields: [creativeProjects.jobId],
+    references: [jobs.id],
+  }),
+  outputs: many(creativeOutputs),
+}));
+
+export const creativeOutputsRelations = relations(creativeOutputs, ({ one }) => ({
+  project: one(creativeProjects, {
+    fields: [creativeOutputs.projectId],
+    references: [creativeProjects.id],
+  }),
+}));
+
+// ========================================
+// TYPE EXPORTS - CREATIVE STUDIO
+// ========================================
+
+export type CreativeProject = typeof creativeProjects.$inferSelect;
+export type NewCreativeProject = typeof creativeProjects.$inferInsert;
+export type CreativeOutput = typeof creativeOutputs.$inferSelect;
+export type NewCreativeOutput = typeof creativeOutputs.$inferInsert;
+export type CreativeTemplate = typeof creativeTemplates.$inferSelect;
+export type NewCreativeTemplate = typeof creativeTemplates.$inferInsert;
+export type CreativeStudioMode = typeof creativeStudioModeEnum.enumValues[number];
+export type CreativeProjectStatus = typeof creativeProjectStatusEnum.enumValues[number];
+export type CreativeVariationType = typeof creativeVariationTypeEnum.enumValues[number];
+export type CreativeTextMode = typeof creativeTextModeEnum.enumValues[number];

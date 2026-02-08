@@ -1773,6 +1773,116 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
 
     return { success: true, gapsFound: gaps.success ? gaps.data?.length ?? 0 : 0 };
   },
+
+  /**
+   * Creative Studio Generate Handler
+   *
+   * Generates images for all format × quantity combinations.
+   * For each: generate → optional overlay → upload → save output.
+   */
+  creative_studio_generate: async (payload: unknown) => {
+    const {
+      projectId,
+      userId,
+      prompt,
+      negativePrompt,
+      model,
+      formats,
+      quantity,
+      textMode,
+      textConfig,
+      sourceImage,
+    } = payload as import("@/lib/queue/types").CreativeStudioGeneratePayload;
+
+    const { generateCreativeImage } = await import("@/lib/creative-studio/openrouter-image");
+    const { applyTextOverlay } = await import("@/lib/creative-studio/text-overlay");
+    const { getOutputKey, FORMAT_DIMENSIONS } = await import("@/lib/creative-studio/constants");
+    const { creativeProjects, creativeOutputs } = await import("@/db/schema");
+
+    const errors: Array<{ format: string; index: number; error: string }> = [];
+    let successCount = 0;
+
+    for (const format of formats) {
+      const dim = FORMAT_DIMENSIONS[format];
+      if (!dim) continue;
+
+      for (let i = 0; i < quantity; i++) {
+        try {
+          const storageKey = getOutputKey(userId, projectId, format, i);
+
+          // Generate image
+          const result = await generateCreativeImage(
+            {
+              prompt,
+              model,
+              negativePrompt,
+              width: dim.width,
+              height: dim.height,
+              sourceImage: sourceImage || undefined,
+            },
+            userId,
+            storageKey
+          );
+
+          let finalUrl = result.url;
+          let finalKey = result.storageKey;
+
+          // Apply text overlay if canvas_overlay mode
+          if (textMode === "canvas_overlay" && textConfig) {
+            const overlayConfig = textConfig as unknown as import("@/lib/creative-studio/types").TextOverlayConfig;
+            if (overlayConfig.content?.trim()) {
+              const storage = getStorageProvider();
+              // Fetch the generated image
+              const imgResp = await fetch(result.url);
+              const imgBuffer = Buffer.from(await imgResp.arrayBuffer());
+
+              const overlaid = await applyTextOverlay(imgBuffer, overlayConfig, dim.width, dim.height);
+
+              const overlayKey = storageKey.replace(".png", "-overlay.png");
+              const uploadResult = await storage.uploadFile(overlaid, overlayKey, {
+                contentType: "image/png",
+              });
+              finalUrl = uploadResult.url;
+              finalKey = overlayKey;
+            }
+          }
+
+          // Save output to DB
+          await db.insert(creativeOutputs).values({
+            projectId,
+            imageUrl: finalUrl,
+            storageKey: finalKey,
+            format,
+            width: dim.width,
+            height: dim.height,
+            generationPrompt: prompt,
+            modelUsed: model,
+            generationTimeMs: result.timeMs,
+          });
+
+          successCount++;
+          console.log(`[CreativeStudio:Worker] Generated ${format} #${i + 1} for project ${projectId}`);
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.error(`[CreativeStudio:Worker] Error ${format} #${i + 1}:`, errorMsg);
+          errors.push({ format, index: i, error: errorMsg });
+        }
+      }
+    }
+
+    // Update project status
+    const finalStatus = errors.length === 0 ? "completed" : successCount > 0 ? "completed" : "error";
+    await db
+      .update(creativeProjects)
+      .set({
+        status: finalStatus,
+        jobError: errors.length > 0 ? `${errors.length} falha(s): ${errors.map((e) => e.error).join("; ")}` : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(creativeProjects.id, projectId));
+
+    return { success: true, successCount, errors: errors.length > 0 ? errors : undefined };
+  },
 };
 
 export async function POST(request: Request) {
