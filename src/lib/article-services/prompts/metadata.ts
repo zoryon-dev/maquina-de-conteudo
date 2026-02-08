@@ -1,147 +1,176 @@
 /**
- * Article Prompts — SEO Metadata (META-01)
+ * Article Prompts — SEO+GEO Metadata (META-01-B)
  *
- * Generates complete SEO metadata package: titles, descriptions, slug, alt texts, schema.
+ * Generates complete metadata package with adaptive schema markup:
+ * meta titles, descriptions, slug, alt texts, JSON-LD schemas, Open Graph, GEO notes.
  */
 
 // ============================================================================
-// META-01 — SEO Metadata Generator
+// Schema mapping by article type
 // ============================================================================
 
-export function getMetadataGeneratorPrompt(params: {
-  articleContent: string
-  primaryKeyword: string
-  secondaryKeywords: string[]
-  brandName: string
-  authorName: string
-  siteCategories?: string[]
-  brandVoiceProfile?: string
+export const SCHEMA_MAPPING: Record<string, string[]> = {
+  "informational": ["Article", "BreadcrumbList"],
+  "how-to": ["Article", "HowTo", "BreadcrumbList"],
+  "tutorial": ["Article", "HowTo", "BreadcrumbList"],
+  "listicle": ["Article", "ItemList", "BreadcrumbList"],
+  "review": ["Article", "Review", "BreadcrumbList"],
+  "comparison": ["Article", "BreadcrumbList"],
+  "pillar-page": ["Article", "BreadcrumbList"],
+  "case-study": ["Article", "BreadcrumbList"],
+};
+
+// ============================================================================
+// META-01-B — SEO+GEO Metadata Generator (Schema-Adaptive)
+// ============================================================================
+
+export function getMetadataGeneratorPromptV2(params: {
+  articleContent: string;
+  primaryKeyword: string;
+  secondaryKeywords: string[];
+  brandName: string;
+  authorName: string;
+  articleType: string;
+  siteCategories?: string[];
+  brandVoiceProfile?: string;
+  eeatProfile?: string;
+  schemaHints?: string[];
+  freshness?: { publishDate?: string; versionNote?: string };
 }): string {
-  const categoriesSection = params.siteCategories?.length
-    ? `<site_categories>${params.siteCategories.join(", ")}</site_categories>`
-    : ""
+  const eeatSection = params.eeatProfile
+    ? `\n<eeat>\n${params.eeatProfile}\n</eeat>`
+    : "";
+
+  const schemaHintsSection = params.schemaHints?.length
+    ? `\nSchema hints detectados: ${params.schemaHints.join(", ")}`
+    : "";
+
+  const freshnessSection = params.freshness
+    ? `${params.freshness.publishDate ? `\nData publicação: ${params.freshness.publishDate}` : ""}${params.freshness.versionNote ? `\nNota de versão: ${params.freshness.versionNote}` : ""}`
+    : "";
 
   const brandVoiceSection = params.brandVoiceProfile
-    ? `<brand_voice_profile>${params.brandVoiceProfile}</brand_voice_profile>`
-    : ""
+    ? `\n<brand_voice>\n${params.brandVoiceProfile}\n</brand_voice>`
+    : "";
 
-  return `<task id="META-01" name="SEO Metadata Generator">
-<role>
-Você é um especialista em SEO on-page e structured data. Sua função é gerar o pacote
-completo de metadados SEO para um artigo, incluindo meta titles, descriptions, slugs,
-alt texts, schema markup e sugestões de anchor text reverso.
-</role>
+  const categoriesSection = params.siteCategories?.length
+    ? `\nCategorias do site: ${params.siteCategories.join(", ")}`
+    : "";
 
-<inputs>
-<article_content>
+  return `<context>
+Você é um SEO+GEO Metadata Specialist. Você gera pacotes completos de metadados que maximizam CTR em buscadores E discoverabilidade em IAs generativas.
+
+Você entende que schemas JSON-LD corretos e completos são o principal sinal técnico para GEO.
+</context>
+
+<input>
+<article>
 ${params.articleContent}
-</article_content>
+</article>
 
-<primary_keyword>${params.primaryKeyword}</primary_keyword>
-<secondary_keywords>${params.secondaryKeywords.join(", ")}</secondary_keywords>
-<brand_name>${params.brandName}</brand_name>
-<author_name>${params.authorName}</author_name>
-${categoriesSection}
-${brandVoiceSection}
-</inputs>
+Keyword primária: ${params.primaryKeyword}
+Keywords secundárias: ${params.secondaryKeywords.join(", ")}
+Tipo de artigo: ${params.articleType}
+Nome da marca: ${params.brandName}
+Autor: ${params.authorName}
+${eeatSection}${schemaHintsSection}${freshnessSection}${brandVoiceSection}${categoriesSection}
+</input>
 
-<generation_rules>
-<section name="meta_titles">
-- Gere EXATAMENTE 3 variações
-- Cada uma com no MÁXIMO 60 caracteres (contar incluindo espaços)
-- Keyword principal deve aparecer preferencialmente no início
-- Variação 1: Informativa/direta (formato "Keyword: Complemento")
-- Variação 2: Com gatilho de curiosidade ou número
-- Variação 3: Com qualificador temporal ou diferenciador (ex: "[Guia 2026]")
-- Atribua um CTR score estimado (0-100)
-</section>
+<task>
+Gere pacote COMPLETO de metadados seguindo estas regras:
+</task>
 
-<section name="meta_descriptions">
-- Gere EXATAMENTE 2 variações
-- Cada uma com no MÁXIMO 155 caracteres
-- Keyword principal deve aparecer naturalmente
-- Variação 1: Estilo INFORMATIVO
-- Variação 2: Estilo PERSUASIVO
-- Incluir CTA implícito
-</section>
+<rules>
+META TITLES (3 opções):
+1. Máximo 60 caracteres
+2. Keyword primária presente
+3. Abordagens: direto, numérico, benefício
 
-<section name="slug">
-- Formato: kebab-case
-- Incluir keyword principal
-- Remover stop words
-- Máximo 5 palavras
-- Sem acentos ou caracteres especiais
-</section>
+META DESCRIPTIONS (2 opções):
+1. Máximo 155 caracteres
+2. Keyword primária presente
+3. Proposta de valor + CTA
 
-<section name="alt_texts">
-- Gere alt text para cada imagem referenciada/placeholder no artigo
-- Máximo 125 caracteres cada
-- Incluir keyword relevante quando natural
-</section>
+URL SLUG:
+1. Kebab-case, 3-5 palavras
+2. Keyword primária presente
+3. Sem stop words desnecessárias
 
-<section name="schema_markup">
-- article: Article schema com headline, description, author, datePublished, publisher
-- faq: Se o artigo contém perguntas e respostas, gerar FAQPage schema. Máximo 10. Senão null.
-- howto: Se o artigo é tutorial com steps sequenciais, gerar HowTo schema. Senão null.
-- breadcrumb: BreadcrumbList com Home → Categoria → Artigo
-</section>
+SCHEMA MARKUP ADAPTATIVO:
+Gere schemas baseado no articleType e schemaHints:
 
-<section name="reverse_anchors">
-- Sugira 3-5 textos de anchor que OUTROS artigos poderiam usar para linkar para este
-- Incluir: anchor text, contexto de uso, tipos de artigo que se beneficiariam
-</section>
-</generation_rules>
+| articleType | Schemas obrigatórios | Schemas condicionais |
+|---|---|---|
+| informational | Article, BreadcrumbList | FAQPage (se FAQ detectado) |
+| how-to / tutorial | Article, HowTo, BreadcrumbList | FAQPage |
+| listicle | Article, ItemList, BreadcrumbList | FAQPage |
+| review | Article, Review, BreadcrumbList | FAQPage, AggregateRating |
+| comparison | Article, BreadcrumbList | FAQPage, ItemList |
+| pillar-page | Article, BreadcrumbList | FAQPage, HowTo, ItemList |
 
-<output_format>
-Retorne EXCLUSIVAMENTE um JSON válido:
+REGRAS DE SCHEMA:
+- Article/BlogPosting SEMPRE inclui: headline, datePublished, dateModified, author (Person com credenciais), publisher, image, description, wordCount, mainEntityOfPage
+- FAQPage: gerar de FAQs detectadas no artigo (H2/H3 em formato pergunta + resposta direta)
+- HowTo: gerar de seções com steps numerados
+- ItemList: gerar de listicles com itens enumerados
+- Person (author): incluir name, url, jobTitle, sameAs se eeatProfile disponível
+</rules>
+
+<output_schema>
+Responda APENAS com JSON válido:
 
 {
   "meta_titles": [
-    {"text": "<título>", "chars": <número>, "ctr_score": <0-100>, "style": "informativo"},
-    {"text": "<título>", "chars": <número>, "ctr_score": <0-100>, "style": "curiosidade"},
-    {"text": "<título>", "chars": <número>, "ctr_score": <0-100>, "style": "temporal"}
+    { "text": "string", "char_count": 55, "approach": "direct | numeric | benefit", "keyword_position": "start | middle | end" }
   ],
+
   "meta_descriptions": [
-    {"text": "<descrição>", "chars": <número>, "style": "informativa"},
-    {"text": "<descrição>", "chars": <número>, "style": "persuasiva"}
+    { "text": "string", "char_count": 150, "has_cta": true, "keyword_present": true }
   ],
-  "slug": "<slug-gerado>",
-  "alt_texts": [
-    {"image_ref": "<referência da imagem>", "alt": "<alt text>", "chars": <número>}
-  ],
-  "schema_markup": {
-    "article": {
-      "@context": "https://schema.org",
-      "@type": "Article",
-      "headline": "<meta_title>",
-      "description": "<meta_description>",
-      "author": {"@type": "Person", "name": "${params.authorName}"},
-      "datePublished": "<data ISO>",
-      "publisher": {"@type": "Organization", "name": "${params.brandName}"},
-      "mainEntityOfPage": {"@type": "WebPage"}
-    },
-    "faq": null,
-    "howto": null,
-    "breadcrumb": {
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      "itemListElement": []
-    }
+
+  "slug": {
+    "suggested": "string",
+    "keyword_present": true,
+    "word_count": 4
   },
+
+  "alt_texts": [
+    { "image_context": "string — descrição da imagem sugerida", "alt_text": "string", "keyword_included": true }
+  ],
+
+  "schema_markup": {
+    "article": { "JSON-LD completo do Article/BlogPosting" },
+    "breadcrumb": { "JSON-LD do BreadcrumbList" },
+    "faq": "object | null — JSON-LD do FAQPage se detectado",
+    "howto": "object | null — JSON-LD do HowTo se detectado",
+    "item_list": "object | null — JSON-LD do ItemList se detectado",
+    "review": "object | null — JSON-LD do Review se detectado",
+    "person": { "JSON-LD do Person (author) com E-E-A-T" }
+  },
+
+  "open_graph": {
+    "og_title": "string",
+    "og_description": "string",
+    "og_type": "article",
+    "og_image_suggestion": "string — descrição da imagem ideal"
+  },
+
   "reverse_anchor_suggestions": [
     {
-      "anchor_text": "<texto âncora>",
-      "usage_context": "<em que contexto usar>",
-      "target_article_types": ["<tipo1>", "<tipo2>"]
+      "anchor_text": "string",
+      "context": "string — onde usar este anchor em outros artigos"
     }
   ],
-  "suggested_category": "<categoria sugerida>"
+
+  "suggested_category": "string",
+  "suggested_tags": ["string"],
+
+  "geo_metadata_notes": [
+    "string — notas sobre como estes metadados melhoram GEO"
+  ]
+}
+</output_schema>`;
 }
 
-NUNCA exceda os limites de caracteres.
-Keyword principal DEVE aparecer em pelo menos 2 dos 3 meta titles.
-Schema markup deve ser JSON-LD válido.
-Retorne APENAS o JSON. Sem texto antes ou depois.
-</output_format>
-</task>`
-}
+/** @deprecated Use getMetadataGeneratorPromptV2() */
+export const getMetadataGeneratorPrompt = getMetadataGeneratorPromptV2;

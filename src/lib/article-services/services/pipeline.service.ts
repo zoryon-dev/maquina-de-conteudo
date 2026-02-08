@@ -23,8 +23,6 @@ import { produceSections } from "./section-producer.service";
 import { assembleArticle } from "./assembler.service";
 import { analyzeSeo } from "./seo-analyzer.service";
 import { optimizeSeo } from "./seo-optimizer.service";
-import { analyzeGeo } from "./geo-analyzer.service";
-import { optimizeGeo } from "./geo-optimizer.service";
 import { generateTitles } from "./title-generator.service";
 import { analyzeInterlinking } from "./interlinking.service";
 import { generateArticleMetadata } from "./metadata.service";
@@ -358,53 +356,34 @@ export async function handleArticleSeoGeoCheck(payload: unknown): Promise<void> 
   if (!content) throw new Error("No assembled content found");
 
   await updateArticleProgress(articleId, {
-    processingProgress: { stage: "seo_check", percent: 10, message: "Analisando SEO e GEO em paralelo..." },
+    processingProgress: { stage: "seo_check", percent: 10, message: "Analisando SEO + GEO (unified)..." },
   });
 
-  // Run SEO and GEO analysis in parallel
-  const [seoResult, geoResult] = await Promise.all([
-    analyzeSeo({
-      articleContent: content,
-      primaryKeyword: article.primaryKeyword!,
-      secondaryKeywords: parseJSONB<string[]>(article.secondaryKeywords) ?? undefined,
-      targetWordCount: article.targetWordCount || 2000,
-      model,
-    }),
-    analyzeGeo({
-      articleContent: content,
-      primaryKeyword: article.primaryKeyword!,
-      model,
-    }),
-  ]);
+  // V2: Single unified SEO+GEO analysis (replaces parallel SEO + GEO calls)
+  const seoResult = await analyzeSeo({
+    articleContent: content,
+    primaryKeyword: article.primaryKeyword!,
+    secondaryKeywords: parseJSONB<string[]>(article.secondaryKeywords) ?? undefined,
+    targetWordCount: article.targetWordCount || 2000,
+    model,
+  });
 
   if (!seoResult.success) throw new Error(seoResult.error);
 
-  // GEO is optional — don't fail the pipeline if it fails
-  const geoData = geoResult.success ? geoResult.data : null;
-  if (!geoResult.success) {
-    console.warn("[Article Pipeline] GEO analysis failed, continuing with SEO only:", geoResult.error);
-  }
-
   const seoMsg = `SEO: ${seoResult.data.overallScore}/100`;
-  const geoMsg = geoData ? ` | GEO: ${geoData.overallScore}/100` : "";
+  const geoMsg = seoResult.data.geoScore != null ? ` | GEO: ${seoResult.data.geoScore}/100` : "";
+  const unifiedMsg = seoResult.data.unifiedScore != null ? ` | Unified: ${seoResult.data.unifiedScore}/100` : "";
 
   await updateArticleProgress(articleId, {
     seoScore: seoResult.data.overallScore,
     seoReport: seoResult.data,
-    geoScore: geoData?.overallScore ?? null,
-    geoReport: geoData ? {
-      overallScore: geoData.overallScore,
-      targetQueries: geoData.targetQueries,
-      directAnswers: geoData.breakdown.directAnswers,
-      citableData: geoData.breakdown.citableData,
-      extractableStructure: geoData.breakdown.extractableStructure,
-      authorityEeat: geoData.breakdown.authorityEeat,
-      topicCoverage: geoData.breakdown.topicCoverage,
-      schemaMetadata: geoData.breakdown.schemaMetadata,
-      priorityFixes: geoData.priorityFixes,
-      aiCitationProbability: geoData.aiCitationProbability,
+    geoScore: seoResult.data.geoScore ?? null,
+    geoReport: seoResult.data.geoAnalysis ? {
+      overallScore: seoResult.data.geoScore ?? 0,
+      geoAnalysis: seoResult.data.geoAnalysis,
+      priorityFixes: seoResult.data.priorityFixes?.filter((f) => f.category === "geo" || f.category === "both") ?? [],
     } : null,
-    processingProgress: { stage: "seo_check", percent: 100, message: seoMsg + geoMsg },
+    processingProgress: { stage: "seo_check", percent: 100, message: seoMsg + geoMsg + unifiedMsg },
   });
 }
 
@@ -418,63 +397,39 @@ export async function handleArticleOptimization(payload: unknown): Promise<void>
   const model = resolveModel(article, "optimization");
   const content = article.assembledContent;
   const seoReport = parseJSONB<Record<string, unknown>>(article.seoReport);
-  const geoReport = parseJSONB<Record<string, unknown>>(article.geoReport);
 
   if (!content || !seoReport) throw new Error("No content or SEO report found");
 
   await updateArticleProgress(articleId, {
-    processingProgress: { stage: "optimization", percent: 10, message: "Otimizando SEO" + (geoReport ? " + GEO" : "") + "..." },
+    processingProgress: { stage: "optimization", percent: 10, message: "Otimizando SEO + GEO (unified)..." },
   });
 
-  // Pass GEO data to the unified SEO+GEO optimizer if available
-  const geoFixes = geoReport
-    ? JSON.stringify((geoReport as any).priorityFixes || [])
-    : undefined;
+  // Load brand voice if available
+  let brandVoiceProfile: string | undefined;
+  if (article.projectId) {
+    const [si] = await db
+      .select({ brandVoiceProfile: siteIntelligence.brandVoiceProfile })
+      .from(siteIntelligence)
+      .where(eq(siteIntelligence.projectId, article.projectId))
+      .limit(1);
+    if (si?.brandVoiceProfile) {
+      brandVoiceProfile = JSON.stringify(parseJSONB<BrandVoiceProfile>(si.brandVoiceProfile));
+    }
+  }
 
+  // V2: Single unified optimizer call (replaces SEO-only + conditional GEO-02)
   const result = await optimizeSeo({
     articleContent: content,
-    seoReport: JSON.stringify(seoReport),
+    unifiedReport: JSON.stringify(seoReport),
     primaryKeyword: article.primaryKeyword!,
-    geoReport: geoReport ? JSON.stringify(geoReport) : undefined,
-    geoFixes,
+    secondaryKeywords: parseJSONB<string[]>(article.secondaryKeywords) ?? undefined,
+    brandVoiceProfile,
     model,
   });
 
   if (!result.success) throw new Error(result.error);
 
-  let finalContent = result.data.optimizedArticle;
-  let finalGeoScore = result.data.newGeoScoreEstimate;
-
-  // If GEO report exists and score is below threshold, run dedicated GEO-02 optimizer
-  if (geoReport && (geoReport as any).overallScore < 70) {
-    // Load brand voice if available
-    let brandVoice: string | undefined;
-    if (article.projectId) {
-      const [si] = await db
-        .select({ brandVoiceProfile: siteIntelligence.brandVoiceProfile })
-        .from(siteIntelligence)
-        .where(eq(siteIntelligence.projectId, article.projectId))
-        .limit(1);
-      if (si?.brandVoiceProfile) {
-        brandVoice = JSON.stringify(parseJSONB<BrandVoiceProfile>(si.brandVoiceProfile));
-      }
-    }
-
-    const geoOptResult = await optimizeGeo({
-      articleContent: finalContent,
-      geoReport: JSON.stringify(geoReport),
-      priorityFixes: geoFixes || "[]",
-      brandVoiceProfile: brandVoice,
-      model,
-    });
-
-    if (geoOptResult.success) {
-      finalContent = geoOptResult.data.optimizedArticle;
-      finalGeoScore = geoOptResult.data.estimatedNewScores.geoScoreOverall;
-    } else {
-      console.warn("[Article Pipeline] GEO optimization failed, using SEO-only result:", geoOptResult.error);
-    }
-  }
+  const finalContent = result.data.optimizedArticle;
 
   // Generate titles
   const titlesResult = await generateTitles({
@@ -490,7 +445,7 @@ export async function handleArticleOptimization(payload: unknown): Promise<void>
     finalContent,
     finalWordCount: finalContent.split(/\s+/).length,
     seoScore: result.data.newSeoScoreEstimate,
-    geoScore: finalGeoScore,
+    geoScore: result.data.newGeoScoreEstimate,
     finalTitle: titlesResult.success ? titlesResult.data.titles.find((t) => t.id === titlesResult.data.recommended)?.text : article.title,
     currentStep: "metadata",
     processingProgress: { stage: "optimization", percent: 100, message: "Artigo otimizado!" },
@@ -630,6 +585,7 @@ export async function handleArticleMetadata(payload: unknown): Promise<void> {
     secondaryKeywords: parseJSONB<string[]>(article.secondaryKeywords) || [],
     brandName: article.authorName || "Blog",
     authorName: article.authorName || "Autor",
+    articleType: article.articleType || "guia",
     siteCategories,
     brandVoiceProfile,
     model,

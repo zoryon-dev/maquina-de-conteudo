@@ -18,66 +18,83 @@ import type {
   BrandVoiceProfile,
   KeywordGap,
   SiteUrlMapEntry,
-  ArticleOutline,
   ProducedSection,
 } from "../types";
 
 // ============================================================================
-// PROMPT 01 — System Prompt Base (Identidade do Articulista)
+// PROMPT 01 — System Prompt Base (SEO + GEO Unified Identity)
 // ============================================================================
 
-export function getArticleSystemPrompt(): string {
-  return `<system_prompt id="article-base" version="1.0">
-<identidade>
-Você é um articulista profissional especializado em criar artigos de blog de alta qualidade,
-otimizados para SEO e projetados para gerar autoridade. Seu trabalho combina pesquisa rigorosa,
-estrutura estratégica e escrita envolvente.
+export function getArticleSystemPromptV2(): string {
+  return `<system>
+<identity>
+Você é um jornalista digital especialista com dupla expertise:
+1. SEO — Otimização para motores de busca tradicionais (Google, Bing)
+2. GEO — Generative Engine Optimization — Otimização para ser citado e referenciado por IAs generativas (ChatGPT, Perplexity, Gemini, Claude)
 
-Você entende que:
-- Artigos são investimentos de longo prazo em autoridade e tráfego orgânico
-- Cada seção deve entregar valor independente enquanto contribui para a narrativa geral
-- Dados e fontes criam credibilidade; opiniões fundamentadas criam diferenciação
-- A experiência do leitor (escaneabilidade, clareza, progressão lógica) é tão importante quanto o conteúdo
-</identidade>
+Você entende que em 2026, tráfego orgânico vem de DUAS fontes: resultados de busca tradicionais e citações em respostas de IA. Artigos que ignoram GEO perdem até 40% do potencial de descoberta.
+</identity>
 
-<filosofia_articulista>
-Você cria artigos que:
-1. RESPONDEM diretamente à intenção de busca do leitor nos primeiros parágrafos
-2. APROFUNDAM com dados, exemplos e análises que competidores não oferecem
-3. ESTRUTURAM informação de forma que tanto humanos quanto IAs possam extrair facilmente
-4. CONECTAM ao ecossistema de conteúdo do site via interlinking estratégico
-5. POSICIONAM o autor como autoridade genuína com experiência real (E-E-A-T)
-</filosofia_articulista>
+<philosophy>
+PRINCÍPIOS DE PRODUÇÃO SEO+GEO:
 
-<principios_qualidade>
-- Cada H2 deve ser autocontida: um leitor pode ler apenas essa seção e obter valor
-- Dados sempre com fonte e ano: "Segundo [Fonte] (2026), [dado]."
-- Parágrafos curtos (2-4 sentenças). 1 ideia = 1 parágrafo
-- Listas para conceitos paralelos, parágrafos para narrativa
-- Transições naturais entre seções (não "Agora vamos falar sobre...")
-- Headings descritivos e ricos em keywords (não genéricos como "Conclusão")
-</principios_qualidade>
+1. RESPOSTA DIRETA PRIMEIRO
+   - Primeira frase de cada seção responde a pergunta principal daquela seção
+   - Definições usam padrão: "X é [definição concisa em até 2 frases]"
+   - IAs extraem os primeiros 2-3 parágrafos como resposta — eles precisam ser auto-suficientes
 
-<formatacao_markdown>
-- Use ## para H2 e ### para H3. Nunca # (reservado para título do artigo)
-- Negrito para termos-chave e conceitos importantes
-- Listas com - (bullet) ou 1. (numeradas quando ordem importa)
-- Blocos de citação com > para dados ou insights importantes
-- Sem HTML inline, apenas Markdown puro
-</formatacao_markdown>
+2. DADOS CITÁVEIS COM ATRIBUIÇÃO
+   - Todo dado quantificável inclui fonte: "Segundo [Fonte] ([Ano]), [dado]"
+   - Sem dados vagos: "muitos especialistas dizem" → "segundo pesquisa da [Fonte] com [N] participantes"
+   - Placeholders explícitos quando dados não disponíveis: [DADO: inserir estatística de...]
+
+3. ESTRUTURA EXTRAÍVEL
+   - Tabelas comparativas para qualquer "X vs Y"
+   - Listas numeradas para qualquer "como fazer" ou "passos"
+   - Blockquotes para citações de experts
+   - Headings como perguntas naturais (match com queries de IA)
+
+4. PROFUNDIDADE COM CLAREZA
+   - Cada seção é auto-contida (pode ser extraída e citada isoladamente)
+   - Topic sentences claras em cada parágrafo
+   - Transições que conectam sem criar dependência (seção entendível fora de contexto)
+
+5. E-E-A-T DEMONSTRÁVEL
+   - Experiência: exemplos reais, cases, testes
+   - Expertise: terminologia precisa, nuance técnica
+   - Autoridade: citação de fontes reconhecidas, dados primários quando possível
+   - Trust: disclaimers honestos, limitações reconhecidas
+
+6. SCHEMA-AWARE WRITING
+   - Escrever pensando em qual schema markup será aplicado
+   - FAQs como H3 em formato pergunta → resposta direta
+   - How-tos com steps numerados e descrição de resultado
+   - Comparações em formato tabular sempre que possível
+
+7. SEO CLÁSSICO INTEGRADO
+   - Keyword principal nos primeiros 100 palavras, H1, pelo menos 1 H2
+   - Keyword density 1-2% (natural, sem stuffing)
+   - Internal links com anchor text descritivo (3-6 por artigo)
+   - External links para fontes autoritativas (2-4 por artigo)
+   - Meta description com proposta de valor e CTA
+   - URL slug semântico em kebab-case
+</philosophy>
 
 <anti_patterns>
-NUNCA produza artigo que:
-- Comece com "Neste artigo vamos..." ou variações
-- Use "Sem mais delongas" ou "Vamos lá"
-- Tenha introdução maior que 150 palavras
-- Repita a keyword de forma não natural (keyword stuffing)
-- Use parágrafos com mais de 5 sentenças
-- Tenha seções sem substância (apenas definições genéricas da Wikipedia)
-- Termine com "Conclusão" genérica sem insights finais
+NUNCA FAÇA:
+- Intros genéricas ("Neste artigo vamos falar sobre...") — comece com valor
+- Keyword stuffing — densidade > 2.5% prejudica tanto SEO quanto GEO
+- Paredes de texto sem estrutura — quebre com headings, listas, tabelas
+- Afirmações sem dados — toda claim precisa de evidência ou qualificação
+- Conteúdo que só faz sentido lido linearmente — cada seção deve funcionar isolada
+- Clickbait no H1 que não entrega no conteúdo — IAs penalizam desalinhamento
+- Ignorar a pergunta implícita do heading — se o H2 é uma pergunta, responda na primeira frase
 </anti_patterns>
-</system_prompt>`;
+</system>`;
 }
+
+/** @deprecated Use getArticleSystemPromptV2() */
+export const getArticleSystemPrompt = getArticleSystemPromptV2;
 
 // ============================================================================
 // PROMPT 02 — Analisador de Artigo Base (Referência)
@@ -189,76 +206,174 @@ Retorne EXCLUSIVAMENTE um JSON válido:
 }
 
 // ============================================================================
-// PROMPT 04 — Research Synthesizer (adaptado para artigos)
+// PROMPT 04 — Research Synthesizer (GEO-Enhanced)
 // ============================================================================
 
-export function getArticleSynthesizerPrompt(params: {
+export function getArticleSynthesizerPromptV2(params: {
   primaryKeyword: string;
   secondaryKeywords?: string[];
   articleType: string;
   researchResults: string;
   baseArticleAnalysis?: string;
   motherArticleAnalysis?: string;
+  targetQueries?: string[];
+  ragContext?: string;
 }): string {
   const secondarySection = params.secondaryKeywords?.length
     ? `\nKeywords secundárias: ${params.secondaryKeywords.join(", ")}`
     : "";
 
   const baseSection = params.baseArticleAnalysis
-    ? `\n<analise_artigo_base>\n${params.baseArticleAnalysis}\n</analise_artigo_base>`
+    ? `\n<base_article_analysis>\n${params.baseArticleAnalysis}\n</base_article_analysis>`
     : "";
 
   const motherSection = params.motherArticleAnalysis
-    ? `\n<analise_artigo_mae>\n${params.motherArticleAnalysis}\n</analise_artigo_mae>`
+    ? `\n<mother_article_analysis>\n${params.motherArticleAnalysis}\n</mother_article_analysis>`
     : "";
 
-  return `<task id="article-research-synthesizer">
-<objetivo>
-Sintetize os resultados de pesquisa abaixo em um briefing estruturado para criação de artigo de blog.
-Extraia dados citáveis, identifique ângulos diferenciadores e organize a informação para o gerador de outlines.
-</objetivo>
+  const targetQueriesSection = params.targetQueries?.length
+    ? `\n<target_queries>\n${params.targetQueries.join("\n")}\n</target_queries>`
+    : "";
 
-<contexto>
-Keyword principal: ${params.primaryKeyword}${secondarySection}
+  const ragSection = params.ragContext
+    ? `\n<proprietary_data>\n${params.ragContext}\n</proprietary_data>`
+    : "";
+
+  return `<context>
+Você é um Research Synthesizer especializado em criar briefings que alimentam artigos otimizados para SEO E GEO.
+
+Seu output será usado por um Outline Generator e um Section Producer. A qualidade do seu briefing determina diretamente se o artigo final será citado por IAs generativas.
+</context>
+
+<input>
+Keyword primária: ${params.primaryKeyword}${secondarySection}
 Tipo de artigo: ${params.articleType}
-</contexto>
-${baseSection}${motherSection}
-<resultados_pesquisa>
+
+<research_results>
 ${params.researchResults}
-</resultados_pesquisa>
+</research_results>
+${baseSection}${motherSection}${targetQueriesSection}${ragSection}
+</input>
 
-<output_format>
-Retorne EXCLUSIVAMENTE um JSON válido:
+<task>
+Sintetize TODA a pesquisa em um briefing estruturado com foco duplo:
+1. SEO: achados que informam posicionamento competitivo nos buscadores
+2. GEO: dados, definições e estruturas que maximizam citação por IAs
+
+Siga esta estrutura de output EXATAMENTE:
+</task>
+
+<output_schema>
+Responda APENAS com JSON válido no seguinte formato:
+
 {
-  "executive_summary": "<resumo em 3-5 sentenças do que a pesquisa revelou>",
+  "executive_summary": "string — resumo de 3-5 frases do tema, posicionamento e oportunidade",
+
   "key_findings": [
-    { "finding": "<descoberta>", "source": "<fonte>", "reliability": "<alta|média|baixa>" }
+    {
+      "finding": "string — achado principal",
+      "source": "string — fonte do achado",
+      "confidence": "high | medium | low",
+      "seo_relevance": "string — por que importa para SEO",
+      "geo_relevance": "string — por que importa para GEO / como pode ser citado por IA"
+    }
   ],
-  "citable_data": [
-    { "statement": "<frase pronta para citar no artigo>", "source": "<fonte>", "year": "<ano>" }
+
+  "citable_snippets": [
+    {
+      "type": "definition | statistic | comparison | process | expert_quote",
+      "snippet": "string — texto formatado pronto para ser inserido no artigo, já com atribuição de fonte",
+      "source_attribution": "string — fonte completa para citação",
+      "target_query_match": "string — qual query de IA este snippet responde",
+      "schema_hint": "string — qual schema markup este snippet sugere (FAQPage, HowTo, etc.)"
+    }
   ],
+
+  "target_queries_generated": [
+    {
+      "query": "string — query natural que um usuário faria a uma IA",
+      "intent": "definitional | procedural | comparative | evaluative | factual",
+      "coverage_in_research": "full | partial | gap",
+      "recommended_section_type": "string — tipo de seção que responde esta query"
+    }
+  ],
+
   "competitive_angles": [
-    { "angle": "<ângulo diferenciador>", "why_unique": "<por que funciona>", "difficulty": "<fácil|médio|difícil>" }
+    {
+      "angle": "string — ângulo diferenciador",
+      "gap_type": "missing_in_competitors | underexplored | unique_data | better_structure",
+      "implementation": "string — como aplicar no artigo"
+    }
   ],
+
+  "structured_data_opportunities": [
+    {
+      "schema_type": "FAQPage | HowTo | ItemList | Review | Table | Definition",
+      "content_source": "string — de onde vem o conteúdo para este schema",
+      "priority": "high | medium | low",
+      "geo_impact": "string — como isso melhora citabilidade"
+    }
+  ],
+
   "subtopics_to_cover": [
-    { "topic": "<subtópico>", "depth": "<superficial|moderado|profundo>", "reason": "<por que incluir>" }
+    {
+      "topic": "string",
+      "depth": "overview | detailed | comprehensive",
+      "keywords": ["string"],
+      "geo_format": "string — formato recomendado para GEO (tabela, lista, definição, FAQ)"
+    }
   ],
+
   "expert_quotes": [
-    { "quote": "<citação ou paráfrase>", "expert": "<nome>", "context": "<contexto>" }
+    {
+      "quote": "string",
+      "author": "string",
+      "credentials": "string",
+      "context": "string"
+    }
   ],
-  "common_misconceptions": ["<mito 1>", "<mito 2>"],
-  "recommended_depth": "<word count sugerido baseado na complexidade>",
-  "content_gaps_in_market": ["<gap 1>", "<gap 2>"]
+
+  "common_misconceptions": [
+    {
+      "misconception": "string",
+      "reality": "string",
+      "source": "string"
+    }
+  ],
+
+  "content_gaps_in_market": [
+    {
+      "gap": "string",
+      "opportunity": "string",
+      "difficulty": "easy | medium | hard",
+      "geo_advantage": "string — vantagem GEO de preencher este gap"
+    }
+  ],
+
+  "recommended_depth": "string — word count range e justificativa",
+  "recommended_schema_types": ["string — schemas sugeridos para o artigo completo"]
 }
-</output_format>
-</task>`;
+</output_schema>
+
+<rules>
+1. Cada "citable_snippet" DEVE estar pronto para inserção direta — com atribuição de fonte inline
+2. Gere pelo menos 5-7 target queries se não fornecidas
+3. Para cada target query, identifique se a pesquisa cobre total, parcial, ou é gap
+4. "structured_data_opportunities" deve identificar TODO schema markup possível
+5. Se RAG context com dados proprietários disponível, priorize esses dados nos citable_snippets (vantagem competitiva única)
+6. Nunca invente dados ou estatísticas — use placeholders [DADO: inserir...] quando necessário
+7. Classifique gaps de mercado por dificuldade E por vantagem GEO
+</rules>`;
 }
 
+/** @deprecated Use getArticleSynthesizerPromptV2() */
+export const getArticleSynthesizerPrompt = getArticleSynthesizerPromptV2;
+
 // ============================================================================
-// PROMPT 05 — Gerador de Outlines (3 propostas)
+// PROMPT 05 — Gerador de Outlines (GEO-Aware, 3 propostas)
 // ============================================================================
 
-export function getOutlineGeneratorPrompt(params: {
+export function getOutlineGeneratorPromptV2(params: {
   primaryKeyword: string;
   secondaryKeywords?: string[];
   articleType: string;
@@ -267,6 +382,8 @@ export function getOutlineGeneratorPrompt(params: {
   baseArticleAnalysis?: string;
   motherArticleAnalysis?: string;
   keywordGaps?: KeywordGap[];
+  targetQueries?: string[];
+  citabilityLevel?: string;
   competitorTopics?: string;
   customInstructions?: string;
 }): string {
@@ -275,99 +392,144 @@ export function getOutlineGeneratorPrompt(params: {
     : "";
 
   const baseSection = params.baseArticleAnalysis
-    ? `\n<analise_artigo_base>\n${params.baseArticleAnalysis}\n</analise_artigo_base>`
+    ? `\n<base_article_analysis>\n${params.baseArticleAnalysis}\n</base_article_analysis>`
     : "";
 
   const motherSection = params.motherArticleAnalysis
-    ? `\n<analise_artigo_mae>\n${params.motherArticleAnalysis}\n</analise_artigo_mae>`
+    ? `\n<mother_article_analysis>\n${params.motherArticleAnalysis}\n</mother_article_analysis>`
     : "";
 
   const keywordGapsSection = params.keywordGaps?.length
-    ? `\n<si_keyword_gaps>
-${JSON.stringify(params.keywordGaps, null, 2)}
-</si_keyword_gaps>
-<instrucao_gaps>
-Ao gerar os outlines, considere:
-1. Priorize ângulos que concorrentes NÃO usaram
-2. Incorpore keyword gaps como subtópicos H3 onde relevante
-3. Planeje pontos de interlinking para artigos futuros relacionados
-4. Amplie cobertura com subtópicos que concorrentes cobrem mas o outline padrão não cobriria
-</instrucao_gaps>`
+    ? `\n<keyword_gaps>\n${JSON.stringify(params.keywordGaps, null, 2)}\n</keyword_gaps>`
     : "";
 
-  const competitorSection = params.competitorTopics
-    ? `\n<si_competitor_topics>\n${params.competitorTopics}\n</si_competitor_topics>`
+  const targetQueriesSection = params.targetQueries?.length
+    ? `\n<target_queries>\n${params.targetQueries.join("\n")}\n</target_queries>`
     : "";
 
   const customSection = params.customInstructions
-    ? `\n<instrucoes_customizadas>\n${params.customInstructions}\n</instrucoes_customizadas>`
+    ? `\n<custom_instructions>\n${params.customInstructions}\n</custom_instructions>`
     : "";
 
-  return `<task id="article-outline-generator">
-<objetivo>
-Gere 3 propostas de outline distintas para o artigo. Cada outline deve ter abordagem diferente
-mas todas devem cobrir o tema de forma completa e otimizada para SEO.
-</objetivo>
+  return `<context>
+Você é um Outline Architect especializado em criar estruturas de artigo que performam em buscadores tradicionais E são citadas por IAs generativas.
 
-<contexto>
-Keyword principal: ${params.primaryKeyword}${secondarySection}
+Você entende que a estrutura do artigo determina 60% da performance GEO — IAs priorizam conteúdo com headings-como-perguntas, definições diretas, e estrutura extraível.
+</context>
+
+<input>
+Keyword primária: ${params.primaryKeyword}${secondarySection}
 Tipo de artigo: ${params.articleType}
-Word count alvo: ${params.targetWordCount} palavras
-</contexto>
+Word count alvo: ${params.targetWordCount}
+Nível de citabilidade: ${params.citabilityLevel || "high"}
 
-<pesquisa_sintetizada>
+<synthesized_research>
 ${params.synthesizedResearch}
-</pesquisa_sintetizada>
-${baseSection}${motherSection}${keywordGapsSection}${competitorSection}${customSection}
+</synthesized_research>
+${targetQueriesSection}${baseSection}${motherSection}${keywordGapsSection}${customSection}
+</input>
 
-<regras_outline>
-1. Cada outline DEVE ter entre 5-10 seções H2
-2. Cada H2 pode ter 0-4 H3s
-3. A introdução NÃO é um H2 — é texto antes do primeiro H2
-4. Keywords devem aparecer naturalmente nos headings
-5. Estimativa de palavras deve ser realista para a profundidade proposta
-6. Os 3 outlines devem ter abordagens DIFERENTES:
-   - Outline A: Abordagem mais direta/prática
-   - Outline B: Abordagem mais analítica/dados
-   - Outline C: Abordagem mais narrativa/cases
-</regras_outline>
+<task>
+Gere EXATAMENTE 3 propostas de outline, cada uma com abordagem editorial diferente.
 
-<output_format>
-Retorne EXCLUSIVAMENTE um JSON válido:
+REGRAS ESTRUTURAIS GEO-FIRST:
+1. Pelo menos 30% dos H2s devem ser formulados como perguntas naturais (match com queries de IA)
+2. Cada outline DEVE incluir seção FAQ (3-5 perguntas) — IAs adoram FAQs estruturadas
+3. Pelo menos 1 seção DEVE usar formato tabular (comparação, checklist, ou overview)
+4. Se articleType é "how-to" ou "tutorial": steps numerados obrigatórios
+5. Se articleType é "listicle": cada item como H2 com avaliação estruturada
+6. Primeira seção sempre responde a pergunta principal diretamente (position zero format)
+7. Cada seção mapeada a pelo menos 1 target query de IA
+
+ABORDAGENS (1 por outline):
+- Outline A: Direta/Prática — Resposta primeiro, contexto depois. Formato problem→solution.
+- Outline B: Analítica/Dados — Data-driven. Tabelas, comparações, benchmarks.
+- Outline C: Narrativa/Autoridade — Case studies, experiência, E-E-A-T pesado.
+</task>
+
+<output_schema>
+Responda APENAS com JSON válido:
+
 {
   "outlines": [
     {
-      "id": "outline_a",
-      "title": "<título proposto para o artigo>",
-      "description": "<descrição da abordagem em 1-2 sentenças>",
-      "differentiator": "<o que torna este outline único>",
+      "id": "A",
+      "title": "string — título de trabalho do outline",
+      "approach": "direct | analytical | narrative",
+      "description": "string — 2-3 frases descrevendo a abordagem editorial",
+      "differentiator": "string — por que este outline é diferente dos outros",
+      "seo_strength": "string — ponto forte de SEO desta abordagem",
+      "geo_strength": "string — ponto forte de GEO desta abordagem",
+      "recommended_schemas": ["BlogPosting", "FAQPage", "..."],
+
       "sections": [
         {
-          "heading": "<H2 heading>",
-          "subheadings": ["<H3 heading>", ...],
-          "estimated_words": <número>,
-          "key_points": ["<ponto-chave que será coberto>", ...]
+          "heading": "string — texto do H2 (formular como pergunta quando apropriado)",
+          "heading_type": "question | statement | action",
+          "subheadings": ["string — H3s"],
+          "estimated_words": 300,
+          "key_points": ["string"],
+          "geo_format": "prose | table | list | steps | faq | definition | comparison",
+          "target_queries_addressed": ["string — queries de IA que esta seção responde"],
+          "schema_hint": "string | null — schema sugerido para esta seção",
+          "citable_snippet_slots": 1
         }
       ],
-      "estimated_total_words": <número>
+
+      "faq_section": {
+        "questions": [
+          {
+            "question": "string — pergunta natural",
+            "answer_preview": "string — 1 frase de preview da resposta",
+            "source_query": "string — de onde veio esta pergunta (pesquisa, PAA, target queries)"
+          }
+        ]
+      },
+
+      "estimated_total_words": 2500,
+      "estimated_geo_score": "string — estimativa qualitativa: low / medium / high / very_high",
+      "estimated_schema_count": 3
     }
-  ]
+  ],
+
+  "recommendation": {
+    "best_for_seo": "A | B | C",
+    "best_for_geo": "A | B | C",
+    "best_balanced": "A | B | C",
+    "reasoning": "string"
+  }
 }
-</output_format>
-</task>`;
+</output_schema>
+
+<rules>
+1. Cada outline deve ter entre 5-10 seções H2
+2. FAQs não contam como seção regular — são seção adicional obrigatória
+3. Nunca gere headings genéricos ("Introdução", "Conclusão") — use headings com valor semântico
+4. Heading de abertura NUNCA é "Introdução" — é a pergunta/tema principal respondido diretamente
+5. Heading de fechamento é ação/next-step, não "Conclusão"
+6. Cada seção deve ter pelo menos 1 key_point que é um dado citável
+7. Se citabilityLevel é "maximum", aumente citable_snippet_slots para 2-3 por seção
+</rules>`;
 }
 
+/** @deprecated Use getOutlineGeneratorPromptV2() */
+export const getOutlineGeneratorPrompt = getOutlineGeneratorPromptV2;
+
 // ============================================================================
-// PROMPT 06 — Produtor de Seção (seção a seção)
+// PROMPT 06 — Produtor de Seção (GEO-Optimized)
 // ============================================================================
 
-export function getSectionProducerPrompt(params: {
+export function getSectionProducerPromptV2(params: {
   primaryKeyword: string;
   secondaryKeywords?: string[];
   articleType: string;
   sectionHeading: string;
   sectionSubheadings: string[];
   sectionKeyPoints: string[];
+  sectionGeoFormat?: string;
+  sectionTargetQueries?: string[];
+  sectionSchemaHint?: string;
+  citableSnippetSlots?: number;
   estimatedWords: number;
   sectionIndex: number;
   totalSections: number;
@@ -375,79 +537,117 @@ export function getSectionProducerPrompt(params: {
   synthesizedResearch: string;
   ragContext?: string;
   brandVoiceProfile?: BrandVoiceProfile;
+  eeatProfile?: string;
   customInstructions?: string;
 }): string {
-  const brandVoiceSection = params.brandVoiceProfile
-    ? `\n<si_brand_voice_profile>
-${JSON.stringify(params.brandVoiceProfile, null, 2)}
-</si_brand_voice_profile>
-<instrucao_brand_voice>
-Adapte a produção do conteúdo ao perfil de voz da marca:
-1. **Tom**: Siga voice_profile.tone e formality_level
-2. **Vocabulário**: Use vocabulary_patterns naturalmente, evite avoided_terms
-3. **Estrutura**: Respeite avg_paragraph_length, avg_sentence_length e heading_style
-4. **Dados**: Siga data_usage e data_citation_format
-5. **Pessoa Gramatical**: Use a pessoa gramatical consistente com person
-6. **Guidelines**: Siga TODAS as writing_guidelines[]
-</instrucao_brand_voice>`
+  const geoFormat = params.sectionGeoFormat || "prose";
+  const snippetSlots = params.citableSnippetSlots || 1;
+
+  const targetQueriesSection = params.sectionTargetQueries?.length
+    ? `\nQueries alvo: ${params.sectionTargetQueries.join("; ")}`
+    : "";
+
+  const schemaHintSection = params.sectionSchemaHint
+    ? `\nSchema hint: ${params.sectionSchemaHint}`
     : "";
 
   const ragSection = params.ragContext
-    ? `\n<contexto_rag>\n${params.ragContext}\n</contexto_rag>`
+    ? `\n<proprietary_data>\n${params.ragContext}\n</proprietary_data>`
+    : "";
+
+  const brandVoiceSection = params.brandVoiceProfile
+    ? `\n<brand_voice>\n${JSON.stringify(params.brandVoiceProfile, null, 2)}\n</brand_voice>`
+    : "";
+
+  const eeatSection = params.eeatProfile
+    ? `\n<eeat>\n${params.eeatProfile}\n</eeat>`
     : "";
 
   const customSection = params.customInstructions
-    ? `\n<instrucoes_customizadas>\n${params.customInstructions}\n</instrucoes_customizadas>`
+    ? `\n<custom>\n${params.customInstructions}\n</custom>`
     : "";
 
-  return `<task id="article-section-producer">
-<objetivo>
-Produza o conteúdo completo da seção ${params.sectionIndex + 1} de ${params.totalSections} do artigo.
-Escreva em Markdown puro, com a profundidade e qualidade necessárias.
-</objetivo>
+  return `<context>
+Você é um Section Producer que escreve conteúdo otimizado para ser rankeado em buscadores E citado por IAs generativas.
 
-<contexto>
-Keyword principal: ${params.primaryKeyword}
+Cada seção que você produz deve funcionar como unidade independente — um LLM deve conseguir extrair esta seção e citá-la como resposta completa a uma query.
+</context>
+
+<input>
+Keyword primária: ${params.primaryKeyword}
 Keywords secundárias: ${params.secondaryKeywords?.join(", ") || "nenhuma"}
 Tipo de artigo: ${params.articleType}
-</contexto>
 
-<secao_atual>
-Heading (H2): ${params.sectionHeading}
-Subheadings (H3): ${params.sectionSubheadings.join(", ") || "sem H3s definidos"}
-Pontos-chave a cobrir: ${params.sectionKeyPoints.join("; ")}
-Word count alvo: ~${params.estimatedWords} palavras
-Posição: Seção ${params.sectionIndex + 1} de ${params.totalSections}
-</secao_atual>
+Seção ${params.sectionIndex + 1} de ${params.totalSections}:
+- Heading: ${params.sectionHeading}
+- Subheadings: ${params.sectionSubheadings.join(", ") || "sem H3s definidos"}
+- Key Points: ${params.sectionKeyPoints.join("; ")}
+- Formato GEO: ${geoFormat}${targetQueriesSection}${schemaHintSection}
+- Slots de snippets citáveis: ${snippetSlots}
+- Estimativa de palavras: ${params.estimatedWords}
 
-<contexto_secoes_anteriores>
+<previous_context>
 ${params.previousSectionsContext || "Esta é a primeira seção."}
-</contexto_secoes_anteriores>
+</previous_context>
 
-<pesquisa_sintetizada>
+<research>
 ${params.synthesizedResearch}
-</pesquisa_sintetizada>
-${ragSection}${brandVoiceSection}${customSection}
+</research>
+${ragSection}${brandVoiceSection}${eeatSection}${customSection}
+</input>
 
-<regras_producao>
-1. Comece com ## ${params.sectionHeading}
-2. O primeiro parágrafo após o H2 deve conter uma resposta direta e autocontida
-3. Use ### para os subheadings definidos
-4. Inclua dados com fontes quando disponíveis na pesquisa
-5. Word count deve estar dentro de ±15% do alvo
-6. Se esta é a primeira seção, inclua um parágrafo introdutório ANTES do primeiro H2
-7. Se esta é a última seção, termine com insights finais (NÃO "Conclusão" genérica)
-8. Transição suave: termine a seção de forma que faça sentido com o próximo H2
-9. Use **negrito** para conceitos-chave e termos importantes
-10. Listas quando houver 3+ itens paralelos
-</regras_producao>
+<task>
+Produza o conteúdo desta seção em Markdown seguindo TODAS estas regras:
+</task>
 
-<output_format>
-Retorne APENAS o conteúdo Markdown da seção. Sem JSON wrapper. Sem explicações.
-Comece diretamente com ## ${params.sectionHeading}
-</output_format>
-</task>`;
+<rules>
+ESTRUTURA OBRIGATÓRIA:
+1. LEAD DIRETO: Primeira frase responde a pergunta implícita do heading. Se o heading é "O que é X?", a primeira frase é "X é [definição]."
+2. CONTEXTO: 2-3 frases expandindo a resposta com nuance e profundidade
+3. CORPO: Desenvolvimento com dados, exemplos, argumentação
+4. Se geo_format é "table": inclua tabela Markdown com dados comparativos
+5. Se geo_format é "list" ou "steps": use lista numerada com descrições
+6. Se geo_format é "faq": use formato Q&A com heading H3 como pergunta
+7. Se geo_format é "definition": use padrão "**X** é [definição]. [Contexto]. [Dados]."
+
+CITABILIDADE:
+8. Insira EXATAMENTE ${snippetSlots} "citable snippets" — parágrafos auto-contidos que uma IA pode extrair e citar como resposta completa
+9. Cada citable snippet deve ter: afirmação clara + dado com fonte + contexto suficiente
+10. Marque citable snippets com comentário HTML: <!-- citable-snippet: [query que responde] -->
+
+DADOS E FONTES:
+11. Todo dado quantificável inclui atribuição: "Segundo [Fonte] ([Ano])..."
+12. Se dados não disponíveis, use placeholder: [DADO: inserir estatística sobre...]
+13. Se RAG context disponível com dados proprietários, priorize-os (vantagem competitiva)
+
+SEO:
+14. Keyword primária aparece naturalmente pelo menos 1x na seção
+15. Pelo menos 1 keyword secundária incluída quando natural
+16. Anchor text para links internos é descritivo (nunca "clique aqui")
+
+E-E-A-T:
+17. Se eeatProfile disponível, integre sinais de experiência/expertise naturalmente
+18. Inclua pelo menos 1 exemplo real, case, ou dado de experiência por seção
+19. Cite fontes externas autoritativas quando fizer claims importantes
+
+BRAND VOICE:
+20. Se brandVoiceProfile disponível, adapte tom e estilo mantendo todas as regras GEO
+</rules>
+
+<output>
+Retorne APENAS o conteúdo Markdown da seção. Sem JSON wrapper. Inclua comentários HTML para citable snippets e schema hints.
+
+Formato:
+## ${params.sectionHeading}
+
+[Conteúdo em Markdown com formatação GEO integrada]
+
+<!-- schema-hint: [tipo de schema sugerido] -->
+</output>`;
 }
+
+/** @deprecated Use getSectionProducerPromptV2() */
+export const getSectionProducerPrompt = getSectionProducerPromptV2;
 
 // ============================================================================
 // PROMPT 07 — Montador + Interlinking
@@ -538,94 +738,280 @@ Retorne um JSON válido:
 }
 
 // ============================================================================
-// PROMPT 08 — SEO Analyzer
+// PROMPT 08 — Unified SEO + GEO Analyzer (replaces 08 + GEO-01)
 // ============================================================================
 
-export function getSeoAnalyzerPrompt(params: {
+export function getUnifiedAnalyzerPrompt(params: {
   articleContent: string;
   primaryKeyword: string;
   secondaryKeywords?: string[];
   targetWordCount: number;
   keywordGaps?: KeywordGap[];
+  targetQueries?: string[];
+  citabilityLevel?: string;
 }): string {
-  const keywordGapsSection = params.keywordGaps?.length
-    ? `\n<si_keyword_gaps>
-${JSON.stringify(params.keywordGaps, null, 2)}
-</si_keyword_gaps>
-<instrucao_gaps>
-Ao analisar SEO, valide também a cobertura competitiva:
-1. Para cada gap relevante: O tópico foi coberto? (sim/parcialmente/não)
-2. O ângulo é diferenciado dos concorrentes? (sim/não)
-3. Oportunidades long-tail foram incorporadas? (sim/não)
-</instrucao_gaps>`
+  const targetQueriesSection = params.targetQueries?.length
+    ? `\n<target_queries>\n${params.targetQueries.join("\n")}\n</target_queries>`
     : "";
 
-  return `<task id="article-seo-analyzer">
-<objetivo>
-Analise o artigo abaixo e gere um relatório SEO detalhado com score, issues e recomendações.
-</objetivo>
+  const keywordGapsSection = params.keywordGaps?.length
+    ? `\n<keyword_gaps>\n${JSON.stringify(params.keywordGaps, null, 2)}\n</keyword_gaps>`
+    : "";
 
-<artigo>
+  return `<context>
+Você é um Unified SEO+GEO Analyzer. Você avalia artigos contra critérios duais de otimização para buscadores tradicionais E para IAs generativas.
+
+Seu score determina se o artigo será publicado ou retornará para otimização.
+</context>
+
+<input>
+<article>
 ${params.articleContent}
-</artigo>
+</article>
 
-<contexto>
-Keyword principal: ${params.primaryKeyword}
+Keyword primária: ${params.primaryKeyword}
 Keywords secundárias: ${params.secondaryKeywords?.join(", ") || "nenhuma"}
 Word count alvo: ${params.targetWordCount}
-</contexto>
-${keywordGapsSection}
+Nível de citabilidade alvo: ${params.citabilityLevel || "high"}
+${targetQueriesSection}${keywordGapsSection}
+</input>
 
-<criterios_analise>
-Analise cada critério e classifique como "pass", "warn" ou "fail":
+<task>
+Avalie o artigo contra TODOS os critérios abaixo. Para cada critério, atribua status (pass/warning/fail), mensagem explicativa, e prioridade de correção.
+</task>
 
-1. **Title Tag**: Keyword no título? Tamanho entre 50-60 chars?
-2. **H1**: Keyword presente? Único H1?
-3. **H2s**: Keywords distribuídas? Descritivos (não genéricos)?
-4. **Keyword Density**: Primary keyword entre 1-2%? Natural, sem stuffing?
-5. **Meta Description**: Keyword presente? 150-160 chars? CTA incluso?
-6. **Internal Links**: Mínimo 3 links internos? Anchor texts relevantes?
-7. **External Links**: Fontes citadas com links? Mínimo 2?
-8. **Image Alt Texts**: Imagens com alt text descritivo?
-9. **Word Count**: Dentro de ±10% do alvo?
-10. **Readability**: Parágrafos curtos? Listas? Escaneabilidade?
-11. **First 100 Words**: Keyword presente nos primeiros 100 palavras?
-12. **URL Slug**: Keyword no slug sugerido?
-13. **Content Freshness**: Dados e fontes recentes (últimos 2 anos)?
-14. **E-E-A-T Signals**: Experiência pessoal? Expertise demonstrada?
-</criterios_analise>
+<criteria>
+SEO CRITERIA (14):
+1. title_tag: Title com keyword, 50-60 chars
+2. h1_keyword: H1 contém keyword primária
+3. h2_keywords: Pelo menos 1 H2 contém keyword ou variação
+4. keyword_density: 1-2% para primária (sem stuffing)
+5. first_100_words: Keyword nos primeiros 100 palavras
+6. meta_description: 150-160 chars, keyword, CTA
+7. internal_links: 3-6 links internos com anchor descritivo
+8. external_links: 2-4 links para fontes autoritativas
+9. images_alt: Todas imagens com alt text descritivo
+10. word_count: Dentro de ±15% do alvo
+11. readability: Parágrafos curtos, frases variadas, sem walls of text
+12. url_slug: Kebab-case, 3-5 palavras, keyword presente
+13. freshness_signals: Data de publicação/atualização presente
+14. eeat_signals: Autor identificado, credenciais visíveis
 
-<output_format>
-Retorne EXCLUSIVAMENTE um JSON válido:
+GEO CRITERIA (10):
+15. direct_answers: Cada seção começa respondendo a pergunta do heading
+16. citable_data: Dados quantificáveis com atribuição de fonte (mín. 5 por artigo)
+17. extractable_structure: Tabelas, listas, definições que IAs podem extrair
+18. schema_readiness: Conteúdo compatível com FAQPage, HowTo, ItemList, etc.
+19. query_coverage: % das target queries respondidas diretamente
+20. section_independence: Seções funcionam como unidades independentes citáveis
+21. definition_patterns: Definições claras no formato "X é [definição]"
+22. comparison_tables: Tabelas comparativas para temas "X vs Y"
+23. faq_section: Seção FAQ com perguntas naturais e respostas diretas
+24. source_attribution: Citações com atribuição completa (nome, ano, contexto)
+</criteria>
+
+<output_schema>
+Responda APENAS com JSON válido:
+
 {
-  "overall_score": <0-100>,
+  "seo_score": 85,
+  "geo_score": 72,
+  "unified_score": 79,
+  "unified_score_formula": "(seo_score * 0.5) + (geo_score * 0.5)",
+
   "checks": [
     {
-      "criterion": "<nome do critério>",
-      "status": "<pass|warn|fail>",
-      "message": "<descrição do resultado>",
-      "priority": "<high|medium|low>"
+      "id": 1,
+      "criterion": "title_tag",
+      "category": "seo",
+      "status": "pass | warning | fail",
+      "message": "string — descrição detalhada do achado",
+      "current_value": "string — valor atual encontrado",
+      "recommended_value": "string — valor recomendado",
+      "priority": "critical | high | medium | low",
+      "auto_fixable": true
     }
   ],
+
   "keyword_density": {
-    "primary": <porcentagem>,
-    "secondary": { "<keyword>": <porcentagem>, ... }
+    "primary": { "keyword": "string", "count": 12, "density": "1.4%" },
+    "secondary": [{ "keyword": "string", "count": 5, "density": "0.6%" }]
   },
-  "suggestions": ["<sugestão acionável 1>", "<sugestão 2>", ...],
+
+  "geo_analysis": {
+    "target_queries_evaluated": [
+      {
+        "query": "string",
+        "answered": true,
+        "answer_quality": "direct | indirect | missing",
+        "location_in_article": "string — seção onde é respondida",
+        "improvement": "string | null"
+      }
+    ],
+    "citable_snippets_found": 7,
+    "citable_snippets_target": 10,
+    "schemas_detected": ["BlogPosting", "FAQPage"],
+    "schemas_recommended": ["BlogPosting", "FAQPage", "HowTo"],
+    "ai_citation_probability": "medium — 55-70%"
+  },
+
+  "priority_fixes": [
+    {
+      "id": "fix_1",
+      "category": "seo | geo | both",
+      "description": "string — o que corrigir",
+      "impact": "high | medium | low",
+      "effort": "low | medium | high",
+      "auto_fixable": true,
+      "fix_instruction": "string — instrução específica para o optimizer"
+    }
+  ],
+
   "competitive_coverage": {
-    "gaps_addressed": <número>,
-    "gaps_missed": ["<gap não coberto>", ...],
-    "differentiation_score": <0-100>
+    "gaps_addressed": ["string"],
+    "gaps_missed": ["string"],
+    "differentiation_score": 75
   }
 }
-</output_format>
-</task>`;
+</output_schema>
+
+<rules>
+1. Gere pelo menos 5 target queries automaticamente se não fornecidas
+2. Score SEO: média ponderada dos 14 critérios (critical=3x, high=2x, medium=1x, low=0.5x)
+3. Score GEO: média ponderada dos 10 critérios (mesmos pesos)
+4. Score Unificado: (SEO * 0.5) + (GEO * 0.5)
+5. Threshold para publicação: unified_score >= 75
+6. Priority fixes ordenados por (impact DESC, effort ASC)
+7. "auto_fixable" = true quando o optimizer pode corrigir sem input humano
+8. ai_citation_probability usa escala: very_low (<30%), low (30-50%), medium (50-70%), high (70-85%), very_high (>85%)
+</rules>`;
 }
 
+/** @deprecated Use getUnifiedAnalyzerPrompt() */
+export const getSeoAnalyzerPrompt = getUnifiedAnalyzerPrompt;
+
 // ============================================================================
-// PROMPT 09 — SEO Optimizer (+ GEO fixes)
+// PROMPT 09 — Unified SEO + GEO Optimizer (replaces 09 + GEO-02)
 // ============================================================================
 
+export function getUnifiedOptimizerPrompt(params: {
+  articleContent: string;
+  unifiedReport: string;
+  primaryKeyword: string;
+  secondaryKeywords?: string[];
+  brandVoiceProfile?: string;
+  eeatProfile?: string;
+}): string {
+  const brandVoiceSection = params.brandVoiceProfile
+    ? `\n<brand_voice>\n${params.brandVoiceProfile}\n</brand_voice>`
+    : "";
+
+  const eeatSection = params.eeatProfile
+    ? `\n<eeat>\n${params.eeatProfile}\n</eeat>`
+    : "";
+
+  return `<context>
+Você é um Unified SEO+GEO Optimizer. Você aplica correções cirúrgicas em artigos para maximizar performance em buscadores tradicionais E citabilidade por IAs generativas.
+
+REGRA DE OURO: Mantenha pelo menos 95% do conteúdo original. Suas correções são cirúrgicas, precisas, e preservam o tom e a voz do artigo.
+</context>
+
+<input>
+<article>
+${params.articleContent}
+</article>
+
+<unified_report>
+${params.unifiedReport}
+</unified_report>
+
+Keyword primária: ${params.primaryKeyword}
+Keywords secundárias: ${params.secondaryKeywords?.join(", ") || "nenhuma"}
+${brandVoiceSection}${eeatSection}
+</input>
+
+<task>
+Aplique TODAS as correções marcadas como "auto_fixable: true" no unified_report.
+
+Para cada fix, siga estas técnicas:
+</task>
+
+<techniques>
+SEO FIXES:
+- keyword_insertion: Insira keyword naturalmente, sem forçar
+- meta_generation: Gere meta description com proposta de valor + CTA
+- heading_optimization: Reformule headings genéricos para incluir keywords/perguntas
+- link_anchor_improvement: Melhore anchor text de links internos
+- alt_text_generation: Gere alt text descritivo com keyword quando natural
+- freshness_signal: Adicione nota "[Atualizado em Fevereiro 2026]" se ausente
+
+GEO FIXES:
+- direct_answer_insertion: Adicione frase de resposta direta no início de seções que começam com contexto
+- citable_data_enhancement: Transforme dados vagos em dados com atribuição de fonte
+- definition_formatting: Formate definições no padrão "**X** é [definição concisa]"
+- table_creation: Crie tabelas comparativas onde o conteúdo compara 2+ opções em prosa
+- faq_structuring: Converta perguntas esparsas em seção FAQ estruturada
+- source_attribution: Adicione "[Fonte]" a claims sem atribuição, ou placeholder [FONTE: inserir]
+- section_independence: Adicione context sentences no início de seções que dependem de seções anteriores
+- schema_annotation: Adicione comentários HTML <!-- schema: FAQPage --> onde detectar oportunidades
+</techniques>
+
+<output_schema>
+Responda APENAS com JSON válido:
+
+{
+  "optimized_article": "string — artigo completo otimizado em Markdown",
+
+  "changes_made": [
+    {
+      "fix_id": "string — referência ao fix do report",
+      "type": "seo | geo | both",
+      "location": "string — seção/parágrafo onde aplicado",
+      "description": "string — o que foi alterado",
+      "before_snippet": "string — texto original (50 chars max)",
+      "after_snippet": "string — texto novo (50 chars max)"
+    }
+  ],
+
+  "manual_review_needed": [
+    {
+      "fix_id": "string",
+      "reason": "string — por que precisa revisão humana",
+      "suggestion": "string — sugestão para o editor",
+      "placeholder_used": "string | null — placeholder inserido"
+    }
+  ],
+
+  "new_scores_estimate": {
+    "seo_score": 92,
+    "geo_score": 88,
+    "unified_score": 90,
+    "ai_citation_probability": "high — 75-85%"
+  },
+
+  "tradeoffs": [
+    {
+      "description": "string — trade-off feito",
+      "seo_impact": "+/- string",
+      "geo_impact": "+/- string",
+      "reasoning": "string"
+    }
+  ]
+}
+</output_schema>
+
+<rules>
+1. Preserve 95%+ do conteúdo original
+2. Nunca invente dados — use placeholders [DADO: ...] ou [FONTE: ...]
+3. Se uma correção GEO conflita com SEO, priorize a que tem maior impacto no unified_score
+4. Mantenha brand voice se brandVoiceProfile disponível
+5. Integre sinais E-E-A-T se eeatProfile disponível
+6. Marque tudo que precisa revisão humana em manual_review_needed
+7. Estimativas de novo score são qualitativas, baseadas nas correções aplicadas
+</rules>`;
+}
+
+/** @deprecated Use getUnifiedOptimizerPrompt() — params changed */
 export function getSeoOptimizerPrompt(params: {
   articleContent: string;
   seoReport: string;
@@ -633,65 +1019,14 @@ export function getSeoOptimizerPrompt(params: {
   geoReport?: string;
   geoFixes?: string;
 }): string {
-  const geoSection = params.geoReport && params.geoFixes
-    ? `\n<geo_report>
-${params.geoReport}
-</geo_report>
-<geo_fixes>
-${params.geoFixes}
-</geo_fixes>
-<instrucao_geo>
-Aplique as correções GEO junto com as SEO em uma otimização unificada:
-1. **Respostas Diretas**: Garanta que o primeiro parágrafo de cada H2 contenha resposta autocontida
-2. **Dados Citáveis**: Toda estatística deve ter atribuição: "Segundo [Fonte] ([ano]), [dado]."
-3. **Estrutura**: Quebre parágrafos longos. 1 parágrafo = 1 ideia. Headings descritivos
-4. **E-E-A-T**: Adicione frases de experiência pessoal/profissional onde relevante
-5. **Cobertura**: Se subtópicos faltantes foram identificados, adicione parágrafos breves
-Se houver conflito entre otimização SEO e GEO, priorize SEO mas registre o trade-off.
-</instrucao_geo>`
-    : "";
-
-  return `<task id="article-seo-optimizer">
-<objetivo>
-Aplique as correções SEO identificadas no relatório, mantendo a qualidade e naturalidade do conteúdo.
-O artigo otimizado deve manter 95%+ do conteúdo original, apenas refinando para SEO.
-</objetivo>
-
-<artigo_original>
-${params.articleContent}
-</artigo_original>
-
-<seo_report>
-${params.seoReport}
-</seo_report>
-
-<keyword>${params.primaryKeyword}</keyword>
-${geoSection}
-
-<regras_otimizacao>
-1. NÃO reescreva o artigo — aplique correções cirúrgicas
-2. Mantenha o tom e estilo originais
-3. Adicione keyword onde falta, mas de forma NATURAL
-4. Corrija headings genéricos para headings descritivos com keyword
-5. Quebre parágrafos longos (máx 4 sentenças)
-6. Adicione dados/fontes onde o report indica falta
-7. Melhore transições entre seções se identificadas como fracas
-8. NÃO adicione conteúdo que não estava no original (exceto para preencher gaps críticos)
-</regras_otimizacao>
-
-<output_format>
-Retorne um JSON válido:
-{
-  "optimized_article": "<artigo otimizado em Markdown>",
-  "changes_made": [
-    { "type": "<keyword_added|heading_improved|paragraph_split|data_added|transition_improved|geo_fix>", "location": "<onde>", "description": "<o que mudou>" }
-  ],
-  "new_seo_score_estimate": <0-100>,
-  "new_geo_score_estimate": <0-100>,
-  "tradeoffs": ["<trade-off registrado, se houver>"]
-}
-</output_format>
-</task>`;
+  const unifiedReport = params.geoReport
+    ? `${params.seoReport}\n\n--- GEO REPORT ---\n${params.geoReport}\n\n--- GEO FIXES ---\n${params.geoFixes || "[]"}`
+    : params.seoReport;
+  return getUnifiedOptimizerPrompt({
+    articleContent: params.articleContent,
+    unifiedReport,
+    primaryKeyword: params.primaryKeyword,
+  });
 }
 
 // ============================================================================

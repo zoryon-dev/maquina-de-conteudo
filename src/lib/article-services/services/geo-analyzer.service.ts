@@ -5,7 +5,7 @@
  */
 
 import type { ServiceResult } from "../types";
-import { getArticleSystemPrompt, extractArticleJSON } from "../prompts";
+import { getArticleSystemPromptV2, extractArticleJSON } from "../prompts";
 import { getGeoAnalyzerPrompt } from "../prompts/geo";
 import { articleLlmCall } from "./llm";
 
@@ -86,6 +86,7 @@ export interface GeoAnalysisResult {
   aiCitationProbability: { score: number; assessment: string };
 }
 
+/** @deprecated Use unified analyzer/optimizer in pipeline */
 export async function analyzeGeo(params: {
   articleContent: string;
   primaryKeyword: string;
@@ -93,7 +94,7 @@ export async function analyzeGeo(params: {
   model: string;
 }): Promise<ServiceResult<GeoAnalysisResult>> {
   try {
-    const systemPrompt = getArticleSystemPrompt();
+    const systemPrompt = getArticleSystemPromptV2();
     const userMessage = getGeoAnalyzerPrompt({
       articleContent: params.articleContent,
       primaryKeyword: params.primaryKeyword,

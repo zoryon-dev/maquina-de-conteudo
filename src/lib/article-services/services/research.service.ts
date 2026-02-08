@@ -11,9 +11,8 @@ import type { ServiceResult } from "../types";
 import {
   getBaseArticleAnalyzerPrompt,
   getMotherArticleAnalyzerPrompt,
-  getArticleSynthesizerPrompt,
-  getArticleSystemPrompt,
-  extractArticleJSON,
+  getArticleSynthesizerPromptV2,
+  getArticleSystemPromptV2,
 } from "../prompts";
 import { articleLlmCall } from "./llm";
 
@@ -32,13 +31,14 @@ export async function runArticleResearch(params: {
   primaryKeyword: string;
   secondaryKeywords?: string[];
   articleType: string;
+  targetQueries?: string[];
   model: string;
   userVariablesPrompt?: string;
   ragContext?: string;
   onProgress?: (stage: string, percent: number, message: string) => Promise<void>;
 }): Promise<ServiceResult<ArticleResearchResult>> {
   const result: ArticleResearchResult = {};
-  let systemPrompt = getArticleSystemPrompt();
+  let systemPrompt = getArticleSystemPromptV2();
 
   // Enrich system prompt with user variables if available
   if (params.userVariablesPrompt) {
@@ -115,13 +115,15 @@ export async function runArticleResearch(params: {
 
     // Step 4: Synthesize research
     await params.onProgress?.("synthesis", 75, "Sintetizando pesquisa...");
-    const synthesizerPrompt = getArticleSynthesizerPrompt({
+    const synthesizerPrompt = getArticleSynthesizerPromptV2({
       primaryKeyword: params.primaryKeyword,
       secondaryKeywords: params.secondaryKeywords,
       articleType: params.articleType,
       researchResults: result.researchResults,
       baseArticleAnalysis: result.baseArticleAnalysis,
       motherArticleAnalysis: result.motherArticleAnalysis,
+      targetQueries: params.targetQueries,
+      ragContext: params.ragContext,
     });
     const synthesisResponse = await articleLlmCall({
       model: params.model,

@@ -7,8 +7,8 @@
 
 import type { ServiceResult, SeoMetadataPackage, BrandVoiceProfile } from "../types"
 import {
-  getArticleSystemPrompt,
-  getMetadataGeneratorPrompt,
+  getArticleSystemPromptV2,
+  getMetadataGeneratorPromptV2,
   extractArticleJSON,
 } from "../prompts"
 import { articleLlmCall, ARTICLE_DEFAULT_MODEL } from "./llm"
@@ -19,22 +19,30 @@ export async function generateArticleMetadata(params: {
   secondaryKeywords: string[]
   brandName: string
   authorName: string
+  articleType?: string
   siteCategories?: string[]
   brandVoiceProfile?: BrandVoiceProfile
+  eeatProfile?: string
+  schemaHints?: string[]
+  freshness?: { publishDate?: string; versionNote?: string }
   model?: string
 }): Promise<ServiceResult<SeoMetadataPackage>> {
   try {
-    const systemPrompt = getArticleSystemPrompt()
-    const userMessage = getMetadataGeneratorPrompt({
+    const systemPrompt = getArticleSystemPromptV2()
+    const userMessage = getMetadataGeneratorPromptV2({
       articleContent: params.articleContent,
       primaryKeyword: params.primaryKeyword,
       secondaryKeywords: params.secondaryKeywords,
       brandName: params.brandName,
       authorName: params.authorName,
+      articleType: params.articleType || "guia",
       siteCategories: params.siteCategories,
       brandVoiceProfile: params.brandVoiceProfile
         ? JSON.stringify(params.brandVoiceProfile)
         : undefined,
+      eeatProfile: params.eeatProfile,
+      schemaHints: params.schemaHints,
+      freshness: params.freshness,
     })
 
     const response = await articleLlmCall({

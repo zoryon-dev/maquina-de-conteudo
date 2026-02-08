@@ -5,7 +5,7 @@
  */
 
 import type { ServiceResult } from "../types";
-import { getArticleSystemPrompt, extractArticleJSON } from "../prompts";
+import { getArticleSystemPromptV2, extractArticleJSON } from "../prompts";
 import { getGeoOptimizerPrompt } from "../prompts/geo";
 import { articleLlmCall } from "./llm";
 
@@ -53,6 +53,7 @@ export interface GeoOptimizationResult {
   editorNotes: string[];
 }
 
+/** @deprecated Use unified analyzer/optimizer in pipeline */
 export async function optimizeGeo(params: {
   articleContent: string;
   geoReport: string;
@@ -61,7 +62,7 @@ export async function optimizeGeo(params: {
   model: string;
 }): Promise<ServiceResult<GeoOptimizationResult>> {
   try {
-    const systemPrompt = getArticleSystemPrompt();
+    const systemPrompt = getArticleSystemPromptV2();
     const userMessage = getGeoOptimizerPrompt({
       articleContent: params.articleContent,
       geoReport: params.geoReport,
