@@ -613,6 +613,12 @@ export const contentWizards = pgTable(
     // Theme origin (when created from a saved theme)
     themeId: integer("theme_id").references(() => themes.id, { onDelete: "set null" }),
 
+    // Article origin (when derived from a completed article)
+    sourceArticleId: integer("source_article_id").references(
+      () => articles.id,
+      { onDelete: "set null" }
+    ),
+
     // Job tracking
     jobId: integer("job_id").references(() => jobs.id, { onDelete: "set null" }),
     jobStatus: jobStatusEnum("job_status"), // "pending" | "processing" | "completed" | "failed"
@@ -636,6 +642,7 @@ export const contentWizards = pgTable(
     index("content_wizards_library_item_id_idx").on(table.libraryItemId),
     index("content_wizards_job_id_idx").on(table.jobId),
     index("content_wizards_theme_id_idx").on(table.themeId),
+    index("content_wizards_source_article_id_idx").on(table.sourceArticleId),
   ]
 );
 
@@ -916,6 +923,10 @@ export const contentWizardsRelations = relations(contentWizards, ({ one }) => ({
   theme: one(themes, {
     fields: [contentWizards.themeId],
     references: [themes.id],
+  }),
+  sourceArticle: one(articles, {
+    fields: [contentWizards.sourceArticleId],
+    references: [articles.id],
   }),
 }));
 

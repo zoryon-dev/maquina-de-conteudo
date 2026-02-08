@@ -34,7 +34,7 @@ import { Step6SeoGeo } from "./steps/step-6-seo-geo"
 import { Step7Optimization } from "./steps/step-7-optimization"
 import { Step8Metadata } from "./steps/step-8-metadata"
 import type { Article } from "@/db/schema"
-import { useArticleDerivationStore, type DerivationType } from "@/stores/article-derivation-store"
+import type { DerivationType } from "@/lib/article-services/services/derive-to-wizard.service"
 
 // Processing stages that use polling
 const PROCESSING_STEPS = new Set<ArticleStepValue>([
@@ -66,6 +66,7 @@ export interface ArticleFormData {
   modelConfig?: ArticleModelConfig
   selectedOutlineId?: string
   projectId?: number
+  categoryId?: number
 }
 
 // ─── Completed Step ─────────────────────────────────────
@@ -80,26 +81,33 @@ function CompletedStep({
   onBack: () => void
 }) {
   const router = useRouter()
-  const setDerivation = useArticleDerivationStore((s) => s.setDerivation)
+  const [derivingType, setDerivingType] = useState<DerivationType | null>(null)
+  const [deriveError, setDeriveError] = useState<string | null>(null)
 
-  const handleDerive = (type: DerivationType) => {
-    if (!article) return
-    const content = article.finalContent || article.optimizedContent || article.assembledContent || ""
+  const handleDerive = async (type: DerivationType) => {
+    if (!article || derivingType) return
+    setDerivingType(type)
+    setDeriveError(null)
 
-    setDerivation(
-      {
-        articleId: article.id,
-        title: article.finalTitle || article.title || "",
-        primaryKeyword: article.primaryKeyword || "",
-        content,
-        seoScore: article.seoScore ?? undefined,
-        wordCount: content.split(/\s+/).filter(Boolean).length,
-      },
-      type,
-    )
+    try {
+      const res = await fetch(`/api/articles/${article.id}/derive-to-wizard`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ derivationType: type }),
+      })
 
-    // Navigate to studio with derivation context
-    router.push("/studio")
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || "Falha ao derivar conteúdo")
+      }
+
+      const { wizardId } = await res.json()
+      router.push(`/wizard?wizardId=${wizardId}`)
+    } catch (err) {
+      console.error("[CompletedStep] Derive error:", err)
+      setDeriveError(err instanceof Error ? err.message : "Erro inesperado")
+      setDerivingType(null)
+    }
   }
 
   const DERIVATION_OPTIONS = [
@@ -138,6 +146,7 @@ function CompletedStep({
           <Button
             variant="outline"
             onClick={onEdit}
+            disabled={!!derivingType}
             className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
           >
             <Pencil size={16} className="mr-2" />
@@ -145,6 +154,7 @@ function CompletedStep({
           </Button>
           <Button
             onClick={onBack}
+            disabled={!!derivingType}
             className="bg-primary text-black hover:bg-primary/90"
           >
             Ver Artigos
@@ -157,20 +167,40 @@ function CompletedStep({
         <h3 className="text-sm font-medium text-white/50 mb-4 text-center">
           Derivar Conteúdo
         </h3>
+        {deriveError && (
+          <div className="flex items-center gap-2 justify-center mb-4 text-red-400 text-sm">
+            <AlertCircle size={14} />
+            <span>{deriveError}</span>
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
           {DERIVATION_OPTIONS.map((opt) => {
             const Icon = opt.icon
+            const isLoading = derivingType === opt.type
+            const isDisabled = !!derivingType
             return (
               <button
                 key={opt.type}
                 onClick={() => handleDerive(opt.type)}
-                className="flex flex-col items-center gap-2 p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:border-primary/30 hover:bg-primary/5 transition-all group"
+                disabled={isDisabled}
+                className={cn(
+                  "flex flex-col items-center gap-2 p-4 rounded-xl border border-white/5 bg-white/[0.02] transition-all group",
+                  isDisabled
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:border-primary/30 hover:bg-primary/5"
+                )}
               >
-                <Icon size={24} className="text-white/30 group-hover:text-primary transition-colors" />
+                {isLoading ? (
+                  <Loader2 size={24} className="text-primary animate-spin" />
+                ) : (
+                  <Icon size={24} className="text-white/30 group-hover:text-primary transition-colors" />
+                )}
                 <span className="text-sm font-medium text-white/70 group-hover:text-white transition-colors">
                   {opt.label}
                 </span>
-                <span className="text-[10px] text-white/30">{opt.description}</span>
+                <span className="text-[10px] text-white/30">
+                  {isLoading ? "Analisando artigo..." : opt.description}
+                </span>
               </button>
             )
           })}
@@ -243,6 +273,7 @@ export function ArticleWizardPage({
           model: data.model ?? undefined,
           selectedOutlineId: data.selectedOutlineId ?? undefined,
           projectId: data.projectId ?? undefined,
+          categoryId: data.categoryId ?? undefined,
         })
 
       } catch (err) {

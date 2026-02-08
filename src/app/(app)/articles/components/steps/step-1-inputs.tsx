@@ -6,7 +6,7 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   KeyRound,
   Link2,
@@ -18,6 +18,8 @@ import {
   User,
   Cpu,
   ChevronDown,
+  FolderOpen,
+  Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -55,6 +57,13 @@ const ARTICLE_TYPES = [
   { value: "case-study", label: "Case Study", description: "Estudo de caso" },
 ]
 
+interface ArticleCategory {
+  id: number
+  name: string
+  slug: string
+  color: string | null
+}
+
 const inputClasses =
   "!border-white/10 !bg-white/[0.02] !text-white !placeholder:text-white/40 focus-visible:!border-primary/50"
 
@@ -82,6 +91,18 @@ export function Step1Inputs({
     formData.secondaryKeywords?.join(", ") || "",
   )
   const [showAdvancedModels, setShowAdvancedModels] = useState(false)
+  const [categories, setCategories] = useState<ArticleCategory[]>([])
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true)
+
+  useEffect(() => {
+    fetch("/api/articles/categories")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.categories) setCategories(data.categories)
+      })
+      .catch(() => {})
+      .finally(() => setIsLoadingCategories(false))
+  }, [])
 
   const handleSecondaryChange = (val: string) => {
     setSecondaryInput(val)
@@ -169,9 +190,45 @@ export function Step1Inputs({
         </div>
       </CollapsibleSection>
 
-      {/* Section 3: References */}
+      {/* Section 3: Category */}
+      {categories.length > 0 && (
+        <CollapsibleSection
+          title="3. Categoria"
+          description="Organize seu artigo por tema"
+          icon={FolderOpen}
+          defaultOpen
+        >
+          {isLoadingCategories ? (
+            <div className="flex items-center gap-2 py-4">
+              <Loader2 size={16} className="animate-spin text-white/30" />
+              <span className="text-sm text-white/30">Carregando categorias...</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() =>
+                    updateField("categoryId", formData.categoryId === cat.id ? undefined : cat.id)
+                  }
+                  className={`text-left px-3 py-2.5 rounded-lg border transition-all text-sm ${
+                    formData.categoryId === cat.id
+                      ? "border-primary/50 bg-primary/10 text-white"
+                      : "border-white/10 bg-white/[0.02] text-white/70 hover:border-white/20"
+                  }`}
+                >
+                  <span className="font-medium block">{cat.name}</span>
+                  <span className="text-[11px] text-white/40 block mt-0.5">{cat.slug}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </CollapsibleSection>
+      )}
+
+      {/* Section 4: References */}
       <CollapsibleSection
-        title="3. Referências"
+        title="4. Referências"
         description="URLs de artigos para análise"
         icon={Link2}
       >
@@ -209,9 +266,9 @@ export function Step1Inputs({
         </div>
       </CollapsibleSection>
 
-      {/* Section 4: Settings */}
+      {/* Section 5: Settings */}
       <CollapsibleSection
-        title="4. Configurações"
+        title="5. Configurações"
         description="Contagem de palavras, autor e modelo de IA"
         icon={Settings2}
       >
@@ -336,9 +393,9 @@ export function Step1Inputs({
         </div>
       </CollapsibleSection>
 
-      {/* Section 5: Custom Instructions */}
+      {/* Section 6: Custom Instructions */}
       <CollapsibleSection
-        title="5. Instruções Customizadas"
+        title="6. Instruções Customizadas"
         description="Diretrizes específicas para o artigo"
         icon={MessageSquare}
       >

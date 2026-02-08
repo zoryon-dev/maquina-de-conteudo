@@ -20,6 +20,7 @@ import {
   Sparkles,
   ImageIcon,
   RefreshCw,
+  Code2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -56,6 +57,10 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
   const [featuredImage, setFeaturedImage] = useState<ArticleImageRecord | null>(null)
   const [isGeneratingImage, setIsGeneratingImage] = useState(false)
   const [userImagePrompt, setUserImagePrompt] = useState("")
+  const [selectedTitleIndex, setSelectedTitleIndex] = useState(0)
+  const [selectedDescIndex, setSelectedDescIndex] = useState(0)
+  const [categorySlug, setCategorySlug] = useState<string | null>(null)
+  const [copiedFrontmatter, setCopiedFrontmatter] = useState(false)
 
   const content = article?.finalContent || article?.optimizedContent || ""
   const seoScore = article?.seoScore
@@ -91,6 +96,22 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
       })
       .catch(() => {})
   }, [article?.id])
+
+  // Load category slug
+  useEffect(() => {
+    if (!article?.categoryId) return
+    fetch("/api/articles/categories")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.categories) {
+          const cat = data.categories.find(
+            (c: { id: number; slug: string }) => c.id === article.categoryId,
+          )
+          if (cat) setCategorySlug(cat.slug)
+        }
+      })
+      .catch(() => {})
+  }, [article?.categoryId])
 
   // Load metadata
   useEffect(() => {
@@ -456,14 +477,33 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
             </div>
           )}
           {metadata && (
-            <MetadataPreview
-              metaTitles={metadata.metaTitles || []}
-              metaDescriptions={metadata.metaDescriptions || []}
-              slug={metadata.slug}
-              schemaArticle={metadata.schemaArticle}
-              schemaFaq={metadata.schemaFaq}
-              schemaHowto={metadata.schemaHowto}
-            />
+            <>
+              <MetadataPreview
+                metaTitles={metadata.metaTitles || []}
+                metaDescriptions={metadata.metaDescriptions || []}
+                slug={metadata.slug}
+                schemaArticle={metadata.schemaArticle}
+                schemaFaq={metadata.schemaFaq}
+                schemaHowto={metadata.schemaHowto}
+                selectedTitleIndex={selectedTitleIndex}
+                selectedDescIndex={selectedDescIndex}
+                onSelectTitle={setSelectedTitleIndex}
+                onSelectDesc={setSelectedDescIndex}
+              />
+
+              {/* MDX Frontmatter */}
+              <MdxFrontmatter
+                article={article}
+                metadata={metadata}
+                featuredImage={featuredImage}
+                categorySlug={categorySlug}
+                selectedTitleIndex={selectedTitleIndex}
+                selectedDescIndex={selectedDescIndex}
+                copied={copiedFrontmatter}
+                onCopy={() => setCopiedFrontmatter(true)}
+                onCopied={() => setTimeout(() => setCopiedFrontmatter(false), 2000)}
+              />
+            </>
           )}
         </div>
       )}
@@ -498,5 +538,96 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
         </Button>
       </div>
     </div>
+  )
+}
+
+// ─── MDX Frontmatter Block ──────────────────────────────
+
+interface MdxFrontmatterProps {
+  article: Article | null
+  metadata: any
+  featuredImage: ArticleImageRecord | null
+  categorySlug: string | null
+  selectedTitleIndex: number
+  selectedDescIndex: number
+  copied: boolean
+  onCopy: () => void
+  onCopied: () => void
+}
+
+function MdxFrontmatter({
+  article,
+  metadata,
+  featuredImage,
+  categorySlug,
+  selectedTitleIndex,
+  selectedDescIndex,
+  copied,
+  onCopy,
+  onCopied,
+}: MdxFrontmatterProps) {
+  const metaTitles = metadata?.metaTitles || []
+  const metaDescriptions = metadata?.metaDescriptions || []
+  const slug = metadata?.slug || ""
+
+  const title = metaTitles[selectedTitleIndex]?.text || article?.finalTitle || article?.title || ""
+  const excerpt = metaDescriptions[selectedDescIndex]?.text || ""
+  const publishedAt = new Date().toISOString().split("T")[0]
+
+  const primaryKeyword = article?.primaryKeyword || ""
+  const secondaryKeywords = (article?.secondaryKeywords as string[] | null) || []
+  const tags = [primaryKeyword, ...secondaryKeywords].filter(Boolean)
+
+  const lines = ["---"]
+  lines.push(`title: "${title}"`)
+  if (excerpt) lines.push(`excerpt: "${excerpt}"`)
+  if (featuredImage?.imageUrl) lines.push(`coverImage: "${featuredImage.imageUrl}"`)
+  lines.push(`publishedAt: "${publishedAt}"`)
+  if (slug) lines.push(`slug: "${slug}"`)
+  if (article?.authorName) lines.push(`author: "${article.authorName}"`)
+  if (categorySlug) lines.push(`category: "${categorySlug}"`)
+  if (tags.length > 0) {
+    lines.push("tags:")
+    for (const tag of tags) {
+      lines.push(`  - "${tag}"`)
+    }
+  }
+  lines.push("---")
+
+  const frontmatter = lines.join("\n")
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(frontmatter)
+      onCopy()
+      onCopied()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return (
+    <section className="space-y-2">
+      <h4 className="text-xs text-white/50 uppercase tracking-wider flex items-center gap-1.5">
+        <Code2 className="h-3.5 w-3.5" />
+        MDX Frontmatter
+      </h4>
+      <div className="relative rounded-lg border border-white/10 bg-white/[0.02] overflow-hidden">
+        <button
+          onClick={handleCopy}
+          className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-white/10 transition-colors z-10"
+          title="Copiar frontmatter"
+        >
+          {copied ? (
+            <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
+          ) : (
+            <Copy className="h-3.5 w-3.5 text-white/40" />
+          )}
+        </button>
+        <pre className="p-4 text-xs text-white/60 overflow-x-auto font-mono leading-relaxed">
+          {frontmatter}
+        </pre>
+      </div>
+    </section>
   )
 }

@@ -176,6 +176,13 @@
       "when": 1770517742735,
       "tag": "0024_demonic_redwing",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1770527425664,
+      "tag": "0025_shiny_tarantula",
+      "breakpoints": true
     }
   ]
 }

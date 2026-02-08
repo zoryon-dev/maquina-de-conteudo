@@ -19,6 +19,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const {
       projectId,
+      categoryId,
       title,
       primaryKeyword,
       secondaryKeywords,
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
       .values({
         userId,
         projectId: projectId ?? null,
+        categoryId: categoryId ?? null,
         title: title ?? null,
         primaryKeyword,
         secondaryKeywords: secondaryKeywords ?? null,
