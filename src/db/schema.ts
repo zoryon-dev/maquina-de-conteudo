@@ -109,6 +109,13 @@ export const publishedPostStatusEnum = pgEnum("published_post_status", [
 // ARTICLE WIZARD ENUMS
 // ========================================
 
+// Article status enum
+export const articleStatusEnum = pgEnum("article_status", [
+  "draft",
+  "planned",
+  "published",
+]);
+
 // Article wizard step enum (separado do wizard de social media)
 export const articleWizardStepEnum = pgEnum("article_wizard_step", [
   "inputs",
@@ -959,6 +966,25 @@ export const projects = pgTable(
   ]
 );
 
+// Article Categories - Categorias para artigos
+export const articleCategories = pgTable(
+  "article_categories",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    color: text("color").default("#a3e635"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("article_categories_user_id_idx").on(table.userId),
+    unique("article_categories_user_slug_unique").on(table.userId, table.slug),
+  ]
+);
+
 // Articles - Artigos do Article Wizard
 export const articles = pgTable(
   "articles",
@@ -972,6 +998,8 @@ export const articles = pgTable(
 
     // Wizard state
     currentStep: articleWizardStepEnum("current_step").notNull().default("inputs"),
+    status: articleStatusEnum("status").default("draft"),
+    categoryId: integer("category_id").references(() => articleCategories.id, { onDelete: "set null" }),
 
     // Inputs
     mode: text("mode").default("create"), // "create" | "extend"
@@ -1365,6 +1393,11 @@ export const themeTagsRelations = relations(themeTags, ({ one }) => ({
 // ARTICLE WIZARD RELATIONS
 // ========================================
 
+export const articleCategoriesRelations = relations(articleCategories, ({ one, many }) => ({
+  user: one(users, { fields: [articleCategories.userId], references: [users.id] }),
+  articles: many(articles),
+}));
+
 export const projectsRelations = relations(projects, ({ one, many }) => ({
   user: one(users, { fields: [projects.userId], references: [users.id] }),
   articles: many(articles),
@@ -1375,11 +1408,13 @@ export const articlesRelations = relations(articles, ({ one, many }) => ({
   user: one(users, { fields: [articles.userId], references: [users.id] }),
   project: one(projects, { fields: [articles.projectId], references: [projects.id] }),
   job: one(jobs, { fields: [articles.jobId], references: [jobs.id] }),
+  category: one(articleCategories, { fields: [articles.categoryId], references: [articleCategories.id] }),
   links: many(articleLinks),
   articleMetadata: many(articleMetadata),
   geoScores: many(articleGeoScores),
   extensions: many(articleExtensions),
   derivations: many(articleDerivations),
+  images: many(articleImages),
 }));
 
 export const siteIntelligenceRelations = relations(siteIntelligence, ({ one }) => ({
@@ -1404,6 +1439,10 @@ export const articleExtensionsRelations = relations(articleExtensions, ({ one })
 
 export const articleDerivationsRelations = relations(articleDerivations, ({ one }) => ({
   article: one(articles, { fields: [articleDerivations.articleId], references: [articles.id] }),
+}));
+
+export const articleImagesRelations = relations(articleImages, ({ one }) => ({
+  article: one(articles, { fields: [articleImages.articleId], references: [articles.id] }),
 }));
 
 // ========================================
@@ -1641,6 +1680,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   themes: many(themes),
   projects: many(projects),
   articles: many(articles),
+  articleCategories: many(articleCategories),
 }));
 
 // ========================================
@@ -1740,6 +1780,9 @@ export type NewThemeTag = typeof themeTags.$inferInsert;
 // TYPE EXPORTS - ARTICLE WIZARD
 // ========================================
 
+export type ArticleCategory = typeof articleCategories.$inferSelect;
+export type NewArticleCategory = typeof articleCategories.$inferInsert;
+export type ArticleStatus = typeof articleStatusEnum.enumValues[number];
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
 export type Article = typeof articles.$inferSelect;

@@ -8,7 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { articles } from "@/db/schema";
+import { articles, articleCategories } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
 
@@ -85,6 +85,10 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       "selectedOutlineId",
       "finalTitle",
       "projectId",
+      "status",
+      "categoryId",
+      "assembledContent",
+      "generatedOutlines",
     ] as const;
 
     for (const field of updatableFields) {
@@ -129,11 +133,11 @@ export async function DELETE(request: Request, { params }: RouteContext) {
       return NextResponse.json({ error: "Article not found" }, { status: 404 });
     }
 
-    // Soft delete
+    // Soft delete (set deletedAt)
     const [deleted] = await db
       .update(articles)
       .set({
-        currentStep: "abandoned" as any,
+        deletedAt: new Date(),
         updatedAt: new Date(),
       })
       .where(eq(articles.id, articleId))

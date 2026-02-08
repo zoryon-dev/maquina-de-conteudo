@@ -8,9 +8,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { articles, projects } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, asc, isNull, ilike, or, SQL } from "drizzle-orm";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
-import type { ArticleWizardStep } from "@/db/schema";
+import type { ArticleWizardStep, ArticleStatus } from "@/db/schema";
 
 export async function POST(request: Request) {
   const userId = await ensureAuthenticatedUser();
@@ -93,22 +93,48 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "20", 10);
     const offset = parseInt(searchParams.get("offset") || "0", 10);
     const step = searchParams.get("step") as ArticleWizardStep | null;
+    const status = searchParams.get("status") as ArticleStatus | null;
+    const categoryId = searchParams.get("categoryId");
     const projectId = searchParams.get("projectId");
+    const search = searchParams.get("search");
+    const sort = searchParams.get("sort") || "createdAt"; // createdAt | updatedAt | title
+    const order = searchParams.get("order") || "desc"; // asc | desc
 
-    const conditions = [eq(articles.userId, userId)];
+    const conditions: SQL[] = [eq(articles.userId, userId), isNull(articles.deletedAt)];
 
     if (step) {
       conditions.push(eq(articles.currentStep, step));
     }
+    if (status) {
+      conditions.push(eq(articles.status, status));
+    }
+    if (categoryId) {
+      conditions.push(eq(articles.categoryId, parseInt(categoryId, 10)));
+    }
     if (projectId) {
       conditions.push(eq(articles.projectId, parseInt(projectId, 10)));
     }
+    if (search) {
+      conditions.push(
+        or(
+          ilike(articles.title, `%${search}%`),
+          ilike(articles.primaryKeyword, `%${search}%`),
+        )!,
+      );
+    }
+
+    // Determine sort column
+    const sortColumn =
+      sort === "updatedAt" ? articles.updatedAt :
+      sort === "title" ? articles.title :
+      articles.createdAt;
+    const orderFn = order === "asc" ? asc(sortColumn) : desc(sortColumn);
 
     const result = await db
       .select()
       .from(articles)
       .where(and(...conditions))
-      .orderBy(desc(articles.createdAt))
+      .orderBy(orderFn)
       .limit(limit)
       .offset(offset);
 

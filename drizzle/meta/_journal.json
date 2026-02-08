@@ -169,6 +169,13 @@
       "when": 1770497946371,
       "tag": "0023_marvelous_tomas",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1770517742735,
+      "tag": "0024_demonic_redwing",
+      "breakpoints": true
     }
   ]
 }
