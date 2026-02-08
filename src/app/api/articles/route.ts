@@ -92,7 +92,7 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get("limit") || "20", 10);
+    const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 100);
     const offset = parseInt(searchParams.get("offset") || "0", 10);
     const step = searchParams.get("step") as ArticleWizardStep | null;
     const status = searchParams.get("status") as ArticleStatus | null;
@@ -111,16 +111,26 @@ export async function GET(request: Request) {
       conditions.push(eq(articles.status, status));
     }
     if (categoryId) {
-      conditions.push(eq(articles.categoryId, parseInt(categoryId, 10)));
+      const parsed = parseInt(categoryId, 10);
+      if (isNaN(parsed)) {
+        return NextResponse.json({ error: "Invalid categoryId" }, { status: 400 });
+      }
+      conditions.push(eq(articles.categoryId, parsed));
     }
     if (projectId) {
-      conditions.push(eq(articles.projectId, parseInt(projectId, 10)));
+      const parsed = parseInt(projectId, 10);
+      if (isNaN(parsed)) {
+        return NextResponse.json({ error: "Invalid projectId" }, { status: 400 });
+      }
+      conditions.push(eq(articles.projectId, parsed));
     }
     if (search) {
+      // Escape ILIKE wildcards (% and _) to prevent pattern injection
+      const escaped = search.replace(/[%_\\]/g, "\\$&");
       conditions.push(
         or(
-          ilike(articles.title, `%${search}%`),
-          ilike(articles.primaryKeyword, `%${search}%`),
+          ilike(articles.title, `%${escaped}%`),
+          ilike(articles.primaryKeyword, `%${escaped}%`),
         )!,
       );
     }

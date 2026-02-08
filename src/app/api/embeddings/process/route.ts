@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const response = await fetch(workerUrl.toString(), {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.WORKER_SECRET || "dev-secret"}`,
+        "Authorization": `Bearer ${process.env.WORKER_SECRET || process.env.CRON_SECRET || ""}`,
         "Content-Type": "application/json",
       },
     })

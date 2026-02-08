@@ -16,7 +16,7 @@ import {
   getInterlinkingPrompt,
   extractArticleJSON,
 } from "../prompts"
-import { articleLlmCall } from "./llm"
+import { articleLlmCall, ARTICLE_DEFAULT_MODEL } from "./llm"
 
 export interface InterlinkingResult {
   mode: "auto" | "manual"
@@ -77,7 +77,7 @@ export async function analyzeInterlinking(
     })
 
     const response = await articleLlmCall({
-      model: model || "google/gemini-2.0-flash-001",
+      model: model || ARTICLE_DEFAULT_MODEL,
       systemPrompt,
       userMessage,
       temperature: 0.3,

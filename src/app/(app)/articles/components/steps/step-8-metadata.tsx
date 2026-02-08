@@ -8,7 +8,7 @@
 
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   CheckCircle2,
   Copy,
@@ -25,6 +25,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { INPUT_CLASSES } from "../shared/input-classes"
+import { scoreColor } from "../shared/score-utils"
 import { InterlinkingReview } from "../shared/interlinking-review"
 import { MetadataPreview } from "../shared/metadata-preview"
 import type { Article } from "@/db/schema"
@@ -61,6 +63,22 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
   const [selectedDescIndex, setSelectedDescIndex] = useState(0)
   const [categorySlug, setCategorySlug] = useState<string | null>(null)
   const [copiedFrontmatter, setCopiedFrontmatter] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  const linksPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const linksTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const metaPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const metaTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (linksPollRef.current) clearInterval(linksPollRef.current)
+      if (linksTimeoutRef.current) clearTimeout(linksTimeoutRef.current)
+      if (metaPollRef.current) clearInterval(metaPollRef.current)
+      if (metaTimeoutRef.current) clearTimeout(metaTimeoutRef.current)
+    }
+  }, [])
 
   const content = article?.finalContent || article?.optimizedContent || ""
   const seoScore = article?.seoScore
@@ -80,7 +98,7 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
       .then((data) => {
         if (data?.links) setLinks(data.links)
       })
-      .catch(() => {})
+      .catch((err) => console.warn("[Step8Metadata] Failed to load links:", err))
   }, [article?.id])
 
   // Load featured image
@@ -94,7 +112,7 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
           if (featured) setFeaturedImage(featured)
         }
       })
-      .catch(() => {})
+      .catch((err) => console.warn("[Step8Metadata] Failed to load images:", err))
   }, [article?.id])
 
   // Load category slug
@@ -110,7 +128,7 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
           if (cat) setCategorySlug(cat.slug)
         }
       })
-      .catch(() => {})
+      .catch((err) => console.warn("[Step8Metadata] Failed to load categories:", err))
   }, [article?.categoryId])
 
   // Load metadata
@@ -121,32 +139,50 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
       .then((data) => {
         if (data?.metadata) setMetadata(data.metadata)
       })
-      .catch(() => {})
+      .catch((err) => console.warn("[Step8Metadata] Failed to load metadata:", err))
   }, [article?.id])
 
   const handleGenerateLinks = async () => {
     if (!article?.id) return
     setIsGeneratingLinks(true)
+    setActionError(null)
     try {
-      await fetch(`/api/articles/${article.id}/submit`, {
+      const submitRes = await fetch(`/api/articles/${article.id}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stage: "interlinking" }),
       })
-      // Poll for completion
-      const poll = setInterval(async () => {
-        const res = await fetch(`/api/articles/${article.id}/links`)
-        if (res.ok) {
-          const data = await res.json()
-          if (data?.links?.length > 0) {
-            setLinks(data.links)
-            setIsGeneratingLinks(false)
-            clearInterval(poll)
+      if (!submitRes.ok) {
+        const data = await submitRes.json().catch(() => ({}))
+        throw new Error(data.error || `Falha ao iniciar geração de links (${submitRes.status})`)
+      }
+      // Poll for completion (cleanup via refs)
+      if (linksPollRef.current) clearInterval(linksPollRef.current)
+      if (linksTimeoutRef.current) clearTimeout(linksTimeoutRef.current)
+
+      linksPollRef.current = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/articles/${article.id}/links`)
+          if (res.ok) {
+            const data = await res.json()
+            if (data?.links?.length > 0) {
+              setLinks(data.links)
+              setIsGeneratingLinks(false)
+              if (linksPollRef.current) clearInterval(linksPollRef.current)
+              if (linksTimeoutRef.current) clearTimeout(linksTimeoutRef.current)
+            }
           }
+        } catch (err) {
+          console.warn("[Step8Metadata] Link polling error:", err)
         }
       }, 3000)
-      setTimeout(() => { clearInterval(poll); setIsGeneratingLinks(false) }, 120000)
-    } catch {
+      linksTimeoutRef.current = setTimeout(() => {
+        if (linksPollRef.current) clearInterval(linksPollRef.current)
+        setIsGeneratingLinks(false)
+      }, 120000)
+    } catch (err) {
+      console.error("[Step8Metadata] Generate links failed:", err)
+      setActionError(err instanceof Error ? err.message : "Falha ao gerar links")
       setIsGeneratingLinks(false)
     }
   }
@@ -154,26 +190,44 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
   const handleGenerateMetadata = async () => {
     if (!article?.id) return
     setIsGeneratingMeta(true)
+    setActionError(null)
     try {
-      await fetch(`/api/articles/${article.id}/submit`, {
+      const submitRes = await fetch(`/api/articles/${article.id}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stage: "metadata" }),
       })
-      // Poll for completion
-      const poll = setInterval(async () => {
-        const res = await fetch(`/api/articles/${article.id}/metadata`)
-        if (res.ok) {
-          const data = await res.json()
-          if (data?.metadata) {
-            setMetadata(data.metadata)
-            setIsGeneratingMeta(false)
-            clearInterval(poll)
+      if (!submitRes.ok) {
+        const data = await submitRes.json().catch(() => ({}))
+        throw new Error(data.error || `Falha ao iniciar geração de metadata (${submitRes.status})`)
+      }
+      // Poll for completion (cleanup via refs)
+      if (metaPollRef.current) clearInterval(metaPollRef.current)
+      if (metaTimeoutRef.current) clearTimeout(metaTimeoutRef.current)
+
+      metaPollRef.current = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/articles/${article.id}/metadata`)
+          if (res.ok) {
+            const data = await res.json()
+            if (data?.metadata) {
+              setMetadata(data.metadata)
+              setIsGeneratingMeta(false)
+              if (metaPollRef.current) clearInterval(metaPollRef.current)
+              if (metaTimeoutRef.current) clearTimeout(metaTimeoutRef.current)
+            }
           }
+        } catch (err) {
+          console.warn("[Step8Metadata] Metadata polling error:", err)
         }
       }, 3000)
-      setTimeout(() => { clearInterval(poll); setIsGeneratingMeta(false) }, 120000)
-    } catch {
+      metaTimeoutRef.current = setTimeout(() => {
+        if (metaPollRef.current) clearInterval(metaPollRef.current)
+        setIsGeneratingMeta(false)
+      }, 120000)
+    } catch (err) {
+      console.error("[Step8Metadata] Generate metadata failed:", err)
+      setActionError(err instanceof Error ? err.message : "Falha ao gerar metadata")
       setIsGeneratingMeta(false)
     }
   }
@@ -181,6 +235,7 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
   const handleGenerateImage = async () => {
     if (!article?.id) return
     setIsGeneratingImage(true)
+    setActionError(null)
     try {
       const body: Record<string, unknown> = { imageType: "featured" }
       if (userImagePrompt.trim()) {
@@ -194,12 +249,15 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
-      if (res.ok) {
-        const data = await res.json()
-        if (data?.image) setFeaturedImage(data.image)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || `Falha ao gerar imagem (${res.status})`)
       }
-    } catch {
-      // Silent fail
+      const data = await res.json()
+      if (data?.image) setFeaturedImage(data.image)
+    } catch (err) {
+      console.error("[Step8Metadata] Image generation failed:", err)
+      setActionError(err instanceof Error ? err.message : "Falha ao gerar imagem")
     } finally {
       setIsGeneratingImage(false)
     }
@@ -216,14 +274,21 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
   const handleComplete = async () => {
     if (!article) return
     setIsCompleting(true)
+    setActionError(null)
     try {
-      await fetch(`/api/articles/${article.id}`, {
+      const res = await fetch(`/api/articles/${article.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentStep: "completed", finalTitle }),
       })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || "Falha ao concluir artigo")
+      }
       onComplete()
-    } catch {
+    } catch (err) {
+      console.error("[Step8Metadata] Complete failed:", err)
+      setActionError(err instanceof Error ? err.message : "Falha ao concluir artigo")
       setIsCompleting(false)
     }
   }
@@ -246,6 +311,19 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
 
   return (
     <div className="space-y-6">
+      {/* Action error */}
+      {actionError && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          <span>{actionError}</span>
+          <button
+            onClick={() => setActionError(null)}
+            className="ml-auto text-red-400/60 hover:text-red-400"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Header with scores */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -260,7 +338,7 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
             <div className="text-center">
               <div className={cn(
                 "text-2xl font-bold",
-                seoScore >= 80 ? "text-green-400" : seoScore >= 60 ? "text-yellow-400" : "text-red-400",
+                scoreColor(seoScore),
               )}>
                 {seoScore}
               </div>
@@ -271,7 +349,7 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
             <div className="text-center">
               <div className={cn(
                 "text-2xl font-bold",
-                geoScore >= 80 ? "text-green-400" : geoScore >= 60 ? "text-yellow-400" : "text-red-400",
+                scoreColor(geoScore),
               )}>
                 {geoScore}
               </div>
@@ -360,7 +438,7 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
                   value={userImagePrompt}
                   onChange={(e) => setUserImagePrompt(e.target.value)}
                   placeholder="Ex: Uma ilustração minimalista de um laptop com gráficos subindo..."
-                  className="!border-white/10 !bg-white/[0.02] !text-white !placeholder:text-white/30 focus-visible:!border-primary/50 text-sm"
+                  className={cn(INPUT_CLASSES, "text-sm !placeholder:text-white/30")}
                 />
                 <div className="flex items-center justify-center gap-2">
                   <Button
@@ -406,7 +484,7 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
                     value={userImagePrompt}
                     onChange={(e) => setUserImagePrompt(e.target.value)}
                     placeholder="Novo prompt (opcional)..."
-                    className="!border-white/10 !bg-white/[0.02] !text-white !placeholder:text-white/30 focus-visible:!border-primary/50 text-xs h-8 max-w-[240px]"
+                    className={cn(INPUT_CLASSES, "text-xs h-8 max-w-[240px] !placeholder:text-white/30")}
                   />
                   <Button
                     size="sm"

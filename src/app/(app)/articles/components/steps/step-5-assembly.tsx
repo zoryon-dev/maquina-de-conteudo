@@ -47,6 +47,7 @@ export function Step5Assembly({ article, onSubmitSeo, isSubmitting, onRefresh }:
   const [editedContent, setEditedContent] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const originalContent = article?.assembledContent || ""
   const content = editedContent ?? originalContent
@@ -60,19 +61,26 @@ export function Step5Assembly({ article, onSubmitSeo, isSubmitting, onRefresh }:
   const handleSave = useCallback(async () => {
     if (!article?.id || !hasChanges) return
     setIsSaving(true)
+    setSaveError(null)
     try {
       const res = await fetch(`/api/articles/${article.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assembledContent: editedContent }),
       })
-      if (res.ok) {
-        setSaved(true)
-        setTimeout(() => setSaved(false), 2000)
-        onRefresh?.()
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || "Falha ao salvar")
       }
-    } catch { /* silent */ }
-    setIsSaving(false)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+      onRefresh?.()
+    } catch (err) {
+      console.error("[Step5Assembly] Save failed:", err)
+      setSaveError(err instanceof Error ? err.message : "Falha ao salvar alterações")
+    } finally {
+      setIsSaving(false)
+    }
   }, [article?.id, editedContent, hasChanges, onRefresh])
 
   if (!originalContent) {
@@ -85,6 +93,12 @@ export function Step5Assembly({ article, onSubmitSeo, isSubmitting, onRefresh }:
 
   return (
     <div className="space-y-6">
+      {saveError && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          <span>{saveError}</span>
+          <button onClick={() => setSaveError(null)} className="ml-auto text-red-400/60 hover:text-red-400">✕</button>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-white">Artigo Montado</h2>

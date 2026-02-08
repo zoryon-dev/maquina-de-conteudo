@@ -65,8 +65,7 @@ interface ArticleCategory {
   color: string | null
 }
 
-const inputClasses =
-  "!border-white/10 !bg-white/[0.02] !text-white !placeholder:text-white/40 focus-visible:!border-primary/50"
+import { INPUT_CLASSES as inputClasses } from "../shared/input-classes"
 
 interface Step1InputsProps {
   formData: ArticleFormData
@@ -103,28 +102,37 @@ export function Step1Inputs({
       .then((data) => {
         if (data?.categories) setCategories(data.categories)
       })
-      .catch(() => {})
+      .catch((err) => console.warn("[Step1Inputs] Failed to load categories:", err))
       .finally(() => setIsLoadingCategories(false))
   }, [])
+
+  const [categoryError, setCategoryError] = useState<string | null>(null)
 
   const handleCreateCategory = async () => {
     const name = newCategoryName.trim()
     if (!name) return
     setIsCreatingCategory(true)
+    setCategoryError(null)
     try {
       const res = await fetch("/api/articles/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       })
-      if (res.ok) {
-        const cat: ArticleCategory = await res.json()
-        setCategories((prev) => [...prev, cat])
-        setNewCategoryName("")
-        updateField("categoryId", cat.id)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || "Falha ao criar categoria")
       }
-    } catch { /* silent */ }
-    setIsCreatingCategory(false)
+      const cat: ArticleCategory = await res.json()
+      setCategories((prev) => [...prev, cat])
+      setNewCategoryName("")
+      updateField("categoryId", cat.id)
+    } catch (err) {
+      console.error("[Step1Inputs] Create category failed:", err)
+      setCategoryError(err instanceof Error ? err.message : "Falha ao criar categoria")
+    } finally {
+      setIsCreatingCategory(false)
+    }
   }
 
   const handleSecondaryChange = (val: string) => {
@@ -273,6 +281,9 @@ export function Step1Inputs({
                 )}
               </Button>
             </div>
+            {categoryError && (
+              <p className="text-red-400 text-xs">{categoryError}</p>
+            )}
             {categories.length === 0 && (
               <p className="text-white/30 text-xs">
                 Crie categorias para organizar seus artigos por tema

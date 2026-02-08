@@ -9,7 +9,7 @@ import { generateText } from "ai";
 import { openrouter, DEFAULT_TEXT_MODEL } from "@/lib/ai/config";
 
 const MAX_RETRIES = 2;
-const ARTICLE_DEFAULT_MODEL = process.env.ARTICLE_DEFAULT_MODEL || DEFAULT_TEXT_MODEL;
+export const ARTICLE_DEFAULT_MODEL = process.env.ARTICLE_DEFAULT_MODEL || DEFAULT_TEXT_MODEL;
 
 export function getArticleModel(userModel?: string): string {
   return userModel || ARTICLE_DEFAULT_MODEL;

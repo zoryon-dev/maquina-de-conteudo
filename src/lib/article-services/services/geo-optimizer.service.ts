@@ -77,8 +77,8 @@ export async function optimizeGeo(params: {
     });
 
     const parsed = extractArticleJSON<GeoOptimizerResponse>(response);
-    if (!parsed) {
-      return { success: false, error: "Failed to parse GEO optimizer response" };
+    if (!parsed || !parsed.optimized_article || !parsed.estimated_new_scores) {
+      return { success: false, error: "Failed to parse GEO optimizer response (missing required fields)" };
     }
 
     const scores = parsed.estimated_new_scores;

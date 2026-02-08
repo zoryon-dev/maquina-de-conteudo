@@ -759,17 +759,19 @@ Retorne EXCLUSIVAMENTE um JSON válido:
 // ============================================================================
 
 export function extractArticleJSON<T>(response: string): T | null {
+  const preview = response.slice(0, 500);
+
   try {
     // Try direct parse first
     return JSON.parse(response) as T;
-  } catch {
+  } catch (e1) {
     // Try extracting from markdown code block
     const jsonMatch = response.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
     if (jsonMatch?.[1]) {
       try {
         return JSON.parse(jsonMatch[1].trim()) as T;
       } catch {
-        // Fall through
+        // Fall through to brace extraction
       }
     }
 
@@ -780,10 +782,13 @@ export function extractArticleJSON<T>(response: string): T | null {
       try {
         return JSON.parse(response.substring(firstBrace, lastBrace + 1)) as T;
       } catch {
-        // Fall through
+        // Fall through to error log
       }
     }
 
+    console.error(
+      `[extractArticleJSON] All 3 parse strategies failed. Response length: ${response.length}, preview: "${preview}${response.length > 500 ? "..." : ""}"`,
+    );
     return null;
   }
 }

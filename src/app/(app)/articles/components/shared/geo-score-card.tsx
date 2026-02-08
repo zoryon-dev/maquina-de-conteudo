@@ -57,17 +57,7 @@ const CRITERIA = [
   { key: "schemaMetadata", label: "Schema & Metadata", icon: Code, weight: "baixo" },
 ] as const
 
-function scoreColor(score: number): string {
-  if (score >= 80) return "text-green-400"
-  if (score >= 60) return "text-yellow-400"
-  return "text-red-400"
-}
-
-function scoreBg(score: number): string {
-  if (score >= 80) return "bg-green-400"
-  if (score >= 60) return "bg-yellow-400"
-  return "bg-red-400"
-}
+import { scoreColor, scoreBg } from "./score-utils"
 
 export function GeoScoreCard(props: GeoScoreCardProps) {
   const [expandedCriterion, setExpandedCriterion] = useState<string | null>(null)

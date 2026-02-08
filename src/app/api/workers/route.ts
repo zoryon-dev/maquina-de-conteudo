@@ -63,6 +63,7 @@ import {
   extractBrandVoice,
   analyzeKeywordGaps,
 } from "@/lib/article-services";
+import { ARTICLE_DEFAULT_MODEL } from "@/lib/article-services/services/llm";
 import { siteIntelligence } from "@/db/schema";
 
 // ============================================================================
@@ -104,8 +105,8 @@ import { getStorageProvider } from "@/lib/storage";
  * For Vercel Cron jobs, use: /api/workers?secret={CRON_SECRET}
  * For direct calls, use: Authorization: Bearer {CRON_SECRET}
  */
-const CRON_SECRET = process.env.CRON_SECRET || "dev-cron-secret";
-const WORKER_SECRET = process.env.WORKER_SECRET || process.env.CRON_SECRET || "dev-secret";
+const CRON_SECRET = process.env.CRON_SECRET;
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.CRON_SECRET;
 
 /**
  * Validates that required API keys are configured
@@ -1083,20 +1084,12 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     const { wizardId, userId, config } =
       payload as WizardImageGenerationPayload;
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:wizard_image_generation-entry',message:'Handler started',data:{wizardId,userId,hasConfig:!!config,configMethod:config?.method},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
-
     // 1. Get wizard
     const [wizard] = await db
       .select()
       .from(contentWizards)
       .where(and(eq(contentWizards.id, wizardId), eq(contentWizards.userId, userId)))
       .limit(1);
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:wizard_image_generation-wizard-query',message:'Wizard query result',data:{wizardId,userId,wizardFound:!!wizard,wizardUserId:wizard?.userId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
 
     if (!wizard) {
       throw new Error(`Wizard ${wizardId} not found for user ${userId}`);
@@ -1192,10 +1185,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
           .where(eq(libraryItems.id, wizard.libraryItemId!));
       }
     }
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:wizard_image_generation-before-loop',message:'Starting image generation loop',data:{wizardId,slidesCount:slides.length,effectiveMethod:effectiveConfig.method},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
 
     // 5. Generate images for each slide
     const newImages: any[] = [];
@@ -1322,9 +1311,15 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         const currentMetadata = parseMetadataSafely(libraryItem.metadata);
 
         // Merge with existing mediaUrls if any
-        const existingMediaUrls = libraryItem.mediaUrl
-          ? JSON.parse(libraryItem.mediaUrl)
-          : [];
+        let existingMediaUrls: string[] = [];
+        if (libraryItem.mediaUrl) {
+          try {
+            existingMediaUrls = JSON.parse(libraryItem.mediaUrl);
+          } catch {
+            // mediaUrl may be a plain string URL instead of JSON array
+            existingMediaUrls = [libraryItem.mediaUrl];
+          }
+        }
         const allMediaUrls = [...existingMediaUrls, ...uploadedImageUrls];
 
         await db
@@ -1342,10 +1337,6 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
           .where(eq(libraryItems.id, wizard.libraryItemId!));
       }
     }
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:wizard_image_generation-complete',message:'Image generation completed',data:{wizardId,imagesGenerated:newImages.length,libraryItemId:wizard.libraryItemId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
 
     // Build warning message if any uploads fell back to base64
     let uploadWarning: string | undefined;
@@ -1686,7 +1677,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       const brandResult = await extractBrandVoice({
         brandName: new URL(siteUrl).hostname,
         sampleUrls,
-        model: "google/gemini-2.0-flash-001",
+        model: ARTICLE_DEFAULT_MODEL,
       });
       if (brandResult.success) {
         brandVoice = brandResult.data;
@@ -1720,7 +1711,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       const isDev = process.env.NODE_ENV === "development";
       if (isDev) {
         const { triggerWorker } = await import("@/lib/queue/client");
-        triggerWorker().catch(() => {});
+        triggerWorker().catch(console.error);
       }
     } else {
       // No competitors — mark as complete
@@ -1766,7 +1757,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       siteUrlMap: urlMap,
       competitorUrls: competitorUrls || [],
       targetNiche: new URL(siteUrl).hostname,
-      model: "google/gemini-2.0-flash-001",
+      model: ARTICLE_DEFAULT_MODEL,
     });
 
     // 3. Save results
@@ -1785,15 +1776,10 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
 };
 
 export async function POST(request: Request) {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:POST-entry',message:'Worker POST called',data:{url:request.url,method:request.method},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
   // Verificar autenticação - múltiplos métodos suportados:
 
-  // 1. Vercel Cron header (x-vercel-cron) - enviado automaticamente pelo Vercel Cron Jobs
-  const isVercelCron = request.headers.get("x-vercel-cron") === "true";
-
-  // 2. Vercel Cron Secret (x-vercel-cron-secret) - configurado nas settings do projeto Vercel
+  // 1. Vercel Cron Secret (x-vercel-cron-secret) - configurado nas settings do projeto Vercel
+  // NOTA: x-vercel-cron header sozinho NÃO é seguro (spoofável por qualquer cliente)
   const vercelCronSecret = request.headers.get("x-vercel-cron-secret");
   const configuredCronSecret = process.env.CRON_SECRET;
 
@@ -1812,10 +1798,9 @@ export async function POST(request: Request) {
   // Validar autenticação
   // SEGURANÇA: Removido query parameter - secrets em query params ficam em logs de acesso
   const isValidSecret =
-    isVercelCron || // Vercel Cron autenticado pelo header
-    vercelCronSecret === configuredCronSecret || // Vercel Cron com secret
-    bearerSecret === CRON_SECRET || // Authorization header
-    bearerSecret === WORKER_SECRET ||
+    (vercelCronSecret && configuredCronSecret && vercelCronSecret === configuredCronSecret) || // Vercel Cron com secret
+    (bearerSecret && CRON_SECRET && bearerSecret === CRON_SECRET) || // Authorization header
+    (bearerSecret && WORKER_SECRET && bearerSecret === WORKER_SECRET) ||
     testMode; // Development test mode (localhost apenas)
 
   if (!isValidSecret) {
@@ -1846,9 +1831,6 @@ export async function POST(request: Request) {
     }
 
     if (!jobId) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:no-jobs',message:'No jobs to process',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       return NextResponse.json({
         message: "No jobs to process",
         processed: false,
@@ -1887,10 +1869,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:processing-job',message:'Processing job',data:{jobId,jobType:job.type,jobUserId:job.userId,jobStatus:job.status},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
-
     // Buscar handler para o tipo de job
     const handler = jobHandlers[job.type];
 
@@ -1912,14 +1890,8 @@ export async function POST(request: Request) {
 
     try {
       result = await handler(job.payload);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:handler-success',message:'Handler completed successfully',data:{jobId,jobType:job.type,hasResult:!!result},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
     } catch (err) {
       error = err instanceof Error ? err.message : "Unknown error";
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/b2c64537-d28c-42e1-9ead-aad99c22c73e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workers/route.ts:handler-error',message:'Handler threw error',data:{jobId,jobType:job.type,error,stack:err instanceof Error ? err.stack?.substring(0,500) : undefined},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
     }
 
     const duration = Date.now() - startTime;
@@ -1942,7 +1914,8 @@ export async function POST(request: Request) {
           try {
             await enqueueJobFn(jobId, job.priority ?? undefined);
           } catch (enqueueError) {
-            // Job stays in DB as pending, will be picked up by fallback
+            console.warn("[Worker] Failed to re-enqueue job to Redis, falling back to DB polling:",
+              jobId, enqueueError instanceof Error ? enqueueError.message : enqueueError)
           }
         }
 

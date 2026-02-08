@@ -35,6 +35,8 @@ import { assembleRagContext } from "@/lib/rag/assembler";
 
 // ============================================================================
 // SAFE JSONB PARSING (ref: known-error 032-json-parse-object-error)
+// Drizzle pode retornar JSONB como objeto já-parsed ou como string serializada,
+// dependendo do contexto. Esta função lida com ambos os casos.
 // ============================================================================
 
 export function parseJSONB<T>(value: unknown): T | null {
@@ -43,7 +45,11 @@ export function parseJSONB<T>(value: unknown): T | null {
   if (typeof value === "string") {
     try {
       return JSON.parse(value) as T;
-    } catch {
+    } catch (e) {
+      const preview = value.slice(0, 200);
+      console.error(
+        `[parseJSONB] Failed to parse string value (${value.length} chars): "${preview}${value.length > 200 ? "..." : ""}"`,
+      );
       return null;
     }
   }
@@ -118,14 +124,26 @@ async function updateArticleProgress(
 }
 
 // ============================================================================
+// LOAD ARTICLE HELPER
+// ============================================================================
+
+async function loadArticle(
+  payload: unknown,
+  handlerName: string,
+) {
+  const { articleId } = payload as { articleId: number };
+  console.log(`[Article Pipeline] ${handlerName}: starting for article ${articleId}`);
+  const [article] = await db.select().from(articles).where(eq(articles.id, articleId)).limit(1);
+  if (!article) throw new Error(`Article ${articleId} not found`);
+  return { articleId, article };
+}
+
+// ============================================================================
 // HANDLER: ARTICLE_RESEARCH
 // ============================================================================
 
 export async function handleArticleResearch(payload: unknown): Promise<void> {
-  const { articleId } = payload as { articleId: number };
-  console.log(`[Article Pipeline] handleArticleResearch: starting for article ${articleId}`);
-  const [article] = await db.select().from(articles).where(eq(articles.id, articleId)).limit(1);
-  if (!article) throw new Error(`Article ${articleId} not found`);
+  const { articleId, article } = await loadArticle(payload, "handleArticleResearch");
 
   const model = resolveModel(article, "research");
 
@@ -181,10 +199,7 @@ export async function handleArticleResearch(payload: unknown): Promise<void> {
 // ============================================================================
 
 export async function handleArticleOutline(payload: unknown): Promise<void> {
-  const { articleId } = payload as { articleId: number };
-  console.log(`[Article Pipeline] handleArticleOutline: starting for article ${articleId}`);
-  const [article] = await db.select().from(articles).where(eq(articles.id, articleId)).limit(1);
-  if (!article) throw new Error(`Article ${articleId} not found`);
+  const { articleId, article } = await loadArticle(payload, "handleArticleOutline");
 
   const model = resolveModel(article, "outline");
   const synthesized = parseJSONB<{ raw: string }>(article.synthesizedResearch);
@@ -220,10 +235,7 @@ export async function handleArticleOutline(payload: unknown): Promise<void> {
 // ============================================================================
 
 export async function handleArticleSectionProduction(payload: unknown): Promise<void> {
-  const { articleId } = payload as { articleId: number };
-  console.log(`[Article Pipeline] handleArticleSectionProduction: starting for article ${articleId}`);
-  const [article] = await db.select().from(articles).where(eq(articles.id, articleId)).limit(1);
-  if (!article) throw new Error(`Article ${articleId} not found`);
+  const { articleId, article } = await loadArticle(payload, "handleArticleSectionProduction");
 
   const model = resolveModel(article, "production");
   const outlines = parseJSONB<ArticleOutline[]>(article.generatedOutlines);
@@ -309,10 +321,7 @@ export async function handleArticleSectionProduction(payload: unknown): Promise<
 // ============================================================================
 
 export async function handleArticleAssembly(payload: unknown): Promise<void> {
-  const { articleId } = payload as { articleId: number };
-  console.log(`[Article Pipeline] handleArticleAssembly: starting for article ${articleId}`);
-  const [article] = await db.select().from(articles).where(eq(articles.id, articleId)).limit(1);
-  if (!article) throw new Error(`Article ${articleId} not found`);
+  const { articleId, article } = await loadArticle(payload, "handleArticleAssembly");
 
   const model = resolveModel(article, "production");
   const sections = parseJSONB<ProducedSection[]>(article.producedSections);
@@ -342,10 +351,7 @@ export async function handleArticleAssembly(payload: unknown): Promise<void> {
 // ============================================================================
 
 export async function handleArticleSeoGeoCheck(payload: unknown): Promise<void> {
-  const { articleId } = payload as { articleId: number };
-  console.log(`[Article Pipeline] handleArticleSeoGeoCheck: starting for article ${articleId}`);
-  const [article] = await db.select().from(articles).where(eq(articles.id, articleId)).limit(1);
-  if (!article) throw new Error(`Article ${articleId} not found`);
+  const { articleId, article } = await loadArticle(payload, "handleArticleSeoGeoCheck");
 
   const model = resolveModel(article, "optimization");
   const content = article.assembledContent || article.optimizedContent;
@@ -407,10 +413,7 @@ export async function handleArticleSeoGeoCheck(payload: unknown): Promise<void> 
 // ============================================================================
 
 export async function handleArticleOptimization(payload: unknown): Promise<void> {
-  const { articleId } = payload as { articleId: number };
-  console.log(`[Article Pipeline] handleArticleOptimization: starting for article ${articleId}`);
-  const [article] = await db.select().from(articles).where(eq(articles.id, articleId)).limit(1);
-  if (!article) throw new Error(`Article ${articleId} not found`);
+  const { articleId, article } = await loadArticle(payload, "handleArticleOptimization");
 
   const model = resolveModel(article, "optimization");
   const content = article.assembledContent;
@@ -500,13 +503,11 @@ export async function handleArticleOptimization(payload: unknown): Promise<void>
 
 export async function handleArticleInterlinking(payload: unknown): Promise<void> {
   const { articleId } = payload as { articleId: number };
-
   await updateArticleProgress(articleId, {
     processingProgress: { stage: "interlinking", percent: 10, message: "Analisando links internos..." },
   });
 
-  const [article] = await db.select().from(articles).where(eq(articles.id, articleId)).limit(1);
-  if (!article) throw new Error(`Article ${articleId} not found`);
+  const { article } = await loadArticle(payload, "handleArticleInterlinking");
 
   const model = resolveModel(article, "optimization");
   const content = article.optimizedContent || article.assembledContent;
@@ -548,6 +549,9 @@ export async function handleArticleInterlinking(payload: unknown): Promise<void>
     });
   }
 
+  // Delete existing links for this article (in case of re-run)
+  await db.delete(articleLinks).where(eq(articleLinks.articleId, articleId));
+
   // Save link suggestions to articleLinks table
   for (const suggestion of result.data.suggestions) {
     await db.insert(articleLinks).values({
@@ -587,13 +591,11 @@ export async function handleArticleInterlinking(payload: unknown): Promise<void>
 
 export async function handleArticleMetadata(payload: unknown): Promise<void> {
   const { articleId } = payload as { articleId: number };
-
   await updateArticleProgress(articleId, {
     processingProgress: { stage: "metadata", percent: 10, message: "Gerando metadados SEO..." },
   });
 
-  const [article] = await db.select().from(articles).where(eq(articles.id, articleId)).limit(1);
-  if (!article) throw new Error(`Article ${articleId} not found`);
+  const { article } = await loadArticle(payload, "handleArticleMetadata");
 
   const model = resolveModel(article, "optimization");
   const content = article.optimizedContent || article.assembledContent;
@@ -634,6 +636,9 @@ export async function handleArticleMetadata(payload: unknown): Promise<void> {
   });
 
   if (!result.success) throw new Error(result.error);
+
+  // Delete existing metadata for this article (in case of re-run)
+  await db.delete(articleMetadata).where(eq(articleMetadata.articleId, articleId));
 
   // Save to articleMetadata table
   await db.insert(articleMetadata).values({

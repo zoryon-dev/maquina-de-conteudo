@@ -73,7 +73,9 @@ function getAppUrl(): string {
 
 /** Obtém o secret para autenticação do cron */
 function getCronSecret(): string {
-  return process.env.CRON_SECRET || process.env.WORKER_SECRET || "dev-secret";
+  const secret = process.env.CRON_SECRET || process.env.WORKER_SECRET;
+  if (!secret) throw new Error("CRON_SECRET or WORKER_SECRET must be set");
+  return secret;
 }
 
 /**

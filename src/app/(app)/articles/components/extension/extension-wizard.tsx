@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { INPUT_CLASSES } from "../shared/input-classes"
 import { DiagnosisView } from "./diagnosis-view"
 import { ExpansionSelector } from "./expansion-selector"
 
@@ -177,7 +178,7 @@ export function ExtensionWizard({ articleId, articleContent, primaryKeyword }: E
               type="text"
               value={targetKeyword}
               onChange={(e) => setTargetKeyword(e.target.value)}
-              className="w-full rounded-lg !border-white/10 !bg-white/[0.02] !text-white !placeholder:text-white/40 focus-visible:!border-primary/50 px-3 py-2 text-sm"
+              className={cn(INPUT_CLASSES, "w-full rounded-lg px-3 py-2 text-sm")}
               placeholder="Keyword principal do artigo"
             />
           </div>
@@ -190,7 +191,7 @@ export function ExtensionWizard({ articleId, articleContent, primaryKeyword }: E
               value={competitorInfo}
               onChange={(e) => setCompetitorInfo(e.target.value)}
               rows={3}
-              className="w-full rounded-lg !border-white/10 !bg-white/[0.02] !text-white !placeholder:text-white/40 focus-visible:!border-primary/50 px-3 py-2 text-sm font-mono"
+              className={cn(INPUT_CLASSES, "w-full rounded-lg px-3 py-2 text-sm font-mono")}
               placeholder='[{"url": "...", "title": "...", "content_summary": "..."}]'
             />
           </div>

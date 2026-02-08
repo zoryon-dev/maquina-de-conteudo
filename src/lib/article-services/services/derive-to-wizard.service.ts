@@ -230,24 +230,12 @@ export async function extractWizardFieldsFromArticle(params: {
 // ============================================================================
 
 function buildFallback(
-  article: Article,
-  contentType: PostType,
-  derivationType: DerivationType
+  _article: Article,
+  _contentType: PostType,
+  _derivationType: DerivationType
 ): ServiceResult<WizardExtractionResult> {
   return {
-    success: true,
-    data: {
-      contentType,
-      theme: article.primaryKeyword || article.title || "",
-      context: `Derivado do artigo: ${article.finalTitle || article.title || "Sem título"}`,
-      objective: "Engajar audiência nas redes sociais",
-      cta: "",
-      targetAudience: "",
-      negativeTerms: [],
-      ...(derivationType === "carousel" ? { numberOfSlides: 10 } : {}),
-      ...(derivationType === "video_script"
-        ? { videoDuration: "5-10min" }
-        : {}),
-    },
+    success: false,
+    error: "Falha ao extrair campos do artigo com IA. Tente novamente.",
   }
 }

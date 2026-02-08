@@ -18,7 +18,7 @@ import { socialConnections } from "@/db/schema"
 import { and, eq, isNull } from "drizzle-orm"
 import type { SocialConnectionMetadata } from "@/lib/social/types"
 
-const CRON_SECRET = process.env.CRON_SECRET || "dev-cron-secret"
+const CRON_SECRET = process.env.CRON_SECRET
 
 const META_API_VERSION = "v21.0"
 const META_GRAPH_API_URL = `https://graph.facebook.com/${META_API_VERSION}`
@@ -168,7 +168,7 @@ export async function GET(request: Request) {
     process.env.NODE_ENV === "development" &&
     isLocalhost
 
-  if (secret !== CRON_SECRET && !testMode) {
+  if ((!CRON_SECRET || secret !== CRON_SECRET) && !testMode) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -199,7 +199,7 @@ export async function POST(request: Request) {
     process.env.NODE_ENV === "development" &&
     isLocalhost
 
-  if (secret !== CRON_SECRET && !testMode) {
+  if ((!CRON_SECRET || secret !== CRON_SECRET) && !testMode) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

@@ -7,6 +7,7 @@
 
 "use client"
 
+import { INPUT_CLASSES } from "../shared/input-classes"
 import { motion } from "framer-motion"
 import {
   CheckCircle2,
@@ -113,7 +114,7 @@ function OutlineEditor({
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="!border-white/10 !bg-white/[0.02] !text-white !placeholder:text-white/40 focus-visible:!border-primary/50"
+              className={INPUT_CLASSES}
             />
           </div>
 
@@ -153,7 +154,7 @@ function OutlineEditor({
                     value={section.heading}
                     onChange={(e) => updateSection(index, "heading", e.target.value)}
                     placeholder="Título da seção"
-                    className="flex-1 !border-white/10 !bg-white/[0.02] !text-white text-sm !placeholder:text-white/30 focus-visible:!border-primary/50"
+                    className={cn(INPUT_CLASSES, "flex-1 text-sm !placeholder:text-white/30")}
                   />
 
                   {/* Words */}
@@ -161,7 +162,7 @@ function OutlineEditor({
                     type="number"
                     value={section.estimatedWords}
                     onChange={(e) => updateSection(index, "estimatedWords", parseInt(e.target.value) || 0)}
-                    className="w-20 !border-white/10 !bg-white/[0.02] !text-white text-sm text-center focus-visible:!border-primary/50"
+                    className={cn(INPUT_CLASSES, "w-20 text-sm text-center")}
                   />
                   <span className="text-[10px] text-white/30 -ml-1">w</span>
 
@@ -277,12 +278,17 @@ export function Step3Outline({ article, onSelect, onRefresh, isSubmitting }: Ste
     // Persist to backend
     if (article?.id) {
       try {
-        await fetch(`/api/articles/${article.id}`, {
+        const res = await fetch(`/api/articles/${article.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ generatedOutlines: newOutlines }),
         })
-      } catch { /* silent */ }
+        if (!res.ok) {
+          console.error("[Step3Outline] Failed to persist outline edit:", res.status)
+        }
+      } catch (err) {
+        console.error("[Step3Outline] Network error persisting outline:", err)
+      }
     }
   }
 

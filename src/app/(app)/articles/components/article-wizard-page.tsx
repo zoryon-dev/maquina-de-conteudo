@@ -36,13 +36,6 @@ import { Step8Metadata } from "./steps/step-8-metadata"
 import type { Article } from "@/db/schema"
 import type { DerivationType } from "@/lib/article-services/services/derive-to-wizard.service"
 
-// Processing stages that use polling
-const PROCESSING_STEPS = new Set<ArticleStepValue>([
-  "research",
-  "production",
-  "optimization",
-])
-
 export interface ArticleModelConfig {
   default?: string
   research?: string
@@ -229,9 +222,11 @@ export function ArticleWizardPage({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(!!propArticleId)
+  const [saveWarning, setSaveWarning] = useState(false)
 
   const isMountedRef = useRef(true)
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const autoSaveFailCountRef = useRef(0)
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
 
   // Cleanup on unmount (reset isMountedRef on every mount to handle StrictMode)
@@ -288,7 +283,7 @@ export function ArticleWizardPage({
     loadArticle()
   }, [propArticleId])
 
-  // Auto-save (debounced)
+  // Auto-save (debounced) — tracks consecutive failures and warns after 2+
   const autoSave = useCallback(
     async (data: ArticleFormData) => {
       if (!articleId) return
@@ -296,13 +291,25 @@ export function ArticleWizardPage({
 
       autoSaveTimeoutRef.current = setTimeout(async () => {
         try {
-          await fetch(`/api/articles/${articleId}`, {
+          const response = await fetch(`/api/articles/${articleId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data),
           })
-        } catch {
-          // Silent fail — auto-save
+          if (!response.ok) {
+            throw new Error(`Auto-save returned ${response.status}`)
+          }
+          // Reset on success
+          if (autoSaveFailCountRef.current > 0) {
+            autoSaveFailCountRef.current = 0
+            setSaveWarning(false)
+          }
+        } catch (err) {
+          autoSaveFailCountRef.current += 1
+          if (autoSaveFailCountRef.current >= 2) {
+            console.warn("[ArticleWizard] Auto-save failed consecutively:", autoSaveFailCountRef.current, err)
+            setSaveWarning(true)
+          }
         }
       }, 1500)
     },
@@ -314,7 +321,10 @@ export function ArticleWizardPage({
     if (!articleId) return null
     try {
       const response = await fetch(`/api/articles/${articleId}`)
-      if (!response.ok) return null
+      if (!response.ok) {
+        console.warn(`[ArticleWizard] refreshArticle failed: ${response.status}`)
+        return null
+      }
       const data: Article = await response.json()
       if (isMountedRef.current) {
         setArticle(data)
@@ -322,17 +332,30 @@ export function ArticleWizardPage({
         console.warn("[ArticleWizard] refreshArticle: isMountedRef is false, skipping setArticle")
       }
       return data
-    } catch {
+    } catch (err) {
+      console.warn("[ArticleWizard] refreshArticle error:", err)
       return null
     }
   }, [articleId])
 
-  // Polling for processing steps
+  // Polling for processing steps (max ~5 min = 150 polls at 2s each)
+  const MAX_POLL_COUNT = 150
+  const pollCountRef = useRef(0)
+
   const startPolling = useCallback(() => {
     if (pollingRef.current) clearTimeout(pollingRef.current)
+    pollCountRef.current = 0
     console.log(`[ArticleWizard] startPolling (currentStep="${currentStep}")`)
 
     const poll = async () => {
+      pollCountRef.current += 1
+
+      if (pollCountRef.current > MAX_POLL_COUNT) {
+        console.warn(`[ArticleWizard] Polling timeout after ${MAX_POLL_COUNT} attempts`)
+        setError("Processamento demorou mais que o esperado. Recarregue a página para verificar o status.")
+        return
+      }
+
       const data = await refreshArticle()
       if (!data || !isMountedRef.current) return
 
@@ -425,11 +448,15 @@ export function ArticleWizardPage({
         window.history.replaceState(null, "", `/articles/${id}`)
       } else {
         // Save inputs
-        await fetch(`/api/articles/${id}`, {
+        const saveRes = await fetch(`/api/articles/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(formData),
         })
+        if (!saveRes.ok) {
+          const data = await saveRes.json().catch(() => ({ error: "Erro ao salvar inputs" }))
+          throw new Error(data.error)
+        }
       }
 
       // Submit research stage
@@ -457,11 +484,16 @@ export function ArticleWizardPage({
     if (!articleId) return
 
     // Save selected outline
-    await fetch(`/api/articles/${articleId}`, {
+    const res = await fetch(`/api/articles/${articleId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ selectedOutlineId: outlineId }),
     })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setError(data.error || "Falha ao salvar outline selecionada")
+      return
+    }
 
     setFormData((prev) => ({ ...prev, selectedOutlineId: outlineId }))
     await submitStage("section_production")
@@ -528,6 +560,24 @@ export function ArticleWizardPage({
           <button
             onClick={() => setError(null)}
             className="ml-auto text-red-400/60 hover:text-red-400"
+          >
+            ✕
+          </button>
+        </motion.div>
+      )}
+
+      {/* Auto-save warning */}
+      {saveWarning && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 px-4 py-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-sm"
+        >
+          <AlertCircle size={16} />
+          <span>Auto-save com problemas. Suas alterações podem não estar sendo salvas.</span>
+          <button
+            onClick={() => setSaveWarning(false)}
+            className="ml-auto text-yellow-400/60 hover:text-yellow-400"
           >
             ✕
           </button>

@@ -28,6 +28,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { INPUT_CLASSES } from "./shared/input-classes"
 import type { Article, ArticleCategory } from "@/db/schema"
 
 // ─── Step Configs ───────────────────────────────────────
@@ -200,7 +201,9 @@ export function ArticlesListPage() {
         const data = await response.json()
         setCategories(data.categories)
       }
-    } catch { /* silent */ }
+    } catch (err) {
+      console.warn("[ArticlesList] Failed to load categories:", err)
+    }
   }, [])
 
   useEffect(() => {
@@ -218,8 +221,14 @@ export function ArticlesListPage() {
       const res = await fetch(`/api/articles/${deleteTarget.id}`, { method: "DELETE" })
       if (res.ok) {
         setArticles((prev) => prev.filter((a) => a.id !== deleteTarget.id))
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error || "Falha ao excluir artigo")
       }
-    } catch { /* silent */ }
+    } catch (err) {
+      console.error("[ArticlesList] Delete failed:", err)
+      setError("Falha ao excluir artigo. Tente novamente.")
+    }
     setIsDeleting(false)
     setDeleteTarget(null)
   }
@@ -236,8 +245,14 @@ export function ArticlesListPage() {
         setArticles((prev) =>
           prev.map((a) => (a.id === article.id ? { ...a, status: newStatus as Article["status"] } : a)),
         )
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error || "Falha ao alterar status")
       }
-    } catch { /* silent */ }
+    } catch (err) {
+      console.error("[ArticlesList] Status change failed:", err)
+      setError("Falha ao alterar status. Tente novamente.")
+    }
     setChangingStatusId(null)
   }
 
@@ -274,7 +289,7 @@ export function ArticlesListPage() {
             placeholder="Buscar por título ou keyword..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 !border-white/10 !bg-white/[0.02] !text-white !placeholder:text-white/40 focus-visible:!border-primary/50"
+            className={cn(INPUT_CLASSES, "pl-10")}
           />
         </div>
 

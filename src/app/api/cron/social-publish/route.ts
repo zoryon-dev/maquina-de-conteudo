@@ -19,7 +19,7 @@ import { lt, and, eq, isNull } from "drizzle-orm"
 import { createJob } from "@/lib/queue/jobs"
 import { PublishedPostStatus } from "@/lib/social/types"
 
-const CRON_SECRET = process.env.CRON_SECRET || "dev-cron-secret"
+const CRON_SECRET = process.env.CRON_SECRET
 
 /**
  * GET /api/cron/social-publish
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
   const isLocalhost = host.startsWith("localhost:") || host.startsWith("127.0.0.1:") || host.startsWith("[::1]:")
   const testMode = searchParams.get("test") === "true" && process.env.NODE_ENV === "development" && isLocalhost
 
-  if (secret !== CRON_SECRET && !testMode) {
+  if ((!CRON_SECRET || secret !== CRON_SECRET) && !testMode) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -162,7 +162,7 @@ export async function POST(request: Request) {
   const isLocalhost = host.startsWith("localhost:") || host.startsWith("127.0.0.1:") || host.startsWith("[::1]:")
   const testMode = searchParams.get("test") === "true" && process.env.NODE_ENV === "development" && isLocalhost
 
-  if (secret !== CRON_SECRET && !testMode) {
+  if ((!CRON_SECRET || secret !== CRON_SECRET) && !testMode) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

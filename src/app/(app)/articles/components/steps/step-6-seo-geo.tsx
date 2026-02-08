@@ -22,6 +22,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { scoreBadge } from "../shared/score-utils"
 import { GeoScoreCard } from "../shared/geo-score-card"
 import type { Article } from "@/db/schema"
 
@@ -186,7 +187,7 @@ export function Step6SeoGeo({
               {tab.score != null && (
                 <span className={cn(
                   "text-[10px] px-1.5 py-0.5 rounded-full ml-1",
-                  tab.score >= 80 ? "bg-green-400/10 text-green-400" : tab.score >= 60 ? "bg-yellow-400/10 text-yellow-400" : "bg-red-400/10 text-red-400",
+                  scoreBadge(tab.score),
                 )}>
                   {tab.score}
                 </span>

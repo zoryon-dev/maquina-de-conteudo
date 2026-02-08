@@ -11,7 +11,7 @@ import {
   getMetadataGeneratorPrompt,
   extractArticleJSON,
 } from "../prompts"
-import { articleLlmCall } from "./llm"
+import { articleLlmCall, ARTICLE_DEFAULT_MODEL } from "./llm"
 
 export async function generateArticleMetadata(params: {
   articleContent: string
@@ -38,7 +38,7 @@ export async function generateArticleMetadata(params: {
     })
 
     const response = await articleLlmCall({
-      model: params.model || "google/gemini-2.0-flash-001",
+      model: params.model || ARTICLE_DEFAULT_MODEL,
       systemPrompt,
       userMessage,
       temperature: 0.4,

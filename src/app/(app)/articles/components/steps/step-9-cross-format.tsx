@@ -16,7 +16,6 @@ import {
   Hash,
   Linkedin,
   Loader2,
-  Pencil,
   Play,
   Sparkles,
   SlidersHorizontal,
@@ -78,7 +77,7 @@ export function Step9CrossFormat({ article, onComplete }: Step9CrossFormatProps)
           setActiveTab(data.derivations[0].format)
         }
       })
-      .catch(() => {})
+      .catch((err) => console.warn("[Step9CrossFormat] Failed to load derivations:", err))
   }, [article?.id])
 
   const toggleFormat = (key: FormatKey) => {

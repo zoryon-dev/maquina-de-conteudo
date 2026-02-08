@@ -8,9 +8,12 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { articles, articleCategories } from "@/db/schema";
+import { articles, articleStatusEnum, articleWizardStepEnum } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
+
+const VALID_STATUSES = new Set(articleStatusEnum.enumValues);
+const VALID_STEPS = new Set(articleWizardStepEnum.enumValues);
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -66,6 +69,15 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     }
 
     const body = await request.json();
+
+    // Validate enum fields before proceeding
+    if (body.status !== undefined && !VALID_STATUSES.has(body.status)) {
+      return NextResponse.json({ error: `Invalid status: ${body.status}` }, { status: 400 });
+    }
+    if (body.currentStep !== undefined && !VALID_STEPS.has(body.currentStep)) {
+      return NextResponse.json({ error: `Invalid currentStep: ${body.currentStep}` }, { status: 400 });
+    }
+
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
 
     // Allowed updatable fields
