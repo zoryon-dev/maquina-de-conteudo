@@ -18,6 +18,7 @@ import {
   MessageSquare,
   Video,
   LayoutGrid,
+  Download,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -35,6 +36,7 @@ import { Step7Optimization } from "./steps/step-7-optimization"
 import { Step8Metadata } from "./steps/step-8-metadata"
 import type { Article } from "@/db/schema"
 import type { DerivationType } from "@/lib/article-services/services/derive-to-wizard.service"
+import { MdxExportDialog } from "./shared/mdx-export-dialog"
 
 export interface ArticleModelConfig {
   default?: string
@@ -76,6 +78,7 @@ function CompletedStep({
   const router = useRouter()
   const [derivingType, setDerivingType] = useState<DerivationType | null>(null)
   const [deriveError, setDeriveError] = useState<string | null>(null)
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
 
   const handleDerive = async (type: DerivationType) => {
     if (!article || derivingType) return
@@ -145,6 +148,17 @@ function CompletedStep({
             <Pencil size={16} className="mr-2" />
             Editar Artigo
           </Button>
+          {article?.id && (
+            <Button
+              variant="outline"
+              onClick={() => setExportDialogOpen(true)}
+              disabled={!!derivingType}
+              className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
+            >
+              <Download size={16} className="mr-2" />
+              Exportar MDX
+            </Button>
+          )}
           <Button
             onClick={onBack}
             disabled={!!derivingType}
@@ -199,6 +213,16 @@ function CompletedStep({
           })}
         </div>
       </div>
+
+      {/* MDX Export Dialog */}
+      {article?.id && (
+        <MdxExportDialog
+          open={exportDialogOpen}
+          onOpenChange={setExportDialogOpen}
+          articleId={article.id}
+          articleTitle={article.finalTitle || article.title || undefined}
+        />
+      )}
     </div>
   )
 }

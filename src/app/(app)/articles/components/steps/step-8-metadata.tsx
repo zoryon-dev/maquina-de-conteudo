@@ -21,6 +21,7 @@ import {
   ImageIcon,
   RefreshCw,
   Code2,
+  Download,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,6 +30,7 @@ import { INPUT_CLASSES } from "../shared/input-classes"
 import { scoreColor } from "../shared/score-utils"
 import { InterlinkingReview } from "../shared/interlinking-review"
 import { MetadataPreview } from "../shared/metadata-preview"
+import { MdxExportDialog } from "../shared/mdx-export-dialog"
 import type { Article } from "@/db/schema"
 
 type TabId = "article" | "links" | "metadata" | "image"
@@ -64,6 +66,7 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
   const [categorySlug, setCategorySlug] = useState<string | null>(null)
   const [copiedFrontmatter, setCopiedFrontmatter] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
 
   const linksPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const linksTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -588,14 +591,27 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
 
       {/* Actions */}
       <div className="flex items-center justify-between pt-4">
-        <Button
-          variant="outline"
-          onClick={handleCopy}
-          className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
-        >
-          <Copy size={16} className="mr-2" />
-          {copied ? "Copiado!" : "Copiar Artigo"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleCopy}
+            className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
+          >
+            <Copy size={16} className="mr-2" />
+            {copied ? "Copiado!" : "Copiar Artigo"}
+          </Button>
+
+          {article?.id && (
+            <Button
+              variant="outline"
+              onClick={() => setExportDialogOpen(true)}
+              className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
+            >
+              <Download size={16} className="mr-2" />
+              Exportar MDX
+            </Button>
+          )}
+        </div>
 
         <Button
           onClick={handleComplete}
@@ -615,6 +631,16 @@ export function Step8Metadata({ article, onComplete }: Step8MetadataProps) {
           )}
         </Button>
       </div>
+
+      {/* MDX Export Dialog */}
+      {article?.id && (
+        <MdxExportDialog
+          open={exportDialogOpen}
+          onOpenChange={setExportDialogOpen}
+          articleId={article.id}
+          articleTitle={finalTitle || undefined}
+        />
+      )}
     </div>
   )
 }

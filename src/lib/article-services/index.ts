@@ -53,6 +53,10 @@ export {
 } from "./services/cross-format.service";
 export type { DerivationResults } from "./services/cross-format.service";
 
+// MDX Export
+export { buildMdxExport, suggestBlogCategory } from "./services/mdx-export.service";
+export type { MdxExportOptions, MdxExportResult, BlogCategory } from "./services/mdx-export.service";
+
 // Pipeline handlers (used by worker)
 export {
   handleArticleResearch,
