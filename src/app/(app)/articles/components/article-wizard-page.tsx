@@ -10,7 +10,15 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { ArrowLeft, Loader2, AlertCircle } from "lucide-react"
+import {
+  ArrowLeft,
+  Loader2,
+  AlertCircle,
+  Pencil,
+  MessageSquare,
+  Video,
+  LayoutGrid,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -26,6 +34,7 @@ import { Step6SeoGeo } from "./steps/step-6-seo-geo"
 import { Step7Optimization } from "./steps/step-7-optimization"
 import { Step8Metadata } from "./steps/step-8-metadata"
 import type { Article } from "@/db/schema"
+import { useArticleDerivationStore, type DerivationType } from "@/stores/article-derivation-store"
 
 // Processing stages that use polling
 const PROCESSING_STEPS = new Set<ArticleStepValue>([
@@ -58,6 +67,120 @@ export interface ArticleFormData {
   selectedOutlineId?: string
   projectId?: number
 }
+
+// ─── Completed Step ─────────────────────────────────────
+
+function CompletedStep({
+  article,
+  onEdit,
+  onBack,
+}: {
+  article: Article | null
+  onEdit: () => void
+  onBack: () => void
+}) {
+  const router = useRouter()
+  const setDerivation = useArticleDerivationStore((s) => s.setDerivation)
+
+  const handleDerive = (type: DerivationType) => {
+    if (!article) return
+    const content = article.finalContent || article.optimizedContent || article.assembledContent || ""
+
+    setDerivation(
+      {
+        articleId: article.id,
+        title: article.finalTitle || article.title || "",
+        primaryKeyword: article.primaryKeyword || "",
+        content,
+        seoScore: article.seoScore ?? undefined,
+        wordCount: content.split(/\s+/).filter(Boolean).length,
+      },
+      type,
+    )
+
+    // Navigate to studio with derivation context
+    router.push("/studio")
+  }
+
+  const DERIVATION_OPTIONS = [
+    {
+      type: "social_post" as DerivationType,
+      label: "Post para Redes Sociais",
+      description: "Transformar em post otimizado",
+      icon: MessageSquare,
+    },
+    {
+      type: "video_script" as DerivationType,
+      label: "Script de Vídeo",
+      description: "Criar roteiro a partir do artigo",
+      icon: Video,
+    },
+    {
+      type: "carousel" as DerivationType,
+      label: "Carrossel",
+      description: "Criar slides visuais",
+      icon: LayoutGrid,
+    },
+  ]
+
+  return (
+    <div className="space-y-8 py-8">
+      {/* Success */}
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+          <span className="text-3xl">✓</span>
+        </div>
+        <h2 className="text-xl font-semibold text-white">Artigo Concluído!</h2>
+        <p className="text-white/60 text-center max-w-md">
+          Seu artigo foi otimizado e está pronto para publicação.
+        </p>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={onEdit}
+            className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
+          >
+            <Pencil size={16} className="mr-2" />
+            Editar Artigo
+          </Button>
+          <Button
+            onClick={onBack}
+            className="bg-primary text-black hover:bg-primary/90"
+          >
+            Ver Artigos
+          </Button>
+        </div>
+      </div>
+
+      {/* Derivations */}
+      <div className="border-t border-white/5 pt-8">
+        <h3 className="text-sm font-medium text-white/50 mb-4 text-center">
+          Derivar Conteúdo
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
+          {DERIVATION_OPTIONS.map((opt) => {
+            const Icon = opt.icon
+            return (
+              <button
+                key={opt.type}
+                onClick={() => handleDerive(opt.type)}
+                className="flex flex-col items-center gap-2 p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:border-primary/30 hover:bg-primary/5 transition-all group"
+              >
+                <Icon size={24} className="text-white/30 group-hover:text-primary transition-colors" />
+                <span className="text-sm font-medium text-white/70 group-hover:text-white transition-colors">
+                  {opt.label}
+                </span>
+                <span className="text-[10px] text-white/30">{opt.description}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Component ─────────────────────────────────────
 
 interface ArticleWizardPageProps {
   articleId?: number
@@ -354,7 +477,13 @@ export function ArticleWizardPage({
       </div>
 
       {/* Steps Indicator */}
-      <ArticleStepsIndicator currentStep={currentStep} />
+      <ArticleStepsIndicator
+        currentStep={currentStep}
+        onStepClick={(step) => {
+          // Allow navigating back to completed steps
+          setCurrentStep(step)
+        }}
+      />
 
       {/* Error */}
       {error && (
@@ -425,6 +554,7 @@ export function ArticleWizardPage({
               article={article}
               onSubmitSeo={() => submitStage("seo_geo_check")}
               isSubmitting={isSubmitting}
+              onRefresh={refreshArticle}
             />
           )}
 
@@ -456,21 +586,11 @@ export function ArticleWizardPage({
           )}
 
           {currentStep === "completed" && (
-            <div className="flex flex-col items-center gap-4 py-16">
-              <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
-                <span className="text-3xl">✓</span>
-              </div>
-              <h2 className="text-xl font-semibold text-white">Artigo Concluído!</h2>
-              <p className="text-white/60 text-center max-w-md">
-                Seu artigo foi otimizado e está pronto para publicação.
-              </p>
-              <Button
-                onClick={() => router.push("/articles")}
-                className="mt-4 bg-primary text-black hover:bg-primary/90"
-              >
-                Ver Artigos
-              </Button>
-            </div>
+            <CompletedStep
+              article={article}
+              onEdit={() => setCurrentStep("assembly")}
+              onBack={() => router.push("/articles")}
+            />
           )}
         </motion.div>
       </AnimatePresence>
