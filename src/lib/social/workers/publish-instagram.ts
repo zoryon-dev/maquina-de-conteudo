@@ -11,6 +11,7 @@ import { eq, and } from "drizzle-orm"
 import { getInstagramService } from "../api"
 import { PublishedPostStatus } from "../types"
 import { SocialMediaType } from "../types"
+import { safeDecrypt } from "@/lib/encryption"
 
 /**
  * Payload for Instagram publish job
@@ -97,8 +98,14 @@ export async function publishToInstagram(
       return { success: false, error: "No active Instagram connection" }
     }
 
+    // Decrypt token before use (handles both encrypted and legacy plaintext)
+    const accessToken = safeDecrypt(connection.accessToken)
+    if (!accessToken) {
+      return { success: false, error: "Failed to decrypt access token" }
+    }
+
     // Get Instagram service
-    const service = getInstagramService(connection.accessToken, connection.accountId)
+    const service = getInstagramService(accessToken, connection.accountId)
 
     let platformPostId: string
 

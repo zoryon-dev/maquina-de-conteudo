@@ -17,6 +17,7 @@ import { db } from "@/db"
 import { socialConnections } from "@/db/schema"
 import { and, eq, isNull } from "drizzle-orm"
 import type { SocialConnectionMetadata } from "@/lib/social/types"
+import { safeDecrypt, encryptToken } from "@/lib/encryption"
 
 const CRON_SECRET = process.env.CRON_SECRET
 
@@ -102,7 +103,10 @@ async function handleRefresh() {
   for (const connection of connections) {
     try {
       const metadata = (connection.metadata || {}) as SocialConnectionMetadata
-      const userToken = metadata.userAccessToken || connection.accessToken
+      // Decrypt tokens from DB (handles both encrypted and legacy plaintext)
+      const decryptedAccessToken = safeDecrypt(connection.accessToken)
+      // Prefer decrypted DB token; fall back to legacy metadata token (being phased out)
+      const userToken = decryptedAccessToken || metadata.userAccessToken
 
       if (!userToken) {
         results.skipped += 1
@@ -121,21 +125,28 @@ async function handleRefresh() {
         connection.pageId
       )
 
+      // Encrypt refreshed tokens before saving
+      const encryptedAccessToken = encryptToken(refreshed.accessToken)
+      const encryptedPageAccessToken = pageAccessToken
+        ? encryptToken(pageAccessToken)
+        : connection.pageAccessToken
+
       const updatedMetadata: SocialConnectionMetadata = {
         ...metadata,
-        userAccessToken: refreshed.accessToken,
         userTokenExpiresAt: userTokenExpiresAt.toISOString(),
         ...(pageAccessToken
           ? { pageAccessTokenLastFetchedAt: new Date().toISOString() }
           : {}),
       }
+      // Remove plaintext token from metadata
+      delete (updatedMetadata as any).userAccessToken
 
       await db
         .update(socialConnections)
         .set({
-          accessToken: refreshed.accessToken,
+          accessToken: encryptedAccessToken,
           tokenExpiresAt: userTokenExpiresAt,
-          pageAccessToken: pageAccessToken || connection.pageAccessToken,
+          pageAccessToken: encryptedPageAccessToken,
           metadata: updatedMetadata as any,
           lastVerifiedAt: new Date(),
           updatedAt: new Date(),

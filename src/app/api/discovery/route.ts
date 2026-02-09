@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { DiscoveryService } from '@/lib/discovery-services/discovery.service';
 import type { Platform, TimeRange } from '@/lib/discovery-services/types';
+import { checkRateLimit } from '@/lib/security/rate-limit';
 
 // ============================================================================
 // TYPES
@@ -39,14 +40,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const rateLimited = await checkRateLimit(userId, 'discovery');
+    if (rateLimited) return rateLimited;
+
     // Parse request body
     const body = (await req.json()) as DiscoveryRequestBody;
     const { keyword, platforms, timeRange, maxResults, minSimilarity } = body;
 
     // Validate required fields
-    if (!keyword || typeof keyword !== 'string') {
+    if (!keyword || typeof keyword !== 'string' || keyword.length > 200) {
       return NextResponse.json(
-        { error: 'keyword is required and must be a string' },
+        { error: 'keyword is required, must be a string, and at most 200 characters' },
         { status: 400 }
       );
     }
@@ -74,12 +78,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('[DiscoveryAPI] Error:', error);
+    console.error('[DiscoveryAPI] Error:', error instanceof Error ? error.message : String(error));
     return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

@@ -153,6 +153,8 @@ export function isValidStorageKey(key: string): boolean {
   // Disallow leading/trailing slashes and consecutive slashes
   if (key.startsWith("/") || key.endsWith("/")) return false
   if (key.includes("//")) return false
+  // Disallow path traversal sequences
+  if (key.includes("..")) return false
   // Only allow safe characters
   const validKeyRegex = /^[a-zA-Z0-9._/-]+$/
   return validKeyRegex.test(key)

@@ -11,6 +11,7 @@ import { revalidatePath } from "next/cache"
 import { db } from "@/db"
 import { documents, documentEmbeddings, documentCollectionItems } from "@/db/schema"
 import { eq, and, desc, count, sql, isNull, or } from "drizzle-orm"
+import { escapeILike } from "@/lib/utils"
 import { createJob } from "@/lib/queue/jobs"
 import { JobType, type DocumentEmbeddingPayload } from "@/lib/queue/types"
 import { getStorageProviderForDocument } from "@/lib/storage"
@@ -206,10 +207,11 @@ export async function getDocumentsPaginatedAction(options: {
       conditions.push(eq(documents.category, category))
     }
     if (search) {
+      const escaped = escapeILike(search)
       conditions.push(
         or(
-          sql`${documents.title} ILIKE ${`%${search}%`}`,
-          sql`${documents.content} ILIKE ${`%${search}%`}`
+          sql`${documents.title} ILIKE ${`%${escaped}%`}`,
+          sql`${documents.content} ILIKE ${`%${escaped}%`}`
         )!
       )
     }
@@ -604,15 +606,16 @@ export async function searchDocumentsAction(
 
   try {
     // Build all conditions together
+    const escaped = escapeILike(query)
     const conditions = category
       ? and(
           eq(documents.userId, userId),
           eq(documents.category, category),
-          sql`${documents.content} ILIKE ${`%${query}%`} OR ${documents.title} ILIKE ${`%${query}%`}`
+          sql`${documents.content} ILIKE ${`%${escaped}%`} OR ${documents.title} ILIKE ${`%${escaped}%`}`
         )
       : and(
           eq(documents.userId, userId),
-          sql`${documents.content} ILIKE ${`%${query}%`} OR ${documents.title} ILIKE ${`%${query}%`}`
+          sql`${documents.content} ILIKE ${`%${escaped}%`} OR ${documents.title} ILIKE ${`%${escaped}%`}`
         )
 
     const results = await db

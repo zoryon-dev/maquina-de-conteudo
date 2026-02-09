@@ -36,7 +36,7 @@ async function verifyClerkWebhook(request: NextRequest): Promise<boolean> {
 
   const whSecret = process.env.CLERK_WEBHOOK_SECRET
   if (!whSecret) {
-    return true // Allow in development if secret not set
+    return false // Reject if webhook secret is not configured
   }
 
   try {
@@ -233,10 +233,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("Zep sync error:", error)
     return NextResponse.json(
-      {
-        error: "Failed to sync user",
-        details: error.message,
-      },
+      { error: "Failed to sync user" },
       { status: 500 }
     )
   }

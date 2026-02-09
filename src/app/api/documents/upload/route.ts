@@ -29,6 +29,7 @@ import {
   getDocumentUrl,
   type UploadResult,
 } from "@/lib/storage"
+import { checkRateLimit } from "@/lib/security/rate-limit"
 
 /**
  * Check if we're in development mode
@@ -302,7 +303,13 @@ async function processSingleFile(
     // Extract text based on file type
     let content = ""
     const fallbackType = detectFileTypeFromExtension(file.name)
-    const fileType: "pdf" | "txt" | "md" | "doc" | "docx" = detectedType || fallbackType || "pdf"
+    const fileType = detectedType || fallbackType
+    if (!fileType) {
+      return {
+        success: false,
+        error: "Unable to determine file type. Upload a valid PDF, DOC, TXT, or MD file.",
+      }
+    }
 
     switch (fileType) {
       case "pdf":
@@ -349,68 +356,82 @@ async function processSingleFile(
       },
     })
 
-    // Prepare storage metadata (keep original filename in DB)
-    const storageMetadata = {
-      originalFilename: file.name,
-      fileSize: file.size,
-      mimeType: file.type,
-      uploadedAt: new Date().toISOString(),
-      storageProvider: uploadResult.provider,
-    }
-
-    // Create document record with storage information
-    const [newDocument] = await db
-      .insert(documents)
-      .values({
-        userId,
-        title: documentTitle,
-        content,
-        fileType,
-        category: category || "general",
+    // Wrap DB insert in try/catch to clean up orphaned storage file on failure
+    let newDocument: typeof documents.$inferSelect
+    try {
+      // Prepare storage metadata (keep original filename in DB)
+      const storageMetadata = {
+        originalFilename: file.name,
+        fileSize: file.size,
+        mimeType: file.type,
+        uploadedAt: new Date().toISOString(),
         storageProvider: uploadResult.provider,
-        storageKey: uploadResult.key,
-        storageMetadata: JSON.stringify(storageMetadata),
-        // Keep filePath for backward compatibility (local storage)
-        filePath: uploadResult.provider === "local"
-          ? uploadResult.url
-          : null,
-        metadata: JSON.stringify({
-          originalFilename: file.name,
-          fileSize: file.size,
-          uploadedAt: new Date().toISOString(),
-        }),
-        embedded: false,
-        embeddingStatus: "pending",
-        embeddingProgress: 0,
-        chunksCount: 0,
-      })
-      .returning()
-
-    // If collectionId provided, add to collection
-    if (collectionId && newDocument) {
-      const { documentCollectionItems, documentCollections } = await import("@/db/schema")
-
-      // Verify collection belongs to user
-      const [collection] = await db
-        .select()
-        .from(documentCollections)
-        .where(
-          and(
-            eq(documentCollections.id, parseInt(collectionId)),
-            eq(documentCollections.userId, userId),
-            isNull(documentCollections.deletedAt)
-          )
-        )
-        .limit(1)
-
-      if (collection) {
-        await db
-          .insert(documentCollectionItems)
-          .values({
-            documentId: newDocument.id,
-            collectionId: parseInt(collectionId),
-          })
       }
+
+      // Create document record with storage information
+      const [inserted] = await db
+        .insert(documents)
+        .values({
+          userId,
+          title: documentTitle,
+          content,
+          fileType,
+          category: category || "general",
+          storageProvider: uploadResult.provider,
+          storageKey: uploadResult.key,
+          storageMetadata: JSON.stringify(storageMetadata),
+          // Keep filePath for backward compatibility (local storage)
+          filePath: uploadResult.provider === "local"
+            ? uploadResult.url
+            : null,
+          metadata: JSON.stringify({
+            originalFilename: file.name,
+            fileSize: file.size,
+            uploadedAt: new Date().toISOString(),
+          }),
+          embedded: false,
+          embeddingStatus: "pending",
+          embeddingProgress: 0,
+          chunksCount: 0,
+        })
+        .returning()
+
+      newDocument = inserted
+
+      // If collectionId provided, add to collection
+      if (collectionId && newDocument) {
+        const { documentCollectionItems, documentCollections } = await import("@/db/schema")
+
+        // Verify collection belongs to user
+        const [collection] = await db
+          .select()
+          .from(documentCollections)
+          .where(
+            and(
+              eq(documentCollections.id, parseInt(collectionId)),
+              eq(documentCollections.userId, userId),
+              isNull(documentCollections.deletedAt)
+            )
+          )
+          .limit(1)
+
+        if (collection) {
+          await db
+            .insert(documentCollectionItems)
+            .values({
+              documentId: newDocument.id,
+              collectionId: parseInt(collectionId),
+            })
+        }
+      }
+    } catch (dbError) {
+      // Clean up orphaned file in storage since DB insert failed
+      try {
+        await storage.deleteFile(uploadResult.key)
+      } catch (cleanupErr) {
+        console.error("[Upload] Failed to clean up orphaned file:", uploadResult.key, cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr))
+      }
+      throw dbError
     }
 
     // Create embedding job to process the document asynchronously
@@ -446,10 +467,10 @@ async function processSingleFile(
       },
     }
   } catch (error) {
-    console.error("File processing error:", error)
+    console.error("[Upload] File processing error:", error instanceof Error ? error.message : String(error))
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: "Failed to process file",
     }
   }
 }
@@ -491,6 +512,9 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       )
     }
+
+    const rateLimited = await checkRateLimit(userId, "upload")
+    if (rateLimited) return rateLimited
 
     // Ensure user exists in database (auto-create if missing from Clerk webhook)
     await ensureUserExists(userId)
@@ -584,12 +608,9 @@ export async function POST(request: NextRequest) {
       })
     }
   } catch (error) {
-    console.error("Document upload error:", error)
+    console.error("[Upload] Document upload error:", error instanceof Error ? error.message : String(error))
     return NextResponse.json(
-      {
-        error: "Failed to upload document",
-        details: error instanceof Error ? error.message : String(error),
-      },
+      { error: "Failed to upload document" },
       { status: 500 }
     )
   }

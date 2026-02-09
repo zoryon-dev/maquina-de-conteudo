@@ -239,18 +239,10 @@ export async function POST(
       allImages: updatedImages,
     });
   } catch (error) {
-    // Log detailed error for debugging
-    console.error("[IMAGE-API] Error generating image:", {
-      message: error instanceof Error ? error.message : "Unknown error",
-      stack: error instanceof Error ? error.stack : undefined,
-      error,
-    });
+    console.error("[IMAGE-API] Error generating image:", error instanceof Error ? error.message : "Unknown error");
 
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to generate image",
-        details: error instanceof Error ? error.stack : undefined,
-      },
+      { error: "Failed to generate image" },
       { status: 500 }
     );
   }

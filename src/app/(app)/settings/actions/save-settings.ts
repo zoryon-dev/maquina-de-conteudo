@@ -20,6 +20,7 @@ import {
 import { eq, and } from "drizzle-orm"
 import { SYSTEM_PROMPTS_SEED } from "@/lib/system-prompts"
 import { encryptApiKey } from "@/lib/encryption"
+import { isAdmin } from "@/lib/auth/admin"
 
 /**
  * Result of a save operation
@@ -409,6 +410,10 @@ export async function seedSystemPromptsAction(): Promise<SaveSettingsResult> {
     return { success: false, error: "Unauthorized" }
   }
 
+  if (!isAdmin(userId)) {
+    return { success: false, error: "Forbidden" }
+  }
+
   try {
     for (const promptData of SYSTEM_PROMPTS_SEED) {
       const existing = await db
@@ -439,6 +444,11 @@ export async function seedSystemPromptsAction(): Promise<SaveSettingsResult> {
  * @returns Promise with system prompts
  */
 export async function getSystemPromptsAction() {
+  const { userId } = await auth()
+  if (!userId) {
+    return []
+  }
+
   try {
     const prompts = await db.select().from(systemPrompts).orderBy(systemPrompts.agent)
     return prompts

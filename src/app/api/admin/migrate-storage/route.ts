@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { db } from "@/db"
 import { sql } from "drizzle-orm"
+import { isAdmin } from "@/lib/auth/admin"
 
 export async function GET() {
   const { userId } = await auth()
@@ -10,8 +11,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  // Simple security check - only allow specific user
-  if (userId !== "user_2pKRK2K3vPDl3AnMl3t3s0X1gk") {
+  if (!isAdmin(userId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -61,7 +61,8 @@ export async function GET() {
 
     results.success = true
   } catch (error) {
-    results.error = error instanceof Error ? error.message : String(error)
+    console.error("[Admin] Migration error:", error instanceof Error ? error.message : String(error))
+    results.error = "Migration failed"
   }
 
   return NextResponse.json(results)

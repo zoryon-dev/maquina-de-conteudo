@@ -1,58 +1,54 @@
 import { clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import crypto from "crypto";
+import { Webhook } from "svix";
 
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-// Verify Clerk webhook signature
-async function verifySignature(payload: string, signature: string) {
-  const secret = process.env.CLERK_WEBHOOK_SECRET;
-  if (!secret) {
-    throw new Error("CLERK_WEBHOOK_SECRET is not set");
+export async function POST(request: Request) {
+  // Verify webhook secret is configured
+  const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
+  if (!WEBHOOK_SECRET) {
+    console.error("[Clerk Webhook] CLERK_WEBHOOK_SECRET is not set");
+    return NextResponse.json(
+      { error: "Missing webhook secret" },
+      { status: 500 }
+    );
   }
 
-  const webhookSecret = secret.startsWith("whsec_")
-    ? secret
-    : `whsec_${secret}`;
-
-  const expectedSignature = crypto
-    .createHmac("sha256", webhookSecret)
-    .update(payload)
-    .digest("hex");
-
-  return signature === expectedSignature;
-}
-
-export async function POST(request: Request) {
-  // Get headers
+  // Get svix headers
   const headersList = await headers();
-  const svixId = headersList.get("svix-id");
-  const svixTimestamp = headersList.get("svix-timestamp");
-  const svixSignature = headersList.get("svix-signature");
+  const svix_id = headersList.get("svix-id");
+  const svix_timestamp = headersList.get("svix-timestamp");
+  const svix_signature = headersList.get("svix-signature");
 
-  // Get raw body for verification
-  const payload = await request.text();
-  const body = JSON.parse(payload);
-
-  // Verify webhook signature
-  if (!svixId || !svixTimestamp || !svixSignature) {
+  if (!svix_id || !svix_timestamp || !svix_signature) {
     return NextResponse.json(
-      { error: "Missing webhook headers" },
+      { error: "Missing svix headers" },
       { status: 400 }
     );
   }
 
-  const signatureParts = svixSignature.split(",");
-  const signature = signatureParts[1]?.split("=")[1];
+  // Get raw body for verification
+  const payload = await request.text();
 
-  const isValid = await verifySignature(payload, signature || "");
-  if (!isValid) {
+  // Verify with official svix library
+  const wh = new Webhook(WEBHOOK_SECRET);
+
+  let body: { type: string; data: any };
+  try {
+    body = wh.verify(payload, {
+      "svix-id": svix_id,
+      "svix-timestamp": svix_timestamp,
+      "svix-signature": svix_signature,
+    }) as { type: string; data: any };
+  } catch (err) {
+    console.error("[Clerk Webhook] Verification failed:", err instanceof Error ? err.message : "Unknown");
     return NextResponse.json(
       { error: "Invalid signature" },
-      { status: 401 }
+      { status: 400 }
     );
   }
 

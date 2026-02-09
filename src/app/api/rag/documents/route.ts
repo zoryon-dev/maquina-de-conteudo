@@ -101,7 +101,6 @@ export async function GET() {
     return NextResponse.json(
       {
         error: "Failed to fetch documents",
-        details: error instanceof Error ? error.message : String(error),
         // Return empty data instead of error to allow UI to work
         documents: [],
         collections: [],

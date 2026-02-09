@@ -222,7 +222,7 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Erro ao fazer upload",
+        error: "Erro ao fazer upload",
       },
       { status: 500 }
     )

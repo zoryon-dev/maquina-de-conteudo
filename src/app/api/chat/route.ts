@@ -18,7 +18,7 @@
 import { NextRequest } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { streamText, convertToModelMessages, type UIMessage } from "ai"
-import { openrouter, DEFAULT_TEXT_MODEL } from "@/lib/ai"
+import { openrouter, DEFAULT_TEXT_MODEL, isTextModel } from "@/lib/ai"
 import { assembleRagContext } from "@/lib/rag/assembler"
 import { RAG_CATEGORIES, type RagCategory, type RagSource } from "@/lib/rag"
 import {
@@ -27,26 +27,33 @@ import {
   isZepConfigured,
 } from "@/lib/zep"
 import type { AgentType } from "@/lib/agents"
+import { checkRateLimit } from "@/lib/security/rate-limit"
+import { z } from "zod"
 
 /**
- * Chat request body
+ * Zod schema for chat request validation
  */
-interface ChatRequestBody {
-  /** Messages array (Vercel AI SDK v3 format) */
-  messages?: UIMessage[]
-  /** User message (legacy format for compatibility) */
-  message?: string
-  /** Model to use (default: from config) */
-  model?: string
-  /** Agent to use (default: "zory") */
-  agent?: AgentType
-  /** Zep thread ID for context persistence */
-  zepThreadId?: string | null
-  /** RAG categories to search */
-  categories?: RagCategory[]
-  /** Whether to include RAG context */
-  useRag?: boolean
-}
+const chatMessagePartSchema = z.object({
+  type: z.string(),
+  text: z.string().max(50000).optional(),
+}).passthrough()
+
+const chatMessageSchema = z.object({
+  id: z.string().optional(),
+  role: z.enum(["user", "assistant", "system"]),
+  parts: z.array(chatMessagePartSchema).optional(),
+  content: z.string().max(50000).optional(),
+}).passthrough()
+
+const chatRequestSchema = z.object({
+  messages: z.array(chatMessageSchema).min(1).max(100).optional(),
+  message: z.string().max(50000).optional(),
+  model: z.string().max(100).optional(),
+  agent: z.enum(["zory", "estrategista", "criador", "calendario"]).optional(),
+  zepThreadId: z.string().max(200).nullable().optional(),
+  categories: z.array(z.enum(["general", "products", "offers", "brand", "audience", "competitors", "content"])).max(20).optional(),
+  useRag: z.boolean().optional(),
+})
 
 /**
  * Chat source with text for display
@@ -120,24 +127,41 @@ export async function POST(request: NextRequest) {
       return new Response("Unauthorized", { status: 401 })
     }
 
-    const body: ChatRequestBody = await request.json()
+    const rateLimited = await checkRateLimit(userId, "ai")
+    if (rateLimited) return rateLimited
+
+    const rawBody = await request.json()
+    const parseResult = chatRequestSchema.safeParse(rawBody)
+    if (!parseResult.success) {
+      return new Response(
+        JSON.stringify({ error: "Invalid request body" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      )
+    }
+    const body = parseResult.data
 
     const {
       messages: sdkMessages,
       message: legacyMessage,
-      model = DEFAULT_TEXT_MODEL,
+      model: requestedModel = DEFAULT_TEXT_MODEL,
       agent = "zory",
       zepThreadId = null,
       categories = [...RAG_CATEGORIES] as RagCategory[],
       useRag = true,
     } = body
 
+    // Validate model against allowlist
+    const model = isTextModel(requestedModel) ? requestedModel : DEFAULT_TEXT_MODEL
+
     // Extract user message for RAG from either SDK format or legacy format
     let userMessage = ""
 
-    if (sdkMessages && sdkMessages.length > 0) {
+    // Cast to UIMessage[] for SDK compatibility (validated by Zod above)
+    const typedSdkMessages = sdkMessages as UIMessage[] | undefined
+
+    if (typedSdkMessages && typedSdkMessages.length > 0) {
       // Vercel AI SDK v3 format: messages array with parts
-      const lastMessage = sdkMessages[sdkMessages.length - 1]
+      const lastMessage = typedSdkMessages[typedSdkMessages.length - 1]
       if (lastMessage.role === "user") {
         // Extract text from parts
         if (lastMessage.parts) {
@@ -158,7 +182,7 @@ export async function POST(request: NextRequest) {
 
     // Prepare messages for streamText
     // Use SDK messages directly, or create a simple user message for legacy format
-    let messagesForStream = sdkMessages
+    let messagesForStream = typedSdkMessages
     if (!messagesForStream && legacyMessage) {
       messagesForStream = [{
         role: "user",
@@ -274,13 +298,10 @@ ${sources.map((s) => `- ${s.documentTitle} (${s.category})`).join("\n")}`
 
     return response
   } catch (error) {
-    console.error("Chat API error:", error)
-
-    const errorMessage =
-      error instanceof Error ? error.message : "Failed to process chat request"
+    console.error("Chat API error:", error instanceof Error ? error.message : String(error))
 
     // Return error as plain text (streaming errors are tricky)
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    return new Response(JSON.stringify({ error: "Failed to process chat request" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     })

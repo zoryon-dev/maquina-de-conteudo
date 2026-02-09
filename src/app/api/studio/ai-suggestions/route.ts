@@ -16,6 +16,7 @@ import { auth } from "@clerk/nextjs/server";
 import { generateText } from "ai";
 import { openrouter, DEFAULT_TEXT_MODEL } from "@/lib/ai/config";
 import { toAppError, getErrorMessage, ValidationError, ConfigError } from "@/lib/errors";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 
 // ============================================================================
 // TYPES
@@ -149,6 +150,9 @@ export async function POST(request: Request) {
       { status: 401 }
     );
   }
+
+  const rateLimited = await checkRateLimit(userId, "ai");
+  if (rateLimited) return rateLimited;
 
   try {
     if (!openrouter) {

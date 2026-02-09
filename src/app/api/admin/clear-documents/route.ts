@@ -4,19 +4,24 @@ import { db } from "@/db"
 import { documents, documentEmbeddings, documentCollectionItems } from "@/db/schema"
 import { eq } from "drizzle-orm"
 import { LocalStorageProvider, R2StorageProvider } from "@/lib/storage"
+import { isAdmin } from "@/lib/auth/admin"
 
 /**
  * DELETE /api/admin/clear-documents
  *
  * Deletes ALL documents for the current user.
  *
- * ⚠️ DESTRUCTIVE OPERATION - Use with caution!
+ * DESTRUCTIVE OPERATION - Use with caution!
  */
 export async function DELETE() {
   const { userId } = await auth()
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  if (!isAdmin(userId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   const results = {
@@ -120,7 +125,8 @@ export async function DELETE() {
 
     results.success = true
   } catch (error) {
-    results.error = error instanceof Error ? error.message : String(error)
+    console.error("[Admin] Clear documents error:", error instanceof Error ? error.message : String(error))
+    results.error = "Operation failed"
   }
 
   return NextResponse.json(results)

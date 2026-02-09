@@ -7,7 +7,7 @@
 
 import { readFile, writeFile, unlink, mkdir, stat } from "fs/promises"
 import { existsSync } from "fs"
-import { join } from "path"
+import { join, resolve, sep } from "path"
 import { cwd } from "process"
 import type {
   IStorageProviderWithBatch,
@@ -19,7 +19,7 @@ import type {
   ListedFile,
 } from "../types"
 import { StorageProvider, StorageError, StorageErrorCode } from "../types"
-import { getLocalConfig } from "../config"
+import { getLocalConfig, isValidStorageKey } from "../config"
 
 export interface LocalStorageConfig {
   /** Upload directory path (relative or absolute) */
@@ -36,6 +36,9 @@ export class LocalStorageProvider implements IStorageProviderWithBatch {
   private uploadDir: string
   private baseUrl: string
 
+  // SECURITY TODO: Move uploads outside public/ to prevent unauthenticated access.
+  // Files should be served through authenticated API routes instead of static hosting.
+  // Current path serves files without auth: /uploads/documents/{userId}/{file}
   constructor(config: LocalStorageConfig = {}) {
     const defaultConfig = getLocalConfig()
     this.uploadDir = config.uploadDir || defaultConfig.uploadDir
@@ -60,7 +63,17 @@ export class LocalStorageProvider implements IStorageProviderWithBatch {
    * Get full file path for a key
    */
   private getFilePath(key: string): string {
-    return join(this.uploadDir, key)
+    if (!isValidStorageKey(key)) {
+      throw new Error(`Invalid storage key: ${key}`);
+    }
+    const filePath = join(this.uploadDir, key);
+    // Prevent path traversal: ensure resolved path is within uploadDir
+    const resolvedPath = resolve(filePath);
+    const resolvedUploadDir = resolve(this.uploadDir);
+    if (!resolvedPath.startsWith(resolvedUploadDir + sep) && resolvedPath !== resolvedUploadDir) {
+      throw new Error(`Path traversal detected: ${key}`);
+    }
+    return filePath;
   }
 
   /**

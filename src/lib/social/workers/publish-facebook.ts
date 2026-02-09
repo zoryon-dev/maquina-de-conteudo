@@ -11,6 +11,7 @@ import { eq, and } from "drizzle-orm"
 import { getFacebookService } from "../api"
 import { PublishedPostStatus } from "../types"
 import { SocialMediaType } from "../types"
+import { safeDecrypt } from "@/lib/encryption"
 
 /**
  * Payload for Facebook publish job
@@ -97,8 +98,14 @@ export async function publishToFacebook(
       return { success: false, error: "No active Facebook connection" }
     }
 
+    // Decrypt token before use (handles both encrypted and legacy plaintext)
+    const accessToken = safeDecrypt(connection.accessToken)
+    if (!accessToken) {
+      return { success: false, error: "Failed to decrypt access token" }
+    }
+
     // Get Facebook service
-    const service = getFacebookService(connection.accessToken, connection.accountId)
+    const service = getFacebookService(accessToken, connection.accountId)
 
     // Publish photo (Facebook uses photo endpoint for image posts)
     const result = await service.publishPhoto({

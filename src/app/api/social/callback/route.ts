@@ -26,8 +26,9 @@ import { NextResponse } from "next/server"
 import { auth, clerkClient } from "@clerk/nextjs/server"
 import { db } from "@/db"
 import { socialConnections, oauthSessions, users } from "@/db/schema"
-import { eq, sql } from "drizzle-orm"
+import { eq, and, gt, sql } from "drizzle-orm"
 import { SocialPlatform, SocialConnectionStatus } from "@/lib/social/types"
+import { maskEmail } from "@/lib/security/mask-pii"
 
 /**
  * Migrate all user data from old user ID to new user ID
@@ -54,15 +55,17 @@ async function migrateUserData(oldUserId: string, newUserId: string) {
     "ai_processed_themes",
   ]
 
+  // Run each table migration independently (not in a single transaction)
+  // because PostgreSQL aborts the entire transaction on any statement failure,
+  // making subsequent statements fail with "current transaction is aborted"
   for (const table of tablesToMigrate) {
     try {
-      const result = await db.execute(
+      await db.execute(
         sql`UPDATE ${sql.identifier(table)} SET user_id = ${newUserId} WHERE user_id = ${oldUserId}`
       )
       console.log(`[OAuth] Migrated ${table}`)
     } catch (error) {
-      // Table might not exist or have no matching records - that's OK
-      console.log(`[OAuth] Skipped ${table} (no records or table doesn't exist)`)
+      console.warn(`[OAuth] Skipped ${table}:`, error instanceof Error ? error.message : String(error))
     }
   }
 
@@ -198,7 +201,7 @@ async function ensureUserRecord(userId: string) {
     }
 
     // Create new user
-    console.log("[OAuth] Inserting new user with email:", primaryEmail)
+    console.log("[OAuth] Inserting new user with email:", maskEmail(primaryEmail))
     await db.insert(users).values({
       id: clerkUser.id,
       email: primaryEmail,
@@ -339,15 +342,39 @@ export async function GET(request: Request) {
     )
   }
 
-  // Use userId from decoded state if Clerk auth failed
-  const finalUserId = userId || decodedState.userId
+  // SECURITY: Require Clerk authentication - do NOT fall back to untrusted state param
+  if (!userId) {
+    console.error("[OAuth] No authenticated user in callback")
+    return NextResponse.redirect(
+      buildRedirectUrl(`/settings?tab=social&error=${encodeURIComponent("Autenticação necessária. Faça login e tente novamente.")}`, request.url)
+    )
+  }
+  const finalUserId = userId
   const platform = decodedState.platform
   console.log("[OAuth] Final userId:", finalUserId, "| Platform:", platform)
-  console.log("[OAuth] userId source:", userId ? "Clerk auth" : "decoded state")
 
-  if (!finalUserId) {
-    return new Response("Unauthorized: Unable to verify user session", { status: 401 })
+  // SECURITY: Validate OAuth state against server-side record (CSRF protection)
+  const storedSession = await db
+    .select()
+    .from(oauthSessions)
+    .where(
+      and(
+        eq(oauthSessions.id, decodedState.stateId),
+        eq(oauthSessions.userId, finalUserId),
+        gt(oauthSessions.expiresAt, new Date())
+      )
+    )
+    .limit(1)
+
+  if (!storedSession.length) {
+    console.error("[OAuth] Invalid or expired state:", decodedState.stateId)
+    return NextResponse.redirect(
+      buildRedirectUrl(`/settings?tab=social&error=${encodeURIComponent("Estado OAuth inválido ou expirado. Tente novamente.")}`, request.url)
+    )
   }
+
+  // Delete the pending state session (it will be replaced by the real session with pages data)
+  await db.delete(oauthSessions).where(eq(oauthSessions.id, decodedState.stateId))
 
   if (!META_APP_ID || !META_APP_SECRET || !META_REDIRECT_URI) {
     return new Response("Meta OAuth not configured", { status: 500 })

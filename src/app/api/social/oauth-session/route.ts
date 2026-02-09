@@ -79,9 +79,27 @@ export async function GET(request: NextRequest) {
   const { platform, pagesData } = session
   const pages = (pagesData as { pages: unknown[] }).pages
 
+  // Strip sensitive tokens before returning to client
+  const safePagesData = (pages as any[]).map((page: any) => ({
+    pageId: page.pageId,
+    pageName: page.pageName,
+    username: page.username,
+    picture: page.picture,
+    category: page.category,
+    businessName: page.businessName,
+    instagramBusinessAccount: page.instagramBusinessAccount ? {
+      id: page.instagramBusinessAccount.id,
+      username: page.instagramBusinessAccount.username,
+      name: page.instagramBusinessAccount.name,
+      profile_picture_url: page.instagramBusinessAccount.profile_picture_url,
+      followersCount: page.instagramBusinessAccount.followersCount,
+      mediaCount: page.instagramBusinessAccount.mediaCount,
+    } : undefined,
+  }))
+
   // Return platform and pages for frontend
   return NextResponse.json({
     platform,
-    pages,
+    pages: safePagesData,
   })
 }

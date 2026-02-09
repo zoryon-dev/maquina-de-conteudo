@@ -19,7 +19,12 @@ if (!ENCRYPTION_KEY) {
 }
 
 // Derive a 32-byte key from the environment variable
-const key = crypto.scryptSync(ENCRYPTION_KEY, "salt", 32)
+// Use ENCRYPTION_SALT env var if available; falls back to "salt" for backward compatibility
+const ENCRYPTION_SALT = process.env.ENCRYPTION_SALT || "salt"
+if (ENCRYPTION_SALT === "salt" && process.env.NODE_ENV === "production") {
+  console.warn("[Encryption] WARNING: Using default salt. Set ENCRYPTION_SALT env var for proper security.")
+}
+const key = crypto.scryptSync(ENCRYPTION_KEY, ENCRYPTION_SALT, 32)
 
 /**
  * Result of encrypting an API key
@@ -170,4 +175,31 @@ export function looksLikeApiKey(key: string): boolean {
   ]
 
   return patterns.some((pattern) => pattern.test(key))
+}
+
+/**
+ * Safely decrypt a token stored as "nonce:encryptedData:authTag".
+ * Returns the original value if it is legacy plaintext (no colon separator).
+ */
+export function safeDecrypt(value: string | null): string | null {
+  if (!value) return null
+  const firstColon = value.indexOf(":")
+  if (firstColon === -1) return value // No colon = legacy plaintext
+  try {
+    const nonce = value.substring(0, firstColon)
+    const encryptedKey = value.substring(firstColon + 1)
+    return decryptApiKey(encryptedKey, nonce)
+  } catch (error) {
+    console.error("[Encryption] Decryption failed — possible key rotation or corrupted data:", error instanceof Error ? error.message : String(error))
+    return null // Return null so callers handle missing token gracefully
+  }
+}
+
+/**
+ * Encrypt a plaintext token and pack nonce + ciphertext into a single
+ * "nonce:encryptedKey" string suitable for DB storage.
+ */
+export function encryptToken(plaintext: string): string {
+  const { encryptedKey, nonce } = encryptApiKey(plaintext)
+  return `${nonce}:${encryptedKey}`
 }

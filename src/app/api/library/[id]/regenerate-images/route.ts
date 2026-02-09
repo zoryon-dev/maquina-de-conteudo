@@ -123,12 +123,10 @@ export async function POST(
       message: "Image regeneration queued successfully",
     });
   } catch (error) {
-    console.error("[LIBRARY-REGENERATE] Error queuing image regeneration:", error);
+    console.error("[LIBRARY-REGENERATE] Error queuing image regeneration:", error instanceof Error ? error.message : String(error));
 
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to queue image regeneration",
-      },
+      { error: "Failed to queue image regeneration" },
       { status: 500 }
     );
   }

@@ -10,6 +10,7 @@ import { db } from "@/db"
 import { siteIntelligence, projects } from "@/db/schema"
 import { eq, and } from "drizzle-orm"
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user"
+import { validateExternalUrl, validateExternalUrls } from "@/lib/security/url-validator"
 
 export async function GET(request: Request) {
   const userId = await ensureAuthenticatedUser()
@@ -58,6 +59,20 @@ export async function POST(request: Request) {
         { error: "projectId and siteUrl are required" },
         { status: 400 },
       )
+    }
+
+    // SSRF protection: validate siteUrl
+    const urlCheck = validateExternalUrl(siteUrl)
+    if (!urlCheck.valid) {
+      return NextResponse.json({ error: `Invalid URL: ${urlCheck.error}` }, { status: 400 })
+    }
+
+    // SSRF protection: validate competitorUrls
+    if (competitorUrls?.length) {
+      const competitorCheck = validateExternalUrls(competitorUrls, "competitor URL")
+      if (!competitorCheck.valid) {
+        return NextResponse.json({ error: competitorCheck.error }, { status: 400 })
+      }
     }
 
     // Verify project ownership

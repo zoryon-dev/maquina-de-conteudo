@@ -22,18 +22,17 @@ import { JobType } from "@/lib/queue/types";
 import { isQueueConfigured, QueueNotConfiguredError, triggerWorker } from "@/lib/queue/client";
 import type { PostType } from "@/db/schema";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
+import { z } from "zod";
 
-interface SubmitRequestBody {
-  /** Submit type: "narratives" to generate narratives, "generation" to generate final content */
-  submitType: "narratives" | "generation";
-  /** Selected video title (only for video content type) */
-  selectedVideoTitle?: {
-    id: string;
-    title: string;
-    hook_factor: number;
-    reason: string;
-  };
-}
+const submitRequestSchema = z.object({
+  submitType: z.enum(["narratives", "generation"]),
+  selectedVideoTitle: z.object({
+    id: z.string(),
+    title: z.string().max(500),
+    hook_factor: z.number(),
+    reason: z.string().max(1000),
+  }).optional(),
+});
 
 /**
  * Check if we're in development mode
@@ -115,7 +114,15 @@ export async function POST(
       );
     }
 
-    const body = await request.json() as SubmitRequestBody;
+    const rawBody = await request.json();
+    const parseResult = submitRequestSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: "Invalid request body. Required: submitType ('narratives' | 'generation')" },
+        { status: 400 }
+      );
+    }
+    const body = parseResult.data;
     const { submitType } = body;
 
     let jobId: number;

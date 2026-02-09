@@ -7,7 +7,22 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createJob } from "@/lib/queue/jobs";
-import type { JobType, JobPayload } from "@/lib/queue/types";
+import { JobType, type JobPayload } from "@/lib/queue/types";
+import { z } from "zod";
+
+// Whitelist of job types allowed via API
+const ALLOWED_JOB_TYPES = [
+  JobType.CREATIVE_STUDIO_GENERATE,
+  JobType.WIZARD_NARRATIVES,
+  JobType.WIZARD_GENERATION,
+] as const;
+
+const createJobSchema = z.object({
+  type: z.enum(ALLOWED_JOB_TYPES),
+  payload: z.record(z.string(), z.unknown()),
+  priority: z.number().int().min(0).max(10).optional(),
+  scheduledFor: z.string().datetime().optional(),
+});
 
 export async function POST(request: Request) {
   // Verificar autenticação
@@ -18,23 +33,17 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { type, payload, priority, scheduledFor } = body as {
-      type: JobType;
-      payload: JobPayload;
-      priority?: number;
-      scheduledFor?: string;
-    };
-
-    // Validar tipo de job
-    if (!type || !payload) {
+    const result = createJobSchema.safeParse(body);
+    if (!result.success) {
       return NextResponse.json(
-        { error: "Missing required fields: type, payload" },
+        { error: "Invalid job type or payload" },
         { status: 400 }
       );
     }
+    const { type, payload, priority, scheduledFor } = result.data;
 
     // Criar job
-    const jobId = await createJob(userId, type, payload, {
+    const jobId = await createJob(userId, type, payload as unknown as JobPayload, {
       priority,
       scheduledFor: scheduledFor ? new Date(scheduledFor) : undefined,
     });

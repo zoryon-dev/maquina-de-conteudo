@@ -71,10 +71,8 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error("Error fetching library items:", error)
-    const errorMessage =
-      error instanceof Error ? error.message : "Failed to fetch library items"
     return NextResponse.json(
-      { success: false, error: errorMessage },
+      { success: false, error: "Failed to fetch library items" },
       {
         status: 500,
         headers: {

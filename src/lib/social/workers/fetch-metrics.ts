@@ -9,6 +9,7 @@ import { db } from "@/db"
 import { publishedPosts, socialConnections } from "@/db/schema"
 import { eq, and, lt } from "drizzle-orm"
 import { getInstagramService, getFacebookService } from "../api"
+import { safeDecrypt } from "@/lib/encryption"
 
 /**
  * Payload for metrics fetch job
@@ -108,15 +109,26 @@ export async function fetchSocialMetrics(
           continue
         }
 
+        // Decrypt token before use (handles both encrypted and legacy plaintext)
+        const accessToken = safeDecrypt(connection.accessToken)
+        if (!accessToken) {
+          errors.push({
+            postId: post.id,
+            platform: post.platform,
+            error: "Failed to decrypt access token",
+          })
+          continue
+        }
+
         // Get service and fetch metrics based on platform
         const metrics =
           post.platform === "instagram"
             ? await getInstagramService(
-                connection.accessToken,
+                accessToken,
                 connection.accountId
               ).getMediaMetrics(post.platformPostId)
             : await getFacebookService(
-                connection.accessToken,
+                accessToken,
                 connection.accountId
               ).getPostMetrics(post.platformPostId)
 

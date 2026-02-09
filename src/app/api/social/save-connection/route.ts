@@ -17,6 +17,7 @@ import { socialConnections, oauthSessions } from "@/db/schema"
 import { eq, and, gt } from "drizzle-orm"
 import { SocialPlatform, SocialConnectionStatus } from "@/lib/social/types"
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user"
+import { encryptToken } from "@/lib/encryption"
 
 /**
  * Page data structure from OAuth session
@@ -176,6 +177,10 @@ async function saveInstagramConnection(
     ? new Date(tokenExpiresAt)
     : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
 
+  // Encrypt tokens before storage
+  const encryptedAccessToken = encryptToken(longLivedToken)
+  const encryptedPageAccessToken = pageAccessToken ? encryptToken(pageAccessToken) : undefined
+
   // Save connection
   await upsertConnection({
     userId,
@@ -183,10 +188,10 @@ async function saveInstagramConnection(
     accountId: instagramBusinessAccount.id,
     accountName: `@${instagramBusinessAccount.username}`,
     accountUsername: instagramBusinessAccount.username,
-    accessToken: longLivedToken,
+    accessToken: encryptedAccessToken,
     tokenExpiresAt: userTokenExpiresAt,
     pageId: selectedPageId,
-    pageAccessToken: pageAccessToken,
+    pageAccessToken: encryptedPageAccessToken,
     pageName: pageName,
     status: SocialConnectionStatus.ACTIVE,
     metadata: {
@@ -194,7 +199,6 @@ async function saveInstagramConnection(
       followersCount: instagramBusinessAccount.followersCount,
       mediaCount: instagramBusinessAccount.mediaCount,
       permissions: ["instagram_basic", "instagram_content_publish", "instagram_manage_insights"],
-      userAccessToken: longLivedToken,
       userTokenExpiresAt: userTokenExpiresAt.toISOString(),
       pageAccessTokenLastFetchedAt: new Date().toISOString(),
     },
@@ -271,6 +275,10 @@ async function saveFacebookConnection(
     picture,
   } = selectedPage
 
+  // Encrypt tokens before storage
+  const encryptedAccessToken = encryptToken(pageAccessToken)
+  const encryptedPageAccessToken = encryptToken(pageAccessToken)
+
   // Page access tokens don't expire unless revoked
   // Save connection
   await upsertConnection({
@@ -279,10 +287,10 @@ async function saveFacebookConnection(
     accountId: selectedPageId,
     accountName: pageName,
     accountUsername: username || selectedPageId,
-    accessToken: pageAccessToken,
+    accessToken: encryptedAccessToken,
     tokenExpiresAt: null,
     pageId: selectedPageId,
-    pageAccessToken: pageAccessToken,
+    pageAccessToken: encryptedPageAccessToken,
     pageName: pageName,
     status: SocialConnectionStatus.ACTIVE,
     metadata: {

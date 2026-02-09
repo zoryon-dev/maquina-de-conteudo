@@ -2095,11 +2095,13 @@ export async function GET(request: Request) {
   const isLocalhost = host.startsWith("localhost:") || host.startsWith("127.0.0.1:") || host.startsWith("[::1]:");
   const testMode = searchParams.get("test") === "true" && process.env.NODE_ENV === "development" && isLocalhost;
 
+  let authenticatedUserId: string | null = null;
   if (!testMode) {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    authenticatedUserId = userId;
   }
 
   try {
@@ -2115,7 +2117,11 @@ export async function GET(request: Request) {
     if (searchParams.get("includeJobs") === "true") {
       const { db } = await import("@/db");
       const { jobs } = await import("@/db/schema");
-      const { eq, desc } = await import("drizzle-orm");
+      const { eq, and, desc } = await import("drizzle-orm");
+
+      const whereConditions = authenticatedUserId
+        ? and(eq(jobs.status, "pending"), eq(jobs.userId, authenticatedUserId))
+        : eq(jobs.status, "pending");
 
       pendingJobs = await db
         .select({
@@ -2126,7 +2132,7 @@ export async function GET(request: Request) {
           attempts: jobs.attempts,
         })
         .from(jobs)
-        .where(eq(jobs.status, "pending"))
+        .where(whereConditions)
         .orderBy(desc(jobs.createdAt))
         .limit(10);
     }

@@ -111,8 +111,9 @@ export async function POST(request: Request) {
     const timestamp = Date.now();
     const randomSuffix = Math.random().toString(36).substring(2, 8);
     const extension = detectedType === "jpg" ? "jpeg" : detectedType;
-    const purposePrefix = purpose || "slide";
-    const projectPrefix = projectId || "draft";
+    // Sanitize: only allow alphanumeric, hyphens, and underscores
+    const purposePrefix = (purpose || "slide").replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50);
+    const projectPrefix = (projectId || "draft").replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50);
 
     const key = `studio/${userId}/${projectPrefix}/${purposePrefix}-${timestamp}-${randomSuffix}.${extension}`;
 

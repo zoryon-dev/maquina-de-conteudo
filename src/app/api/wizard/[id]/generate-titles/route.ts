@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { generateVideoTitles } from "@/lib/wizard-services/video-titles.service";
 import type { VideoTitleOption } from "@/lib/wizard-services/video-titles.service";
 import { getUserVariables } from "@/lib/wizard-services/user-variables.service";
@@ -54,6 +55,11 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     // Await params in Next.js 15+
     const { id: wizardId } = await params;
@@ -136,10 +142,7 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unknown error generating titles",
+        error: "Failed to generate titles",
       },
       { status: 500 }
     );
