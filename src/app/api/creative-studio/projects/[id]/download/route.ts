@@ -57,17 +57,26 @@ export async function GET(
     archive.on("data", (chunk: Buffer) => chunks.push(chunk));
 
     // Add each image to ZIP
+    let addedCount = 0;
     for (let i = 0; i < outputs.length; i++) {
       const output = outputs[i];
       try {
         const resp = await fetch(output.imageUrl);
-        if (!resp.ok) continue;
+        if (!resp.ok) {
+          console.warn(`[CreativeStudio:Download] Failed to fetch output ${output.id}: HTTP ${resp.status}`);
+          continue;
+        }
         const buffer = Buffer.from(await resp.arrayBuffer());
         const safeFormat = output.format.replace(/[:/]/g, "x");
         archive.append(buffer, { name: `${safeFormat}_${i + 1}.png` });
-      } catch {
-        // Skip failed downloads
+        addedCount++;
+      } catch (fetchErr) {
+        console.warn(`[CreativeStudio:Download] Error fetching output ${output.id}:`, fetchErr instanceof Error ? fetchErr.message : fetchErr);
       }
+    }
+
+    if (addedCount === 0) {
+      return NextResponse.json({ success: false, error: "Nenhuma imagem pôde ser baixada" }, { status: 502 });
     }
 
     await archive.finalize();

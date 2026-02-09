@@ -15,7 +15,7 @@ import type { CreativeStudioGeneratePayload } from "@/lib/queue/types";
 import { buildCreativePrompt } from "@/lib/creative-studio/prompt-builder";
 import { toAppError, getErrorMessage, ValidationError } from "@/lib/errors";
 import { generateSchema } from "@/lib/creative-studio/validation";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export async function POST(request: Request) {
   try {
@@ -64,7 +64,22 @@ export async function POST(request: Request) {
     let projectId: number;
 
     if (existingProjectId) {
-      // Update existing project
+      // Verify ownership before updating
+      const [existingProject] = await db
+        .select({ id: creativeProjects.id })
+        .from(creativeProjects)
+        .where(
+          and(
+            eq(creativeProjects.id, existingProjectId),
+            eq(creativeProjects.userId, userId)
+          )
+        )
+        .limit(1);
+
+      if (!existingProject) {
+        throw new ValidationError("Projeto não encontrado ou sem permissão");
+      }
+
       await db
         .update(creativeProjects)
         .set({

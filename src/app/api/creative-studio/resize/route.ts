@@ -10,7 +10,7 @@ import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
 import { getStorageProvider } from "@/lib/storage";
 import { smartResize } from "@/lib/creative-studio/image-resize";
 import { getResizedKey } from "@/lib/creative-studio/constants";
-import { resizeSchema } from "@/lib/creative-studio/validation";
+import { resizeSchema, validateImageUrl } from "@/lib/creative-studio/validation";
 import { toAppError, getErrorMessage, ValidationError } from "@/lib/errors";
 
 export async function POST(request: Request) {
@@ -24,6 +24,9 @@ export async function POST(request: Request) {
     }
 
     const { imageUrl, targetFormats, fitMode } = parsed.data;
+
+    // Validate URL before server-side fetch (SSRF protection)
+    validateImageUrl(imageUrl);
 
     // Fetch source image
     let imageBuffer: Buffer;

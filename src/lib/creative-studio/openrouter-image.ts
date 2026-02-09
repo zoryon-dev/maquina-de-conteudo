@@ -6,6 +6,7 @@
  */
 
 import { getStorageProvider } from "@/lib/storage";
+import { ConfigError } from "@/lib/errors";
 
 interface GenerateImageParams {
   prompt: string;
@@ -27,6 +28,11 @@ export async function generateCreativeImage(
   userId: string,
   outputStorageKey: string
 ): Promise<GenerateImageResult> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    throw new ConfigError("OPENROUTER_API_KEY is not configured. Image generation requires an OpenRouter API key.");
+  }
+
   const start = Date.now();
 
   // Build messages
@@ -55,21 +61,30 @@ export async function generateCreativeImage(
     });
   }
 
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": process.env.OPENROUTER_APP_URL || "https://maquina-deconteudo.com",
-      "X-Title": process.env.OPENROUTER_APP_NAME || "Máquina de Conteúdo",
-    },
-    body: JSON.stringify({
-      model: params.model,
-      modalities: ["image", "text"],
-      messages,
-      max_tokens: 1000,
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120_000); // 2 min timeout
+
+  let response: Response;
+  try {
+    response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.OPENROUTER_APP_URL || "https://maquina-deconteudo.com",
+        "X-Title": process.env.OPENROUTER_APP_NAME || "Máquina de Conteúdo",
+      },
+      body: JSON.stringify({
+        model: params.model,
+        modalities: ["image", "text"],
+        messages,
+        max_tokens: 1000,
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();

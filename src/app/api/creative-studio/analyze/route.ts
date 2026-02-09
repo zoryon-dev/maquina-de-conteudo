@@ -8,6 +8,7 @@
 import { NextResponse } from "next/server";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
 import { analyzeImage } from "@/lib/creative-studio/image-analysis";
+import { validateImageUrl } from "@/lib/creative-studio/validation";
 import { toAppError, getErrorMessage, ValidationError } from "@/lib/errors";
 
 export async function POST(request: Request) {
@@ -20,6 +21,9 @@ export async function POST(request: Request) {
     if (!imageUrl || typeof imageUrl !== "string") {
       throw new ValidationError("imageUrl é obrigatório");
     }
+
+    // Validate URL before server-side fetch (SSRF protection)
+    validateImageUrl(imageUrl);
 
     // If it's a regular URL, fetch and convert to base64
     let imageBase64 = imageUrl;

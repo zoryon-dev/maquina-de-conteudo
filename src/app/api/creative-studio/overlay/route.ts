@@ -10,7 +10,7 @@ import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
 import { getStorageProvider } from "@/lib/storage";
 import { applyTextOverlay } from "@/lib/creative-studio/text-overlay";
 import { getOverlayKey, FORMAT_DIMENSIONS } from "@/lib/creative-studio/constants";
-import { overlaySchema } from "@/lib/creative-studio/validation";
+import { overlaySchema, validateImageUrl } from "@/lib/creative-studio/validation";
 import { toAppError, getErrorMessage, ValidationError } from "@/lib/errors";
 
 export async function POST(request: Request) {
@@ -29,6 +29,9 @@ export async function POST(request: Request) {
     const dim = format ? FORMAT_DIMENSIONS[format] : null;
     const outputWidth = dim?.width ?? 1080;
     const outputHeight = dim?.height ?? 1080;
+
+    // Validate URL before server-side fetch (SSRF protection)
+    validateImageUrl(imageUrl);
 
     // Fetch image
     let imageBuffer: Buffer;

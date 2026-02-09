@@ -2,15 +2,15 @@
  * Article Wizard — Base Pipeline Prompts (01-10)
  *
  * 10 prompts that form the core article generation pipeline:
- * 01: System Prompt (articulista identity)
+ * 01: System Prompt (SEO + GEO Unified Identity)
  * 02: Base Article Analyzer
  * 03: Mother Article Analyzer
- * 04: Research Synthesizer (adapted)
- * 05: Outline Generator (+ keyword_gaps from SI)
- * 06: Section Producer (+ brand_voice_profile from SI)
+ * 04: Research Synthesizer (GEO-Enhanced)
+ * 05: Outline Generator (GEO-Aware, 3 proposals)
+ * 06: Section Producer (GEO-Optimized)
  * 07: Assembler + Interlinking (+ site_url_map from SI)
- * 08: SEO Analyzer (+ keyword_gaps from SI, triggers GEO parallel)
- * 09: SEO Optimizer (+ geo_fixes for unified optimization)
+ * 08: Unified SEO+GEO Analyzer (replaces 08 + GEO-01)
+ * 09: Unified SEO+GEO Optimizer (replaces 09 + GEO-02)
  * 10: Title Generator
  */
 
@@ -384,7 +384,6 @@ export function getOutlineGeneratorPromptV2(params: {
   keywordGaps?: KeywordGap[];
   targetQueries?: string[];
   citabilityLevel?: string;
-  competitorTopics?: string;
   customInstructions?: string;
 }): string {
   const secondarySection = params.secondaryKeywords?.length

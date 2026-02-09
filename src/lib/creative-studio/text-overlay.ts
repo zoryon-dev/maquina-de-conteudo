@@ -237,7 +237,7 @@ function buildSvgOverlay(params: SvgParams): string {
     dominant-baseline="${dominantBaseline}"
     font-family="${escapeXml(fontFamily)}, sans-serif"
     font-size="${fontSize}"
-    font-weight="${fontWeight}"
+    font-weight="${escapeXml(fontWeight)}"
     fill="${escapeXml(textColor)}"
     ${shadow ? `filter="url(#${filterId})"` : ""}
   >

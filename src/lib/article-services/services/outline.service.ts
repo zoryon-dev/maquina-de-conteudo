@@ -110,7 +110,7 @@ export async function generateOutlines(params: {
         schemaHint: s.schema_hint ?? undefined,
         citableSnippetSlots: s.citable_snippet_slots,
       })),
-      faqSection: o.faq_section ? {
+      faqSection: o.faq_section?.questions?.length ? {
         questions: o.faq_section.questions.map((q) => ({
           question: q.question,
           answerPreview: q.answer_preview,

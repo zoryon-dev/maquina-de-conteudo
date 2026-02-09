@@ -34,6 +34,7 @@ export default function CreativeStudioCreatePage() {
   const [error, setError] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isMountedRef = useRef(false);
+  const pollErrorCount = useRef(0);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -68,8 +69,18 @@ export default function CreativeStudioCreatePage() {
       } else if (data.outputs && data.outputs.length > store.outputs.length) {
         store.setOutputs(data.outputs);
       }
-    } catch {
-      // Network error — keep polling
+      pollErrorCount.current = 0;
+    } catch (err) {
+      pollErrorCount.current++;
+      if (pollErrorCount.current >= 10) {
+        console.error("[CreativeStudio:Polling] Too many consecutive errors, stopping", err);
+        store.setGenerating(false);
+        setError("Erro de conexão ao verificar status. Tente recarregar a página.");
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+      }
     }
   }, [store]);
 

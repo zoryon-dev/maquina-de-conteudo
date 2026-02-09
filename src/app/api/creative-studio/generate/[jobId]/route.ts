@@ -77,7 +77,7 @@ export async function GET(
 
     // Calculate progress
     const totalExpected = project
-      ? (project.selectedFormats as string[] | null)?.length ?? 1 * (project.quantityPerFormat ?? 1)
+      ? ((project.selectedFormats as string[] | null)?.length ?? 1) * (project.quantityPerFormat ?? 1)
       : 0;
 
     return NextResponse.json({

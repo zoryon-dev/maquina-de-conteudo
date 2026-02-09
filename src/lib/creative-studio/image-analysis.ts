@@ -6,6 +6,7 @@
  */
 
 import type { ImageAnalysis } from "./types";
+import { ConfigError } from "@/lib/errors";
 
 const ANALYSIS_PROMPT = `Analyze this image in detail for the purpose of replicating its visual style. Return a JSON object with the following structure:
 
@@ -43,35 +44,49 @@ Return ONLY the JSON object, no markdown formatting or explanation.`;
 export async function analyzeImage(
   imageBase64: string
 ): Promise<ImageAnalysis> {
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": process.env.OPENROUTER_APP_URL || "https://maquina-deconteudo.com",
-      "X-Title": process.env.OPENROUTER_APP_NAME || "Máquina de Conteúdo",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3-pro-image-preview",
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image_url",
-              image_url: { url: imageBase64 },
-            },
-            {
-              type: "text",
-              text: ANALYSIS_PROMPT,
-            },
-          ],
-        },
-      ],
-      max_tokens: 2000,
-      temperature: 0.1,
-    }),
-  });
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    throw new ConfigError("OPENROUTER_API_KEY is not configured. Image analysis requires an OpenRouter API key.");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60_000); // 60s timeout
+
+  let response: Response;
+  try {
+    response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.OPENROUTER_APP_URL || "https://maquina-deconteudo.com",
+        "X-Title": process.env.OPENROUTER_APP_NAME || "Máquina de Conteúdo",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-pro-image-preview",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image_url",
+                image_url: { url: imageBase64 },
+              },
+              {
+                type: "text",
+                text: ANALYSIS_PROMPT,
+              },
+            ],
+          },
+        ],
+        max_tokens: 2000,
+        temperature: 0.1,
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -129,6 +144,18 @@ function extractTextContent(data: unknown): string | null {
  * Validates and provides safe defaults for the analysis object.
  */
 function validateAnalysis(raw: Partial<ImageAnalysis>): ImageAnalysis {
+  const missingFields: string[] = [];
+  if (!raw.layout) missingFields.push("layout");
+  if (!raw.colors) missingFields.push("colors");
+  if (!raw.style) missingFields.push("style");
+
+  if (missingFields.length > 0) {
+    console.warn(
+      `[CreativeStudio:Analysis] Incomplete analysis — using defaults for: ${missingFields.join(", ")}. ` +
+      `This may produce inaccurate replication results.`
+    );
+  }
+
   return {
     layout: raw.layout ?? {
       type: "centered",

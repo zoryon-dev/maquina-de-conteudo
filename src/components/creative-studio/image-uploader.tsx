@@ -264,14 +264,6 @@ export function ImageUploader({
         </div>
       )}
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept={ACCEPTED_IMAGE_TYPES.join(",")}
-        onChange={handleFileSelect}
-        className="hidden"
-        disabled={disabled}
-      />
     </div>
   );
 }

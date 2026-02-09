@@ -1,7 +1,8 @@
 /**
- * Article Wizard — SEO Analyzer Service
+ * Article Wizard — Unified SEO+GEO Analyzer Service
  *
- * Analyzes article content for SEO score and issues.
+ * Analyzes article content for SEO and GEO scores using the unified V2 prompt.
+ * Returns seoScore, geoScore, unifiedScore, geoAnalysis, and priorityFixes.
  */
 
 import type { ServiceResult, SeoReport, KeywordGap } from "../types";
@@ -95,7 +96,7 @@ export async function analyzeSeo(params: {
 
     const report: SeoReport = {
       overallScore: parsed.seo_score ?? parsed.overall_score,
-      checks: parsed.checks.map((c) => ({
+      checks: (parsed.checks || []).map((c) => ({
         criterion: c.criterion,
         status: c.status === "warning" ? "warn" : c.status,
         message: c.message,

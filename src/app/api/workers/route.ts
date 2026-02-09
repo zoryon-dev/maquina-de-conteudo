@@ -82,7 +82,7 @@ function parseMetadataSafely(metadataJson: string | null | undefined): Record<st
     // Ensure result is an object
     return typeof parsed === "object" && parsed !== null ? parsed as Record<string, unknown> : {};
   } catch (error) {
-    console.error("[Workers] Failed to parse metadata JSON:", error);
+    console.error("[Workers] Failed to parse metadata JSON:", error, "Raw:", metadataJson.slice(0, 200));
     return {};
   }
 }
@@ -377,27 +377,19 @@ function formatSynthesizedResearchForPrompt(synthesized: SynthesizedResearch): s
 // Handlers para cada tipo de job
 const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
   ai_text_generation: async () => {
-    // TODO: Implementar geração de texto com OpenRouter
-    await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulação
-    return { text: "Generated text placeholder" };
+    throw new Error("ai_text_generation is not implemented. Use the content wizard instead.");
   },
 
   ai_image_generation: async () => {
-    // TODO: Implementar geração de imagem
-    await new Promise((resolve) => setTimeout(resolve, 2000)); // Simulação
-    return { imageUrl: "https://example.com/image.png" };
+    throw new Error("ai_image_generation is not implemented. Use creative_studio_generate instead.");
   },
 
   carousel_creation: async () => {
-    // TODO: Implementar criação de carrossel
-    await new Promise((resolve) => setTimeout(resolve, 3000)); // Simulação
-    return { carouselUrl: "https://example.com/carousel.pdf" };
+    throw new Error("carousel_creation is not implemented. Use the content wizard instead.");
   },
 
   scheduled_publish: async () => {
-    // TODO: Implementar publicação agendada
-    await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulação
-    return { published: true, postId: "post_123" };
+    throw new Error("scheduled_publish is not implemented. Use social_publish_instagram/facebook instead.");
   },
 
   /**
@@ -433,9 +425,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
   },
 
   web_scraping: async () => {
-    // TODO: Implementar web scraping
-    await new Promise((resolve) => setTimeout(resolve, 2000)); // Simulação
-    return { scraped: true, data: [] };
+    throw new Error("web_scraping is not implemented as a job handler. Use Firecrawl API directly.");
   },
 
   /**
@@ -1314,10 +1304,22 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         let existingMediaUrls: string[] = [];
         if (libraryItem.mediaUrl) {
           try {
-            existingMediaUrls = JSON.parse(libraryItem.mediaUrl);
-          } catch {
-            // mediaUrl may be a plain string URL instead of JSON array
-            existingMediaUrls = [libraryItem.mediaUrl];
+            const parsed = JSON.parse(libraryItem.mediaUrl);
+            if (Array.isArray(parsed)) {
+              existingMediaUrls = parsed;
+            } else {
+              console.warn(`[WIZARD-IMAGE] mediaUrl parsed but is not an array (type: ${typeof parsed}). Treating as single URL.`);
+              existingMediaUrls = [libraryItem.mediaUrl];
+            }
+          } catch (parseErr) {
+            console.warn(
+              `[WIZARD-IMAGE] Failed to parse mediaUrl JSON:`,
+              parseErr instanceof Error ? parseErr.message : parseErr,
+              `Raw (first 100): "${libraryItem.mediaUrl.slice(0, 100)}"`
+            );
+            if (libraryItem.mediaUrl.startsWith("http") || libraryItem.mediaUrl.startsWith("data:")) {
+              existingMediaUrls = [libraryItem.mediaUrl];
+            }
           }
         }
         const allMediaUrls = [...existingMediaUrls, ...uploadedImageUrls];
@@ -1834,6 +1836,9 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
               const storage = getStorageProvider();
               // Fetch the generated image
               const imgResp = await fetch(result.url);
+              if (!imgResp.ok) {
+                throw new Error(`Failed to fetch generated image for overlay: HTTP ${imgResp.status}`);
+              }
               const imgBuffer = Buffer.from(await imgResp.arrayBuffer());
 
               const overlaid = await applyTextOverlay(imgBuffer, overlayConfig, dim.width, dim.height);
@@ -1880,6 +1885,12 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         updatedAt: new Date(),
       })
       .where(eq(creativeProjects.id, projectId));
+
+    // If ALL images failed, throw so worker infrastructure marks job as failed
+    if (successCount === 0 && errors.length > 0) {
+      const allErrors = errors.map((e) => `${e.format}#${e.index}: ${e.error}`).join("; ");
+      throw new Error(`All ${errors.length} image(s) failed: ${allErrors}`);
+    }
 
     return { success: true, successCount, errors: errors.length > 0 ? errors : undefined };
   },
@@ -2037,7 +2048,7 @@ export async function POST(request: Request) {
           error,
         });
       } else {
-        // Falha definitiva
+        // Falha definitiva — return 500 so monitoring/QStash detects it
         await updateJobStatus(jobId, "failed", { error });
         await removeFromProcessing(jobId);
 
@@ -2045,7 +2056,7 @@ export async function POST(request: Request) {
           message: "Job failed permanently",
           jobId,
           error,
-        });
+        }, { status: 500 });
       }
     } else {
       // Sucesso
