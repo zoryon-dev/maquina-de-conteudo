@@ -91,7 +91,10 @@ export async function analyzeSeo(params: {
 
     const parsed = extractArticleJSON<SeoAnalyzerResponse>(response);
     if (!parsed) {
-      return { success: false, error: "Failed to parse SEO analyzer response" };
+      return {
+        success: false,
+        error: `Failed to parse SEO analyzer response (length=${response.length}, start="${response.slice(0, 120)}…", end="…${response.slice(-120)}")`,
+      };
     }
 
     const report: SeoReport = {

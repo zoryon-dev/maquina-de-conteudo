@@ -201,6 +201,9 @@ export async function handleArticleOutline(payload: unknown): Promise<void> {
 
   const model = resolveModel(article, "outline");
   const synthesized = parseJSONB<{ raw: string }>(article.synthesizedResearch);
+  if (!synthesized?.raw) {
+    throw new Error("synthesizedResearch is missing or corrupt — cannot generate outline without research data");
+  }
 
   // Fetch user variables for prompt enrichment
   const userVariables = await getUserVariables(article.userId);
@@ -211,7 +214,7 @@ export async function handleArticleOutline(payload: unknown): Promise<void> {
     secondaryKeywords: parseJSONB<string[]>(article.secondaryKeywords) ?? undefined,
     articleType: article.articleType || "guia",
     targetWordCount: article.targetWordCount || 2000,
-    synthesizedResearch: synthesized?.raw || "",
+    synthesizedResearch: synthesized.raw,
     customInstructions: article.customInstructions
       ? `${article.customInstructions}${variablesPrompt ? `\n\n${variablesPrompt}` : ""}`
       : variablesPrompt || undefined,
@@ -247,6 +250,9 @@ export async function handleArticleSectionProduction(payload: unknown): Promise<
   if (!selectedOutline) throw new Error(`Outline ${selectedId} not found`);
 
   const synthesized = parseJSONB<{ raw: string }>(article.synthesizedResearch);
+  if (!synthesized?.raw) {
+    throw new Error("synthesizedResearch is missing or corrupt — cannot produce sections without research data");
+  }
 
   // Fetch user context (variables + RAG + brand voice)
   const ragConfig = parseJSONB<{ mode?: string; threshold?: number; maxChunks?: number; documents?: number[]; collections?: number[] }>(article.ragConfig);
@@ -274,7 +280,7 @@ export async function handleArticleSectionProduction(payload: unknown): Promise<
     primaryKeyword: article.primaryKeyword!,
     secondaryKeywords: parseJSONB<string[]>(article.secondaryKeywords) ?? undefined,
     articleType: article.articleType || "guia",
-    synthesizedResearch: synthesized?.raw || "",
+    synthesizedResearch: synthesized.raw,
     ragContext: userCtx.ragContext || undefined,
     brandVoiceProfile,
     customInstructions: article.customInstructions
@@ -295,6 +301,19 @@ export async function handleArticleSectionProduction(payload: unknown): Promise<
   });
 
   if (!result.success) throw new Error(result.error);
+
+  // Detect partial failure (some sections have status: "failed")
+  const failedSections = result.data.filter((s) => s.status === "failed");
+  if (failedSections.length > 0) {
+    console.warn(
+      `[Article Pipeline] Partial section production for article ${articleId}: ${failedSections.length}/${result.data.length} sections failed`,
+    );
+    // Save partial results so the user can retry or edit
+    await updateArticleProgress(articleId, { producedSections: result.data });
+    throw new Error(
+      `Section production partially failed: ${failedSections.length} of ${result.data.length} sections could not be produced`,
+    );
+  }
 
   console.log(`[Article Pipeline] Section production complete for article ${articleId}, auto-chaining assembly`);
 

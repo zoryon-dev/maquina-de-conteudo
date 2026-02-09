@@ -93,6 +93,16 @@ export async function produceSections(params: {
       });
     }
 
+    // Return partial data as success so the pipeline can save completed sections.
+    // The caller detects partial failure by checking for sections with status: "failed".
+    const completedCount = sections.filter((s) => s.status === "completed").length;
+    if (completedCount > 0) {
+      console.warn(
+        `[Article Section Producer] Partial failure: ${completedCount}/${totalSections} sections completed. Error: ${msg}`,
+      );
+      return { success: true, data: sections };
+    }
+
     return { success: false, error: msg };
   }
 }

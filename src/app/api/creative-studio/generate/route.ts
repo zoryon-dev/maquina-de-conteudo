@@ -15,7 +15,7 @@ import type { CreativeStudioGeneratePayload } from "@/lib/queue/types";
 import { buildCreativePrompt } from "@/lib/creative-studio/prompt-builder";
 import { toAppError, getErrorMessage, ValidationError } from "@/lib/errors";
 import { generateSchema } from "@/lib/creative-studio/validation";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 export async function POST(request: Request) {
   try {
@@ -45,6 +45,20 @@ export async function POST(request: Request) {
       templateVars,
       analysisData,
     } = parsed.data;
+
+    // Rate limit: max 3 concurrent generating projects per user
+    const [activeCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(creativeProjects)
+      .where(
+        and(
+          eq(creativeProjects.userId, userId),
+          eq(creativeProjects.status, "generating")
+        )
+      );
+    if ((activeCount?.count ?? 0) >= 3) {
+      throw new ValidationError("Limite de 3 gerações simultâneas atingido. Aguarde a conclusão de uma geração.");
+    }
 
     // Build the final prompt
     const built = buildCreativePrompt({

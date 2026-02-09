@@ -388,8 +388,8 @@ export type ArticlePipelineStage =
   | "section_production"
   | "assembly"
   | "interlinking"
-  | "seo_check"
-  | "geo_check"
+  | "seo_check" // V2: unified SEO+GEO analysis in a single pass
+  | "geo_check" // V1 compat only: standalone GEO analysis (deprecated in V2)
   | "optimization"
   | "title_generation"
   | "metadata";
@@ -426,6 +426,7 @@ export interface ArticlePipelineContext {
   producedSections?: ProducedSection[];
   assembledContent?: string;
   seoReport?: SeoReport;
+  /** V2: only overallScore, priorityFixes, and aiCitationProbability are populated (breakdown fields are empty). */
   geoReport?: GeoReport;
   optimizedContent?: string;
   model: string;

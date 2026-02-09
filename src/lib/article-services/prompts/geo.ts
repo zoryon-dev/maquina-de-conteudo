@@ -28,7 +28,7 @@ export function getGeoAnalyzerPrompt(params: {
     articleContent: params.articleContent,
     primaryKeyword: params.primaryKeyword,
     targetQueries: params.targetQueries,
-    targetWordCount: 0,
+    targetWordCount: 0, // sentinel: GEO-only analysis doesn't need word count
   });
 }
 
@@ -49,7 +49,7 @@ export function getGeoOptimizerPrompt(params: {
   return getUnifiedOptimizerPrompt({
     articleContent: params.articleContent,
     unifiedReport: `${params.geoReport}\n\n--- PRIORITY FIXES ---\n${params.priorityFixes}`,
-    primaryKeyword: "",
+    primaryKeyword: "", // sentinel: GEO optimizer doesn't use keyword for optimization
     brandVoiceProfile: params.brandVoiceProfile,
   });
 }
