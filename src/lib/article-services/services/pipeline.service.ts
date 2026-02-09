@@ -345,6 +345,36 @@ export async function handleArticleAssembly(payload: unknown): Promise<void> {
 }
 
 // ============================================================================
+// GEO REPORT BUILDER — transforms unified V2 data to UI-compatible shape
+// ============================================================================
+
+const IMPACT_EN_TO_PT: Record<string, string> = { high: "alto", medium: "médio", low: "baixo", critical: "alto" };
+
+function buildGeoReportForUI(seoReport: import("../types").SeoReport) {
+  const geoFixes = (seoReport.priorityFixes || [])
+    .filter((f) => f.category === "geo" || f.category === "both")
+    .map((f) => ({
+      fix: f.description,
+      impact: IMPACT_EN_TO_PT[f.impact] || f.impact,
+      effort: IMPACT_EN_TO_PT[f.effort] || f.effort,
+      criterion: f.category,
+      estimatedScoreImprovement: 0,
+    }));
+
+  const aiCitationProbability = seoReport.geoAnalysis?.aiCitationProbability
+    ? { score: seoReport.geoScore ?? 0, assessment: seoReport.geoAnalysis.aiCitationProbability }
+    : undefined;
+
+  return {
+    overallScore: seoReport.geoScore ?? 0,
+    // V2 unified analyzer does not produce 6-criteria breakdown.
+    // GeoScoreCard handles missing criteria via `if (!sub) return null`.
+    priorityFixes: geoFixes,
+    aiCitationProbability,
+  };
+}
+
+// ============================================================================
 // HANDLER: ARTICLE_SEO_GEO_CHECK
 // ============================================================================
 
@@ -374,15 +404,15 @@ export async function handleArticleSeoGeoCheck(payload: unknown): Promise<void> 
   const geoMsg = seoResult.data.geoScore != null ? ` | GEO: ${seoResult.data.geoScore}/100` : "";
   const unifiedMsg = seoResult.data.unifiedScore != null ? ` | Unified: ${seoResult.data.unifiedScore}/100` : "";
 
+  // Build GeoReport in the shape expected by the UI (GeoScoreCard)
+  // V2 unified analyzer doesn't produce 6-criteria breakdown — UI handles missing criteria gracefully
+  const geoReport = seoResult.data.geoAnalysis ? buildGeoReportForUI(seoResult.data) : null;
+
   await updateArticleProgress(articleId, {
     seoScore: seoResult.data.overallScore,
     seoReport: seoResult.data,
     geoScore: seoResult.data.geoScore ?? null,
-    geoReport: seoResult.data.geoAnalysis ? {
-      overallScore: seoResult.data.geoScore ?? 0,
-      geoAnalysis: seoResult.data.geoAnalysis,
-      priorityFixes: seoResult.data.priorityFixes?.filter((f) => f.category === "geo" || f.category === "both") ?? [],
-    } : null,
+    geoReport,
     processingProgress: { stage: "seo_check", percent: 100, message: seoMsg + geoMsg + unifiedMsg },
   });
 }
