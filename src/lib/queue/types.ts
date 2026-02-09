@@ -28,6 +28,8 @@ export enum JobType {
   // Site Intelligence jobs
   SITE_INTELLIGENCE_CRAWL = "site_intelligence_crawl",
   SITE_INTELLIGENCE_ANALYZE = "site_intelligence_analyze",
+  // Creative Studio
+  CREATIVE_STUDIO_GENERATE = "creative_studio_generate",
 }
 
 // Status dos jobs
@@ -259,6 +261,25 @@ export interface SiteIntelligencePayload {
   userId: string;
 }
 
+/**
+ * Payload for creative studio image generation job
+ */
+export interface CreativeStudioGeneratePayload {
+  projectId: number;
+  userId: string;
+  mode: "create" | "vary" | "replicate";
+  prompt: string;
+  negativePrompt?: string;
+  model: string;
+  formats: string[];
+  quantity: number;
+  textMode?: "ai_embedded" | "canvas_overlay" | null;
+  textConfig?: Record<string, unknown>;
+  sourceImage?: string;
+  variationType?: string;
+  presetId?: string;
+}
+
 // Tipo union de todos os payloads
 export type JobPayload =
   | AiTextGenerationPayload
@@ -272,7 +293,8 @@ export type JobPayload =
   | WizardImageGenerationPayload
   | WizardThumbnailGenerationPayload
   | ArticlePipelinePayload
-  | SiteIntelligencePayload;
+  | SiteIntelligencePayload
+  | CreativeStudioGeneratePayload;
 
 // Estrutura de um job
 export interface QueueJob {

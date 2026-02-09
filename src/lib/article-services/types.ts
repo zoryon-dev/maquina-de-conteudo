@@ -57,6 +57,18 @@ export interface OutlineSection {
   subheadings: string[];
   estimatedWords: number;
   keyPoints: string[];
+  // V2 GEO fields (optional for backwards compat)
+  headingType?: "question" | "statement" | "action";
+  geoFormat?: "prose" | "table" | "list" | "steps" | "faq" | "definition" | "comparison";
+  targetQueriesAddressed?: string[];
+  schemaHint?: string | null;
+  citableSnippetSlots?: number;
+}
+
+export interface OutlineFaqQuestion {
+  question: string;
+  answerPreview: string;
+  sourceQuery: string;
 }
 
 export interface ArticleOutline {
@@ -66,6 +78,14 @@ export interface ArticleOutline {
   sections: OutlineSection[];
   estimatedTotalWords: number;
   differentiator: string;
+  // V2 GEO fields (optional for backwards compat)
+  approach?: "direct" | "analytical" | "narrative";
+  seoStrength?: string;
+  geoStrength?: string;
+  recommendedSchemas?: string[];
+  faqSection?: { questions: OutlineFaqQuestion[] };
+  estimatedGeoScore?: string;
+  estimatedSchemaCount?: number;
 }
 
 // ============================================================================
@@ -101,6 +121,29 @@ export interface SeoReport {
     primary: number;
     secondary: Record<string, number>;
   };
+  // V2 unified fields
+  geoScore?: number;
+  unifiedScore?: number;
+  geoAnalysis?: {
+    targetQueriesEvaluated: Array<{
+      query: string;
+      answered: boolean;
+      answerQuality: string;
+      locationInArticle: string;
+    }>;
+    citableSnippetsFound: number;
+    schemasDetected: string[];
+    aiCitationProbability: string;
+  };
+  priorityFixes?: Array<{
+    fixId: string;
+    category: string;
+    description: string;
+    impact: string;
+    effort: string;
+    autoFixable: boolean;
+    fixInstruction: string;
+  }>;
 }
 
 // ============================================================================
@@ -345,8 +388,8 @@ export type ArticlePipelineStage =
   | "section_production"
   | "assembly"
   | "interlinking"
-  | "seo_check"
-  | "geo_check"
+  | "seo_check" // V2: unified SEO+GEO analysis in a single pass
+  | "geo_check" // V1 compat only: standalone GEO analysis (deprecated in V2)
   | "optimization"
   | "title_generation"
   | "metadata";
@@ -383,6 +426,7 @@ export interface ArticlePipelineContext {
   producedSections?: ProducedSection[];
   assembledContent?: string;
   seoReport?: SeoReport;
+  /** V2: only overallScore, priorityFixes, and aiCitationProbability are populated (breakdown fields are empty). */
   geoReport?: GeoReport;
   optimizedContent?: string;
   model: string;

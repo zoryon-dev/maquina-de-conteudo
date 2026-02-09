@@ -14,6 +14,7 @@ import {
   Search,
   Palette,
   FileText,
+  ImagePlus,
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -57,6 +58,7 @@ export function AppLayout({ children, className }: AppLayoutProps) {
           { name: "Wizard", url: "/wizard", icon: Wand2 },
           { name: "Artigos", url: "/articles", icon: FileText },
           { name: "Studio", url: "/studio", icon: Palette },
+          { name: "Creative", url: "/creative-studio", icon: ImagePlus },
           { name: "ZoryAI", url: "/chat", icon: Sparkles },
         ],
       },

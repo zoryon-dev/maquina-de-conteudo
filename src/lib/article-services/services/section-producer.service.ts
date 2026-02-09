@@ -6,7 +6,7 @@
  */
 
 import type { ServiceResult, ArticleOutline, ProducedSection, BrandVoiceProfile } from "../types";
-import { getArticleSystemPrompt, getSectionProducerPrompt } from "../prompts";
+import { getArticleSystemPromptV2, getSectionProducerPromptV2 } from "../prompts";
 import { articleLlmCall } from "./llm";
 
 export async function produceSections(params: {
@@ -17,11 +17,12 @@ export async function produceSections(params: {
   synthesizedResearch: string;
   ragContext?: string;
   brandVoiceProfile?: BrandVoiceProfile;
+  eeatProfile?: string;
   customInstructions?: string;
   model: string;
   onProgress?: (sectionIndex: number, totalSections: number, heading: string) => Promise<void>;
 }): Promise<ServiceResult<ProducedSection[]>> {
-  const systemPrompt = getArticleSystemPrompt();
+  const systemPrompt = getArticleSystemPromptV2();
   const sections: ProducedSection[] = [];
   const totalSections = params.outline.sections.length;
 
@@ -35,7 +36,7 @@ export async function produceSections(params: {
         ? sections.map((s) => `## ${s.heading}\n${s.content.substring(0, 200)}...`).join("\n\n")
         : "";
 
-      const userMessage = getSectionProducerPrompt({
+      const userMessage = getSectionProducerPromptV2({
         primaryKeyword: params.primaryKeyword,
         secondaryKeywords: params.secondaryKeywords,
         articleType: params.articleType,
@@ -50,6 +51,12 @@ export async function produceSections(params: {
         ragContext: params.ragContext,
         brandVoiceProfile: params.brandVoiceProfile,
         customInstructions: params.customInstructions,
+        // V2 GEO fields
+        sectionGeoFormat: section.geoFormat,
+        sectionTargetQueries: section.targetQueriesAddressed,
+        sectionSchemaHint: section.schemaHint ?? undefined,
+        citableSnippetSlots: section.citableSnippetSlots,
+        eeatProfile: params.eeatProfile,
       });
 
       const response = await articleLlmCall({
@@ -84,6 +91,16 @@ export async function produceSections(params: {
         wordCount: 0,
         status: "failed",
       });
+    }
+
+    // Return partial data as success so the pipeline can save completed sections.
+    // The caller detects partial failure by checking for sections with status: "failed".
+    const completedCount = sections.filter((s) => s.status === "completed").length;
+    if (completedCount > 0) {
+      console.warn(
+        `[Article Section Producer] Partial failure: ${completedCount}/${totalSections} sections completed. Error: ${msg}`,
+      );
+      return { success: true, data: sections };
     }
 
     return { success: false, error: msg };

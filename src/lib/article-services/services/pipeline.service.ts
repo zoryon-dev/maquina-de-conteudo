@@ -23,8 +23,6 @@ import { produceSections } from "./section-producer.service";
 import { assembleArticle } from "./assembler.service";
 import { analyzeSeo } from "./seo-analyzer.service";
 import { optimizeSeo } from "./seo-optimizer.service";
-import { analyzeGeo } from "./geo-analyzer.service";
-import { optimizeGeo } from "./geo-optimizer.service";
 import { generateTitles } from "./title-generator.service";
 import { analyzeInterlinking } from "./interlinking.service";
 import { generateArticleMetadata } from "./metadata.service";
@@ -203,6 +201,9 @@ export async function handleArticleOutline(payload: unknown): Promise<void> {
 
   const model = resolveModel(article, "outline");
   const synthesized = parseJSONB<{ raw: string }>(article.synthesizedResearch);
+  if (!synthesized?.raw) {
+    throw new Error("synthesizedResearch is missing or corrupt — cannot generate outline without research data");
+  }
 
   // Fetch user variables for prompt enrichment
   const userVariables = await getUserVariables(article.userId);
@@ -213,7 +214,7 @@ export async function handleArticleOutline(payload: unknown): Promise<void> {
     secondaryKeywords: parseJSONB<string[]>(article.secondaryKeywords) ?? undefined,
     articleType: article.articleType || "guia",
     targetWordCount: article.targetWordCount || 2000,
-    synthesizedResearch: synthesized?.raw || "",
+    synthesizedResearch: synthesized.raw,
     customInstructions: article.customInstructions
       ? `${article.customInstructions}${variablesPrompt ? `\n\n${variablesPrompt}` : ""}`
       : variablesPrompt || undefined,
@@ -249,6 +250,9 @@ export async function handleArticleSectionProduction(payload: unknown): Promise<
   if (!selectedOutline) throw new Error(`Outline ${selectedId} not found`);
 
   const synthesized = parseJSONB<{ raw: string }>(article.synthesizedResearch);
+  if (!synthesized?.raw) {
+    throw new Error("synthesizedResearch is missing or corrupt — cannot produce sections without research data");
+  }
 
   // Fetch user context (variables + RAG + brand voice)
   const ragConfig = parseJSONB<{ mode?: string; threshold?: number; maxChunks?: number; documents?: number[]; collections?: number[] }>(article.ragConfig);
@@ -276,7 +280,7 @@ export async function handleArticleSectionProduction(payload: unknown): Promise<
     primaryKeyword: article.primaryKeyword!,
     secondaryKeywords: parseJSONB<string[]>(article.secondaryKeywords) ?? undefined,
     articleType: article.articleType || "guia",
-    synthesizedResearch: synthesized?.raw || "",
+    synthesizedResearch: synthesized.raw,
     ragContext: userCtx.ragContext || undefined,
     brandVoiceProfile,
     customInstructions: article.customInstructions
@@ -297,6 +301,19 @@ export async function handleArticleSectionProduction(payload: unknown): Promise<
   });
 
   if (!result.success) throw new Error(result.error);
+
+  // Detect partial failure (some sections have status: "failed")
+  const failedSections = result.data.filter((s) => s.status === "failed");
+  if (failedSections.length > 0) {
+    console.warn(
+      `[Article Pipeline] Partial section production for article ${articleId}: ${failedSections.length}/${result.data.length} sections failed`,
+    );
+    // Save partial results so the user can retry or edit
+    await updateArticleProgress(articleId, { producedSections: result.data });
+    throw new Error(
+      `Section production partially failed: ${failedSections.length} of ${result.data.length} sections could not be produced`,
+    );
+  }
 
   console.log(`[Article Pipeline] Section production complete for article ${articleId}, auto-chaining assembly`);
 
@@ -347,6 +364,36 @@ export async function handleArticleAssembly(payload: unknown): Promise<void> {
 }
 
 // ============================================================================
+// GEO REPORT BUILDER — transforms unified V2 data to UI-compatible shape
+// ============================================================================
+
+const IMPACT_EN_TO_PT: Record<string, string> = { high: "alto", medium: "médio", low: "baixo", critical: "alto" };
+
+function buildGeoReportForUI(seoReport: import("../types").SeoReport) {
+  const geoFixes = (seoReport.priorityFixes || [])
+    .filter((f) => f.category === "geo" || f.category === "both")
+    .map((f) => ({
+      fix: f.description,
+      impact: IMPACT_EN_TO_PT[f.impact] || f.impact,
+      effort: IMPACT_EN_TO_PT[f.effort] || f.effort,
+      criterion: f.category,
+      estimatedScoreImprovement: 0,
+    }));
+
+  const aiCitationProbability = seoReport.geoAnalysis?.aiCitationProbability
+    ? { score: seoReport.geoScore ?? 0, assessment: seoReport.geoAnalysis.aiCitationProbability }
+    : undefined;
+
+  return {
+    overallScore: seoReport.geoScore ?? 0,
+    // V2 unified analyzer does not produce 6-criteria breakdown.
+    // GeoScoreCard handles missing criteria via `if (!sub) return null`.
+    priorityFixes: geoFixes,
+    aiCitationProbability,
+  };
+}
+
+// ============================================================================
 // HANDLER: ARTICLE_SEO_GEO_CHECK
 // ============================================================================
 
@@ -358,53 +405,34 @@ export async function handleArticleSeoGeoCheck(payload: unknown): Promise<void> 
   if (!content) throw new Error("No assembled content found");
 
   await updateArticleProgress(articleId, {
-    processingProgress: { stage: "seo_check", percent: 10, message: "Analisando SEO e GEO em paralelo..." },
+    processingProgress: { stage: "seo_check", percent: 10, message: "Analisando SEO + GEO (unified)..." },
   });
 
-  // Run SEO and GEO analysis in parallel
-  const [seoResult, geoResult] = await Promise.all([
-    analyzeSeo({
-      articleContent: content,
-      primaryKeyword: article.primaryKeyword!,
-      secondaryKeywords: parseJSONB<string[]>(article.secondaryKeywords) ?? undefined,
-      targetWordCount: article.targetWordCount || 2000,
-      model,
-    }),
-    analyzeGeo({
-      articleContent: content,
-      primaryKeyword: article.primaryKeyword!,
-      model,
-    }),
-  ]);
+  // V2: Single unified SEO+GEO analysis (replaces parallel SEO + GEO calls)
+  const seoResult = await analyzeSeo({
+    articleContent: content,
+    primaryKeyword: article.primaryKeyword!,
+    secondaryKeywords: parseJSONB<string[]>(article.secondaryKeywords) ?? undefined,
+    targetWordCount: article.targetWordCount || 2000,
+    model,
+  });
 
   if (!seoResult.success) throw new Error(seoResult.error);
 
-  // GEO is optional — don't fail the pipeline if it fails
-  const geoData = geoResult.success ? geoResult.data : null;
-  if (!geoResult.success) {
-    console.warn("[Article Pipeline] GEO analysis failed, continuing with SEO only:", geoResult.error);
-  }
-
   const seoMsg = `SEO: ${seoResult.data.overallScore}/100`;
-  const geoMsg = geoData ? ` | GEO: ${geoData.overallScore}/100` : "";
+  const geoMsg = seoResult.data.geoScore != null ? ` | GEO: ${seoResult.data.geoScore}/100` : "";
+  const unifiedMsg = seoResult.data.unifiedScore != null ? ` | Unified: ${seoResult.data.unifiedScore}/100` : "";
+
+  // Build GeoReport in the shape expected by the UI (GeoScoreCard)
+  // V2 unified analyzer doesn't produce 6-criteria breakdown — UI handles missing criteria gracefully
+  const geoReport = seoResult.data.geoAnalysis ? buildGeoReportForUI(seoResult.data) : null;
 
   await updateArticleProgress(articleId, {
     seoScore: seoResult.data.overallScore,
     seoReport: seoResult.data,
-    geoScore: geoData?.overallScore ?? null,
-    geoReport: geoData ? {
-      overallScore: geoData.overallScore,
-      targetQueries: geoData.targetQueries,
-      directAnswers: geoData.breakdown.directAnswers,
-      citableData: geoData.breakdown.citableData,
-      extractableStructure: geoData.breakdown.extractableStructure,
-      authorityEeat: geoData.breakdown.authorityEeat,
-      topicCoverage: geoData.breakdown.topicCoverage,
-      schemaMetadata: geoData.breakdown.schemaMetadata,
-      priorityFixes: geoData.priorityFixes,
-      aiCitationProbability: geoData.aiCitationProbability,
-    } : null,
-    processingProgress: { stage: "seo_check", percent: 100, message: seoMsg + geoMsg },
+    geoScore: seoResult.data.geoScore ?? null,
+    geoReport,
+    processingProgress: { stage: "seo_check", percent: 100, message: seoMsg + geoMsg + unifiedMsg },
   });
 }
 
@@ -418,63 +446,39 @@ export async function handleArticleOptimization(payload: unknown): Promise<void>
   const model = resolveModel(article, "optimization");
   const content = article.assembledContent;
   const seoReport = parseJSONB<Record<string, unknown>>(article.seoReport);
-  const geoReport = parseJSONB<Record<string, unknown>>(article.geoReport);
 
   if (!content || !seoReport) throw new Error("No content or SEO report found");
 
   await updateArticleProgress(articleId, {
-    processingProgress: { stage: "optimization", percent: 10, message: "Otimizando SEO" + (geoReport ? " + GEO" : "") + "..." },
+    processingProgress: { stage: "optimization", percent: 10, message: "Otimizando SEO + GEO (unified)..." },
   });
 
-  // Pass GEO data to the unified SEO+GEO optimizer if available
-  const geoFixes = geoReport
-    ? JSON.stringify((geoReport as any).priorityFixes || [])
-    : undefined;
+  // Load brand voice if available
+  let brandVoiceProfile: string | undefined;
+  if (article.projectId) {
+    const [si] = await db
+      .select({ brandVoiceProfile: siteIntelligence.brandVoiceProfile })
+      .from(siteIntelligence)
+      .where(eq(siteIntelligence.projectId, article.projectId))
+      .limit(1);
+    if (si?.brandVoiceProfile) {
+      brandVoiceProfile = JSON.stringify(parseJSONB<BrandVoiceProfile>(si.brandVoiceProfile));
+    }
+  }
 
+  // V2: Single unified optimizer call (replaces SEO-only + conditional GEO-02)
   const result = await optimizeSeo({
     articleContent: content,
-    seoReport: JSON.stringify(seoReport),
+    unifiedReport: JSON.stringify(seoReport),
     primaryKeyword: article.primaryKeyword!,
-    geoReport: geoReport ? JSON.stringify(geoReport) : undefined,
-    geoFixes,
+    secondaryKeywords: parseJSONB<string[]>(article.secondaryKeywords) ?? undefined,
+    brandVoiceProfile,
     model,
   });
 
   if (!result.success) throw new Error(result.error);
 
-  let finalContent = result.data.optimizedArticle;
-  let finalGeoScore = result.data.newGeoScoreEstimate;
-
-  // If GEO report exists and score is below threshold, run dedicated GEO-02 optimizer
-  if (geoReport && (geoReport as any).overallScore < 70) {
-    // Load brand voice if available
-    let brandVoice: string | undefined;
-    if (article.projectId) {
-      const [si] = await db
-        .select({ brandVoiceProfile: siteIntelligence.brandVoiceProfile })
-        .from(siteIntelligence)
-        .where(eq(siteIntelligence.projectId, article.projectId))
-        .limit(1);
-      if (si?.brandVoiceProfile) {
-        brandVoice = JSON.stringify(parseJSONB<BrandVoiceProfile>(si.brandVoiceProfile));
-      }
-    }
-
-    const geoOptResult = await optimizeGeo({
-      articleContent: finalContent,
-      geoReport: JSON.stringify(geoReport),
-      priorityFixes: geoFixes || "[]",
-      brandVoiceProfile: brandVoice,
-      model,
-    });
-
-    if (geoOptResult.success) {
-      finalContent = geoOptResult.data.optimizedArticle;
-      finalGeoScore = geoOptResult.data.estimatedNewScores.geoScoreOverall;
-    } else {
-      console.warn("[Article Pipeline] GEO optimization failed, using SEO-only result:", geoOptResult.error);
-    }
-  }
+  const finalContent = result.data.optimizedArticle;
 
   // Generate titles
   const titlesResult = await generateTitles({
@@ -490,7 +494,7 @@ export async function handleArticleOptimization(payload: unknown): Promise<void>
     finalContent,
     finalWordCount: finalContent.split(/\s+/).length,
     seoScore: result.data.newSeoScoreEstimate,
-    geoScore: finalGeoScore,
+    geoScore: result.data.newGeoScoreEstimate,
     finalTitle: titlesResult.success ? titlesResult.data.titles.find((t) => t.id === titlesResult.data.recommended)?.text : article.title,
     currentStep: "metadata",
     processingProgress: { stage: "optimization", percent: 100, message: "Artigo otimizado!" },
@@ -630,6 +634,7 @@ export async function handleArticleMetadata(payload: unknown): Promise<void> {
     secondaryKeywords: parseJSONB<string[]>(article.secondaryKeywords) || [],
     brandName: article.authorName || "Blog",
     authorName: article.authorName || "Autor",
+    articleType: article.articleType || "guia",
     siteCategories,
     brandVoiceProfile,
     model,
