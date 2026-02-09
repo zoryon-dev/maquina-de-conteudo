@@ -105,7 +105,8 @@ async function handleRefresh() {
       const metadata = (connection.metadata || {}) as SocialConnectionMetadata
       // Decrypt tokens from DB (handles both encrypted and legacy plaintext)
       const decryptedAccessToken = safeDecrypt(connection.accessToken)
-      const userToken = metadata.userAccessToken || decryptedAccessToken
+      // Prefer decrypted DB token; fall back to legacy metadata token (being phased out)
+      const userToken = decryptedAccessToken || metadata.userAccessToken
 
       if (!userToken) {
         results.skipped += 1
