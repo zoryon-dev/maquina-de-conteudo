@@ -5,8 +5,6 @@
  * Substitui catch-all genéricos por tipos específicos e type-safe.
  */
 
-import { NextResponse } from "next/server"
-
 // ============================================================================
 // BASE ERROR CLASS
 // ============================================================================
@@ -257,21 +255,4 @@ export function isRetryableError(error: unknown): boolean {
   }
 
   return false
-}
-
-/**
- * Creates a safe error response for API routes.
- * In production, returns generic messages. In development, includes details.
- */
-export function safeErrorResponse(
-  error: unknown,
-  fallbackMessage: string,
-  statusCode: number = 500
-): NextResponse {
-  const isDev = process.env.NODE_ENV === "development"
-  const message = isDev && error instanceof Error ? error.message : fallbackMessage
-
-  console.error(`[API Error] ${fallbackMessage}:`, error instanceof Error ? error.message : String(error))
-
-  return NextResponse.json({ error: message }, { status: statusCode })
 }

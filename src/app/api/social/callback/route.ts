@@ -55,19 +55,19 @@ async function migrateUserData(oldUserId: string, newUserId: string) {
     "ai_processed_themes",
   ]
 
-  await db.transaction(async (tx) => {
-    for (const table of tablesToMigrate) {
-      try {
-        await tx.execute(
-          sql`UPDATE ${sql.identifier(table)} SET user_id = ${newUserId} WHERE user_id = ${oldUserId}`
-        )
-        console.log(`[OAuth] Migrated ${table}`)
-      } catch (error) {
-        // Table might not exist or have no matching records - that's OK
-        console.log(`[OAuth] Skipped ${table} (no records or table doesn't exist)`)
-      }
+  // Run each table migration independently (not in a single transaction)
+  // because PostgreSQL aborts the entire transaction on any statement failure,
+  // making subsequent statements fail with "current transaction is aborted"
+  for (const table of tablesToMigrate) {
+    try {
+      await db.execute(
+        sql`UPDATE ${sql.identifier(table)} SET user_id = ${newUserId} WHERE user_id = ${oldUserId}`
+      )
+      console.log(`[OAuth] Migrated ${table}`)
+    } catch (error) {
+      console.warn(`[OAuth] Skipped ${table}:`, error instanceof Error ? error.message : String(error))
     }
-  })
+  }
 
   console.log("[OAuth] User data migration completed")
 }

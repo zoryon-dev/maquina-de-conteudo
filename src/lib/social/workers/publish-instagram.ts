@@ -11,24 +11,7 @@ import { eq, and } from "drizzle-orm"
 import { getInstagramService } from "../api"
 import { PublishedPostStatus } from "../types"
 import { SocialMediaType } from "../types"
-import { decryptApiKey } from "@/lib/encryption"
-
-/**
- * Safely decrypt a token that may be encrypted or legacy plaintext.
- * Encrypted format: "nonce:encryptedData:authTag"
- */
-function safeDecrypt(value: string | null): string | null {
-  if (!value) return null
-  try {
-    const firstColon = value.indexOf(":")
-    if (firstColon === -1) return value
-    const nonce = value.substring(0, firstColon)
-    const encryptedKey = value.substring(firstColon + 1)
-    return decryptApiKey(encryptedKey, nonce)
-  } catch {
-    return value
-  }
-}
+import { safeDecrypt } from "@/lib/encryption"
 
 /**
  * Payload for Instagram publish job

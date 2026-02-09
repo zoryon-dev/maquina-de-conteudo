@@ -18,7 +18,7 @@
 import { NextRequest } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { streamText, convertToModelMessages, type UIMessage } from "ai"
-import { openrouter, DEFAULT_TEXT_MODEL, AVAILABLE_TEXT_MODELS } from "@/lib/ai"
+import { openrouter, DEFAULT_TEXT_MODEL, isTextModel } from "@/lib/ai"
 import { assembleRagContext } from "@/lib/rag/assembler"
 import { RAG_CATEGORIES, type RagCategory, type RagSource } from "@/lib/rag"
 import {
@@ -151,9 +151,7 @@ export async function POST(request: NextRequest) {
     } = body
 
     // Validate model against allowlist
-    const model = (AVAILABLE_TEXT_MODELS as readonly string[]).includes(requestedModel)
-      ? requestedModel
-      : DEFAULT_TEXT_MODEL
+    const model = isTextModel(requestedModel) ? requestedModel : DEFAULT_TEXT_MODEL
 
     // Extract user message for RAG from either SDK format or legacy format
     let userMessage = ""
@@ -300,7 +298,7 @@ ${sources.map((s) => `- ${s.documentTitle} (${s.category})`).join("\n")}`
 
     return response
   } catch (error) {
-    console.error("Chat API error:", error)
+    console.error("Chat API error:", error instanceof Error ? error.message : String(error))
 
     // Return error as plain text (streaming errors are tricky)
     return new Response(JSON.stringify({ error: "Failed to process chat request" }), {

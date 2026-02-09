@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { db } from "@/db"
 import { sql } from "drizzle-orm"
+import { isAdmin } from "@/lib/auth/admin"
 
 export async function GET() {
   const { userId } = await auth()
@@ -10,9 +11,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  // Admin RBAC via environment variable
-  const adminUserIds = (process.env.ADMIN_USER_IDS || "").split(",").map(id => id.trim()).filter(Boolean);
-  if (!adminUserIds.includes(userId)) {
+  if (!isAdmin(userId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 

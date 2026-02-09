@@ -17,16 +17,7 @@ import { socialConnections, oauthSessions } from "@/db/schema"
 import { eq, and, gt } from "drizzle-orm"
 import { SocialPlatform, SocialConnectionStatus } from "@/lib/social/types"
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user"
-import { encryptApiKey } from "@/lib/encryption"
-
-/**
- * Pack encrypted key + nonce into a single string for DB storage
- * Format: "nonce:encryptedKey"
- */
-function encryptToken(plaintext: string): string {
-  const { encryptedKey, nonce } = encryptApiKey(plaintext)
-  return `${nonce}:${encryptedKey}`
-}
+import { encryptToken } from "@/lib/encryption"
 
 /**
  * Page data structure from OAuth session

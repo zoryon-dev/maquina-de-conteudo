@@ -4,13 +4,14 @@ import { db } from "@/db"
 import { documents, documentEmbeddings, documentCollectionItems } from "@/db/schema"
 import { eq } from "drizzle-orm"
 import { LocalStorageProvider, R2StorageProvider } from "@/lib/storage"
+import { isAdmin } from "@/lib/auth/admin"
 
 /**
  * DELETE /api/admin/clear-documents
  *
  * Deletes ALL documents for the current user.
  *
- * ⚠️ DESTRUCTIVE OPERATION - Use with caution!
+ * DESTRUCTIVE OPERATION - Use with caution!
  */
 export async function DELETE() {
   const { userId } = await auth()
@@ -19,8 +20,7 @@ export async function DELETE() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const adminUserIds = (process.env.ADMIN_USER_IDS || "").split(",").map(id => id.trim()).filter(Boolean);
-  if (!adminUserIds.includes(userId)) {
+  if (!isAdmin(userId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 

@@ -17,34 +17,7 @@ import { db } from "@/db"
 import { socialConnections } from "@/db/schema"
 import { and, eq, isNull } from "drizzle-orm"
 import type { SocialConnectionMetadata } from "@/lib/social/types"
-import { decryptApiKey, encryptApiKey } from "@/lib/encryption"
-
-/**
- * Safely decrypt a token that may be encrypted or legacy plaintext.
- * Encrypted format: "nonce:encryptedData:authTag"
- */
-function safeDecrypt(value: string | null): string | null {
-  if (!value) return null
-  try {
-    // Encrypted format: "nonce:encryptedData:authTag"
-    const firstColon = value.indexOf(":")
-    if (firstColon === -1) return value // No colon = legacy plaintext
-    const nonce = value.substring(0, firstColon)
-    const encryptedKey = value.substring(firstColon + 1)
-    return decryptApiKey(encryptedKey, nonce)
-  } catch {
-    // Legacy unencrypted value
-    return value
-  }
-}
-
-/**
- * Pack encrypted key + nonce into a single string for DB storage
- */
-function encryptToken(plaintext: string): string {
-  const { encryptedKey, nonce } = encryptApiKey(plaintext)
-  return `${nonce}:${encryptedKey}`
-}
+import { safeDecrypt, encryptToken } from "@/lib/encryption"
 
 const CRON_SECRET = process.env.CRON_SECRET
 

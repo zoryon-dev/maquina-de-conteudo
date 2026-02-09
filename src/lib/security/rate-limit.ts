@@ -16,6 +16,11 @@ const redis =
       })
     : null
 
+if (!redis) {
+  const level = process.env.NODE_ENV === "production" ? "error" : "warn"
+  console[level]("[RateLimit] Redis not configured — rate limiting DISABLED. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.")
+}
+
 function createLimiter(requests: number, window: Parameters<typeof Ratelimit.slidingWindow>[1]) {
   if (redis) {
     return new Ratelimit({

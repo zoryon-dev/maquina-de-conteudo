@@ -428,8 +428,8 @@ async function processSingleFile(
       // Clean up orphaned file in storage since DB insert failed
       try {
         await storage.deleteFile(uploadResult.key)
-      } catch {
-        console.error("[Upload] Failed to clean up orphaned file:", uploadResult.key)
+      } catch (cleanupErr) {
+        console.error("[Upload] Failed to clean up orphaned file:", uploadResult.key, cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr))
       }
       throw dbError
     }

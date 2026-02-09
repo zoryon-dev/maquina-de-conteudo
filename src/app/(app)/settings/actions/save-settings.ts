@@ -20,6 +20,7 @@ import {
 import { eq, and } from "drizzle-orm"
 import { SYSTEM_PROMPTS_SEED } from "@/lib/system-prompts"
 import { encryptApiKey } from "@/lib/encryption"
+import { isAdmin } from "@/lib/auth/admin"
 
 /**
  * Result of a save operation
@@ -409,8 +410,7 @@ export async function seedSystemPromptsAction(): Promise<SaveSettingsResult> {
     return { success: false, error: "Unauthorized" }
   }
 
-  const adminUserIds = (process.env.ADMIN_USER_IDS || "").split(",").map(id => id.trim()).filter(Boolean);
-  if (!adminUserIds.includes(userId)) {
+  if (!isAdmin(userId)) {
     return { success: false, error: "Forbidden" }
   }
 

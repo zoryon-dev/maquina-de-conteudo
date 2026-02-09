@@ -176,3 +176,30 @@ export function looksLikeApiKey(key: string): boolean {
 
   return patterns.some((pattern) => pattern.test(key))
 }
+
+/**
+ * Safely decrypt a token stored as "nonce:encryptedData:authTag".
+ * Returns the original value if it is legacy plaintext (no colon separator).
+ */
+export function safeDecrypt(value: string | null): string | null {
+  if (!value) return null
+  const firstColon = value.indexOf(":")
+  if (firstColon === -1) return value // No colon = legacy plaintext
+  try {
+    const nonce = value.substring(0, firstColon)
+    const encryptedKey = value.substring(firstColon + 1)
+    return decryptApiKey(encryptedKey, nonce)
+  } catch (error) {
+    console.error("[Encryption] Decryption failed — possible key rotation or corrupted data:", error instanceof Error ? error.message : String(error))
+    return null // Return null so callers handle missing token gracefully
+  }
+}
+
+/**
+ * Encrypt a plaintext token and pack nonce + ciphertext into a single
+ * "nonce:encryptedKey" string suitable for DB storage.
+ */
+export function encryptToken(plaintext: string): string {
+  const { encryptedKey, nonce } = encryptApiKey(plaintext)
+  return `${nonce}:${encryptedKey}`
+}

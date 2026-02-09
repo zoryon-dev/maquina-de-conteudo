@@ -165,7 +165,7 @@ export async function POST(request: Request) {
   const headersList = await headers();
 
   // 1. Extrair headers do QStash
-  const signature = headersList.get("x-qstash-signature");
+  const signature = headersList.get("upstash-signature");
   const timestamp = headersList.get("x-qstash-timestamp");
   const authHeader = headersList.get("authorization");
   const messageId = headersList.get("x-qstash-message-id");

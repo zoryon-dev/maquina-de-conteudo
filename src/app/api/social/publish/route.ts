@@ -29,7 +29,7 @@ import {
 import { getInstagramService, getFacebookService } from "@/lib/social/api"
 import { SocialMediaType, SocialApiError } from "@/lib/social/types"
 import { toAppError, getErrorMessage, isAuthError, hasErrorCode } from "@/lib/errors"
-import { decryptApiKey } from "@/lib/encryption"
+import { safeDecrypt } from "@/lib/encryption"
 import { z } from "zod"
 
 const publishSchema = z.object({
@@ -38,23 +38,6 @@ const publishSchema = z.object({
   scheduledFor: z.string().datetime().optional(),
   caption: z.string().max(2200).optional(),
 })
-
-/**
- * Safely decrypt a token that may be encrypted or legacy plaintext.
- * Encrypted format: "nonce:encryptedData:authTag"
- */
-function safeDecrypt(value: string | null): string | null {
-  if (!value) return null
-  try {
-    const firstColon = value.indexOf(":")
-    if (firstColon === -1) return value
-    const nonce = value.substring(0, firstColon)
-    const encryptedKey = value.substring(firstColon + 1)
-    return decryptApiKey(encryptedKey, nonce)
-  } catch {
-    return value
-  }
-}
 
 /**
  * Check if a connection's token is expired

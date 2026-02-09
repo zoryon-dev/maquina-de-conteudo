@@ -11,6 +11,7 @@ import { ensureAuthenticatedUser } from '@/lib/auth/ensure-user';
 import { db } from '@/db';
 import { themes, themeTags, tags } from '@/db/schema';
 import { eq, and, isNull, isNotNull, desc, ilike, inArray, sql, gte, lte } from 'drizzle-orm';
+import { escapeILike } from '@/lib/utils';
 import type {
   Theme,
   NewTheme,
@@ -96,7 +97,7 @@ export async function getThemesAction(filters?: ThemeFilters): Promise<Paginated
   }
 
   if (filters?.search) {
-    conditions.push(ilike(themes.title, `%${filters.search}%`));
+    conditions.push(ilike(themes.title, `%${escapeILike(filters.search)}%`));
   }
 
   // Filter by production status
