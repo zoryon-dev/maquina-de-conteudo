@@ -30,7 +30,7 @@ export interface GeoAnalysisResult {
 }
 
 /**
- * @deprecated GEO-01 is now part of the unified SEO+GEO analyzer (Prompt 08-B).
+ * @deprecated GEO-01 is now part of the unified SEO+GEO analyzer (Prompt 08).
  * Use `analyzeSeo()` from `seo-analyzer.service.ts` instead.
  * The unified analyzer returns geoScore, geoAnalysis, and priorityFixes
  * as part of the SeoReport.

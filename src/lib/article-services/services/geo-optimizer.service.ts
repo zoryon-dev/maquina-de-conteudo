@@ -31,7 +31,7 @@ export interface GeoOptimizationResult {
 }
 
 /**
- * @deprecated GEO-02 is now part of the unified SEO+GEO optimizer (Prompt 09-B).
+ * @deprecated GEO-02 is now part of the unified SEO+GEO optimizer (Prompt 09).
  * Use `optimizeSeo()` from `seo-optimizer.service.ts` instead.
  * The unified optimizer applies both SEO and GEO fixes in a single pass.
  */

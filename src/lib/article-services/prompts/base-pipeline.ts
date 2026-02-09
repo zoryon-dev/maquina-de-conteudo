@@ -1010,7 +1010,7 @@ Responda APENAS com JSON válido:
 </rules>`;
 }
 
-/** @deprecated Use getUnifiedOptimizerPrompt() — params changed */
+/** @deprecated Use getUnifiedOptimizerPrompt() — seoReport + geoReport + geoFixes merged into single unifiedReport param */
 export function getSeoOptimizerPrompt(params: {
   articleContent: string;
   seoReport: string;
