@@ -213,10 +213,7 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unknown error generating YouTube SEO metadata",
+        error: "Failed to generate YouTube SEO metadata",
       },
       { status: 500 }
     );

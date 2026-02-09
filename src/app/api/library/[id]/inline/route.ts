@@ -24,7 +24,22 @@ export async function PATCH(
 
   const { id } = await params
   const body = await request.json()
-  const { field, value } = body as { field: "title" | "status"; value: string }
+  const { field, value } = body
+
+  // Runtime validation — TypeScript `as` provides zero protection
+  const ALLOWED_FIELDS = ["title", "status"] as const
+  if (!ALLOWED_FIELDS.includes(field)) {
+    return NextResponse.json(
+      { success: false, error: "Invalid field" },
+      { status: 400 }
+    )
+  }
+  if (typeof value !== "string") {
+    return NextResponse.json(
+      { success: false, error: "Invalid value" },
+      { status: 400 }
+    )
+  }
 
   try {
     const result = await inlineUpdateLibraryItemAction(Number(id), field, value)

@@ -409,6 +409,11 @@ export async function seedSystemPromptsAction(): Promise<SaveSettingsResult> {
     return { success: false, error: "Unauthorized" }
   }
 
+  const adminUserIds = (process.env.ADMIN_USER_IDS || "").split(",").map(id => id.trim()).filter(Boolean);
+  if (!adminUserIds.includes(userId)) {
+    return { success: false, error: "Forbidden" }
+  }
+
   try {
     for (const promptData of SYSTEM_PROMPTS_SEED) {
       const existing = await db
@@ -439,6 +444,11 @@ export async function seedSystemPromptsAction(): Promise<SaveSettingsResult> {
  * @returns Promise with system prompts
  */
 export async function getSystemPromptsAction() {
+  const { userId } = await auth()
+  if (!userId) {
+    return []
+  }
+
   try {
     const prompts = await db.select().from(systemPrompts).orderBy(systemPrompts.agent)
     return prompts

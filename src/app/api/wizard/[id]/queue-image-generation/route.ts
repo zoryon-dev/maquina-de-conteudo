@@ -81,7 +81,7 @@ export async function POST(
 
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Failed to queue image generation",
+        error: "Failed to queue image generation",
       },
       { status: 500 }
     );

@@ -19,7 +19,7 @@
 
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import * as crypto from "crypto";
+import { Receiver } from "@upstash/qstash";
 import { toAppError, getErrorMessage } from "@/lib/errors";
 
 // ============================================================================
@@ -27,92 +27,28 @@ import { toAppError, getErrorMessage } from "@/lib/errors";
 // ============================================================================
 
 /**
- * Obter chave de assinatura do QStash
+ * Verifica a assinatura do QStash usando o SDK oficial (@upstash/qstash Receiver)
  *
- * A chave de assinatura é diferente do token de autenticação.
- * Ela é usada para verificar que a requisição veio realmente do QStash.
- *
- * QStash usa rotação de chaves, então temos current e next.
+ * O Receiver lida com Ed25519 e rotação de chaves automaticamente.
  */
-function getSigningKey(): string {
-  // Prioridade: current signing key > next signing key > token
-  return (
-    process.env.QSTASH_CURRENT_SIGNING_KEY ||
-    process.env.QSTASH_SIGNING_KEY ||
-    process.env.QSTASH_TOKEN ||
-    process.env.UPSTASH_REDIS_REST_TOKEN ||
-    ""
-  );
-}
+async function verifyQStashSignature(signature: string, body: string): Promise<boolean> {
+  const currentSigningKey = process.env.QSTASH_CURRENT_SIGNING_KEY;
+  const nextSigningKey = process.env.QSTASH_NEXT_SIGNING_KEY;
 
-/**
- * Verifica se a requisição veio do QStash
- */
-function isQStashRequest(signature: string | null): boolean {
-  return signature?.startsWith("bearer ") || false;
-}
-
-/**
- * Verifica a assinatura do QStash usando HMAC-SHA256
- *
- * A assinatura do QStash é baseada em:
- * - Ed25519 (padrão) ou
- * - HMAC-SHA256 (compatibilidade)
- *
- * Format: bearer <signature>
- */
-function verifyQStashSignature(
-  body: string,
-  signature: string | null,
-  signingKey: string
-): boolean {
-  if (!signature || !signingKey) {
+  if (!currentSigningKey || !nextSigningKey) {
+    console.error("[QStash] Missing signing keys");
     return false;
   }
 
   try {
-    // QStash usa o formato: bearer <signature>
-    const actualSignature = signature.replace("bearer ", "").trim();
-
-    // Para HMAC-SHA256 (modo de compatibilidade)
-    if (signingKey.startsWith("sig_") || signingKey.length < 80) {
-      const expectedSignature = crypto
-        .createHmac("sha256", signingKey)
-        .update(body)
-        .digest("base64");
-
-      // Comparação timing-safe
-      return crypto.timingSafeEqual(
-        Buffer.from(actualSignature),
-        Buffer.from(expectedSignature)
-      );
-    }
-
-    // Para Ed25519 (padrão do QStash), precisamos de uma biblioteca diferente
-    // Por enquanto, vamos aceitar qualquer assinatura válida do QStash
-    // e confiar no header de autenticação
-    return actualSignature.length > 0;
+    const receiver = new Receiver({
+      currentSigningKey,
+      nextSigningKey,
+    });
+    await receiver.verify({ signature, body });
+    return true;
   } catch (error) {
-    return false;
-  }
-}
-
-/**
- * Verifica timestamp para evitar replay attacks
- *
- * QStash envia X-QStash-Timestamp em segundos Unix
- * Aceitamos requisições com até 5 minutos de diferença
- */
-function verifyTimestamp(timestamp: string | null): boolean {
-  if (!timestamp) return false;
-
-  try {
-    const requestTime = parseInt(timestamp, 10) * 1000; // Converter para ms
-    const now = Date.now();
-    const maxSkew = 5 * 60 * 1000; // 5 minutos
-
-    return Math.abs(now - requestTime) <= maxSkew;
-  } catch {
+    console.error("[QStash] Signature verification failed:", error instanceof Error ? error.message : "Unknown error");
     return false;
   }
 }
@@ -248,15 +184,15 @@ export async function POST(request: Request) {
 
   // 3. Verificar autenticação (múltiplos métodos para robustez)
 
-  // Método 1: Assinatura do QStash
-  const signingKey = getSigningKey();
-  const hasValidSignature =
-    signingKey && verifyQStashSignature(rawBody, signature, signingKey);
+  // Método 1: Assinatura do QStash (via SDK oficial)
+  const hasValidSignature = signature
+    ? await verifyQStashSignature(signature, rawBody)
+    : false;
 
   // Método 2: CRON_SECRET (para compatibilidade com testes manuais)
   const cronSecret = process.env.CRON_SECRET || process.env.WORKER_SECRET;
-  const providedSecret = authHeader?.replace("Bearer ", "") || payload.secret as string;
-  const hasValidSecret = providedSecret === cronSecret;
+  const providedSecret = authHeader?.replace("Bearer ", "");
+  const hasValidSecret = !!(cronSecret && providedSecret === cronSecret);
 
   // Método 3: Test mode (apenas localhost em dev)
   const host = headersList.get("host") || "";
@@ -268,14 +204,6 @@ export async function POST(request: Request) {
   if (!hasValidSignature && !hasValidSecret && !testMode) {
     return NextResponse.json(
       { error: "Unauthorized", message: "Missing or invalid authentication" },
-      { status: 401 }
-    );
-  }
-
-  // 4. Verificar timestamp (apenas para requisições assinadas)
-  if (hasValidSignature && !verifyTimestamp(timestamp)) {
-    return NextResponse.json(
-      { error: "Invalid timestamp", message: "Request timestamp too old or too new" },
       { status: 401 }
     );
   }
@@ -375,7 +303,7 @@ export async function PUT(request: Request) {
   const authHeader = (await headers()).get("authorization");
   const providedSecret = authHeader?.replace("Bearer ", "");
 
-  if (providedSecret !== cronSecret && process.env.NODE_ENV === "production") {
+  if (!cronSecret || providedSecret !== cronSecret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

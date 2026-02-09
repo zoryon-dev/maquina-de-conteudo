@@ -161,10 +161,7 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unknown error creating thumbnail generation job",
+        error: "Failed to create thumbnail generation job",
       },
       { status: 500 }
     );

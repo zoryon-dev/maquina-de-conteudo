@@ -17,6 +17,7 @@ import { clerkClient } from '@clerk/nextjs/server';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { maskEmail } from '@/lib/security/mask-pii';
 
 /**
  * Ensures the authenticated user exists in the database.
@@ -72,7 +73,7 @@ export async function ensureAuthenticatedUser(): Promise<string> {
       // Email exists with different Clerk ID - update to new Clerk ID
       // This ensures consistency when auth().userId is used elsewhere
       console.log(
-        `[Auth] Email ${primaryEmail} exists with old ID ${oldUserId}, updating to new Clerk ID ${clerkUserId}`
+        `[Auth] Email ${maskEmail(primaryEmail)} exists with old ID ${oldUserId}, updating to new Clerk ID ${clerkUserId}`
       );
 
       await db

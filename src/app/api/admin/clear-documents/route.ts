@@ -19,6 +19,11 @@ export async function DELETE() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  const adminUserIds = (process.env.ADMIN_USER_IDS || "").split(",").map(id => id.trim()).filter(Boolean);
+  if (!adminUserIds.includes(userId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   const results = {
     steps: [] as string[],
     success: false,
@@ -120,7 +125,8 @@ export async function DELETE() {
 
     results.success = true
   } catch (error) {
-    results.error = error instanceof Error ? error.message : String(error)
+    console.error("[Admin] Clear documents error:", error instanceof Error ? error.message : String(error))
+    results.error = "Operation failed"
   }
 
   return NextResponse.json(results)

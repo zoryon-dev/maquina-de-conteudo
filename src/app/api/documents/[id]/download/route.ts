@@ -87,12 +87,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         // Get original filename from metadata or use title
         filename = storageMetadata.originalFilename || `${doc.title}.${doc.fileType || "pdf"}`
       } catch (storageError) {
-        console.error("Storage download error:", storageError)
+        console.error("[Download] Storage error:", storageError instanceof Error ? storageError.message : String(storageError))
         return NextResponse.json(
-          {
-            error: "Failed to download file from storage",
-            details: storageError instanceof Error ? storageError.message : String(storageError),
-          },
+          { error: "Failed to download file from storage" },
           { status: 500 }
         )
       }
@@ -150,12 +147,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       },
     })
   } catch (error) {
-    console.error("Document download error:", error)
+    console.error("[Download] Error:", error instanceof Error ? error.message : String(error))
     return NextResponse.json(
-      {
-        error: "Failed to download document",
-        details: error instanceof Error ? error.message : String(error),
-      },
+      { error: "Failed to download document" },
       { status: 500 }
     )
   }

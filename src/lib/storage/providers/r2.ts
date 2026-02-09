@@ -237,11 +237,16 @@ export class R2StorageProvider implements IStorageProviderWithBatch {
    * Get a signed URL for private access
    */
   async getSignedUrl(key: string, options?: SignedUrlOptions): Promise<string> {
+    // Sanitize filename for Content-Disposition header
+    const sanitizedFilename = (options?.filename || key)
+      .replace(/["\n\r\\]/g, '_')
+      .replace(/[^\x20-\x7E]/g, '_');
+
     const command = new GetObjectCommand({
       Bucket: this.bucketName,
       Key: key,
       ResponseContentDisposition: options?.download
-        ? `attachment; filename="${options.filename || key}"`
+        ? `attachment; filename="${sanitizedFilename}"`
         : undefined,
     })
 

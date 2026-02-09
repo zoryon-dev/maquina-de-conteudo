@@ -88,7 +88,7 @@ export async function POST() {
       {
         enabled: true,
         triggered: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "Failed to trigger worker",
       },
       { status: 500 }
     );

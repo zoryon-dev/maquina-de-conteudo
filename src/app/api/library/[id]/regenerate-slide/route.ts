@@ -153,7 +153,6 @@ export async function POST(
     if (!result.success || !result.data) {
       return NextResponse.json({
         error: "Failed to regenerate image",
-        details: result.error
       }, { status: 500 })
     }
 
@@ -226,10 +225,9 @@ export async function POST(
     })
 
   } catch (error) {
-    console.error("[REGENERATE-SLIDE] Error:", error)
+    console.error("[REGENERATE-SLIDE] Error:", error instanceof Error ? error.message : String(error))
     return NextResponse.json({
       error: "Internal server error",
-      details: error instanceof Error ? error.message : "Unknown error"
     }, { status: 500 })
   }
 }

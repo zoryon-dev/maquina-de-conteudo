@@ -19,7 +19,12 @@ if (!ENCRYPTION_KEY) {
 }
 
 // Derive a 32-byte key from the environment variable
-const key = crypto.scryptSync(ENCRYPTION_KEY, "salt", 32)
+// Use ENCRYPTION_SALT env var if available; falls back to "salt" for backward compatibility
+const ENCRYPTION_SALT = process.env.ENCRYPTION_SALT || "salt"
+if (ENCRYPTION_SALT === "salt" && process.env.NODE_ENV === "production") {
+  console.warn("[Encryption] WARNING: Using default salt. Set ENCRYPTION_SALT env var for proper security.")
+}
+const key = crypto.scryptSync(ENCRYPTION_KEY, ENCRYPTION_SALT, 32)
 
 /**
  * Result of encrypting an API key

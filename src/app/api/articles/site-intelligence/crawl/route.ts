@@ -11,6 +11,7 @@ import { db } from "@/db"
 import { siteIntelligence, projects } from "@/db/schema"
 import { eq, and } from "drizzle-orm"
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user"
+import { validateExternalUrl } from "@/lib/security/url-validator"
 import { createJob } from "@/lib/queue/jobs"
 import { isQueueConfigured, triggerWorker } from "@/lib/queue/client"
 import { JobType } from "@/lib/queue/types"
@@ -71,6 +72,22 @@ export async function POST(request: Request) {
         .update(siteIntelligence)
         .set({ status: "crawling", error: null, updatedAt: new Date() })
         .where(eq(siteIntelligence.id, si.id))
+    }
+
+    // SSRF protection: validate siteUrl before crawling
+    const urlCheck = validateExternalUrl(si.siteUrl)
+    if (!urlCheck.valid) {
+      return NextResponse.json({ error: `Invalid site URL: ${urlCheck.error}` }, { status: 400 })
+    }
+
+    // SSRF protection: validate competitor URLs
+    if (si.competitorUrls?.length) {
+      for (const url of si.competitorUrls) {
+        const check = validateExternalUrl(url)
+        if (!check.valid) {
+          return NextResponse.json({ error: `Invalid competitor URL: ${check.error}` }, { status: 400 })
+        }
+      }
     }
 
     // Create crawl job

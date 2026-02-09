@@ -10,8 +10,9 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  // Simple security check - only allow specific user
-  if (userId !== "user_2pKRK2K3vPDl3AnMl3t3s0X1gk") {
+  // Admin RBAC via environment variable
+  const adminUserIds = (process.env.ADMIN_USER_IDS || "").split(",").map(id => id.trim()).filter(Boolean);
+  if (!adminUserIds.includes(userId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -61,7 +62,8 @@ export async function GET() {
 
     results.success = true
   } catch (error) {
-    results.error = error instanceof Error ? error.message : String(error)
+    console.error("[Admin] Migration error:", error instanceof Error ? error.message : String(error))
+    results.error = "Migration failed"
   }
 
   return NextResponse.json(results)

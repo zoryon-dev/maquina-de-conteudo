@@ -12,7 +12,8 @@
 
 import { redirect } from "next/navigation"
 import { auth } from "@clerk/nextjs/server"
-import { cookies } from "next/headers"
+import { db } from "@/db"
+import { oauthSessions } from "@/db/schema"
 
 // Environment variables with defaults
 const META_APP_ID = process.env.META_APP_ID
@@ -117,6 +118,16 @@ export async function GET(request: Request) {
   const stateId = crypto.randomUUID()
   const stateData = `${userId}:${platform}:${stateId}`
   const state = Buffer.from(stateData).toString('base64')
+
+  // Store state for CSRF validation (server-side)
+  // The callback will verify this stateId exists and matches the userId
+  await db.insert(oauthSessions).values({
+    id: stateId,
+    userId: userId,
+    platform: platform,
+    pagesData: { pages: [], _pending: true }, // Placeholder until callback populates
+    expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 min
+  })
 
   // Build OAuth URL based on platform
   const oauthUrl =

@@ -173,10 +173,7 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unknown error refactoring script",
+        error: "Failed to refactor script",
       },
       { status: 500 }
     );

@@ -38,38 +38,15 @@ export async function GET(
       return NextResponse.json({ error: "Invalid wizard ID" }, { status: 400 });
     }
 
-    // First try to find wizard with the dbUserId (may differ from clerkUserId if email was reused)
-    let wizard: ContentWizard | undefined;
     const wizardResult = await db
       .select()
       .from(contentWizards)
       .where(and(eq(contentWizards.id, wizardId), eq(contentWizards.userId, dbUserId)))
       .limit(1);
-    wizard = wizardResult[0];
+    const wizard = wizardResult[0];
 
-    // If not found, try without userId filter (might be from recreated account)
-    // Update the wizard to use the current dbUserId if found
     if (!wizard) {
-      const wizardByAnyUserResult = await db
-        .select()
-        .from(contentWizards)
-        .where(eq(contentWizards.id, wizardId))
-        .limit(1);
-      const wizardByAnyUser = wizardByAnyUserResult[0];
-
-      if (wizardByAnyUser) {
-        // Update wizard to use current dbUserId (account was recreated)
-        // Note: dbUserId is guaranteed to exist in users table after ensureAuthenticatedUser()
-        console.log(`[WizardAPI] Updating wizard ${wizardId} userId from ${wizardByAnyUser.userId} to ${dbUserId}`);
-        const updatedResult = await db
-          .update(contentWizards)
-          .set({ userId: dbUserId, updatedAt: new Date() })
-          .where(eq(contentWizards.id, wizardId))
-          .returning();
-        wizard = updatedResult[0];
-      } else {
-        return NextResponse.json({ error: "Wizard not found" }, { status: 404 });
-      }
+      return NextResponse.json({ error: "Wizard not found" }, { status: 404 });
     }
 
     return NextResponse.json(wizard);
@@ -109,39 +86,15 @@ export async function PATCH(
 
     console.log(`[WizardAPI] PATCH request for wizard ${wizardId}, clerkUserId: ${clerkUserId}, dbUserId: ${dbUserId}`);
 
-    // Verify ownership - try with dbUserId first (may differ from clerkUserId if email was reused)
-    let existing: ContentWizard | undefined;
     const existingResult = await db
       .select()
       .from(contentWizards)
       .where(and(eq(contentWizards.id, wizardId), eq(contentWizards.userId, dbUserId)))
       .limit(1);
-    existing = existingResult[0];
+    const existing = existingResult[0];
 
-    // If not found, try without userId filter (might be from recreated account)
     if (!existing) {
-      console.log(`[WizardAPI] Wizard ${wizardId} not found with dbUserId, trying without userId filter...`);
-      const wizardByAnyUserResult = await db
-        .select()
-        .from(contentWizards)
-        .where(eq(contentWizards.id, wizardId))
-        .limit(1);
-      const wizardByAnyUser = wizardByAnyUserResult[0];
-
-      if (wizardByAnyUser) {
-        console.log(`[WizardAPI] Found wizard with different userId, updating from ${wizardByAnyUser.userId} to ${dbUserId}`);
-        // Update wizard to use current dbUserId (account was recreated)
-        // Note: dbUserId is guaranteed to exist in users table after ensureAuthenticatedUser()
-        const updatedResult = await db
-          .update(contentWizards)
-          .set({ userId: dbUserId, updatedAt: new Date() })
-          .where(eq(contentWizards.id, wizardId))
-          .returning();
-        existing = updatedResult[0];
-      } else {
-        console.log(`[WizardAPI] Wizard ${wizardId} not found`);
-        return NextResponse.json({ error: "Wizard not found" }, { status: 404 });
-      }
+      return NextResponse.json({ error: "Wizard not found" }, { status: 404 });
     }
 
     const body = await request.json();
@@ -265,39 +218,15 @@ export async function DELETE(
 
     console.log(`[WizardAPI] DELETE request for wizard ${wizardId}, clerkUserId: ${clerkUserId}, dbUserId: ${dbUserId}`);
 
-    // Verify ownership - try with dbUserId first (may differ from clerkUserId if email was reused)
-    let existing: ContentWizard | undefined;
     const existingResult = await db
       .select()
       .from(contentWizards)
       .where(and(eq(contentWizards.id, wizardId), eq(contentWizards.userId, dbUserId)))
       .limit(1);
-    existing = existingResult[0];
+    const existing = existingResult[0];
 
-    // If not found, try without userId filter (might be from recreated account)
     if (!existing) {
-      console.log(`[WizardAPI] Wizard ${wizardId} not found with dbUserId, trying without userId filter...`);
-      const wizardByAnyUserResult = await db
-        .select()
-        .from(contentWizards)
-        .where(eq(contentWizards.id, wizardId))
-        .limit(1);
-      const wizardByAnyUser = wizardByAnyUserResult[0];
-
-      if (wizardByAnyUser) {
-        console.log(`[WizardAPI] Found wizard with different userId, updating from ${wizardByAnyUser.userId} to ${dbUserId}`);
-        // Update wizard to use current dbUserId (account was recreated)
-        // Note: dbUserId is guaranteed to exist in users table after ensureAuthenticatedUser()
-        const updatedResult = await db
-          .update(contentWizards)
-          .set({ userId: dbUserId, updatedAt: new Date() })
-          .where(eq(contentWizards.id, wizardId))
-          .returning();
-        existing = updatedResult[0];
-      } else {
-        console.log(`[WizardAPI] Wizard ${wizardId} not found`);
-        return NextResponse.json({ error: "Wizard not found" }, { status: 404 });
-      }
+      return NextResponse.json({ error: "Wizard not found" }, { status: 404 });
     }
 
     // Soft delete by setting abandonedAt

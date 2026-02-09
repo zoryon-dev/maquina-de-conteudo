@@ -18,6 +18,7 @@ import {
   contentWizards,
 } from "@/db/schema"
 import { eq, and, gte, lte, isNull, inArray, desc, asc, sql, ilike } from "drizzle-orm"
+import { escapeILike } from "@/lib/utils"
 import type {
   LibraryItemWithRelations,
   LibraryFilters,
@@ -84,8 +85,9 @@ export async function getLibraryItemsAction(
 
     // Add search filter (title or content)
     if (filters.search) {
+      const escaped = escapeILike(filters.search)
       conditions.push(
-        sql`(${libraryItems.title} ILIKE ${"%" + filters.search + "%"} OR ${libraryItems.content} ILIKE ${"%" + filters.search + "%"})`
+        sql`(${libraryItems.title} ILIKE ${"%" + escaped + "%"} OR ${libraryItems.content} ILIKE ${"%" + escaped + "%"})`
       )
     }
 

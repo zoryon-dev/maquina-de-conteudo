@@ -39,7 +39,8 @@ export async function GET() {
       testResults.youtube.error = null;
     } catch (error) {
       testResults.youtube.working = false;
-      testResults.youtube.error = error instanceof Error ? error.message : String(error);
+      console.error("[Discovery Health] YouTube error:", error instanceof Error ? error.message : String(error));
+      testResults.youtube.error = "Service unavailable";
     }
   }
 
@@ -52,7 +53,8 @@ export async function GET() {
       testResults.instagram.error = null;
     } catch (error) {
       testResults.instagram.working = false;
-      testResults.instagram.error = error instanceof Error ? error.message : String(error);
+      console.error("[Discovery Health] Instagram error:", error instanceof Error ? error.message : String(error));
+      testResults.instagram.error = "Service unavailable";
     }
   }
 
@@ -65,7 +67,8 @@ export async function GET() {
       testResults.perplexity.error = null;
     } catch (error) {
       testResults.perplexity.working = false;
-      testResults.perplexity.error = error instanceof Error ? error.message : String(error);
+      console.error("[Discovery Health] Perplexity error:", error instanceof Error ? error.message : String(error));
+      testResults.perplexity.error = "Service unavailable";
     }
   }
 

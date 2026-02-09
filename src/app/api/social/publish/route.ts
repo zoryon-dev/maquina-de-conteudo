@@ -29,6 +29,32 @@ import {
 import { getInstagramService, getFacebookService } from "@/lib/social/api"
 import { SocialMediaType, SocialApiError } from "@/lib/social/types"
 import { toAppError, getErrorMessage, isAuthError, hasErrorCode } from "@/lib/errors"
+import { decryptApiKey } from "@/lib/encryption"
+import { z } from "zod"
+
+const publishSchema = z.object({
+  libraryItemId: z.number().int().positive(),
+  platform: z.enum(["instagram", "facebook"]),
+  scheduledFor: z.string().datetime().optional(),
+  caption: z.string().max(2200).optional(),
+})
+
+/**
+ * Safely decrypt a token that may be encrypted or legacy plaintext.
+ * Encrypted format: "nonce:encryptedData:authTag"
+ */
+function safeDecrypt(value: string | null): string | null {
+  if (!value) return null
+  try {
+    const firstColon = value.indexOf(":")
+    if (firstColon === -1) return value
+    const nonce = value.substring(0, firstColon)
+    const encryptedKey = value.substring(firstColon + 1)
+    return decryptApiKey(encryptedKey, nonce)
+  } catch {
+    return value
+  }
+}
 
 /**
  * Check if a connection's token is expired
@@ -120,23 +146,15 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { libraryItemId, platform: reqPlatform, scheduledFor, caption } = body
-    platform = reqPlatform as "instagram" | "facebook" | null
-
-    // Validate required fields
-    if (!libraryItemId || !platform) {
+    const parseResult = publishSchema.safeParse(body)
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: "Missing required fields: libraryItemId, platform" },
+        { error: "Invalid request body. Required: libraryItemId (number), platform ('instagram' | 'facebook')" },
         { status: 400 }
       )
     }
-
-    if (platform !== "instagram" && platform !== "facebook") {
-      return NextResponse.json(
-        { error: "Invalid platform. Must be 'instagram' or 'facebook'" },
-        { status: 400 }
-      )
-    }
+    const { libraryItemId, platform: reqPlatform, scheduledFor, caption } = parseResult.data
+    platform = reqPlatform
 
     // Get library item
     const [libraryItem] = await db
@@ -218,9 +236,18 @@ export async function POST(request: Request) {
       )
     }
 
+    // Decrypt token before use (handles both encrypted and legacy plaintext)
+    const decryptedAccessToken = safeDecrypt(connection.accessToken)
+    if (!decryptedAccessToken) {
+      return NextResponse.json(
+        { error: "Falha ao descriptografar token de acesso. Reconecte sua conta." },
+        { status: 500 }
+      )
+    }
+
     // Check token permissions before publishing (debug only, silently fails)
     if (platform === "instagram") {
-      await debugInstagramTokenPermissions(connection.accessToken, connection.accountId)
+      await debugInstagramTokenPermissions(decryptedAccessToken, connection.accountId)
     }
 
     // Use caption override or fall back to library item content
@@ -260,7 +287,7 @@ export async function POST(request: Request) {
       if (platform === "facebook") {
         try {
           const service = getFacebookService(
-            connection.accessToken,
+            decryptedAccessToken,
             connection.accountId
           )
 

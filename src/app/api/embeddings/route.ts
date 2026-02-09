@@ -77,9 +77,9 @@ export async function POST(request: Request) {
       message: "Document queued for embedding",
     });
   } catch (error) {
-    console.error("Embedding API error:", error);
+    console.error("[Embeddings] POST error:", error instanceof Error ? error.message : String(error));
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to queue embedding job" },
+      { error: "Failed to queue embedding job" },
       { status: 500 }
     );
   }
@@ -152,9 +152,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json(doc);
   } catch (error) {
-    console.error("Embedding status API error:", error);
+    console.error("[Embeddings] GET error:", error instanceof Error ? error.message : String(error));
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to get embedding status" },
+      { error: "Failed to get embedding status" },
       { status: 500 }
     );
   }

@@ -11,6 +11,7 @@ import { creativeProjects, creativeOutputs } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import archiver from "archiver";
 import { toAppError, getErrorMessage } from "@/lib/errors";
+import { validateExternalUrl } from "@/lib/security/url-validator";
 
 export async function GET(
   _request: Request,
@@ -61,6 +62,13 @@ export async function GET(
     for (let i = 0; i < outputs.length; i++) {
       const output = outputs[i];
       try {
+        // SSRF protection: validate image URL before fetching
+        const urlCheck = validateExternalUrl(output.imageUrl);
+        if (!urlCheck.valid) {
+          console.warn(`[CreativeStudio:Download] Skipping output ${output.id}: ${urlCheck.error}`);
+          continue;
+        }
+
         const resp = await fetch(output.imageUrl);
         if (!resp.ok) {
           console.warn(`[CreativeStudio:Download] Failed to fetch output ${output.id}: HTTP ${resp.status}`);

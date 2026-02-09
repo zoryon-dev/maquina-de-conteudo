@@ -240,25 +240,10 @@ export async function POST(req: NextRequest, context: RouteContext) {
       throw dbError; // Re-throw to be caught by outer catch
     }
   } catch (error) {
-    console.error('[ThemeWizardAPI] Unexpected error:', error);
-    
-    // Log detailed error information
-    if (error instanceof Error) {
-      console.error('[ThemeWizardAPI] Error name:', error.name);
-      console.error('[ThemeWizardAPI] Error message:', error.message);
-      console.error('[ThemeWizardAPI] Error stack:', error.stack);
-    } else {
-      console.error('[ThemeWizardAPI] Unknown error type:', typeof error, error);
-    }
-
-    // Return more detailed error in development
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    const errorMessage = isDevelopment && error instanceof Error
-      ? `Failed to create wizard from theme: ${error.message}`
-      : 'Failed to create wizard from theme';
+    console.error('[ThemeWizardAPI] Error:', error instanceof Error ? error.message : String(error));
 
     return NextResponse.json(
-      { error: errorMessage },
+      { error: 'Failed to create wizard from theme' },
       { status: 500 }
     );
   }

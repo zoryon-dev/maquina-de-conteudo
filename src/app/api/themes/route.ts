@@ -86,14 +86,9 @@ export async function POST(req: NextRequest) {
     const theme = await createThemeAction(body);
     return NextResponse.json(theme, { status: 201 });
   } catch (error) {
-    console.error('[ThemesAPI] POST Error:', error);
-    console.error('[ThemesAPI] POST Error message:', error instanceof Error ? error.message : 'Unknown');
-    console.error('[ThemesAPI] POST Error stack:', error instanceof Error ? error.stack : 'No stack');
+    console.error('[ThemesAPI] POST Error:', error instanceof Error ? error.message : String(error));
     return NextResponse.json(
-      {
-        error: 'Failed to create theme',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { error: 'Failed to create theme' },
       { status: 500 }
     );
   }

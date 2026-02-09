@@ -71,14 +71,18 @@ export async function GET(request: Request, { params }: RouteContext) {
       },
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Falha na exportação"
-    console.error("[MDX Export API] Error:", error)
+    console.error("[MDX Export API] Error:", error instanceof Error ? error.message : String(error))
 
-    const status = message.includes("não encontrado") ? 404
-      : message.includes("não possui conteúdo") ? 400
+    const errMsg = error instanceof Error ? error.message : ""
+    const status = errMsg.includes("não encontrado") ? 404
+      : errMsg.includes("não possui conteúdo") ? 400
       : 500
 
-    return new Response(JSON.stringify({ error: message }), {
+    const clientMessage = status === 404 ? "Artigo não encontrado"
+      : status === 400 ? "Artigo não possui conteúdo"
+      : "Falha na exportação"
+
+    return new Response(JSON.stringify({ error: clientMessage }), {
       status,
       headers: { "Content-Type": "application/json" },
     })

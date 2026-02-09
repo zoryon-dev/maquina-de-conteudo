@@ -58,8 +58,8 @@ export async function POST(request: Request) {
       includeSources?: boolean;
     };
 
-    if (!query || typeof query !== "string") {
-      return NextResponse.json({ error: "Query is required" }, { status: 400 });
+    if (!query || typeof query !== "string" || query.length > 2000) {
+      return NextResponse.json({ error: "Query is required and must be at most 2000 characters" }, { status: 400 });
     }
 
     // Check if RAG is available
@@ -98,9 +98,9 @@ export async function POST(request: Request) {
       available: true,
     });
   } catch (error) {
-    console.error("RAG API error:", error);
+    console.error("[RAG] POST error:", error instanceof Error ? error.message : String(error));
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to assemble RAG context" },
+      { error: "Failed to assemble RAG context" },
       { status: 500 }
     );
   }
@@ -147,6 +147,9 @@ export async function GET(request: Request) {
     }
 
     // Search for relevant documents (lighter than full context)
+    if (query && query.length > 2000) {
+      return NextResponse.json({ error: "Query must be at most 2000 characters" }, { status: 400 });
+    }
     if (query) {
       const categories = categoriesParam
         ? (categoriesParam.split(",").filter(Boolean) as RagCategory[])
@@ -164,9 +167,9 @@ export async function GET(request: Request) {
     const stats = await getRagStats(userId);
     return NextResponse.json(stats);
   } catch (error) {
-    console.error("RAG GET API error:", error);
+    console.error("[RAG] GET error:", error instanceof Error ? error.message : String(error));
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to get RAG information" },
+      { error: "Failed to get RAG information" },
       { status: 500 }
     );
   }

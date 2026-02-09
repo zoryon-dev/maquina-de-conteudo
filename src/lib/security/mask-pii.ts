@@ -1,0 +1,6 @@
+/** Mask email for safe logging: john@example.com -> j***@example.com */
+export function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return "***";
+  return `${local[0]}***@${domain}`;
+}

@@ -17,6 +17,34 @@ import { db } from "@/db"
 import { socialConnections } from "@/db/schema"
 import { and, eq, isNull } from "drizzle-orm"
 import type { SocialConnectionMetadata } from "@/lib/social/types"
+import { decryptApiKey, encryptApiKey } from "@/lib/encryption"
+
+/**
+ * Safely decrypt a token that may be encrypted or legacy plaintext.
+ * Encrypted format: "nonce:encryptedData:authTag"
+ */
+function safeDecrypt(value: string | null): string | null {
+  if (!value) return null
+  try {
+    // Encrypted format: "nonce:encryptedData:authTag"
+    const firstColon = value.indexOf(":")
+    if (firstColon === -1) return value // No colon = legacy plaintext
+    const nonce = value.substring(0, firstColon)
+    const encryptedKey = value.substring(firstColon + 1)
+    return decryptApiKey(encryptedKey, nonce)
+  } catch {
+    // Legacy unencrypted value
+    return value
+  }
+}
+
+/**
+ * Pack encrypted key + nonce into a single string for DB storage
+ */
+function encryptToken(plaintext: string): string {
+  const { encryptedKey, nonce } = encryptApiKey(plaintext)
+  return `${nonce}:${encryptedKey}`
+}
 
 const CRON_SECRET = process.env.CRON_SECRET
 
@@ -102,7 +130,9 @@ async function handleRefresh() {
   for (const connection of connections) {
     try {
       const metadata = (connection.metadata || {}) as SocialConnectionMetadata
-      const userToken = metadata.userAccessToken || connection.accessToken
+      // Decrypt tokens from DB (handles both encrypted and legacy plaintext)
+      const decryptedAccessToken = safeDecrypt(connection.accessToken)
+      const userToken = metadata.userAccessToken || decryptedAccessToken
 
       if (!userToken) {
         results.skipped += 1
@@ -121,21 +151,28 @@ async function handleRefresh() {
         connection.pageId
       )
 
+      // Encrypt refreshed tokens before saving
+      const encryptedAccessToken = encryptToken(refreshed.accessToken)
+      const encryptedPageAccessToken = pageAccessToken
+        ? encryptToken(pageAccessToken)
+        : connection.pageAccessToken
+
       const updatedMetadata: SocialConnectionMetadata = {
         ...metadata,
-        userAccessToken: refreshed.accessToken,
         userTokenExpiresAt: userTokenExpiresAt.toISOString(),
         ...(pageAccessToken
           ? { pageAccessTokenLastFetchedAt: new Date().toISOString() }
           : {}),
       }
+      // Remove plaintext token from metadata
+      delete (updatedMetadata as any).userAccessToken
 
       await db
         .update(socialConnections)
         .set({
-          accessToken: refreshed.accessToken,
+          accessToken: encryptedAccessToken,
           tokenExpiresAt: userTokenExpiresAt,
-          pageAccessToken: pageAccessToken || connection.pageAccessToken,
+          pageAccessToken: encryptedPageAccessToken,
           metadata: updatedMetadata as any,
           lastVerifiedAt: new Date(),
           updatedAt: new Date(),

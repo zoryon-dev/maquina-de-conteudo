@@ -11,6 +11,24 @@ import { eq, and } from "drizzle-orm"
 import { getInstagramService } from "../api"
 import { PublishedPostStatus } from "../types"
 import { SocialMediaType } from "../types"
+import { decryptApiKey } from "@/lib/encryption"
+
+/**
+ * Safely decrypt a token that may be encrypted or legacy plaintext.
+ * Encrypted format: "nonce:encryptedData:authTag"
+ */
+function safeDecrypt(value: string | null): string | null {
+  if (!value) return null
+  try {
+    const firstColon = value.indexOf(":")
+    if (firstColon === -1) return value
+    const nonce = value.substring(0, firstColon)
+    const encryptedKey = value.substring(firstColon + 1)
+    return decryptApiKey(encryptedKey, nonce)
+  } catch {
+    return value
+  }
+}
 
 /**
  * Payload for Instagram publish job
@@ -97,8 +115,14 @@ export async function publishToInstagram(
       return { success: false, error: "No active Instagram connection" }
     }
 
+    // Decrypt token before use (handles both encrypted and legacy plaintext)
+    const accessToken = safeDecrypt(connection.accessToken)
+    if (!accessToken) {
+      return { success: false, error: "Failed to decrypt access token" }
+    }
+
     // Get Instagram service
-    const service = getInstagramService(connection.accessToken, connection.accountId)
+    const service = getInstagramService(accessToken, connection.accountId)
 
     let platformPostId: string
 
