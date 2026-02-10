@@ -444,12 +444,10 @@ export interface ScreenshotOneRenderOptions {
 }
 
 /**
- * Default Instagram dimensions
+ * Default Instagram dimensions.
+ * Re-exported from studio-templates (single source of truth).
  */
-export const INSTAGRAM_DIMENSIONS = {
-  width: 1080,
-  height: 1440,
-} as const;
+export { INSTAGRAM_DIMENSIONS } from "@/lib/studio-templates/types";
 
 /**
  * Supported output formats

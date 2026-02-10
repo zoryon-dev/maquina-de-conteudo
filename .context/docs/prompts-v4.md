@@ -689,7 +689,7 @@ PREFIRA:
 </diretrizes_visuais_tribais>
 
 <requisitos_tecnicos>
-- Alta qualidade, otimizada para Instagram (1080x1080 ou 1080x1350)
+- Alta qualidade, otimizada para Instagram (1080x1080 ou 1080x1440)
 - Texto deve ser legível se incluído
 - Cores que param o scroll mas não agridem
 - Espaço para sobreposição de texto se necessário

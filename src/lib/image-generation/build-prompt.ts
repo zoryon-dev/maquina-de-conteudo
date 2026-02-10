@@ -261,7 +261,8 @@ export function validateFields(fields: Partial<ImagePromptFields>): {
  */
 export function buildSimplePrompt(
   userPrompt: string,
-  style: "realistic" | "artistic" | "minimal" | "vibrant" = "minimal"
+  style: "realistic" | "artistic" | "minimal" | "vibrant" = "minimal",
+  aspectRatio: ImagePromptFields["aspectRatio"] = "3:4"
 ): BuiltPrompt {
   const styleHints: Record<string, string> = {
     realistic: "photorealistic, high detail, natural lighting",
@@ -270,7 +271,8 @@ export function buildSimplePrompt(
     vibrant: "vibrant colors, dynamic, energetic",
   };
 
-  const prompt = `${userPrompt.trim()}. ${styleHints[style]}. High quality, professional photography, 3:4 aspect ratio for Instagram.`;
+  const ratioDesc = ASPECT_RATIO_MAP[aspectRatio];
+  const prompt = `${userPrompt.trim()}. ${styleHints[style]}. High quality, professional photography, ${ratioDesc}.`;
 
   return {
     prompt,

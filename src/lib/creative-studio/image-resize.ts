@@ -7,11 +7,11 @@
  */
 
 import sharp from "sharp";
-import { FORMAT_DIMENSIONS } from "./constants";
+import { getFormatDimensions } from "./constants";
 
 interface SmartResizeParams {
   imageBuffer: Buffer;
-  targetFormat: string; // "1:1", "3:4", etc.
+  targetFormat: string;
   fitMode: "crop" | "fill";
 }
 
@@ -22,7 +22,7 @@ interface SmartResizeResult {
 }
 
 export async function smartResize(params: SmartResizeParams): Promise<SmartResizeResult> {
-  const dim = FORMAT_DIMENSIONS[params.targetFormat];
+  const dim = getFormatDimensions(params.targetFormat);
   if (!dim) {
     throw new Error(`Unknown format: ${params.targetFormat}`);
   }

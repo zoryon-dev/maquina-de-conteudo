@@ -1798,15 +1798,19 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
 
     const { generateCreativeImage } = await import("@/lib/creative-studio/openrouter-image");
     const { applyTextOverlay } = await import("@/lib/creative-studio/text-overlay");
-    const { getOutputKey, FORMAT_DIMENSIONS } = await import("@/lib/creative-studio/constants");
+    const { getOutputKey, getFormatDimensions } = await import("@/lib/creative-studio/constants");
     const { creativeProjects, creativeOutputs } = await import("@/db/schema");
 
     const errors: Array<{ format: string; index: number; error: string }> = [];
     let successCount = 0;
 
     for (const format of formats) {
-      const dim = FORMAT_DIMENSIONS[format];
-      if (!dim) continue;
+      const dim = getFormatDimensions(format);
+      if (!dim) {
+        console.error(`[CreativeStudio:Worker] Unknown format "${format}" for project ${projectId}`);
+        errors.push({ format, index: 0, error: `Formato desconhecido: ${format}` });
+        continue;
+      }
 
       for (let i = 0; i < quantity; i++) {
         try {

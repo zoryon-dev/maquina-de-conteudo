@@ -60,7 +60,7 @@ src/
 ### Especificações Visuais
 
 ```
-Dimensões: 1080 x 1350 (Instagram 4:5)
+Dimensões: 1080 x 1440 (Instagram 3:4)
 
 Fontes:
 - Nome: Inter Medium, 43px, tracking -2.15px
@@ -120,7 +120,7 @@ interface StudioSlide {
 // Estado do Studio
 interface StudioState {
   contentType: "carousel" | "single" | "story";
-  aspectRatio: "4:5" | "1:1" | "9:16";
+  aspectRatio: "3:4" | "1:1" | "9:16";
   slides: StudioSlide[];
   activeSlideIndex: number;
   caption: string;
@@ -233,7 +233,7 @@ persist(
 │  ┌───────────────────┐  │  ┌────────────────────────┐    │
 │  │ Template Gallery  │  │  │                        │    │
 │  └───────────────────┘  │  │    Preview iframe      │    │
-│  ┌───────────────────┐  │  │    1080 x 1350         │    │
+│  ┌───────────────────┐  │  │    1080 x 1440         │    │
 │  │ Text Editor       │  │  │    (escala 0.4)        │    │
 │  └───────────────────┘  │  │                        │    │
 │  ┌───────────────────┐  │  └────────────────────────┘    │
@@ -384,7 +384,7 @@ const response = await fetch("/api/studio/generate-image", {
 O sistema usa prompts **tribais** otimizados para Instagram:
 - Aplica ângulos: Herege, Visionário, Tradutor, Testemunha
 - Adapta para tipo de slide: Hook, Desenvolvimento, CTA
-- Formato 4:5 otimizado para mobile
+- Formato 3:4 otimizado para mobile
 
 ### Estilos de Imagem
 

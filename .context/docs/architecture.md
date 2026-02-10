@@ -1007,7 +1007,7 @@ sequenceDiagram
     Studio->>API: POST {state}
     loop For each slide
         API->>API: renderSlideToHtml()
-        API->>SS: POST (html, 1080x1350)
+        API->>SS: POST (html, 1080x1440)
         SS-->>API: PNG buffer
         API->>Storage: uploadFile()
         Storage-->>API: URL
