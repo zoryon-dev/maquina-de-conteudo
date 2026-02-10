@@ -3,7 +3,7 @@
  *
  * Allows users to generate images for their content slides.
  * Supports AI generation via OpenRouter and HTML templates via ScreenshotOne.
- * Instagram standard size: 1080x1350px (4:5 aspect ratio).
+ * Instagram standard size: 1080x1440px (3:4 aspect ratio).
  *
  * Displays generated content in a horizontal slider with editable cards.
  */
@@ -397,7 +397,7 @@ function ImageCard({ image, isSelected, onSelect, onRegenerate, isRegenerating }
       onClick={onSelect}
     >
       {/* Image Preview */}
-      <div className="relative aspect-[4/5] bg-white/[0.02]">
+      <div className="relative aspect-[3/4] bg-white/[0.02]">
         {!imageError ? (
           <img
             src={image.thumbnailUrl || image.imageUrl}
@@ -658,7 +658,7 @@ export function Step5ImageGeneration({
           Revise e edite seu conteúdo
         </h2>
         <p className="text-sm text-white/60">
-          {contentTypeLabel} • Edite os textos antes de gerar a imagem (1080x1350px)
+          {contentTypeLabel} • Edite os textos antes de gerar a imagem (1080x1440px)
         </p>
       </div>
 

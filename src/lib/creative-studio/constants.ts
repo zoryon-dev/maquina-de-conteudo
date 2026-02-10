@@ -12,7 +12,7 @@ import type { FormatDimension, CreativeModelInfo } from "./types";
 
 export const FORMAT_DIMENSIONS: Record<string, FormatDimension> = {
   "1:1": { width: 1080, height: 1080, label: "Feed Quadrado", aspect: "1:1" },
-  "4:5": { width: 1080, height: 1350, label: "Feed Retrato", aspect: "4:5" },
+  "3:4": { width: 1080, height: 1440, label: "Feed Retrato", aspect: "3:4" },
   "9:16": { width: 1080, height: 1920, label: "Stories/Reels", aspect: "9:16" },
   "1.91:1": { width: 1200, height: 628, label: "Landscape", aspect: "1.91:1" },
   "2:3": { width: 1000, height: 1500, label: "Pinterest", aspect: "2:3" },

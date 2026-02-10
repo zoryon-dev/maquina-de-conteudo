@@ -69,7 +69,7 @@ async function renderSlideToImage(
       access_key: SCREENSHOT_ONE_ACCESS_KEY,
       html: result.html,
       viewport_width: 1080,
-      viewport_height: 1350,
+      viewport_height: 1440,
       format: "png",
       device_scale_factor: 2,
       cache: false,

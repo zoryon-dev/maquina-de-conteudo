@@ -4,7 +4,7 @@
  * Tipos TypeScript para os templates do Editor Visual (Studio).
  * Baseado nos templates do Figma: 01_CAPA, 201, 202, 203.
  *
- * Dimensões padrão: 1080x1350 (Instagram 4:5)
+ * Dimensões padrão: 1080x1440 (Instagram 3:4)
  */
 
 // ============================================================================
@@ -44,7 +44,7 @@ export type StudioContentType = "carousel" | "single" | "story";
 /**
  * Aspect ratio suportados
  */
-export type AspectRatio = "4:5" | "1:1" | "9:16";
+export type AspectRatio = "3:4" | "1:1" | "9:16";
 
 // ============================================================================
 // PROFILE & HEADER CONFIGURATION
@@ -286,15 +286,15 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
  * Dimensões padrão para cada aspect ratio
  */
 export const DIMENSIONS: Record<AspectRatio, { width: number; height: number }> = {
-  "4:5": { width: 1080, height: 1350 },
+  "3:4": { width: 1080, height: 1440 },
   "1:1": { width: 1080, height: 1080 },
   "9:16": { width: 1080, height: 1920 },
 };
 
 /**
- * Dimensões padrão do Instagram (4:5)
+ * Dimensões padrão do Instagram (3:4)
  */
-export const INSTAGRAM_DIMENSIONS = DIMENSIONS["4:5"];
+export const INSTAGRAM_DIMENSIONS = DIMENSIONS["3:4"];
 
 // ============================================================================
 // DEFAULT VALUES
@@ -377,7 +377,7 @@ export function createDefaultSlide(
 export function createInitialStudioState(): StudioState {
   return {
     contentType: "carousel",
-    aspectRatio: "4:5",
+    aspectRatio: "3:4",
     slides: [createDefaultSlide("01_CAPA")],
     activeSlideIndex: 0,
     caption: "",

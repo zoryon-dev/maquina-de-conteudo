@@ -2,7 +2,7 @@
  * ScreenshotOne Service
  *
  * Handles HTML template rendering using ScreenshotOne API.
- * Generates Instagram-sized images (1080x1350px) from 4 templates.
+ * Generates Instagram-sized images (1080x1440px) from 4 templates.
  *
  * Templates follow patterns from .context/wizard-prompts/:
  * - dark-mode: Dark background with green/teal accents
@@ -267,14 +267,14 @@ function generateDarkModeHtml(
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=1080, height=1350">
+  <meta name="viewport" content="width=1080, height=1440">
   <title>Post Dark Mode</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 1080px; height: 1350px; overflow: hidden; }
+    html, body { width: 1080px; height: 1440px; overflow: hidden; }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: ${backgroundColor};
@@ -436,14 +436,14 @@ function generateWhiteModeHtml(
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=1080, height=1350">
+  <meta name="viewport" content="width=1080, height=1440">
   <title>Post White Mode</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 1080px; height: 1350px; overflow: hidden; }
+    html, body { width: 1080px; height: 1440px; overflow: hidden; }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: ${backgroundColor};
@@ -602,7 +602,7 @@ function generateTwitterHtml(
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=1080, height=1350">
+  <meta name="viewport" content="width=1080, height=1440">
   <title>Post Twitter Mode</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -611,7 +611,7 @@ function generateTwitterHtml(
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
       width: 1080px;
-      height: 1350px;
+      height: 1440px;
       overflow: hidden;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: ${backgroundColor};
@@ -854,14 +854,14 @@ function generateSuperHeadlineHtml(
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=1080, height=1350">
+  <meta name="viewport" content="width=1080, height=1440">
   <title>Post Super Headline</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 1080px; height: 1350px; overflow: hidden; }
+    html, body { width: 1080px; height: 1440px; overflow: hidden; }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: ${backgroundColor};
@@ -1093,7 +1093,7 @@ export async function generateHtmlTemplateImage(
       access_key: SCREENSHOT_ONE_ACCESS_KEY,
       html: htmlContent,
       viewport_width: 1080,
-      viewport_height: 1350,
+      viewport_height: 1440,
       format: "png",
       device_scale_factor: 2,
       cache: false,

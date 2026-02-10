@@ -237,7 +237,7 @@ function MethodSelector({ method, onMethodChange }: MethodSelectorProps) {
           <span className="text-sm font-medium text-white">Template HTML</span>
         </div>
         <p className="text-xs text-white/60">
-          4 templates prontos (1080x1350px)
+          4 templates prontos (1080x1440px)
         </p>
       </button>
     </div>

@@ -116,7 +116,7 @@ const PHOTO_STYLE_OPTIONS = [
 
 const ASPECT_RATIO_OPTIONS = [
   { value: "1:1", label: "1:1", description: "Quadrado" },
-  { value: "4:5", label: "4:5", description: "Feed Instagram" },
+  { value: "3:4", label: "3:4", description: "Feed Instagram" },
   { value: "9:16", label: "9:16", description: "Stories/Reels" },
   { value: "16:9", label: "16:9", description: "Paisagem" },
 ] as const;

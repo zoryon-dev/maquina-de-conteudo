@@ -117,7 +117,7 @@ function TemplateCard({ template, isSelected, isRecommended, onClick }: Template
     >
       {/* Template Preview */}
       <div
-        className="w-full aspect-[4/5] rounded-lg mb-2.5 flex flex-col items-center justify-center overflow-hidden relative"
+        className="w-full aspect-[3/4] rounded-lg mb-2.5 flex flex-col items-center justify-center overflow-hidden relative"
         style={{ backgroundColor: colors.bg }}
       >
         {/* Mini layout preview */}

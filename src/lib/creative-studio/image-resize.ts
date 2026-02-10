@@ -11,7 +11,7 @@ import { FORMAT_DIMENSIONS } from "./constants";
 
 interface SmartResizeParams {
   imageBuffer: Buffer;
-  targetFormat: string; // "1:1", "4:5", etc.
+  targetFormat: string; // "1:1", "3:4", etc.
   fitMode: "crop" | "fill";
 }
 

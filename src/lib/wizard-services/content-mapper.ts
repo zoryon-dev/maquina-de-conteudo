@@ -496,7 +496,7 @@ export function createStudioStateFromMappedContent(
 ): StudioState {
   return {
     contentType: "carousel",
-    aspectRatio: "4:5",
+    aspectRatio: "3:4",
     slides: mapped.slides,
     activeSlideIndex: 0,
     caption: mapped.caption,

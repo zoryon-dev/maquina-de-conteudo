@@ -323,7 +323,7 @@ export function StepVisualEditor({
       const availableWidth = rect.width - 40;
       const availableHeight = rect.height - 40;
 
-      const dimensions = DIMENSIONS["4:5"];
+      const dimensions = DIMENSIONS["3:4"];
       const scaleX = availableWidth / dimensions.width;
       const scaleY = availableHeight / dimensions.height;
 
@@ -588,7 +588,7 @@ export function StepVisualEditor({
     });
   };
 
-  const dimensions = DIMENSIONS["4:5"];
+  const dimensions = DIMENSIONS["3:4"];
   const scaledWidth = dimensions.width * scale;
   const scaledHeight = dimensions.height * scale;
 
@@ -871,7 +871,7 @@ export function StepVisualEditor({
                     <p className="text-[10px] text-white/50">Slides</p>
                   </div>
                   <div className="p-2.5 bg-white/[0.02] border border-white/10 rounded-lg text-center">
-                    <p className="text-xl font-bold text-primary">4:5</p>
+                    <p className="text-xl font-bold text-primary">3:4</p>
                     <p className="text-[10px] text-white/50">Proporção</p>
                   </div>
                 </div>
@@ -1373,7 +1373,7 @@ function FullscreenPreviewDialog({
       const availableWidth = rect.width - 160;
       const availableHeight = rect.height - 100;
 
-      const dimensions = DIMENSIONS["4:5"];
+      const dimensions = DIMENSIONS["3:4"];
       const scaleX = availableWidth / dimensions.width;
       const scaleY = availableHeight / dimensions.height;
 
@@ -1405,7 +1405,7 @@ function FullscreenPreviewDialog({
 
   if (!previewHtml) return null;
 
-  const dimensions = DIMENSIONS["4:5"];
+  const dimensions = DIMENSIONS["3:4"];
   const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(previewHtml)}`;
   const scaledWidth = dimensions.width * scale;
   const scaledHeight = dimensions.height * scale;

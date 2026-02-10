@@ -91,7 +91,7 @@ export function StudioHeader() {
     if (type === "story") {
       setAspectRatio("9:16");
     } else {
-      setAspectRatio("4:5");
+      setAspectRatio("3:4");
     }
   };
 

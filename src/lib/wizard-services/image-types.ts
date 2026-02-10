@@ -448,7 +448,7 @@ export interface ScreenshotOneRenderOptions {
  */
 export const INSTAGRAM_DIMENSIONS = {
   width: 1080,
-  height: 1350,
+  height: 1440,
 } as const;
 
 /**

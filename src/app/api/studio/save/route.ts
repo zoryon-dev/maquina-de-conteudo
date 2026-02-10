@@ -74,7 +74,7 @@ async function generatePreviewImage(
         access_key: SCREENSHOT_ONE_ACCESS_KEY,
         html,
         viewport_width: 1080,
-        viewport_height: 1350,
+        viewport_height: 1440,
         format: "png",
         device_scale_factor: 1, // Menor escala para preview
         cache: false,

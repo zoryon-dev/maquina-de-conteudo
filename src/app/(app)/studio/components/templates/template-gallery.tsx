@@ -97,7 +97,7 @@ function TemplateCard({ template, isSelected, onClick }: TemplateCardProps) {
     >
       {/* Template Preview */}
       <div
-        className="w-full aspect-[4/5] rounded-md mb-2 flex items-center justify-center overflow-hidden"
+        className="w-full aspect-[3/4] rounded-md mb-2 flex items-center justify-center overflow-hidden"
         style={{ backgroundColor: colors.bg }}
       >
         <Icon

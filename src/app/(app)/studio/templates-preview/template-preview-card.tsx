@@ -68,13 +68,13 @@ export function TemplatePreviewCard({ template, sampleData }: TemplatePreviewCar
   return (
     <div className="group relative bg-white/[0.02] border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-all">
       {/* Preview Container */}
-      <div className="relative aspect-[4/5] bg-black overflow-hidden">
-        {/* Iframe com escala para mostrar o template 1080x1350 em tamanho menor */}
+      <div className="relative aspect-[3/4] bg-black overflow-hidden">
+        {/* Iframe com escala para mostrar o template 1080x1440 em tamanho menor */}
         <div
           className="absolute origin-top-left"
           style={{
             width: "1080px",
-            height: "1350px",
+            height: "1440px",
             transform: "scale(0.25)",
             transformOrigin: "top left",
           }}

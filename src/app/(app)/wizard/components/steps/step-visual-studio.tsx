@@ -167,7 +167,7 @@ function FullscreenPreviewDialog({
       const availableWidth = rect.width - 160;
       const availableHeight = rect.height - 100;
 
-      const dimensions = DIMENSIONS["4:5"];
+      const dimensions = DIMENSIONS["3:4"];
       const scaleX = availableWidth / dimensions.width;
       const scaleY = availableHeight / dimensions.height;
 
@@ -198,7 +198,7 @@ function FullscreenPreviewDialog({
 
   if (!previewHtml) return null;
 
-  const dimensions = DIMENSIONS["4:5"];
+  const dimensions = DIMENSIONS["3:4"];
   const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(previewHtml)}`;
   const scaledWidth = dimensions.width * scale;
   const scaledHeight = dimensions.height * scale;
@@ -416,7 +416,7 @@ export function StepVisualStudio({
       const availableWidth = rect.width - 40;
       const availableHeight = rect.height - 40;
 
-      const dimensions = DIMENSIONS["4:5"];
+      const dimensions = DIMENSIONS["3:4"];
       const scaleX = availableWidth / dimensions.width;
       const scaleY = availableHeight / dimensions.height;
 
@@ -681,7 +681,7 @@ export function StepVisualStudio({
     }
   };
 
-  const dimensions = DIMENSIONS["4:5"];
+  const dimensions = DIMENSIONS["3:4"];
   const scaledWidth = dimensions.width * scale;
   const scaledHeight = dimensions.height * scale;
 
@@ -1262,7 +1262,7 @@ export function StepVisualStudio({
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-sm rounded-full text-xs text-white/60">
               <span>Slide {activeSlideIndex + 1} de {slides.length}</span>
               <span className="text-white/30">|</span>
-              <span className="text-white/40">1080 x 1350</span>
+              <span className="text-white/40">1080 x 1440</span>
             </div>
           </div>
 
