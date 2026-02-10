@@ -12,7 +12,7 @@
  * Baseado no Figma Node ID: 432:809
  *
  * Especificações:
- * - Dimensões: 1080 x 1350 px
+ * - Dimensões: 1080 x 1440 px
  * - Fonte: Inter (Medium 43px nome, 39px textos)
  * - Padding lateral: 62px
  * - Gap entre elementos: 50px

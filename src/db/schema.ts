@@ -1922,7 +1922,7 @@ export const creativeOutputs = pgTable(
     imageUrl: text("image_url").notNull(),
     storageKey: text("storage_key"),
     thumbnailUrl: text("thumbnail_url"),
-    format: text("format").notNull(), // "1:1", "4:5", etc
+    format: text("format").notNull(), // "1:1", "3:4", etc
     width: integer("width"),
     height: integer("height"),
 

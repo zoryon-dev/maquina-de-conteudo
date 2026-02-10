@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
 import { getStorageProvider } from "@/lib/storage";
 import { applyTextOverlay } from "@/lib/creative-studio/text-overlay";
-import { getOverlayKey, FORMAT_DIMENSIONS } from "@/lib/creative-studio/constants";
+import { getOverlayKey, getFormatDimensions } from "@/lib/creative-studio/constants";
 import { overlaySchema, validateImageUrl } from "@/lib/creative-studio/validation";
 import { toAppError, getErrorMessage, ValidationError } from "@/lib/errors";
 
@@ -26,7 +26,10 @@ export async function POST(request: Request) {
     const { imageUrl, textConfig, format } = parsed.data;
 
     // Determine output dimensions
-    const dim = format ? FORMAT_DIMENSIONS[format] : null;
+    const dim = format ? getFormatDimensions(format) : null;
+    if (format && !dim) {
+      throw new ValidationError(`Formato desconhecido: "${format}"`);
+    }
     const outputWidth = dim?.width ?? 1080;
     const outputHeight = dim?.height ?? 1080;
 

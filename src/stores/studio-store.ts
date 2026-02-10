@@ -331,6 +331,11 @@ export const useStudioStore = create<StudioStore>()(
             return;
           }
 
+          // Migrar aspect ratio legado (4:5 → 3:4)
+          if ((projectState.aspectRatio as string) === "4:5") {
+            projectState.aspectRatio = "3:4";
+          }
+
           set((state) => ({
             ...state,
             ...projectState,
@@ -347,6 +352,17 @@ export const useStudioStore = create<StudioStore>()(
       }),
       {
         name: "studio-store",
+        version: 1,
+        migrate: (persistedState, version) => {
+          const state = persistedState as Record<string, unknown>;
+          if (version === 0) {
+            // Migrar aspect ratio 4:5 → 3:4 (Feb 2026)
+            if (state.aspectRatio === "4:5") {
+              state.aspectRatio = "3:4";
+            }
+          }
+          return state as unknown as StudioStore;
+        },
         // Não persistir flags de loading
         partialize: (state) => ({
           contentType: state.contentType,

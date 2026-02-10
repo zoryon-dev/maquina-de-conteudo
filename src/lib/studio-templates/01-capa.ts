@@ -10,7 +10,7 @@
  * Baseado no Figma Node ID: 432:826
  *
  * Especificações:
- * - Dimensões: 1080 x 1350 px
+ * - Dimensões: 1080 x 1440 px
  * - Fonte: Inter (Medium, Bold)
  * - Cores padrão: branco (#FFFFFF), preto (#000000), amarelo (#FFD700)
  */

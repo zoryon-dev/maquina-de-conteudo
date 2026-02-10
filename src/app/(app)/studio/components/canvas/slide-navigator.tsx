@@ -279,7 +279,7 @@ function SortableSlideThumbnail({
               className="border-0 pointer-events-none"
               style={{
                 width: 1080,
-                height: 1350,
+                height: 1440,
                 transform: "scale(0.055)",
                 transformOrigin: "top left",
               }}

@@ -154,7 +154,7 @@ PART 7 - TEXT (se includeText):
 "Text overlay: '[textContent]', bold typography, [cor com contraste], [posição], legible hierarchy"
 
 PART 8 - TECHNICAL:
-"Professional design, Instagram post format 4:5 aspect ratio, high quality, sharp focus, optimized for mobile viewing"
+"Professional design, Instagram post format 3:4 aspect ratio, high quality, sharp focus, optimized for mobile viewing"
 </construcao_prompt>
 
 <anti_patterns_imagem>
@@ -194,7 +194,7 @@ NUNCA produza imagens que:
     "includes_text": true,
     "text_content": "Texto exato na imagem (se aplicável)",
     "text_words_count": 5,
-    "aspect_ratio": "4:5"
+    "aspect_ratio": "3:4"
   },
   "reasoning": {
     "style_choice": "Por que este estilo para este ângulo/conteúdo",

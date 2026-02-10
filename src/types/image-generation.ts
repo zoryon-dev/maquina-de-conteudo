@@ -6,6 +6,16 @@
  */
 
 // ============================================================================
+// ASPECT RATIO
+// ============================================================================
+
+/**
+ * Aspect ratios suportados para geração de imagens.
+ * Subset de CreativeFormat (creative-studio) focado em geração AI.
+ */
+export type ImageAspectRatio = "1:1" | "3:4" | "9:16" | "16:9";
+
+// ============================================================================
 // CAMPOS PARA GERAÇÃO MODULAR
 // ============================================================================
 
@@ -65,11 +75,11 @@ export interface ImagePromptFields {
   /**
    * Proporção da imagem (aspect ratio)
    * - 1:1 = Feed quadrado
-   * - 4:5 = Feed retrato (recomendado para Instagram)
+   * - 3:4 = Feed retrato (recomendado para Instagram)
    * - 9:16 = Stories/Reels
    * - 16:9 = Paisagem/YouTube
    */
-  aspectRatio: "1:1" | "4:5" | "9:16" | "16:9";
+  aspectRatio: ImageAspectRatio;
 
   // ═══════════════════════════════════════════════════════════════
   // TEXTO NA IMAGEM (opcional)
@@ -168,7 +178,7 @@ export const DEFAULT_IMAGE_FIELDS: ImagePromptFields = {
   lighting: "natural",
   colorPalette: "warm",
   photoStyle: "lifestyle",
-  aspectRatio: "4:5",
+  aspectRatio: "3:4",
   includeText: false,
   textContent: "",
   textPlacement: "center",
@@ -265,7 +275,7 @@ interface ImagePromptFieldsBase {
   lighting: "natural" | "studio" | "golden-hour" | "dramatic" | "soft" | "neon";
   colorPalette: "warm" | "cool" | "vibrant" | "muted" | "pastel" | "dark" | "b&w";
   photoStyle: "editorial" | "lifestyle" | "corporate" | "candid" | "artistic" | "minimal" | "bold";
-  aspectRatio: "1:1" | "4:5" | "9:16" | "16:9";
+  aspectRatio: ImageAspectRatio;
   mood?: string;
   avoidElements?: string;
   additionalNotes?: string;

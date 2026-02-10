@@ -146,7 +146,7 @@ export const CREATIVE_TEMPLATES: Template[] = [
         required: true,
       },
     ],
-    defaultFormat: "4:5",
+    defaultFormat: "3:4",
     textConfigTemplate: {
       fontFamily: "Inter",
       fontSize: 32,
@@ -268,7 +268,7 @@ export const CREATIVE_TEMPLATES: Template[] = [
         placeholder: "Ex: (e como evitar cada um)",
       },
     ],
-    defaultFormat: "4:5",
+    defaultFormat: "3:4",
     textConfigTemplate: {
       fontFamily: "Montserrat",
       fontSize: 44,

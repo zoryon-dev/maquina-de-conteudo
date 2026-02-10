@@ -85,7 +85,7 @@ const TEXT_STYLE_MAP: Record<NonNullable<ImagePromptFields["textStyle"]>, string
 
 const ASPECT_RATIO_MAP: Record<ImagePromptFields["aspectRatio"], string> = {
   "1:1": "square 1:1 aspect ratio",
-  "4:5": "portrait 4:5 aspect ratio, optimized for Instagram feed",
+  "3:4": "portrait 3:4 aspect ratio, optimized for Instagram feed",
   "9:16": "vertical 9:16 aspect ratio, optimized for Stories and Reels",
   "16:9": "landscape 16:9 aspect ratio, cinematic wide format",
 };
@@ -108,7 +108,7 @@ const ASPECT_RATIO_MAP: Record<ImagePromptFields["aspectRatio"], string> = {
  *   lighting: "natural",
  *   colorPalette: "warm",
  *   photoStyle: "lifestyle",
- *   aspectRatio: "4:5",
+ *   aspectRatio: "3:4",
  *   includeText: false,
  * });
  *
@@ -261,7 +261,8 @@ export function validateFields(fields: Partial<ImagePromptFields>): {
  */
 export function buildSimplePrompt(
   userPrompt: string,
-  style: "realistic" | "artistic" | "minimal" | "vibrant" = "minimal"
+  style: "realistic" | "artistic" | "minimal" | "vibrant" = "minimal",
+  aspectRatio: ImagePromptFields["aspectRatio"] = "3:4"
 ): BuiltPrompt {
   const styleHints: Record<string, string> = {
     realistic: "photorealistic, high detail, natural lighting",
@@ -270,7 +271,8 @@ export function buildSimplePrompt(
     vibrant: "vibrant colors, dynamic, energetic",
   };
 
-  const prompt = `${userPrompt.trim()}. ${styleHints[style]}. High quality, professional photography, 4:5 aspect ratio for Instagram.`;
+  const ratioDesc = ASPECT_RATIO_MAP[aspectRatio];
+  const prompt = `${userPrompt.trim()}. ${styleHints[style]}. High quality, professional photography, ${ratioDesc}.`;
 
   return {
     prompt,

@@ -123,11 +123,17 @@ export interface TemplateVariable {
 // FORMAT DIMENSIONS
 // ========================================
 
+/**
+ * All supported image formats in the Creative Studio.
+ * Superset of AspectRatio (studio-templates) and ImageAspectRatio (image-generation).
+ */
+export type CreativeFormat = "1:1" | "3:4" | "9:16" | "1.91:1" | "2:3" | "16:9";
+
 export interface FormatDimension {
   width: number;
   height: number;
   label: string;
-  aspect: string;
+  aspect: CreativeFormat;
 }
 
 // ========================================

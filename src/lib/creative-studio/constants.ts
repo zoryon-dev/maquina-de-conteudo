@@ -4,20 +4,28 @@
  * Format dimensions, model capabilities, storage keys, and defaults.
  */
 
-import type { FormatDimension, CreativeModelInfo } from "./types";
+import type { CreativeFormat, FormatDimension, CreativeModelInfo } from "./types";
 
 // ========================================
 // FORMAT DIMENSIONS
 // ========================================
 
-export const FORMAT_DIMENSIONS: Record<string, FormatDimension> = {
+export const FORMAT_DIMENSIONS: Record<CreativeFormat, FormatDimension> = {
   "1:1": { width: 1080, height: 1080, label: "Feed Quadrado", aspect: "1:1" },
-  "4:5": { width: 1080, height: 1350, label: "Feed Retrato", aspect: "4:5" },
+  "3:4": { width: 1080, height: 1440, label: "Feed Retrato", aspect: "3:4" },
   "9:16": { width: 1080, height: 1920, label: "Stories/Reels", aspect: "9:16" },
   "1.91:1": { width: 1200, height: 628, label: "Landscape", aspect: "1.91:1" },
   "2:3": { width: 1000, height: 1500, label: "Pinterest", aspect: "2:3" },
   "16:9": { width: 1920, height: 1080, label: "Cover", aspect: "16:9" },
 } as const;
+
+/**
+ * Type-safe lookup for format dimensions.
+ * Accepts any string (e.g. from database) and returns the dimension or undefined.
+ */
+export function getFormatDimensions(format: string): FormatDimension | undefined {
+  return (FORMAT_DIMENSIONS as Record<string, FormatDimension>)[format];
+}
 
 export const FORMAT_OPTIONS = Object.entries(FORMAT_DIMENSIONS).map(
   ([key, dim]) => ({

@@ -7,7 +7,7 @@
 
 import { getPresetById } from "./presets";
 import { getTemplateBySlug, fillTemplate } from "./templates";
-import { FORMAT_DIMENSIONS } from "./constants";
+import { getFormatDimensions } from "./constants";
 import type { ImageAnalysis } from "./types";
 
 interface BuildCreativePromptParams {
@@ -101,8 +101,8 @@ export function buildCreativePrompt(
   }
 
   // 5. Format dimensions
-  if (params.format && FORMAT_DIMENSIONS[params.format]) {
-    const dim = FORMAT_DIMENSIONS[params.format];
+  const dim = params.format ? getFormatDimensions(params.format) : null;
+  if (dim) {
     parts.push(
       `Output dimensions: ${dim.width}x${dim.height} pixels (${dim.aspect} aspect ratio).`
     );
