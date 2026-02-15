@@ -23,8 +23,15 @@ import {
   Smartphone,
   Keyboard,
   Download,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,6 +90,10 @@ export function StudioHeader() {
   const setSaving = useStudioStore((state) => state.setSaving);
   const setPublishing = useStudioStore((state) => state.setPublishing);
   const setDirty = useStudioStore((state) => state.setDirty);
+  const undo = useStudioStore((state) => state.undo);
+  const redo = useStudioStore((state) => state.redo);
+  const canUndo = useStudioStore((state) => state.canUndo);
+  const canRedo = useStudioStore((state) => state.canRedo);
 
   const currentTypeOption = CONTENT_TYPE_OPTIONS.find(
     (opt) => opt.value === contentType
@@ -431,6 +442,58 @@ export function StudioHeader() {
 
       {/* Right Section - Actions */}
       <div className="flex items-center gap-3">
+        {/* Undo/Redo Buttons */}
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  undo();
+                  toast.info("Acao desfeita");
+                }}
+                disabled={!canUndo}
+                className="text-white/60 hover:text-white hover:bg-white/5 disabled:text-white/20 disabled:hover:bg-transparent"
+              >
+                <Undo2 className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              className="bg-[#1a1a2e] border border-white/10 text-white"
+            >
+              Desfazer (⌘Z)
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  redo();
+                  toast.info("Acao refeita");
+                }}
+                disabled={!canRedo}
+                className="text-white/60 hover:text-white hover:bg-white/5 disabled:text-white/20 disabled:hover:bg-transparent"
+              >
+                <Redo2 className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              className="bg-[#1a1a2e] border border-white/10 text-white"
+            >
+              Refazer (⌘⇧Z)
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        {/* Separator */}
+        <div className="h-6 w-px bg-white/10" />
+
         {/* Keyboard Shortcuts Help */}
         <Popover>
           <PopoverTrigger asChild>
@@ -449,6 +512,14 @@ export function StudioHeader() {
             <div className="space-y-3">
               <h4 className="font-medium text-sm text-white/90">Atalhos de Teclado</h4>
               <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-white/60">Desfazer</span>
+                  <kbd className="px-2 py-0.5 bg-white/10 rounded text-xs">⌘/Ctrl + Z</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/60">Refazer</span>
+                  <kbd className="px-2 py-0.5 bg-white/10 rounded text-xs">⌘/Ctrl + ⇧ + Z</kbd>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-white/60">Salvar</span>
                   <kbd className="px-2 py-0.5 bg-white/10 rounded text-xs">⌘/Ctrl + S</kbd>

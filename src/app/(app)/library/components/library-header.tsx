@@ -8,7 +8,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Grid3x3, List, ArrowUpDown, Trash2, CheckCircle2, Library, Upload } from "lucide-react"
+import { Plus, Grid3x3, List, ArrowUpDown, Trash2, CheckCircle2, Library, Upload, BarChart3, Folder, Hash } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -30,10 +30,12 @@ interface LibraryHeaderProps {
   onBatchDelete?: () => void
   onBatchStatus?: (status: string) => void
   onClearSelection?: () => void
-  activeTab: "library" | "trash"
+  activeTab: "library" | "trash" | "analytics"
   trashCount: number
-  onTabChange: (tab: "library" | "trash") => void
+  onTabChange: (tab: "library" | "trash" | "analytics") => void
   onImportComplete?: () => void
+  onOpenCategoryManager?: () => void
+  onOpenTagManager?: () => void
 }
 
 const SORT_OPTIONS: Array<{ value: ViewMode["sortBy"]; label: string }> = [
@@ -60,10 +62,13 @@ export function LibraryHeader({
   trashCount,
   onTabChange,
   onImportComplete,
+  onOpenCategoryManager,
+  onOpenTagManager,
 }: LibraryHeaderProps) {
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const hasSelection = selectedCount > 0
   const isTrashView = activeTab === "trash"
+  const isAnalyticsView = activeTab === "analytics"
 
   return (
     <div className="space-y-4">
@@ -85,6 +90,18 @@ export function LibraryHeader({
             >
               <Library className="w-3.5 h-3.5" />
               Biblioteca
+            </button>
+            <button
+              onClick={() => onTabChange("analytics")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                activeTab === "analytics"
+                  ? "bg-primary text-black shadow-lg shadow-primary/20"
+                  : "text-white/60 hover:text-white"
+              )}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              Analytics
             </button>
             <button
               onClick={() => onTabChange("trash")}
@@ -114,7 +131,7 @@ export function LibraryHeader({
         </div>
 
         {/* Search and Create - only show in library mode */}
-        {!isTrashView && (
+        {!isTrashView && !isAnalyticsView && (
           <div className="flex items-center gap-2">
             {/* Search */}
             <div className="relative">
@@ -152,7 +169,7 @@ export function LibraryHeader({
       </div>
 
       {/* Bottom Row: View Toggle, Sort, or Batch Actions - only show in library mode */}
-      {!isTrashView && (
+      {!isTrashView && !isAnalyticsView && (
         <>
           {hasSelection ? (
             // Batch Actions Bar
@@ -226,8 +243,32 @@ export function LibraryHeader({
                 />
               </div>
 
-              {/* Sort Controls */}
+              {/* Sort + Manage Controls */}
               <div className="flex items-center gap-2">
+                {/* Category Manager */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onOpenCategoryManager}
+                  className="h-8 px-2 text-white/50 hover:text-white hover:bg-white/5"
+                  title="Gerenciar Categorias"
+                >
+                  <Folder className="w-4 h-4" />
+                </Button>
+
+                {/* Tag Manager */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onOpenTagManager}
+                  className="h-8 px-2 text-white/50 hover:text-white hover:bg-white/5"
+                  title="Gerenciar Tags"
+                >
+                  <Hash className="w-4 h-4" />
+                </Button>
+
+                <div className="w-px h-5 bg-white/10" />
+
                 <SortButton
                   sortBy={viewMode.sortBy}
                   sortOrder={viewMode.sortOrder}

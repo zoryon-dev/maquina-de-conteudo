@@ -3,6 +3,12 @@
  *
  * Full-page wizard experience for content creation.
  * Manages wizard state, step transitions, and API communication.
+ *
+ * v2.1: Condensed from 8 steps to 4 UI steps:
+ * 1. Configurar = inputs + processing (inline loading)
+ * 2. Narrativa = narrative selection + editing
+ * 3. Conteudo = text generation + content approval
+ * 4. Finalizar = visual studio + save/schedule actions
  */
 
 "use client";
@@ -47,6 +53,7 @@ import {
 } from "./steps/step-5-image-generation";
 import { StepVisualEditor } from "./steps/step-visual-editor";
 import { StepVisualStudio } from "./steps/step-visual-studio";
+import { StepFinalizar } from "./steps/step-finalizar";
 import type { ImageGenerationConfig, GeneratedImage } from "@/lib/wizard-services/client";
 import type { VideoDuration } from "@/lib/wizard-services/types";
 
@@ -143,6 +150,9 @@ export function WizardPage({
   const [showProcessingModal, setShowProcessingModal] = useState(false);
   const [queuedJobId, setQueuedJobId] = useState<number | null>(null);
 
+  // v2.1: Track whether processing is happening inline (within Configurar step)
+  const [isProcessingInline, setIsProcessingInline] = useState(false);
+
   const isMountedRef = useRef(true);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -160,7 +170,10 @@ export function WizardPage({
         if (isMountedRef.current) {
           setWizard(data);
           setWizardId(data.id);
-          setCurrentStep(data.currentStep as WizardStepValue);
+
+          // Map old step values to new condensed steps when loading
+          const loadedStep = data.currentStep as WizardStepValue;
+          setCurrentStep(loadedStep);
 
           // Restore form data
           setFormData({
@@ -232,6 +245,7 @@ export function WizardPage({
   }, [formData, autoSave]);
 
   // Step 1: Submit input form and create wizard
+  // v2.1: Processing now happens inline within the same "Configurar" step
   const handleSubmitInputs = async () => {
     setIsSubmitting(true);
     setError(null);
@@ -262,7 +276,9 @@ export function WizardPage({
           body: JSON.stringify({ submitType: "narratives" }),
         });
 
+        // v2.1: Show processing inline instead of transitioning to a separate step
         setCurrentStep("processing");
+        setIsProcessingInline(true);
       }
     } catch (err) {
       if (isMountedRef.current) {
@@ -306,6 +322,7 @@ export function WizardPage({
         const data: Wizard = await response.json();
         if (isMountedRef.current) {
           setWizard(data);
+          setIsProcessingInline(false);
           setCurrentStep("narratives");
         }
       }
@@ -316,6 +333,7 @@ export function WizardPage({
 
   // Step 2: Handle processing error
   const handleProcessingError = (errorMessage: string) => {
+    setIsProcessingInline(false);
     setError(errorMessage);
   };
 
@@ -366,6 +384,7 @@ export function WizardPage({
   };
 
   // Step 3.5: Handle content approval
+  // v2.1: After approval, go to "finalizar" step instead of directly to visual-studio
   const handleContentApproval = async (approvedContent: string) => {
     if (!wizardId) return;
 
@@ -379,15 +398,11 @@ export function WizardPage({
     const contentType = formData.contentType;
 
     if (contentType === "video") {
-      // Videos go to title selection
+      // Videos go to title selection (part of Finalizar UI step)
       setCurrentStep("titles-selection");
-    } else if (contentType === "carousel" || contentType === "image") {
-      // Carousels and images go to the unified Visual Studio
-      // Template selection now happens AFTER content approval, not in briefing
-      setCurrentStep("visual-studio");
     } else {
-      // Text posts go directly to completion
-      setCurrentStep("completed");
+      // All other types go to the new Finalizar step
+      setCurrentStep("finalizar");
     }
   };
 
@@ -624,11 +639,12 @@ export function WizardPage({
   };
 
   // Handle step click on indicator (navigate back to any visited step)
+  // v2.1: Updated to handle condensed step navigation
   const handleStepClick = (step: WizardStepValue) => {
     // Determine step order based on content type
     const steps = formData.contentType === "video"
-      ? ["video-duration", "input", "processing", "narratives", "content-approval", "titles-selection", "generation", "thumbnail-config", "image-generation"]
-      : ["input", "processing", "narratives", "generation", "content-approval", "visual-studio"];
+      ? ["video-duration", "input", "processing", "narratives", "generation", "content-approval", "titles-selection", "thumbnail-config", "image-generation", "finalizar"]
+      : ["input", "processing", "narratives", "generation", "content-approval", "finalizar", "visual-studio"];
 
     const currentIndex = steps.indexOf(currentStep);
     const targetIndex = steps.indexOf(step);
@@ -636,6 +652,7 @@ export function WizardPage({
     // Only allow navigating back (to visited steps), never forward
     // Also skip processing/generation steps (they are auto-transition)
     if (targetIndex < currentIndex && step !== "processing" && step !== "generation") {
+      setIsProcessingInline(false);
       setCurrentStep(step);
     }
   };
@@ -658,6 +675,11 @@ export function WizardPage({
     }
   };
 
+  // v2.1: Handle "Open in Visual Studio" from Finalizar step
+  const handleOpenVisualStudio = () => {
+    setCurrentStep("visual-studio");
+  };
+
   // Get available narratives from wizard
   const narratives = wizard?.narratives ?? [];
 
@@ -666,9 +688,9 @@ export function WizardPage({
       {/* Page Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-white">Wizard de Criação</h1>
+          <h1 className="text-2xl font-semibold text-white">Wizard de Criacao</h1>
           <p className="text-sm text-white/60">
-            Crie conteúdo para redes sociais com IA
+            Crie conteudo para redes sociais com IA
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -689,7 +711,7 @@ export function WizardPage({
         </div>
       </div>
 
-      {/* Steps Indicator */}
+      {/* Steps Indicator - Condensed 4 steps */}
       <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <WizardStepsIndicator
           currentStep={currentStep}
@@ -709,6 +731,7 @@ export function WizardPage({
               currentStep === "processing" || currentStep === "generation"
                 ? () => {
                     setError(null);
+                    setIsProcessingInline(false);
                     setCurrentStep("input");
                   }
                 : undefined
@@ -721,6 +744,10 @@ export function WizardPage({
 
       {/* Step Content */}
       <AnimatePresence mode="wait">
+        {/* ============================================================ */}
+        {/* UI STEP 1: CONFIGURAR (inputs + inline processing)          */}
+        {/* ============================================================ */}
+
         {currentStep === "video-duration" && (
           <motion.div
             key="video-duration"
@@ -755,9 +782,10 @@ export function WizardPage({
           </motion.div>
         )}
 
+        {/* v2.1: Processing shown inline within Configurar step */}
         {currentStep === "processing" && wizardId && (
           <motion.div
-            key="processing"
+            key="processing-inline"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
@@ -770,6 +798,10 @@ export function WizardPage({
             />
           </motion.div>
         )}
+
+        {/* ============================================================ */}
+        {/* UI STEP 2: NARRATIVA                                        */}
+        {/* ============================================================ */}
 
         {currentStep === "narratives" && (
           <motion.div
@@ -787,6 +819,29 @@ export function WizardPage({
               onSubmit={handleSubmitNarratives}
               isSubmitting={isSubmitting}
               wizardId={wizardId ?? undefined}
+            />
+          </motion.div>
+        )}
+
+        {/* ============================================================ */}
+        {/* UI STEP 3: CONTEUDO (generation + approval)                  */}
+        {/* ============================================================ */}
+
+        {currentStep === "generation" && wizardId && (
+          <motion.div
+            key="generation"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Step4Generation
+              wizardId={wizardId}
+              contentType={formData.contentType ?? "text"}
+              numberOfSlides={formData.numberOfSlides}
+              onComplete={handleGenerationComplete}
+              onSaveToLibrary={handleSaveToLibrary}
+              onRegenerate={handleRegenerate}
             />
           </motion.div>
         )}
@@ -810,6 +865,49 @@ export function WizardPage({
           </motion.div>
         )}
 
+        {/* ============================================================ */}
+        {/* UI STEP 4: FINALIZAR (save/schedule/visual studio)           */}
+        {/* ============================================================ */}
+
+        {currentStep === "finalizar" && wizardId && formData.generatedContent && (
+          <motion.div
+            key="finalizar"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <StepFinalizar
+              wizardId={wizardId}
+              contentType={formData.contentType ?? "text"}
+              generatedContent={formData.generatedContent}
+              numberOfSlides={formData.numberOfSlides}
+              onOpenVisualStudio={handleOpenVisualStudio}
+              onBack={() => setCurrentStep("content-approval")}
+            />
+          </motion.div>
+        )}
+
+        {/* Visual Studio (opened from Finalizar step) */}
+        {currentStep === "visual-studio" && wizardId && formData.generatedContent && (
+          <motion.div
+            key="visual-studio"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <StepVisualStudio
+              wizardId={wizardId}
+              generatedContent={formData.generatedContent}
+              contentType={formData.contentType ?? "carousel"}
+              onComplete={handleVisualStudioComplete}
+              onBack={() => setCurrentStep("finalizar")}
+            />
+          </motion.div>
+        )}
+
+        {/* Visual Editor (legacy - kept for backward compatibility) */}
         {currentStep === "visual-editor" && formData.mappedStudioContent && (
           <motion.div
             key="visual-editor"
@@ -827,23 +925,9 @@ export function WizardPage({
           </motion.div>
         )}
 
-        {currentStep === "visual-studio" && wizardId && formData.generatedContent && (
-          <motion.div
-            key="visual-studio"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <StepVisualStudio
-              wizardId={wizardId}
-              generatedContent={formData.generatedContent}
-              contentType={formData.contentType ?? "carousel"}
-              onComplete={handleVisualStudioComplete}
-              onBack={() => setCurrentStep("content-approval")}
-            />
-          </motion.div>
-        )}
+        {/* ============================================================ */}
+        {/* VIDEO-SPECIFIC STEPS (within Finalizar UI step)              */}
+        {/* ============================================================ */}
 
         {currentStep === "titles-selection" && wizardId && (
           <motion.div
@@ -868,25 +952,6 @@ export function WizardPage({
           </motion.div>
         )}
 
-        {currentStep === "generation" && wizardId && (
-          <motion.div
-            key="generation"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Step4Generation
-              wizardId={wizardId}
-              contentType={formData.contentType ?? "text"}
-              numberOfSlides={formData.numberOfSlides}
-              onComplete={handleGenerationComplete}
-              onSaveToLibrary={handleSaveToLibrary}
-              onRegenerate={handleRegenerate}
-            />
-          </motion.div>
-        )}
-
         {currentStep === "thumbnail-config" && wizardId && formData.selectedVideoTitle && (
           <motion.div
             key="thumbnail-config"
@@ -907,6 +972,7 @@ export function WizardPage({
           </motion.div>
         )}
 
+        {/* Legacy: Image generation step (kept for backward compatibility) */}
         {currentStep === "image-generation" && wizardId && (
           <motion.div
             key="image-generation"
@@ -929,6 +995,10 @@ export function WizardPage({
             />
           </motion.div>
         )}
+
+        {/* ============================================================ */}
+        {/* COMPLETED STATE                                              */}
+        {/* ============================================================ */}
 
         {currentStep === "completed" && (
           <motion.div
@@ -953,10 +1023,10 @@ export function WizardPage({
               </svg>
             </div>
             <h2 className="text-2xl font-semibold text-white mb-2">
-              Wizard Concluído!
+              Wizard Concluido!
             </h2>
             <p className="text-white/60 mb-8">
-              Seu conteúdo foi gerado e está pronto para uso.
+              Seu conteudo foi gerado e esta pronto para uso.
             </p>
             <div className="flex items-center justify-center gap-4">
               <Button
@@ -966,7 +1036,7 @@ export function WizardPage({
                 Ver na Biblioteca
               </Button>
               <Button onClick={() => router.push("/wizard")}>
-                Criar Novo Conteúdo
+                Criar Novo Conteudo
               </Button>
             </div>
           </motion.div>
@@ -983,8 +1053,8 @@ export function WizardPage({
         }
         message={
           formData.contentType === "video"
-            ? "Estamos construindo sua thumbnail, gerando metadata de SEO e organizando tudo na Biblioteca. Você será redirecionado em instantes!"
-            : "Suas imagens estão sendo geradas em segundo plano. Você será notificado quando estiverem prontas!"
+            ? "Estamos construindo sua thumbnail, gerando metadata de SEO e organizando tudo na Biblioteca. Voce sera redirecionado em instantes!"
+            : "Suas imagens estao sendo geradas em segundo plano. Voce sera notificado quando estiverem prontas!"
         }
         redirectPath={formData.contentType === "video" ? "/library" : "/dashboard"}
         jobId={queuedJobId ?? undefined}

@@ -30,6 +30,9 @@ import { LibraryList } from "./library-list"
 import { EmptyLibraryState } from "./empty-library-state"
 import { ContentDialog } from "./content-dialog"
 import { TrashView } from "./trash-view"
+import { LibraryAnalytics } from "./analytics/library-analytics"
+import { CategoryManager } from "./category-manager"
+import { TagManager } from "./tag-manager"
 import { Pagination } from "@/components/ui/pagination"
 import { getTrashCountAction } from "../actions/library-actions"
 import type { LibraryItemWithRelations } from "@/types/library"
@@ -39,9 +42,13 @@ export function LibraryPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  // View mode: library or trash
-  const [activeTab, setActiveTab] = useState<"library" | "trash">("library")
+  // View mode: library, trash, or analytics
+  const [activeTab, setActiveTab] = useState<"library" | "trash" | "analytics">("library")
   const [trashCount, setTrashCount] = useState(0)
+
+  // Category/Tag manager dialog state
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false)
+  const [tagManagerOpen, setTagManagerOpen] = useState(false)
 
   // View mode (grid/list + sorting)
   const { viewMode, toggleViewMode, setSortBy, toggleSortOrder } = useLibraryView()
@@ -102,7 +109,7 @@ export function LibraryPage() {
   }, [fetchTrashCount])
 
   // When switching back from trash to library, refresh both counts
-  const handleTabChange = (tab: "library" | "trash") => {
+  const handleTabChange = (tab: "library" | "trash" | "analytics") => {
     setActiveTab(tab)
     if (tab === "library") {
       refetch()
@@ -298,6 +305,8 @@ export function LibraryPage() {
         trashCount={trashCount}
         onTabChange={handleTabChange}
         onImportComplete={refetch}
+        onOpenCategoryManager={() => setCategoryManagerOpen(true)}
+        onOpenTagManager={() => setTagManagerOpen(true)}
       />
 
       {/* Show filter bar only in library mode */}
@@ -317,7 +326,9 @@ export function LibraryPage() {
       )}
 
       {/* Content Area */}
-      {activeTab === "trash" ? (
+      {activeTab === "analytics" ? (
+        <LibraryAnalytics />
+      ) : activeTab === "trash" ? (
         <TrashView onTrashCountChange={handleTrashCountChange} />
       ) : isLoading ? (
         <LoadingState />
@@ -373,6 +384,20 @@ export function LibraryPage() {
         item={editingItem}
         onClose={handleDialogClose}
         onSave={handleDialogSave}
+      />
+
+      {/* Category Manager Dialog */}
+      <CategoryManager
+        open={categoryManagerOpen}
+        onOpenChange={setCategoryManagerOpen}
+        onUpdate={refetch}
+      />
+
+      {/* Tag Manager Dialog */}
+      <TagManager
+        open={tagManagerOpen}
+        onOpenChange={setTagManagerOpen}
+        onUpdate={refetch}
       />
 
       {/* Delete Confirmation Dialog */}
