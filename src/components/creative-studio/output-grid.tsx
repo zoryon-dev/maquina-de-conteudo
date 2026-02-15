@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { downloadZip } from "@/lib/export/zip-generator";
+import { toast } from "sonner";
 
 interface OutputItem {
   id: number;
@@ -28,6 +30,7 @@ import {
   Expand,
   PackageOpen,
   Clock,
+  Loader2,
 } from "lucide-react";
 
 interface OutputGridProps {
@@ -50,6 +53,35 @@ export function OutputGrid({
   const [selectedOutput, setSelectedOutput] = useState<OutputItem | null>(
     null
   );
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadAll = useCallback(async () => {
+    if (onDownloadAll) {
+      onDownloadAll();
+      return;
+    }
+
+    if (outputs.length === 0) return;
+
+    setIsDownloading(true);
+    try {
+      const entries = outputs.map((output, index) => ({
+        name: `${output.format}_${String(index + 1).padStart(2, "0")}.png`,
+        url: output.imageUrl,
+      }));
+
+      const timestamp = Date.now();
+      await downloadZip(entries, `creative-studio-${timestamp}.zip`);
+      toast.success("Download concluido!");
+    } catch (error) {
+      console.error("[OutputGrid] Download all error:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Erro ao gerar ZIP"
+      );
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [outputs, onDownloadAll]);
 
   if (outputs.length === 0 && !isLoading) {
     return (
@@ -63,7 +95,7 @@ export function OutputGrid({
   return (
     <>
       {/* Header with download all */}
-      {outputs.length > 1 && onDownloadAll && (
+      {outputs.length > 1 && (
         <div className="flex items-center justify-between mb-3">
           <p className="text-sm text-white/60">
             {outputs.length} imagen{outputs.length > 1 ? "s" : ""} gerada
@@ -72,11 +104,16 @@ export function OutputGrid({
           <Button
             variant="outline"
             size="sm"
-            onClick={onDownloadAll}
+            onClick={handleDownloadAll}
+            disabled={isDownloading}
             className="border-white/10 text-white/70 hover:text-white"
           >
-            <Download className="size-4" />
-            Download ZIP
+            {isDownloading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Download className="size-4" />
+            )}
+            {isDownloading ? "Gerando ZIP..." : "Baixar Todas"}
           </Button>
         </div>
       )}

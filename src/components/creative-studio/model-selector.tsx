@@ -100,27 +100,33 @@ export function ModelSelector({
                   setOpen(false);
                 }}
                 className={cn(
-                  "flex w-full items-center justify-between px-3 py-2.5 text-sm transition-colors",
+                  "flex w-full items-start justify-between px-3 py-3 text-sm transition-colors",
                   isActive
                     ? "bg-primary/10 text-white"
                     : "text-white/70 hover:bg-white/5 hover:text-white"
                 )}
               >
-                <div className="flex flex-col items-start gap-0.5">
-                  <span className="font-medium">{model.name}</span>
-                  <span className="text-xs text-white/40">{model.provider}</span>
+                <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
+                  <div className="flex items-center gap-2 w-full">
+                    <span className="font-medium">{model.name}</span>
+                    <span className="text-xs text-white/40">{model.provider}</span>
+                  </div>
+                  {/* Model description from constants - show capabilities as tags */}
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {model.capabilities.map((cap) => (
+                      <Badge
+                        key={cap}
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0 border-white/10 text-white/50"
+                      >
+                        {CAPABILITY_LABELS[cap]}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex gap-1">
-                  {model.capabilities.map((cap) => (
-                    <Badge
-                      key={cap}
-                      variant="outline"
-                      className="text-[10px] px-1.5 py-0 border-white/10 text-white/50"
-                    >
-                      {CAPABILITY_LABELS[cap]}
-                    </Badge>
-                  ))}
-                </div>
+                {isActive && (
+                  <span className="text-primary text-xs font-medium ml-2 flex-shrink-0">Ativo</span>
+                )}
               </button>
             );
           })}

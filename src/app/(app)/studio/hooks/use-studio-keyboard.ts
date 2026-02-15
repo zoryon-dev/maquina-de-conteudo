@@ -2,6 +2,8 @@
  * useStudioKeyboard Hook
  *
  * Keyboard shortcuts para o Studio Editor:
+ * - Ctrl/Cmd + Z: Desfazer
+ * - Ctrl/Cmd + Shift + Z: Refazer
  * - Ctrl/Cmd + S: Salvar projeto
  * - Ctrl/Cmd + D: Duplicar slide atual
  * - Arrow Left/Right: Navegar entre slides
@@ -27,6 +29,10 @@ export function useStudioKeyboard({ onSave, enabled = true }: UseStudioKeyboardO
   const setActiveSlide = useStudioStore((state) => state.setActiveSlide);
   const duplicateSlide = useStudioStore((state) => state.duplicateSlide);
   const removeSlide = useStudioStore((state) => state.removeSlide);
+  const undo = useStudioStore((state) => state.undo);
+  const redo = useStudioStore((state) => state.redo);
+  const canUndo = useStudioStore((state) => state.canUndo);
+  const canRedo = useStudioStore((state) => state.canRedo);
 
   const handleKeyDown = useCallback(
     async (event: KeyboardEvent) => {
@@ -39,6 +45,26 @@ export function useStudioKeyboard({ onSave, enabled = true }: UseStudioKeyboardO
 
       const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
       const modKey = isMac ? event.metaKey : event.ctrlKey;
+
+      // Ctrl/Cmd + Shift + Z: Refazer (verificar antes do undo para evitar conflito)
+      if (modKey && event.shiftKey && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        if (canRedo) {
+          redo();
+          toast.info("Acao refeita");
+        }
+        return;
+      }
+
+      // Ctrl/Cmd + Z: Desfazer
+      if (modKey && !event.shiftKey && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        if (canUndo) {
+          undo();
+          toast.info("Acao desfeita");
+        }
+        return;
+      }
 
       // Ctrl/Cmd + S: Salvar
       if (modKey && event.key.toLowerCase() === "s") {
@@ -115,6 +141,10 @@ export function useStudioKeyboard({ onSave, enabled = true }: UseStudioKeyboardO
       duplicateSlide,
       removeSlide,
       onSave,
+      undo,
+      redo,
+      canUndo,
+      canRedo,
     ]
   );
 
@@ -128,6 +158,8 @@ export function useStudioKeyboard({ onSave, enabled = true }: UseStudioKeyboardO
   // Retorna lista de atalhos para exibição de ajuda
   return {
     shortcuts: [
+      { key: "Ctrl/⌘ + Z", action: "Desfazer" },
+      { key: "Ctrl/⌘ + ⇧ + Z", action: "Refazer" },
       { key: "Ctrl/⌘ + S", action: "Salvar projeto" },
       { key: "Ctrl/⌘ + D", action: "Duplicar slide" },
       { key: "← →", action: "Navegar slides" },

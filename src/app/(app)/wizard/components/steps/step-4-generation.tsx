@@ -8,7 +8,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Loader2,
@@ -16,10 +16,8 @@ import {
   Image,
   Film,
   Download,
-  Save,
   RefreshCw,
   Check,
-  AlertCircle,
   Copy,
   Eye,
   ChevronDown,
@@ -29,10 +27,16 @@ import {
   Lightbulb,
   Video,
   Palette,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import {
+  ErrorFeedback,
+  getSpecificErrorMessage,
+} from "@/components/ui/error-feedback";
+import { useSSE } from "@/hooks/use-sse";
 import type { PostType } from "@/db/schema";
 import type { GeneratedSlide, GeneratedContent, VideoScriptStructured } from "@/lib/wizard-services/types";
 import { VideoThumbnailGeneration } from "../shared/video-thumbnail-generation";
@@ -396,6 +400,25 @@ function CollapsibleSection({ title, icon: Icon, expanded, onToggle, children, c
   );
 }
 
+/** Time estimate configuration per content type */
+const TIME_ESTIMATES: Record<PostType, { label: string; estimatedSeconds: number }> = {
+  text: { label: "~30-60 segundos", estimatedSeconds: 45 },
+  image: { label: "~30-60 segundos", estimatedSeconds: 45 },
+  carousel: { label: "~1-2 minutos", estimatedSeconds: 90 },
+  video: { label: "~1-2 minutos", estimatedSeconds: 90 },
+  story: { label: "~30-60 segundos", estimatedSeconds: 45 },
+};
+
+/** Format seconds to mm:ss or just Xs */
+function formatElapsedTime(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}m ${secs.toString().padStart(2, "0")}s`;
+}
+
 export function Step4Generation({
   wizardId,
   contentType,
@@ -407,145 +430,373 @@ export function Step4Generation({
 }: Step4GenerationProps) {
   const [status, setStatus] = useState<GenerationStatus>({
     step: "idle",
-    message: "Preparando geração...",
+    message: "Preparando geracao...",
   });
   const [content, setContent] = useState<GeneratedContent | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [savedToLibrary, setSavedToLibrary] = useState(false);
   const [activeTab, setActiveTab] = useState<"preview" | "thumbnail" | "raw">("preview");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [sseUrl, setSseUrl] = useState<string | null>(null);
 
   const isMountedRef = useRef(true);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const retryCountRef = useRef(0);
+  const startTimeRef = useRef(0);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const completionHandledRef = useRef(false);
+  const jobIdRef = useRef<number | null>(null);
 
-  // Poll wizard status until content is ready
+  const timeEstimate = TIME_ESTIMATES[contentType];
+  const isTakingLong = elapsedSeconds > timeEstimate.estimatedSeconds;
+
+  // ====================================================================
+  // SSE EVENT TYPE
+  // ====================================================================
+  interface JobSSEEvent {
+    type: string;
+    data?: {
+      status?: string;
+      result?: unknown;
+      error?: string;
+      jobId?: number;
+      message?: string;
+    };
+  }
+
+  // ====================================================================
+  // HELPER: Fetch wizard and check for generated content
+  // ====================================================================
+  const fetchWizardContent = useCallback(async (): Promise<GeneratedContent | null> => {
+    try {
+      const response = await fetch(`/api/wizard/${wizardId}`);
+      if (!response.ok) return null;
+      const wizard = await response.json();
+
+      if (wizard.generatedContent) {
+        return typeof wizard.generatedContent === "string"
+          ? JSON.parse(wizard.generatedContent)
+          : wizard.generatedContent;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, [wizardId]);
+
+  // ====================================================================
+  // COMPLETION HANDLER
+  // ====================================================================
+  const handleContentReady = useCallback(
+    (generatedContent: GeneratedContent) => {
+      if (completionHandledRef.current) return;
+      completionHandledRef.current = true;
+
+      if (isMountedRef.current) {
+        setContent(generatedContent);
+        setStatus({
+          step: "completed",
+          message: "Conteudo gerado com sucesso!",
+          progress: 100,
+        });
+        setSseUrl(null);
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
+        // DON'T auto-call onComplete - let user review first
+      }
+    },
+    []
+  );
+
+  // ====================================================================
+  // INITIAL FETCH — get jobId + check if already completed
+  // ====================================================================
   useEffect(() => {
     isMountedRef.current = true;
-    retryCountRef.current = 0;
+    completionHandledRef.current = false;
 
-    const pollWizardStatus = async () => {
+    const init = async () => {
       try {
         const response = await fetch(`/api/wizard/${wizardId}`);
-
         if (!response.ok) {
           if (response.status === 404 && isMountedRef.current) {
             setStatus({
               step: "failed",
-              message: "Wizard não encontrado",
-              error: "O wizard não existe ou foi excluído.",
+              message: "Wizard nao encontrado",
+              error: "O wizard nao existe ou foi excluido.",
             });
           }
           return;
         }
 
         const wizard = await response.json();
+        if (!isMountedRef.current) return;
 
-        // Check if content is ready
+        // Already has content
         if (wizard.generatedContent) {
-          // generatedContent might be an object or a JSON string
-          const generatedContent: GeneratedContent = typeof wizard.generatedContent === 'string'
-            ? JSON.parse(wizard.generatedContent)
-            : wizard.generatedContent;
-
-          if (isMountedRef.current) {
-            setContent(generatedContent);
-            setStatus({
-              step: "completed",
-              message: "Conteúdo gerado com sucesso!",
-              progress: 100,
-            });
-
-            if (pollIntervalRef.current) {
-              clearInterval(pollIntervalRef.current);
-              pollIntervalRef.current = null;
-            }
-
-            // DON'T auto-call onComplete - let user review first
-            // onComplete?.(generatedContent);
-          }
+          const generatedContent: GeneratedContent =
+            typeof wizard.generatedContent === "string"
+              ? JSON.parse(wizard.generatedContent)
+              : wizard.generatedContent;
+          handleContentReady(generatedContent);
           return;
         }
 
-        // Check for job failure
+        // Already failed
         if (wizard.currentStep === "abandoned" || wizard.jobStatus === "failed") {
-          if (isMountedRef.current) {
-            setStatus({
-              step: "failed",
-              message: "Geração falhou",
-              error: wizard.jobError || "Ocorreu um erro ao gerar o conteúdo.",
-            });
-            if (pollIntervalRef.current) {
-              clearInterval(pollIntervalRef.current);
-              pollIntervalRef.current = null;
-            }
-          }
-          return;
-        }
-
-        // Update progress based on job status
-        const jobStatus = wizard.jobStatus || "pending";
-        let newStatus: GenerationStatus;
-
-        switch (jobStatus) {
-          case "pending":
-            newStatus = {
-              step: "idle",
-              message: "Aguardando início da geração...",
-            };
-            break;
-          case "processing":
-            newStatus = {
-              step: "generating",
-              message: "Gerando conteúdo com IA...",
-              progress: wizard.generationProgress?.percent ?? 50,
-            };
-            break;
-          default:
-            newStatus = {
-              step: "idle",
-              message: "Processando...",
-            };
-        }
-
-        if (isMountedRef.current) {
-          setStatus((prev) => {
-            if (prev.step !== newStatus.step || prev.message !== newStatus.message) {
-              return newStatus;
-            }
-            return prev;
-          });
-        }
-      } catch (error) {
-        if (isMountedRef.current && retryCountRef.current < 3) {
-          const backoffDelay = 1000 * Math.pow(2, retryCountRef.current);
-          setTimeout(() => {
-            if (isMountedRef.current) {
-              retryCountRef.current += 1;
-            }
-          }, backoffDelay);
-        } else if (isMountedRef.current) {
           setStatus({
             step: "failed",
-            message: "Erro de conexão",
-            error: "Não foi possível conectar ao servidor. Tente novamente.",
+            message: "Geracao falhou",
+            error: wizard.jobError || "Ocorreu um erro ao gerar o conteudo.",
+          });
+          return;
+        }
+
+        // Update progress from wizard data
+        if (wizard.jobStatus === "processing") {
+          setStatus({
+            step: "generating",
+            message: "Gerando conteudo com IA...",
+            progress: wizard.generationProgress?.percent ?? 50,
           });
         }
+
+        // Set up SSE
+        if (wizard.jobId) {
+          jobIdRef.current = wizard.jobId;
+          setSseUrl(`/api/jobs/${wizard.jobId}/stream`);
+        }
+      } catch {
+        // Will fall through to polling fallback
       }
     };
 
-    // Initial poll
-    pollWizardStatus();
-
-    // Poll every 2 seconds
-    pollIntervalRef.current = setInterval(pollWizardStatus, 2000);
+    init();
 
     return () => {
       isMountedRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wizardId]);
+
+  // ====================================================================
+  // SSE MESSAGE HANDLER
+  // ====================================================================
+  const handleSSEMessage = useCallback(
+    async (event: JobSSEEvent) => {
+      if (!isMountedRef.current) return;
+
+      if (event.type === "completed") {
+        // Job completed — fetch wizard to get the generated content
+        const generatedContent = await fetchWizardContent();
+        if (generatedContent) {
+          handleContentReady(generatedContent);
+        } else {
+          // Content might not be in wizard yet — retry once
+          await new Promise((r) => setTimeout(r, 1000));
+          const retry = await fetchWizardContent();
+          if (retry) {
+            handleContentReady(retry);
+          }
+        }
+        return;
+      }
+
+      if (event.type === "failed") {
+        const errorMsg = event.data?.error || "Ocorreu um erro ao gerar o conteudo.";
+        if (isMountedRef.current) {
+          setSseUrl(null);
+          setStatus({
+            step: "failed",
+            message: "Geracao falhou",
+            error: errorMsg,
+          });
+        }
+        return;
+      }
+
+      if (event.type === "timeout") {
+        if (isMountedRef.current) {
+          setSseUrl(null);
+          setStatus({
+            step: "failed",
+            message: "Tempo limite excedido",
+            error: "A geracao esta demorando mais que o normal.",
+          });
+        }
+        return;
+      }
+
+      if (event.type === "status") {
+        // Fetch wizard for detailed progress
+        try {
+          const response = await fetch(`/api/wizard/${wizardId}`);
+          if (response.ok) {
+            const wizard = await response.json();
+
+            if (wizard.generatedContent) {
+              const generatedContent: GeneratedContent =
+                typeof wizard.generatedContent === "string"
+                  ? JSON.parse(wizard.generatedContent)
+                  : wizard.generatedContent;
+              handleContentReady(generatedContent);
+              return;
+            }
+
+            if (wizard.currentStep === "abandoned" || wizard.jobStatus === "failed") {
+              if (isMountedRef.current) {
+                setSseUrl(null);
+                setStatus({
+                  step: "failed",
+                  message: "Geracao falhou",
+                  error: wizard.jobError || "Ocorreu um erro ao gerar o conteudo.",
+                });
+              }
+              return;
+            }
+
+            const jobStatus = wizard.jobStatus || "pending";
+            let newStatus: GenerationStatus;
+
+            switch (jobStatus) {
+              case "pending":
+                newStatus = {
+                  step: "idle",
+                  message: "Aguardando inicio da geracao...",
+                };
+                break;
+              case "processing":
+                newStatus = {
+                  step: "generating",
+                  message: "Gerando conteudo com IA...",
+                  progress: wizard.generationProgress?.percent ?? 50,
+                };
+                break;
+              default:
+                newStatus = {
+                  step: "idle",
+                  message: "Processando...",
+                };
+            }
+
+            if (isMountedRef.current) {
+              setStatus((prev) => {
+                if (prev.step !== newStatus.step || prev.message !== newStatus.message) {
+                  return newStatus;
+                }
+                return prev;
+              });
+            }
+          }
+        } catch {
+          // Silent fail
+        }
+      }
+    },
+    [wizardId, fetchWizardContent, handleContentReady]
+  );
+
+  // ====================================================================
+  // POLLING FALLBACK for SSE hook
+  // ====================================================================
+  const fallbackPoll = useCallback(async (): Promise<JobSSEEvent | null> => {
+    try {
+      const response = await fetch(`/api/wizard/${wizardId}`);
+      if (!response.ok) {
+        if (response.status === 404) {
+          return { type: "failed", data: { status: "failed", error: "O wizard nao existe ou foi excluido." } };
+        }
+        return null;
+      }
+
+      const wizard = await response.json();
+
+      if (wizard.generatedContent) {
+        return { type: "completed", data: { status: "completed" } };
+      }
+
+      if (wizard.currentStep === "abandoned" || wizard.jobStatus === "failed") {
+        return { type: "failed", data: { status: "failed", error: wizard.jobError || "Ocorreu um erro ao gerar o conteudo." } };
+      }
+
+      // Capture jobId if not yet set
+      if (wizard.jobId && !jobIdRef.current) {
+        jobIdRef.current = wizard.jobId;
+      }
+
+      return { type: "status", data: { status: wizard.jobStatus || "pending" } };
+    } catch {
+      return null;
+    }
+  }, [wizardId]);
+
+  // ====================================================================
+  // SSE HOOK
+  // ====================================================================
+  useSSE<JobSSEEvent>({
+    url: sseUrl,
+    onMessage: handleSSEMessage,
+    onError: (err) => {
+      console.warn("[Step4Generation] SSE error:", err.message);
+    },
+    fallbackPollingMs: 2000,
+    fallbackPollFn: fallbackPoll,
+  });
+
+  // ====================================================================
+  // POLLING WHEN NO SSE URL YET (waiting for jobId)
+  // ====================================================================
+  useEffect(() => {
+    if (sseUrl) return;
+    if (status.step === "completed" || status.step === "failed") return;
+
+    isMountedRef.current = true;
+
+    const directPoll = async () => {
+      const result = await fallbackPoll();
+      if (!result || !isMountedRef.current) return;
+      handleSSEMessage(result);
+    };
+
+    directPoll();
+    pollIntervalRef.current = setInterval(directPoll, 2000);
+
+    return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
     };
-  }, [wizardId, onComplete]);
+  }, [sseUrl, status.step, fallbackPoll, handleSSEMessage]);
+
+  // ====================================================================
+  // ELAPSED TIME COUNTER
+  // ====================================================================
+  useEffect(() => {
+    startTimeRef.current = Date.now();
+    timerIntervalRef.current = setInterval(() => {
+      if (isMountedRef.current) {
+        setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      }
+    }, 1000);
+
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Stop timer when completed or failed
+  useEffect(() => {
+    if (status.step === "completed" || status.step === "failed") {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    }
+  }, [status.step]);
 
   const handleSaveToLibrary = async () => {
     if (!content || !onSaveToLibrary) return;
@@ -636,6 +887,40 @@ export function Step4Generation({
               </div>
             </div>
 
+            {/* Elapsed Time & Estimate */}
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center justify-between px-4 py-3 rounded-xl bg-white/[0.02] border border-white/10"
+            >
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary/70" />
+                <span className="text-sm text-white/70">
+                  Tempo decorrido:{" "}
+                  <span className="text-white font-medium">
+                    {formatElapsedTime(elapsedSeconds)}
+                  </span>
+                </span>
+              </div>
+              <span className="text-xs text-white/50">
+                Estimativa: {timeEstimate.label}
+              </span>
+            </motion.div>
+
+            {/* Taking Longer Warning */}
+            {isTakingLong && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30"
+              >
+                <Clock className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <p className="text-xs text-amber-300">
+                  Levando mais que o esperado... Por favor, aguarde. A geracao continuara em segundo plano.
+                </p>
+              </motion.div>
+            )}
+
             {/* Loading Animation */}
             <div className="flex flex-col items-center gap-4 py-8">
               <motion.div
@@ -652,7 +937,7 @@ export function Step4Generation({
                   {status.message}
                 </p>
                 <p className="text-xs text-white/50">
-                  Isso pode levar alguns segundos...
+                  Gerando conteudo... ({timeEstimate.label})
                 </p>
               </div>
 
@@ -718,23 +1003,19 @@ export function Step4Generation({
             key="failed"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col items-center gap-4 py-8"
+            className="py-4"
           >
-            <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center">
-              <AlertCircle className="w-8 h-8 text-red-400" />
-            </div>
-            <div className="text-center space-y-1">
-              <p className="text-sm font-medium text-white">{status.message}</p>
-              {status.error && (
-                <p className="text-xs text-white/50">{status.error}</p>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={onRegenerate}>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Tentar novamente
-              </Button>
-            </div>
+            <ErrorFeedback
+              message={
+                getSpecificErrorMessage(status.error || status.message).message
+              }
+              suggestion={
+                getSpecificErrorMessage(status.error || status.message)
+                  .suggestion || status.error
+              }
+              onRetry={onRegenerate}
+              retryLabel="Tentar novamente"
+            />
           </motion.div>
         )}
 

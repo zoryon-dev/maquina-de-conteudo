@@ -654,16 +654,38 @@ export function Step1Inputs({
                                       );
                                     }}
                                     className={cn(
-                                      "w-full px-4 py-3 text-left text-sm flex items-center gap-3 transition-colors border-b border-white/5 last:border-b-0",
+                                      "w-full px-4 py-3 text-left text-sm flex flex-col gap-1 transition-colors border-b border-white/5 last:border-b-0",
                                       selectedModel === model.id
                                         ? "bg-primary/20 text-primary"
                                         : "text-white/80 hover:bg-white/[0.03] hover:text-white"
                                     )}
                                   >
-                                    <Cpu className="w-4 h-4 flex-shrink-0" />
-                                    <span className="flex-1">{model.name}</span>
-                                    {selectedModel === model.id && (
-                                      <span className="text-primary">✓</span>
+                                    <div className="flex items-center gap-3 w-full">
+                                      <Cpu className="w-4 h-4 flex-shrink-0" />
+                                      <span className="flex-1 font-medium">{model.name}</span>
+                                      <div className="flex items-center gap-2 flex-shrink-0">
+                                        {model.speed && (
+                                          <span className={cn(
+                                            "text-[10px] font-medium",
+                                            model.speed === "fast" ? "text-green-400/80" :
+                                            model.speed === "medium" ? "text-yellow-400/80" :
+                                            "text-orange-400/80"
+                                          )}>
+                                            {model.speed === "fast" ? "Rapido" : model.speed === "medium" ? "Medio" : "Lento"}
+                                          </span>
+                                        )}
+                                        {model.cost && (
+                                          <span className="text-[10px] text-primary/70 font-medium">{model.cost}</span>
+                                        )}
+                                        {selectedModel === model.id && (
+                                          <span className="text-primary font-bold">✓</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {model.bestFor && (
+                                      <span className="text-[11px] text-white/40 pl-7 leading-tight">
+                                        {model.bestFor}
+                                      </span>
                                     )}
                                   </button>
                                 ))}

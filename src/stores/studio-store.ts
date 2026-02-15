@@ -26,6 +26,7 @@ import {
   getRecommendedTemplate,
   MAX_SLIDES,
 } from "@/lib/studio-templates/types";
+import { undoRedo, type UndoRedoState } from "./middleware/undo-redo";
 
 // ============================================================================
 // STORE ACTIONS
@@ -95,7 +96,8 @@ interface StudioActions {
 // STORE TYPE
 // ============================================================================
 
-type StudioStore = StudioState & StudioActions;
+type StudioStoreBase = StudioState & StudioActions;
+type StudioStore = StudioStoreBase & UndoRedoState;
 
 // ============================================================================
 // STORE IMPLEMENTATION
@@ -104,6 +106,7 @@ type StudioStore = StudioState & StudioActions;
 export const useStudioStore = create<StudioStore>()(
   devtools(
     persist(
+      (undoRedo as unknown as (creator: import("zustand").StateCreator<StudioStoreBase>) => import("zustand").StateCreator<StudioStore>)(
       (set, get) => ({
         // ============ INITIAL STATE ============
         ...createInitialStudioState(),
@@ -318,6 +321,11 @@ export const useStudioStore = create<StudioStore>()(
         // ============ RESET ============
         reset: () => {
           set(createInitialStudioState());
+          // Limpar historico de undo/redo apos reset
+          const state = get();
+          if ("clearHistory" in state) {
+            (state as StudioStore).clearHistory();
+          }
         },
 
         loadProject: (projectState) => {
@@ -348,8 +356,13 @@ export const useStudioStore = create<StudioStore>()(
             ),
             isDirty: false,
           }));
+          // Limpar historico de undo/redo ao carregar projeto
+          const currentState = get();
+          if ("clearHistory" in currentState) {
+            (currentState as StudioStore).clearHistory();
+          }
         },
-      }),
+      })),
       {
         name: "studio-store",
         version: 1,

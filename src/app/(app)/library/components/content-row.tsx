@@ -8,7 +8,7 @@
 "use client"
 
 import Link from "next/link"
-import { Check, Type, Image, Layers, Video, Camera, MoreVertical, Edit2, Copy, Trash2 } from "lucide-react"
+import { Check, Type, Image, Layers, Video, Camera, MoreVertical, Edit2, Copy, Trash2, Sparkles } from "lucide-react"
 import { useState, useMemo } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -61,6 +61,7 @@ interface ContentRowProps {
   onSelect: () => void
   onEdit: () => void
   onDelete: () => void
+  similarity?: number
 }
 
 const TYPE_ICONS: Record<string, typeof Type> = {
@@ -77,6 +78,7 @@ export function ContentRow({
   onSelect,
   onEdit,
   onDelete,
+  similarity,
 }: ContentRowProps) {
   const [isHovered, setIsHovered] = useState(false)
 
@@ -129,14 +131,22 @@ export function ContentRow({
 
           {/* Title and content preview - clickable */}
           <div className="min-w-0 flex-1">
-            <Link
-              href={`/library/${item.id}`}
-              className="block"
-            >
-              <p className="text-sm font-medium text-white truncate max-w-md hover:text-primary transition-colors">
-                {item.title || "Sem título"}
-              </p>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/library/${item.id}`}
+                className="block min-w-0 flex-1"
+              >
+                <p className="text-sm font-medium text-white truncate max-w-md hover:text-primary transition-colors">
+                  {item.title || "Sem titulo"}
+                </p>
+              </Link>
+              {similarity !== undefined && (
+                <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30 text-[10px] px-1.5 py-0 shrink-0">
+                  <Sparkles className="w-2.5 h-2.5 mr-0.5" />
+                  {Math.round(similarity * 100)}%
+                </Badge>
+              )}
+            </div>
             {caption && (
               <p className="text-xs text-white/40 truncate max-w-md">
                 {caption}
