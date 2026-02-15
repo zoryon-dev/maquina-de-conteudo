@@ -2,7 +2,12 @@
  * Wizard Steps Indicator
  *
  * Visual indicator showing the current step in the wizard flow.
- * Displays progress through 5 steps: Input → Processing → Narratives → Generation → Image Generation
+ * Displays progress through steps with clickable visited steps.
+ *
+ * States:
+ * - Visited (past): Clickable, check icon, hover effect
+ * - Current: Active/highlighted with glow, not clickable
+ * - Future: Disabled, grayed out, not clickable
  */
 
 "use client";
@@ -37,27 +42,27 @@ const NON_VIDEO_STEPS: WizardStep[] = [
   {
     value: "input",
     label: "Briefing",
-    description: "Configure seu conteúdo",
+    description: "Configure seu conteudo",
   },
   {
     value: "processing",
     label: "Processando",
-    description: "Analisando referências",
+    description: "Analisando referencias",
   },
   {
     value: "narratives",
     label: "Narrativas",
-    description: "Escolha uma opção",
+    description: "Escolha uma opcao",
   },
   {
     value: "generation",
-    label: "Geração",
-    description: "Gerando seu conteúdo",
+    label: "Geracao",
+    description: "Gerando seu conteudo",
   },
   {
     value: "content-approval",
     label: "Texto",
-    description: "Aprove o conteúdo",
+    description: "Aprove o conteudo",
   },
   {
     value: "visual-studio",
@@ -70,33 +75,33 @@ const NON_VIDEO_STEPS: WizardStep[] = [
 const VIDEO_STEPS: WizardStep[] = [
   {
     value: "video-duration",
-    label: "Duração",
-    description: "Tempo do vídeo",
+    label: "Duracao",
+    description: "Tempo do video",
   },
   {
     value: "input",
     label: "Briefing",
-    description: "Configure seu conteúdo",
+    description: "Configure seu conteudo",
   },
   {
     value: "processing",
     label: "Processando",
-    description: "Analisando referências",
+    description: "Analisando referencias",
   },
   {
     value: "narratives",
     label: "Narrativas",
-    description: "Escolha uma opção",
+    description: "Escolha uma opcao",
   },
   {
     value: "content-approval",
-    label: "Aprovação",
-    description: "Revise o conteúdo",
+    label: "Aprovacao",
+    description: "Revise o conteudo",
   },
   {
     value: "titles-selection",
-    label: "Título",
-    description: "Escolha o título",
+    label: "Titulo",
+    description: "Escolha o titulo",
   },
   {
     value: "generation",
@@ -114,6 +119,9 @@ const VIDEO_STEPS: WizardStep[] = [
     description: "Gere visual (opcional)",
   },
 ];
+
+// Steps that should NOT be navigable (processing/auto-transition steps)
+const NON_NAVIGABLE_STEPS: WizardStepValue[] = ["processing", "generation"];
 
 interface WizardStepsIndicatorProps {
   currentStep: WizardStepValue;
@@ -147,26 +155,42 @@ export function WizardStepsIndicator({
           {steps.map((step, index) => {
             const isPast = index < currentStepIndex || isCompleted;
             const isCurrent = index === currentStepIndex;
-            const isClickable = onStepClick && isPast && step.value !== "processing";
+            const isFuture = index > currentStepIndex && !isCompleted;
+            const isNonNavigable = NON_NAVIGABLE_STEPS.includes(step.value);
+            const isClickable =
+              onStepClick && isPast && !isNonNavigable;
 
             return (
               <div key={step.value} className="flex items-center">
-                {/* Step Circle - Reduced size for compact layout */}
+                {/* Step Circle */}
                 <motion.button
-                  layoutId="wizard-step"
                   onClick={() => isClickable && onStepClick(step.value)}
                   disabled={!isClickable}
                   className={cn(
-                    "relative flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full border-2 transition-colors",
-                    isPast || isCurrent
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-white/20 bg-white/5 text-white/40",
-                    isClickable && "cursor-pointer hover:scale-110 active:scale-95",
-                    !isClickable && "cursor-default"
+                    "relative flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all duration-200",
+                    // Past (visited) steps
+                    isPast && !isClickable &&
+                      "border-primary bg-primary text-primary-foreground",
+                    isPast && isClickable &&
+                      "border-primary bg-primary text-primary-foreground cursor-pointer hover:scale-110 hover:shadow-lg hover:shadow-primary/30 active:scale-95",
+                    // Current step
+                    isCurrent &&
+                      "border-primary bg-primary text-primary-foreground cursor-default",
+                    // Future steps
+                    isFuture &&
+                      "border-white/20 bg-white/5 text-white/40 cursor-default"
                   )}
+                  whileHover={isClickable ? { scale: 1.1 } : undefined}
+                  whileTap={isClickable ? { scale: 0.95 } : undefined}
                 >
                   {isPast || (isCompleted && index <= currentStepIndex) ? (
                     <Check className="w-4 h-4" />
+                  ) : isCurrent ? (
+                    <motion.div
+                      className="w-2.5 h-2.5 rounded-full bg-current"
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    />
                   ) : (
                     <span className="text-xs font-semibold">{index + 1}</span>
                   )}
@@ -183,12 +207,24 @@ export function WizardStepsIndicator({
                   )}
                 </motion.button>
 
-                {/* Step Label - Hidden on very small screens, compact on others */}
-                <div className="ml-2 mr-3 min-w-0 max-w-[100px] sm:max-w-[120px]">
+                {/* Step Label */}
+                <div
+                  className={cn(
+                    "ml-2 mr-3 min-w-0 max-w-[100px] sm:max-w-[120px]",
+                    isClickable && "cursor-pointer"
+                  )}
+                  onClick={() => isClickable && onStepClick(step.value)}
+                >
                   <p
                     className={cn(
                       "text-xs font-medium truncate transition-colors hidden sm:block",
-                      isCurrent ? "text-white" : "text-white/60"
+                      isCurrent
+                        ? "text-white"
+                        : isPast && isClickable
+                          ? "text-white/70 hover:text-white"
+                          : isPast
+                            ? "text-white/60"
+                            : "text-white/40"
                     )}
                   >
                     {step.label}
@@ -203,7 +239,7 @@ export function WizardStepsIndicator({
                   </p>
                 </div>
 
-                {/* Connector Line - Reduced spacing */}
+                {/* Connector Line */}
                 {index < steps.length - 1 && (
                   <div
                     className={cn(

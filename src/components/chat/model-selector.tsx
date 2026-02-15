@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { TEXT_MODELS, IMAGE_MODELS, DEFAULT_TEXT_MODEL, type AIModel } from "@/lib/models"
+import { TEXT_MODELS, IMAGE_MODELS, DEFAULT_TEXT_MODEL, type AIModel, type ModelSpeed } from "@/lib/models"
 
 export interface ModelSelectorProps {
   value?: string
@@ -124,15 +124,28 @@ export function ModelSelector({
                 key={model.id}
                 onClick={() => handleSelect(model.id)}
                 className={cn(
-                  "flex items-center justify-between gap-2 py-2 px-3",
+                  "flex flex-col items-start gap-0.5 py-2.5 px-3",
                   "text-white/70 hover:text-white hover:bg-white/5",
                   "cursor-pointer text-xs",
                   value === model.id && "bg-white/5 text-white"
                 )}
               >
-                <span>{model.name}</span>
-                {value === model.id && (
-                  <Check className="w-4 h-4 text-primary shrink-0" />
+                <div className="flex items-center justify-between w-full gap-2">
+                  <span className="font-medium">{model.name}</span>
+                  <div className="flex items-center gap-1.5">
+                    {model.speed && (
+                      <ModelSpeedBadge speed={model.speed} />
+                    )}
+                    {model.cost && (
+                      <span className="text-[10px] text-primary/70 font-medium">{model.cost}</span>
+                    )}
+                    {value === model.id && (
+                      <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+                    )}
+                  </div>
+                </div>
+                {model.bestFor && (
+                  <span className="text-[10px] text-white/40 leading-tight">{model.bestFor}</span>
                 )}
               </DropdownMenuItem>
             ))}
@@ -155,15 +168,28 @@ export function ModelSelector({
                 key={model.id}
                 onClick={() => handleSelect(model.id)}
                 className={cn(
-                  "flex items-center justify-between gap-2 py-2 px-3",
+                  "flex flex-col items-start gap-0.5 py-2.5 px-3",
                   "text-white/70 hover:text-white hover:bg-white/5",
                   "cursor-pointer text-xs",
                   value === model.id && "bg-white/5 text-white"
                 )}
               >
-                <span>{model.name}</span>
-                {value === model.id && (
-                  <Check className="w-4 h-4 text-primary shrink-0" />
+                <div className="flex items-center justify-between w-full gap-2">
+                  <span className="font-medium">{model.name}</span>
+                  <div className="flex items-center gap-1.5">
+                    {model.speed && (
+                      <ModelSpeedBadge speed={model.speed} />
+                    )}
+                    {model.cost && (
+                      <span className="text-[10px] text-primary/70 font-medium">{model.cost}</span>
+                    )}
+                    {value === model.id && (
+                      <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+                    )}
+                  </div>
+                </div>
+                {model.bestFor && (
+                  <span className="text-[10px] text-white/40 leading-tight">{model.bestFor}</span>
                 )}
               </DropdownMenuItem>
             ))}
@@ -171,6 +197,22 @@ export function ModelSelector({
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+/** Speed badge for model selector */
+const SPEED_CONFIG: Record<ModelSpeed, { label: string; color: string }> = {
+  fast: { label: "Rapido", color: "text-green-400/80" },
+  medium: { label: "Medio", color: "text-yellow-400/80" },
+  slow: { label: "Lento", color: "text-orange-400/80" },
+}
+
+function ModelSpeedBadge({ speed }: { speed: ModelSpeed }) {
+  const config = SPEED_CONFIG[speed]
+  return (
+    <span className={cn("text-[10px] font-medium", config.color)}>
+      {config.label}
+    </span>
   )
 }
 

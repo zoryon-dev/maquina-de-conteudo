@@ -4,21 +4,25 @@
  * Shows loading/polling state while the wizard_narratives job processes.
  * Polls GET /api/wizard/[id] until narratives are ready.
  * Handles job status updates and error states.
+ *
+ * Includes time estimates and elapsed timer for better UX.
  */
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   Loader2,
   FileText,
   Search,
   Sparkles,
-  AlertCircle,
-  RefreshCw,
+  Clock,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {
+  ErrorFeedback,
+  getSpecificErrorMessage,
+} from "@/components/ui/error-feedback";
 import { cn } from "@/lib/utils";
 
 export interface ProcessingStatus {
@@ -39,22 +43,38 @@ const PROCESSING_STEPS = [
   {
     key: "extracting",
     icon: FileText,
-    label: "Extraindo conteúdo",
-    description: "Firecrawl está analisando as URLs de referência",
+    label: "Extraindo conteudo",
+    description: "Firecrawl esta analisando as URLs de referencia",
+    timeEstimate: "~15 segundos",
+    estimatedSeconds: 15,
   },
   {
     key: "researching",
     icon: Search,
     label: "Pesquisando contexto",
-    description: "Tavily está buscando informações complementares",
+    description: "Tavily esta buscando informacoes complementares",
+    timeEstimate: "~15 segundos",
+    estimatedSeconds: 15,
   },
   {
     key: "generating",
     icon: Sparkles,
     label: "Gerando narrativas",
-    description: "IA está criando opções de narrativas para seu conteúdo",
+    description: "IA esta criando opcoes de narrativas para seu conteudo",
+    timeEstimate: "~30-60 segundos",
+    estimatedSeconds: 45,
   },
 ];
+
+/** Format seconds to mm:ss or just Xs */
+function formatElapsedTime(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}m ${secs.toString().padStart(2, "0")}s`;
+}
 
 export function Step2Processing({
   wizardId,
@@ -67,14 +87,51 @@ export function Step2Processing({
     message: "Iniciando processamento...",
   });
   const [retryCount, setRetryCount] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const isMountedRef = useRef(true);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const startTimeRef = useRef(Date.now());
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef(0);
 
   // Maximum polling time (5 minutes)
   const POLLING_TIMEOUT = 5 * 60 * 1000;
+
+  // Total estimated time for all steps
+  const totalEstimatedSeconds = PROCESSING_STEPS.reduce(
+    (sum, s) => sum + s.estimatedSeconds,
+    0
+  );
+
+  // Whether processing is taking longer than expected
+  const isTakingLong = elapsedSeconds > totalEstimatedSeconds;
+
+  // Elapsed time counter
+  useEffect(() => {
+    startTimeRef.current = Date.now();
+    timerIntervalRef.current = setInterval(() => {
+      if (isMountedRef.current) {
+        setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      }
+    }, 1000);
+
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Stop timer when completed or failed
+  useEffect(() => {
+    if (status.step === "completed" || status.step === "failed") {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    }
+  }, [status.step]);
 
   // Poll wizard status until narratives are ready
   useEffect(() => {
@@ -89,7 +146,7 @@ export function Step2Processing({
             setStatus({
               step: "failed",
               message: "Tempo limite excedido",
-              error: "O processamento está demorando mais que o normal. Verifique se o worker está configurado corretamente.",
+              error: "O processamento esta demorando mais que o normal. Verifique se o worker esta configurado corretamente.",
             });
             if (pollIntervalRef.current) {
               clearInterval(pollIntervalRef.current);
@@ -106,10 +163,10 @@ export function Step2Processing({
           if (response.status === 404 && isMountedRef.current) {
             setStatus({
               step: "failed",
-              message: "Wizard não encontrado",
-              error: "O wizard não existe ou foi excluído.",
+              message: "Wizard nao encontrado",
+              error: "O wizard nao existe ou foi excluido.",
             });
-            onError?.("Wizard não encontrado");
+            onError?.("Wizard nao encontrado");
           }
           return;
         }
@@ -163,7 +220,7 @@ export function Step2Processing({
           case "pending":
             newStatus = {
               step: "idle",
-              message: "Aguardando início do processamento...",
+              message: "Aguardando inicio do processamento...",
             };
             break;
           case "processing":
@@ -178,7 +235,7 @@ export function Step2Processing({
             } else {
               newStatus = {
                 step: "extracting",
-                message: "Processando informações...",
+                message: "Processando informacoes...",
                 progress: 33,
               };
             }
@@ -199,7 +256,7 @@ export function Step2Processing({
             return prev;
           });
         }
-      } catch (error) {
+      } catch {
         // Silent fail - polling error, will retry
 
         if (isMountedRef.current && retryCount < 3) {
@@ -213,10 +270,10 @@ export function Step2Processing({
         } else if (isMountedRef.current) {
           setStatus({
             step: "failed",
-            message: "Erro de conexão",
-            error: "Não foi possível conectar ao servidor. Tente novamente.",
+            message: "Erro de conexao",
+            error: "Nao foi possivel conectar ao servidor. Tente novamente.",
           });
-          onError?.("Erro de conexão");
+          onError?.("Erro de conexao");
         }
       }
     };
@@ -239,13 +296,23 @@ export function Step2Processing({
     };
   }, [wizardId, retryCount, onComplete, onError]);
 
-  const handleRetry = () => {
+  const handleRetry = useCallback(() => {
     setRetryCount(0);
+    setElapsedSeconds(0);
+    startTimeRef.current = Date.now();
     setStatus({
       step: "idle",
       message: "Tentando novamente...",
     });
-  };
+    // Restart timer
+    if (!timerIntervalRef.current) {
+      timerIntervalRef.current = setInterval(() => {
+        if (isMountedRef.current) {
+          setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
+        }
+      }, 1000);
+    }
+  }, []);
 
   const isFailed = status.step === "failed";
   const currentStepIndex = PROCESSING_STEPS.findIndex((s) => s.key === status.step);
@@ -253,6 +320,42 @@ export function Step2Processing({
 
   return (
     <div className={cn("space-y-6", className)}>
+      {/* Elapsed Time Counter */}
+      {!isFailed && status.step !== "completed" && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between px-4 py-3 rounded-xl bg-white/[0.02] border border-white/10"
+        >
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-primary/70" />
+            <span className="text-sm text-white/70">
+              Tempo decorrido:{" "}
+              <span className="text-white font-medium">
+                {formatElapsedTime(elapsedSeconds)}
+              </span>
+            </span>
+          </div>
+          <span className="text-xs text-white/50">
+            Estimativa total: ~{formatElapsedTime(totalEstimatedSeconds)}
+          </span>
+        </motion.div>
+      )}
+
+      {/* Taking Longer Warning */}
+      {isTakingLong && !isFailed && status.step !== "completed" && (
+        <motion.div
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30"
+        >
+          <Clock className="w-4 h-4 text-amber-400 flex-shrink-0" />
+          <p className="text-xs text-amber-300">
+            Levando mais que o esperado... Por favor, aguarde. O processamento continuara em segundo plano.
+          </p>
+        </motion.div>
+      )}
+
       {/* Processing Steps Visualization */}
       <div className="space-y-4">
         {PROCESSING_STEPS.map((step, index) => {
@@ -334,6 +437,20 @@ export function Step2Processing({
                 >
                   {step.description}
                 </p>
+                {/* Time estimate */}
+                <p
+                  className={cn(
+                    "text-xs mt-1 flex items-center gap-1",
+                    isCurrent
+                      ? "text-primary/80"
+                      : isPast
+                        ? "text-green-400/60"
+                        : "text-white/20"
+                  )}
+                >
+                  <Clock className="w-3 h-3" />
+                  {isPast ? "Concluido" : step.timeEstimate}
+                </p>
               </div>
 
               {/* Current Step Indicator */}
@@ -374,10 +491,15 @@ export function Step2Processing({
             </div>
             <div className="flex-1">
               <h3 className="text-sm font-semibold text-white">
-                Processamento concluído!
+                Processamento concluido!
               </h3>
               <p className="text-xs text-white/70">
-                As narrativas estão prontas para sua seleção.
+                As narrativas estao prontas para sua selecao.
+                {elapsedSeconds > 0 && (
+                  <span className="text-white/50 ml-2">
+                    ({formatElapsedTime(elapsedSeconds)})
+                  </span>
+                )}
               </p>
             </div>
           </motion.div>
@@ -385,33 +507,18 @@ export function Step2Processing({
 
         {/* Failed State */}
         {isFailed && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-start gap-3 p-4 rounded-xl border-2 border-red-500/30 bg-red-500/5"
-          >
-            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-semibold text-white mb-1">
-                {status.message}
-              </h3>
-              {status.error && (
-                <p className="text-xs text-white/60 mb-3">{status.error}</p>
-              )}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleRetry}
-                className="text-xs"
-              >
-                <RefreshCw className="w-3 h-3 mr-2" />
-                Tentar novamente
-              </Button>
-            </div>
-          </motion.div>
+          <ErrorFeedback
+            message={
+              getSpecificErrorMessage(status.error || status.message).message
+            }
+            suggestion={
+              getSpecificErrorMessage(status.error || status.message)
+                .suggestion ||
+              status.error
+            }
+            onRetry={handleRetry}
+            retryLabel="Tentar novamente"
+          />
         )}
       </div>
 
@@ -440,8 +547,8 @@ export function Step2Processing({
         <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
           <FileText className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
           <p className="text-xs text-blue-200/70">
-            Este processo pode levar alguns segundos, dependendo da quantidade de
-            referências e da complexidade do conteúdo.
+            Analisando contexto e buscando referencias... O tempo total depende da quantidade de
+            referencias e da complexidade do conteudo.
           </p>
         </div>
       )}
@@ -451,9 +558,9 @@ export function Step2Processing({
 
 function getStageMessage(stage: string): string {
   const messages: Record<string, string> = {
-    extraction: "Extraindo conteúdo das URLs de referência...",
-    transcription: "Transcrevendo conteúdo do vídeo...",
-    research: "Buscando informações contextuais...",
+    extraction: "Extraindo conteudo das URLs de referencia...",
+    transcription: "Transcrevendo conteudo do video...",
+    research: "Buscando informacoes contextuais...",
     narratives: "Gerando narrativas com IA...",
   };
   return messages[stage] || "Processando...";

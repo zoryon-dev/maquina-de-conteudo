@@ -22,6 +22,7 @@ import {
   Images,
   Smartphone,
   Keyboard,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +39,7 @@ import {
 import { useStudioStore } from "@/stores/studio-store";
 import type { StudioContentType } from "@/lib/studio-templates/types";
 import { toast } from "sonner";
+import { downloadZip, type ZipEntry } from "@/lib/export/zip-generator";
 
 const CONTENT_TYPE_OPTIONS: {
   value: StudioContentType;
@@ -68,6 +70,7 @@ const CONTENT_TYPE_OPTIONS: {
 export function StudioHeader() {
   const router = useRouter();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const projectTitle = useStudioStore((state) => state.projectTitle);
   const contentType = useStudioStore((state) => state.contentType);
@@ -233,6 +236,101 @@ export function StudioHeader() {
     }
   };
 
+  const handleExportAll = async () => {
+    const state = useStudioStore.getState();
+
+    if (state.slides.length === 0) {
+      toast.error("Adicione pelo menos um slide antes de exportar");
+      return;
+    }
+
+    setIsExporting(true);
+    toast.info("Exportando slides... Isso pode levar alguns segundos.");
+
+    try {
+      const response = await fetch("/api/studio/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slides: state.slides,
+          profile: state.profile,
+          header: state.header,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Erro do servidor: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || "Erro ao exportar");
+      }
+
+      // Construir entradas do ZIP com os PNGs base64
+      const entries: ZipEntry[] = result.slides.map(
+        (slide: { index: number; base64: string }) => {
+          const binary = atob(slide.base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: "image/png" });
+
+          return {
+            name: `slide-${String(slide.index + 1).padStart(2, "0")}.png`,
+            blob,
+          };
+        }
+      );
+
+      // Adicionar project.json com o estado do studio para re-import
+      const projectJson = JSON.stringify(
+        {
+          contentType: state.contentType,
+          aspectRatio: state.aspectRatio,
+          slides: state.slides,
+          caption: state.caption,
+          hashtags: state.hashtags,
+          profile: state.profile,
+          header: state.header,
+          projectTitle: state.projectTitle,
+          exportedAt: new Date().toISOString(),
+        },
+        null,
+        2
+      );
+      entries.push({
+        name: "project.json",
+        blob: new Blob([projectJson], { type: "application/json" }),
+      });
+
+      // Gerar nome do arquivo sanitizado
+      const safeName = state.projectTitle
+        .replace(/[^a-zA-Z0-9\u00C0-\u024F\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .toLowerCase()
+        .slice(0, 50);
+      const timestamp = Date.now();
+
+      await downloadZip(entries, `${safeName || "studio"}-${timestamp}.zip`);
+      toast.success("Exportacao concluida!");
+    } catch (error) {
+      console.error("[StudioHeader] Export error:", error);
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        toast.error("Erro de conexao. Verifique sua internet.");
+        return;
+      }
+      toast.error(
+        error instanceof Error ? error.message : "Erro ao exportar projeto"
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleBack = () => {
     if (isDirty) {
       if (
@@ -375,6 +473,21 @@ export function StudioHeader() {
             </div>
           </PopoverContent>
         </Popover>
+
+        {/* Export All Button */}
+        <Button
+          variant="outline"
+          onClick={handleExportAll}
+          disabled={isExporting || isPublishing}
+          className="gap-2 bg-white/5 border-white/10 text-white/80 hover:bg-white/10 hover:text-white disabled:opacity-50"
+        >
+          {isExporting ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Download className="w-4 h-4" />
+          )}
+          {isExporting ? "Exportando..." : "Exportar Tudo"}
+        </Button>
 
         {/* Save Button */}
         <Button

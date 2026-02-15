@@ -17,7 +17,7 @@ import {
   libraryItemTags,
   contentWizards,
 } from "@/db/schema"
-import { eq, and, gte, lte, isNull, inArray, desc, asc, sql, ilike } from "drizzle-orm"
+import { eq, and, gte, lte, isNull, isNotNull, inArray, desc, asc, sql, ilike } from "drizzle-orm"
 import { escapeILike } from "@/lib/utils"
 import type {
   LibraryItemWithRelations,
@@ -1709,6 +1709,399 @@ export async function saveWizardVideoToLibraryAction(
     return {
       success: false,
       error: error instanceof Error ? error.message : "Erro ao salvar vídeo na biblioteca",
+    }
+  }
+}
+
+// ============================================================================
+// TRASH / RECYCLE BIN ACTIONS
+// ============================================================================
+
+/**
+ * Get items in trash (soft-deleted) with pagination
+ *
+ * @param params - Pagination parameters
+ * @returns Paginated list of deleted library items
+ */
+export async function getTrashItemsAction(
+  params: { page?: number; limit?: number; search?: string } = {}
+): Promise<PaginatedList<LibraryItemWithRelations>> {
+  const emptyResult: PaginatedList<LibraryItemWithRelations> = {
+    items: [],
+    pagination: { page: 1, limit: 12, total: 0, totalPages: 0 },
+  }
+
+  let userId: string
+  try {
+    userId = await ensureAuthenticatedUser()
+  } catch {
+    return emptyResult
+  }
+
+  const page = params.page ?? 1
+  const limit = params.limit ?? 12
+  const offset = (page - 1) * limit
+
+  try {
+    // Build conditions for trash items
+    const conditions = [
+      eq(libraryItems.userId, userId),
+      isNotNull(libraryItems.deletedAt),
+    ]
+
+    // Add search filter
+    if (params.search) {
+      const escaped = escapeILike(params.search)
+      conditions.push(
+        sql`(${libraryItems.title} ILIKE ${"%" + escaped + "%"} OR ${libraryItems.content} ILIKE ${"%" + escaped + "%"})`
+      )
+    }
+
+    // Get total count
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(libraryItems)
+      .where(and(...conditions))
+    const total = count
+
+    // Fetch items ordered by deletedAt desc (most recently deleted first)
+    const items = await db
+      .select({
+        id: libraryItems.id,
+        userId: libraryItems.userId,
+        type: libraryItems.type,
+        status: libraryItems.status,
+        title: libraryItems.title,
+        content: libraryItems.content,
+        mediaUrl: libraryItems.mediaUrl,
+        metadata: libraryItems.metadata,
+        scheduledFor: libraryItems.scheduledFor,
+        publishedAt: libraryItems.publishedAt,
+        categoryId: libraryItems.categoryId,
+        createdAt: libraryItems.createdAt,
+        updatedAt: libraryItems.updatedAt,
+        deletedAt: libraryItems.deletedAt,
+      })
+      .from(libraryItems)
+      .where(and(...conditions))
+      .orderBy(desc(libraryItems.deletedAt))
+      .limit(limit)
+      .offset(offset)
+
+    if (items.length === 0) {
+      return {
+        items: [],
+        pagination: { page, limit, total: 0, totalPages: 0 },
+      }
+    }
+
+    // Fetch related data (categories, tags)
+    const itemIds = items.map((item) => item.id)
+
+    const categoryIds = items
+      .map((item) => item.categoryId)
+      .filter((id): id is number => id !== null)
+
+    const categoriesData =
+      categoryIds.length > 0
+        ? await db
+            .select()
+            .from(categories)
+            .where(inArray(categories.id, categoryIds))
+        : []
+
+    const categoryMap = new Map(categoriesData.map((c) => [c.id, c]))
+
+    const tagsData = await db
+      .select({
+        tagId: libraryItemTags.tagId,
+        libraryItemId: libraryItemTags.libraryItemId,
+        tag: {
+          id: tags.id,
+          userId: tags.userId,
+          name: tags.name,
+          color: tags.color,
+          createdAt: tags.createdAt,
+        },
+      })
+      .from(libraryItemTags)
+      .innerJoin(tags, eq(libraryItemTags.tagId, tags.id))
+      .where(inArray(libraryItemTags.libraryItemId, itemIds))
+
+    const tagsMap = new Map<number, Tag[]>()
+    for (const row of tagsData) {
+      if (!tagsMap.has(row.libraryItemId)) {
+        tagsMap.set(row.libraryItemId, [])
+      }
+      tagsMap.get(row.libraryItemId)!.push(row.tag as Tag)
+    }
+
+    // Combine data
+    const result: LibraryItemWithRelations[] = items.map((item) => ({
+      ...item,
+      category: item.categoryId ? (categoryMap.get(item.categoryId) || null) : null,
+      tags: tagsMap.get(item.id) || [],
+      scheduledPosts: [],
+    })) as LibraryItemWithRelations[]
+
+    const totalPages = limit > 0 ? Math.ceil(total / limit) : 0
+
+    return {
+      items: result,
+      pagination: { page, limit, total, totalPages },
+    }
+  } catch (error) {
+    console.error("[getTrashItemsAction] Error fetching trash items:", error)
+    return emptyResult
+  }
+}
+
+/**
+ * Get count of items in trash
+ *
+ * @returns Number of items in trash
+ */
+export async function getTrashCountAction(): Promise<number> {
+  let userId: string
+  try {
+    userId = await ensureAuthenticatedUser()
+  } catch {
+    return 0
+  }
+
+  try {
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(libraryItems)
+      .where(
+        and(
+          eq(libraryItems.userId, userId),
+          isNotNull(libraryItems.deletedAt)
+        )
+      )
+
+    return count
+  } catch (error) {
+    console.error("[getTrashCountAction] Error:", error)
+    return 0
+  }
+}
+
+/**
+ * Restore a library item from trash (set deletedAt = null)
+ *
+ * @param id - Library item ID
+ * @returns Action result
+ */
+export async function restoreLibraryItemAction(
+  id: number
+): Promise<ActionResult> {
+  let userId: string
+  try {
+    userId = await ensureAuthenticatedUser()
+  } catch {
+    return { success: false, error: "Não autenticado" }
+  }
+
+  try {
+    // Check ownership and ensure it's in trash
+    const [existing] = await db
+      .select({ id: libraryItems.id, userId: libraryItems.userId, deletedAt: libraryItems.deletedAt })
+      .from(libraryItems)
+      .where(eq(libraryItems.id, id))
+      .limit(1)
+
+    if (!existing || existing.userId !== userId) {
+      return { success: false, error: "Conteúdo não encontrado" }
+    }
+
+    if (!existing.deletedAt) {
+      return { success: false, error: "Este conteúdo não está na lixeira" }
+    }
+
+    // Restore by clearing deletedAt
+    await db
+      .update(libraryItems)
+      .set({ deletedAt: null, updatedAt: new Date() })
+      .where(eq(libraryItems.id, id))
+
+    revalidatePath("/library")
+
+    return { success: true }
+  } catch (error) {
+    console.error("[restoreLibraryItemAction] Error:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Erro ao restaurar conteúdo",
+    }
+  }
+}
+
+/**
+ * Restore all items from trash
+ *
+ * @returns Action result with count of restored items
+ */
+export async function restoreAllTrashAction(): Promise<ActionResult & { count?: number }> {
+  let userId: string
+  try {
+    userId = await ensureAuthenticatedUser()
+  } catch {
+    return { success: false, error: "Não autenticado" }
+  }
+
+  try {
+    // Get count first
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(libraryItems)
+      .where(
+        and(
+          eq(libraryItems.userId, userId),
+          isNotNull(libraryItems.deletedAt)
+        )
+      )
+
+    if (count === 0) {
+      return { success: false, error: "Nenhum item na lixeira" }
+    }
+
+    // Restore all
+    await db
+      .update(libraryItems)
+      .set({ deletedAt: null, updatedAt: new Date() })
+      .where(
+        and(
+          eq(libraryItems.userId, userId),
+          isNotNull(libraryItems.deletedAt)
+        )
+      )
+
+    revalidatePath("/library")
+
+    return { success: true, count }
+  } catch (error) {
+    console.error("[restoreAllTrashAction] Error:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Erro ao restaurar conteúdos",
+    }
+  }
+}
+
+/**
+ * Permanently delete a library item (hard delete)
+ *
+ * @param id - Library item ID
+ * @returns Action result
+ */
+export async function permanentDeleteLibraryItemAction(
+  id: number
+): Promise<ActionResult> {
+  let userId: string
+  try {
+    userId = await ensureAuthenticatedUser()
+  } catch {
+    return { success: false, error: "Não autenticado" }
+  }
+
+  try {
+    // Check ownership and ensure it's in trash
+    const [existing] = await db
+      .select({ id: libraryItems.id, userId: libraryItems.userId, deletedAt: libraryItems.deletedAt })
+      .from(libraryItems)
+      .where(eq(libraryItems.id, id))
+      .limit(1)
+
+    if (!existing || existing.userId !== userId) {
+      return { success: false, error: "Conteúdo não encontrado" }
+    }
+
+    if (!existing.deletedAt) {
+      return { success: false, error: "O conteúdo precisa estar na lixeira para exclusão permanente" }
+    }
+
+    // Delete tag associations first
+    await db
+      .delete(libraryItemTags)
+      .where(eq(libraryItemTags.libraryItemId, id))
+
+    // Delete published posts associated with this item
+    await db
+      .delete(publishedPosts)
+      .where(eq(publishedPosts.libraryItemId, id))
+
+    // Hard delete the item
+    await db
+      .delete(libraryItems)
+      .where(eq(libraryItems.id, id))
+
+    revalidatePath("/library")
+
+    return { success: true }
+  } catch (error) {
+    console.error("[permanentDeleteLibraryItemAction] Error:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Erro ao excluir permanentemente",
+    }
+  }
+}
+
+/**
+ * Empty trash - permanently delete ALL items in trash
+ *
+ * @returns Action result with count of deleted items
+ */
+export async function emptyTrashAction(): Promise<ActionResult & { count?: number }> {
+  let userId: string
+  try {
+    userId = await ensureAuthenticatedUser()
+  } catch {
+    return { success: false, error: "Não autenticado" }
+  }
+
+  try {
+    // Get all trash item IDs
+    const trashItems = await db
+      .select({ id: libraryItems.id })
+      .from(libraryItems)
+      .where(
+        and(
+          eq(libraryItems.userId, userId),
+          isNotNull(libraryItems.deletedAt)
+        )
+      )
+
+    if (trashItems.length === 0) {
+      return { success: false, error: "Lixeira já está vazia" }
+    }
+
+    const trashIds = trashItems.map((item) => item.id)
+
+    // Delete tag associations
+    await db
+      .delete(libraryItemTags)
+      .where(inArray(libraryItemTags.libraryItemId, trashIds))
+
+    // Delete published posts
+    await db
+      .delete(publishedPosts)
+      .where(inArray(publishedPosts.libraryItemId, trashIds))
+
+    // Hard delete all trash items
+    await db
+      .delete(libraryItems)
+      .where(inArray(libraryItems.id, trashIds))
+
+    revalidatePath("/library")
+
+    return { success: true, count: trashIds.length }
+  } catch (error) {
+    console.error("[emptyTrashAction] Error:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Erro ao esvaziar lixeira",
     }
   }
 }

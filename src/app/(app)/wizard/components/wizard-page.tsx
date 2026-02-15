@@ -14,6 +14,10 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ProcessingModal } from "@/components/ui/processing-modal";
+import {
+  ErrorFeedback,
+  getSpecificErrorMessage,
+} from "@/components/ui/error-feedback";
 import type { WizardStepValue } from "./shared/wizard-steps-indicator";
 import { WizardStepsIndicator } from "./shared/wizard-steps-indicator";
 import { Step1Inputs } from "./steps/step-1-inputs";
@@ -612,11 +616,20 @@ export function WizardPage({
     }
   };
 
-  // Handle step click on indicator (navigate back)
+  // Handle step click on indicator (navigate back to any visited step)
   const handleStepClick = (step: WizardStepValue) => {
-    // Only allow going back to input or narratives
-    if (step === "input" && currentStep === "narratives") {
-      setCurrentStep("input");
+    // Determine step order based on content type
+    const steps = formData.contentType === "video"
+      ? ["video-duration", "input", "processing", "narratives", "content-approval", "titles-selection", "generation", "thumbnail-config", "image-generation"]
+      : ["input", "processing", "narratives", "generation", "content-approval", "visual-studio"];
+
+    const currentIndex = steps.indexOf(currentStep);
+    const targetIndex = steps.indexOf(step);
+
+    // Only allow navigating back (to visited steps), never forward
+    // Also skip processing/generation steps (they are auto-transition)
+    if (targetIndex < currentIndex && step !== "processing" && step !== "generation") {
+      setCurrentStep(step);
     }
   };
 
@@ -681,22 +694,21 @@ export function WizardPage({
       {/* Error Display */}
       <AnimatePresence>
         {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm"
-          >
-            {error}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setError(null)}
-              className="ml-4 text-red-300 hover:text-red-100"
-            >
-              Dismiss
-            </Button>
-          </motion.div>
+          <ErrorFeedback
+            message={getSpecificErrorMessage(error).message}
+            suggestion={getSpecificErrorMessage(error).suggestion}
+            onDismiss={() => setError(null)}
+            onRetry={
+              currentStep === "processing" || currentStep === "generation"
+                ? () => {
+                    setError(null);
+                    setCurrentStep("input");
+                  }
+                : undefined
+            }
+            retryLabel="Voltar ao Briefing"
+            variant="inline"
+          />
         )}
       </AnimatePresence>
 

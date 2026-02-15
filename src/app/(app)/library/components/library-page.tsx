@@ -7,9 +7,9 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { Library, Plus, AlertTriangle } from "lucide-react"
+import { Library, AlertTriangle, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -29,13 +29,19 @@ import { LibraryGrid } from "./library-grid"
 import { LibraryList } from "./library-list"
 import { EmptyLibraryState } from "./empty-library-state"
 import { ContentDialog } from "./content-dialog"
+import { TrashView } from "./trash-view"
 import { Pagination } from "@/components/ui/pagination"
+import { getTrashCountAction } from "../actions/library-actions"
 import type { LibraryItemWithRelations } from "@/types/library"
 import type { ContentStatus } from "@/db/schema"
 
 export function LibraryPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
+
+  // View mode: library or trash
+  const [activeTab, setActiveTab] = useState<"library" | "trash">("library")
+  const [trashCount, setTrashCount] = useState(0)
 
   // View mode (grid/list + sorting)
   const { viewMode, toggleViewMode, setSortBy, toggleSortOrder } = useLibraryView()
@@ -80,6 +86,34 @@ export function LibraryPage() {
   // Delete confirmation dialog state
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<number | null>(null)
+
+  // Fetch trash count on mount and when switching tabs
+  const fetchTrashCount = useCallback(async () => {
+    try {
+      const count = await getTrashCountAction()
+      setTrashCount(count)
+    } catch {
+      // Silently fail - count is not critical
+    }
+  }, [])
+
+  useEffect(() => {
+    void fetchTrashCount()
+  }, [fetchTrashCount])
+
+  // When switching back from trash to library, refresh both counts
+  const handleTabChange = (tab: "library" | "trash") => {
+    setActiveTab(tab)
+    if (tab === "library") {
+      refetch()
+      fetchTrashCount()
+    }
+  }
+
+  // Callback from TrashView to update trash count
+  const handleTrashCountChange = useCallback((count: number) => {
+    setTrashCount(count)
+  }, [])
 
   // Handle ?edit=ID parameter to open edit dialog
   useEffect(() => {
@@ -155,10 +189,11 @@ export function LibraryPage() {
     const result = await response.json()
 
     if (result.success) {
-      toast.success("Conteúdo excluído com sucesso")
+      toast.success("Conteudo movido para a lixeira")
       refetch()
+      fetchTrashCount()
     } else {
-      toast.error(result.error ?? "Erro ao excluir conteúdo")
+      toast.error(result.error ?? "Erro ao excluir conteudo")
     }
 
     setDeleteConfirmOpen(false)
@@ -178,11 +213,12 @@ export function LibraryPage() {
     const result = await response.json()
 
     if (result.success) {
-      toast.success(`${ids.length} ${ids.length === 1 ? "conteúdo excluído" : "conteúdos excluídos"} com sucesso`)
+      toast.success(`${ids.length} ${ids.length === 1 ? "conteudo movido" : "conteudos movidos"} para a lixeira`)
       clearSelection()
       refetch()
+      fetchTrashCount()
     } else {
-      toast.error(result.error ?? "Erro ao excluir conteúdos")
+      toast.error(result.error ?? "Erro ao excluir conteudos")
     }
   }
 
@@ -257,24 +293,31 @@ export function LibraryPage() {
         onBatchDelete={selectedIds.size > 0 ? handleBatchDelete : undefined}
         onBatchStatus={selectedIds.size > 0 ? handleBatchStatus : undefined}
         onClearSelection={selectedIds.size > 0 ? clearSelection : undefined}
+        activeTab={activeTab}
+        trashCount={trashCount}
+        onTabChange={handleTabChange}
       />
 
-      {/* Filter Bar */}
-      <LibraryFilterBar
-        filters={filters}
-        onUpdateFilters={updateFilters}
-        onClearFilters={clearFilters}
-        activeFilterCount={activeFilterCount}
-        onToggleType={toggleType}
-        onToggleStatus={toggleStatus}
-        onToggleCategory={toggleCategory}
-        onToggleTag={toggleTag}
-        onToggleDatePreset={toggleDatePreset}
-        onClearDateFilter={clearDateFilter}
-      />
+      {/* Show filter bar only in library mode */}
+      {activeTab === "library" && (
+        <LibraryFilterBar
+          filters={filters}
+          onUpdateFilters={updateFilters}
+          onClearFilters={clearFilters}
+          activeFilterCount={activeFilterCount}
+          onToggleType={toggleType}
+          onToggleStatus={toggleStatus}
+          onToggleCategory={toggleCategory}
+          onToggleTag={toggleTag}
+          onToggleDatePreset={toggleDatePreset}
+          onClearDateFilter={clearDateFilter}
+        />
+      )}
 
       {/* Content Area */}
-      {isLoading ? (
+      {activeTab === "trash" ? (
+        <TrashView onTrashCountChange={handleTrashCountChange} />
+      ) : isLoading ? (
         <LoadingState />
       ) : error ? (
         <ErrorState error={error} onRetry={refetch} />
@@ -309,8 +352,8 @@ export function LibraryPage() {
         />
       )}
 
-      {/* Pagination - show when there are items */}
-      {!isLoading && !error && items.length > 0 && totalPages > 1 && (
+      {/* Pagination - show when there are items (library mode only) */}
+      {activeTab === "library" && !isLoading && !error && items.length > 0 && totalPages > 1 && (
         <Pagination
           currentPage={page}
           totalPages={totalPages}
@@ -338,10 +381,11 @@ export function LibraryPage() {
               <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center">
                 <AlertTriangle className="w-5 h-5 text-red-400" />
               </div>
-              <DialogTitle>Excluir conteúdo?</DialogTitle>
+              <DialogTitle>Mover para lixeira?</DialogTitle>
             </div>
             <DialogDescription className="text-white/60">
-              Esta ação não pode ser desfeita. O conteúdo será movido para a lixeira.
+              O conteudo sera movido para a lixeira e mantido por 30 dias antes
+              da exclusao permanente. Voce pode restaura-lo a qualquer momento.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">
@@ -357,7 +401,8 @@ export function LibraryPage() {
               variant="destructive"
               className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30"
             >
-              Excluir
+              <Trash2 className="w-4 h-4 mr-2" />
+              Mover para Lixeira
             </Button>
           </DialogFooter>
         </DialogContent>
