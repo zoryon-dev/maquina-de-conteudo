@@ -15,7 +15,7 @@ import {
   tags,
   libraryItemTags,
 } from "@/db/schema"
-import { eq, and, gte, isNull, sql, desc } from "drizzle-orm"
+import { eq, and, gte, isNull, isNotNull, sql, desc, ilike } from "drizzle-orm"
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user"
 import type { PostType, ContentStatus } from "@/db/schema"
 
@@ -393,4 +393,183 @@ export async function getCategoryBreakdownAction(): Promise<
     console.error("[getCategoryBreakdownAction] Error:", error)
     return []
   }
+}
+
+// ============================================================================
+// SMART SUGGESTIONS ACTIONS
+// ============================================================================
+
+/**
+ * Get popular hashtags used by the current user.
+ *
+ * Extracts hashtags from the content of all library items,
+ * counts occurrences, and returns sorted by frequency.
+ *
+ * @param prefix - Optional prefix to filter (e.g. "mark" -> #marketing, #market)
+ * @param limit - Maximum results (default: 10)
+ */
+export async function getPopularHashtagsAction(
+  prefix?: string,
+  limit: number = 10
+): Promise<Array<{ hashtag: string; count: number }>> {
+  let userId: string
+  try {
+    userId = await ensureAuthenticatedUser()
+  } catch {
+    return []
+  }
+
+  try {
+    // Fetch all non-deleted items with content
+    const items = await db
+      .select({
+        content: libraryItems.content,
+      })
+      .from(libraryItems)
+      .where(
+        and(
+          eq(libraryItems.userId, userId),
+          isNull(libraryItems.deletedAt),
+          isNotNull(libraryItems.content)
+        )
+      )
+
+    // Extract hashtags from all content
+    const hashtagCounts = new Map<string, number>()
+
+    for (const item of items) {
+      if (!item.content) continue
+
+      // Try to parse JSON content for hashtags array
+      try {
+        const parsed = JSON.parse(item.content)
+        if (parsed.hashtags && Array.isArray(parsed.hashtags)) {
+          for (const tag of parsed.hashtags) {
+            const normalized = String(tag).replace(/^#/, "").toLowerCase().trim()
+            if (normalized) {
+              hashtagCounts.set(normalized, (hashtagCounts.get(normalized) || 0) + 1)
+            }
+          }
+          continue
+        }
+      } catch {
+        // Not JSON, extract from text
+      }
+
+      // Extract hashtags from text content
+      const matches = item.content.match(/#(\w+)/g)
+      if (matches) {
+        for (const match of matches) {
+          const normalized = match.replace(/^#/, "").toLowerCase().trim()
+          if (normalized) {
+            hashtagCounts.set(normalized, (hashtagCounts.get(normalized) || 0) + 1)
+          }
+        }
+      }
+    }
+
+    // Convert to array, filter by prefix, and sort by count
+    let result = Array.from(hashtagCounts.entries())
+      .map(([hashtag, count]) => ({ hashtag, count }))
+
+    if (prefix) {
+      const lowerPrefix = prefix.toLowerCase()
+      result = result.filter((r) => r.hashtag.startsWith(lowerPrefix))
+    }
+
+    result.sort((a, b) => b.count - a.count)
+
+    return result.slice(0, limit)
+  } catch (error) {
+    console.error("[getPopularHashtagsAction] Error:", error)
+    return []
+  }
+}
+
+/**
+ * Best publish time suggestion.
+ *
+ * Analyzes published posts to determine when posts have been published
+ * most frequently. Returns sensible defaults if insufficient data.
+ *
+ * @returns Top 3 time slots sorted by score
+ */
+export interface BestTimeSlot {
+  day: string
+  hour: number
+  score: number
+}
+
+export async function getBestPublishTimeAction(): Promise<BestTimeSlot[]> {
+  let userId: string
+  try {
+    userId = await ensureAuthenticatedUser()
+  } catch {
+    return getDefaultTimeSlots()
+  }
+
+  try {
+    // Get all published posts with actual publication dates
+    const posts = await db
+      .select({
+        publishedAt: publishedPosts.publishedAt,
+      })
+      .from(publishedPosts)
+      .where(
+        and(
+          eq(publishedPosts.userId, userId),
+          eq(publishedPosts.status, "published"),
+          isNotNull(publishedPosts.publishedAt),
+          isNull(publishedPosts.deletedAt)
+        )
+      )
+
+    // Need at least 3 posts to analyze
+    if (posts.length < 3) {
+      return getDefaultTimeSlots()
+    }
+
+    // Count publications by day-of-week and hour
+    const dayNames = ["Domingo", "Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado"]
+    const slotCounts = new Map<string, number>()
+
+    for (const post of posts) {
+      if (!post.publishedAt) continue
+      const d = new Date(post.publishedAt)
+      const day = dayNames[d.getDay()]
+      const hour = d.getHours()
+      const key = `${day}|${hour}`
+      slotCounts.set(key, (slotCounts.get(key) || 0) + 1)
+    }
+
+    // Convert to array and sort by count
+    const slots = Array.from(slotCounts.entries())
+      .map(([key, count]) => {
+        const [day, hourStr] = key.split("|")
+        return {
+          day,
+          hour: parseInt(hourStr),
+          score: count,
+        }
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+
+    if (slots.length === 0) {
+      return getDefaultTimeSlots()
+    }
+
+    return slots
+  } catch (error) {
+    console.error("[getBestPublishTimeAction] Error:", error)
+    return getDefaultTimeSlots()
+  }
+}
+
+function getDefaultTimeSlots(): BestTimeSlot[] {
+  return [
+    { day: "Terca", hour: 10, score: 0 },
+    { day: "Quinta", hour: 14, score: 0 },
+    { day: "Sabado", hour: 9, score: 0 },
+  ]
 }

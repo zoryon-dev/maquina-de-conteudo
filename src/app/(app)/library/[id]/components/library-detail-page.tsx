@@ -25,6 +25,7 @@ import type { LibraryItemWithRelations } from "@/types/library"
 import { CONTENT_TYPE_CONFIGS, STATUS_CONFIGS } from "@/types/calendar"
 import { ContentPreviewSection } from "./content-preview-section"
 import { ContentActionsSection } from "./content-actions-section"
+import { SmartSuggestions } from "./smart-suggestions"
 import { SocialPreview } from "@/components/library/social-preview"
 
 // ============================================================================
@@ -159,17 +160,26 @@ export function LibraryDetailPage({ item, mediaUrls, carouselSlides }: LibraryDe
         />
 
         {/* Right Column - Actions & Metadata (35%) */}
-        <ContentActionsSection
-          item={item}
-          origin={origin}
-          narrative={narrative}
-          wizardId={wizardId}
-          hashtags={hashtags}
-          metadata={metadata}
-          isRefreshing={isRefreshing}
-          onRefresh={() => setIsRefreshing(!isRefreshing)}
-          mediaUrls={mediaUrls}
-        />
+        <div className="space-y-4">
+          {/* Smart Suggestions Panel */}
+          <SmartSuggestions
+            item={item}
+            onTagsUpdated={() => setIsRefreshing(!isRefreshing)}
+          />
+
+          {/* Actions & Metadata */}
+          <ContentActionsSection
+            item={item}
+            origin={origin}
+            narrative={narrative}
+            wizardId={wizardId}
+            hashtags={hashtags}
+            metadata={metadata}
+            isRefreshing={isRefreshing}
+            onRefresh={() => setIsRefreshing(!isRefreshing)}
+            mediaUrls={mediaUrls}
+          />
+        </div>
       </div>
 
       {/* Social Preview Dialog */}

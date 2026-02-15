@@ -2,13 +2,13 @@
  * Library Header Component
  *
  * Header da Biblioteca com busca, toggle de visualização,
- * ordenação e ações batch.
+ * ordenação e ações batch. Inclui toggle de Busca Inteligente (semântica).
  */
 
 "use client"
 
 import { useState } from "react"
-import { Plus, Grid3x3, List, ArrowUpDown, Trash2, CheckCircle2, Library, Upload, BarChart3, Folder, Hash } from "lucide-react"
+import { Plus, Grid3x3, List, ArrowUpDown, Trash2, CheckCircle2, Library, Upload, BarChart3, Folder, Hash, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -36,13 +36,15 @@ interface LibraryHeaderProps {
   onImportComplete?: () => void
   onOpenCategoryManager?: () => void
   onOpenTagManager?: () => void
+  semanticSearchEnabled: boolean
+  onToggleSemanticSearch: () => void
 }
 
 const SORT_OPTIONS: Array<{ value: ViewMode["sortBy"]; label: string }> = [
-  { value: "createdAt", label: "Data de criação" },
-  { value: "updatedAt", label: "Data de edição" },
+  { value: "createdAt", label: "Data de criacao" },
+  { value: "updatedAt", label: "Data de edicao" },
   { value: "scheduledFor", label: "Agendamento" },
-  { value: "title", label: "Título" },
+  { value: "title", label: "Titulo" },
 ]
 
 export function LibraryHeader({
@@ -64,6 +66,8 @@ export function LibraryHeader({
   onImportComplete,
   onOpenCategoryManager,
   onOpenTagManager,
+  semanticSearchEnabled,
+  onToggleSemanticSearch,
 }: LibraryHeaderProps) {
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const hasSelection = selectedCount > 0
@@ -133,15 +137,40 @@ export function LibraryHeader({
         {/* Search and Create - only show in library mode */}
         {!isTrashView && !isAnalyticsView && (
           <div className="flex items-center gap-2">
-            {/* Search */}
-            <div className="relative">
+            {/* Search with semantic toggle */}
+            <div className="relative flex items-center gap-1">
               <Input
                 type="search"
-                placeholder="Buscar conteudo..."
+                placeholder={semanticSearchEnabled ? "Busca inteligente..." : "Buscar conteudo..."}
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="w-64 h-9 bg-white/[0.02] border-white/10 text-white placeholder:text-white/40 focus:border-primary/50"
+                className={cn(
+                  "w-64 h-9 bg-white/[0.02] border-white/10 text-white placeholder:text-white/40 focus:border-primary/50",
+                  semanticSearchEnabled && "border-purple-500/30 focus:border-purple-500/50"
+                )}
               />
+
+              {/* Semantic Search Toggle */}
+              <button
+                onClick={onToggleSemanticSearch}
+                className={cn(
+                  "flex items-center gap-1.5 h-9 px-3 rounded-md text-xs font-medium transition-all whitespace-nowrap border",
+                  semanticSearchEnabled
+                    ? "bg-purple-500/20 border-purple-500/30 text-purple-300 hover:bg-purple-500/30"
+                    : "bg-white/[0.02] border-white/10 text-white/50 hover:text-white/70 hover:bg-white/5"
+                )}
+                title={
+                  semanticSearchEnabled
+                    ? "Busca Inteligente ativa — busca por significado"
+                    : "Ativar Busca Inteligente — busca por significado usando IA"
+                }
+              >
+                <Sparkles className={cn(
+                  "w-3.5 h-3.5",
+                  semanticSearchEnabled && "text-purple-400"
+                )} />
+                {semanticSearchEnabled ? "Semantico" : "Inteligente"}
+              </button>
             </div>
 
             {/* Import Button */}

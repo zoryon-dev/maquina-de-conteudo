@@ -7,11 +7,13 @@
 
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { Library, AlertTriangle, Trash2 } from "lucide-react"
+import { Library, AlertTriangle, Trash2, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { DropZone } from "@/components/ui/drop-zone"
 import {
   Dialog,
   DialogContent,
@@ -34,9 +36,12 @@ import { LibraryAnalytics } from "./analytics/library-analytics"
 import { CategoryManager } from "./category-manager"
 import { TagManager } from "./tag-manager"
 import { Pagination } from "@/components/ui/pagination"
-import { getTrashCountAction } from "../actions/library-actions"
+import { getTrashCountAction, searchLibrarySemanticAction } from "../actions/library-actions"
 import type { LibraryItemWithRelations } from "@/types/library"
 import type { ContentStatus } from "@/db/schema"
+
+/** Search mode: exact (ILIKE) or semantic (embedding) */
+type SearchMode = "exact" | "semantic"
 
 export function LibraryPage() {
   const searchParams = useSearchParams()
@@ -49,6 +54,14 @@ export function LibraryPage() {
   // Category/Tag manager dialog state
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false)
   const [tagManagerOpen, setTagManagerOpen] = useState(false)
+
+  // Semantic search state
+  const [semanticSearchEnabled, setSemanticSearchEnabled] = useState(false)
+  const [semanticResults, setSemanticResults] = useState<LibraryItemWithRelations[]>([])
+  const [semanticSimilarities, setSemanticSimilarities] = useState<Map<number, number>>(new Map())
+  const [isSemanticLoading, setIsSemanticLoading] = useState(false)
+  const [semanticError, setSemanticError] = useState<string | null>(null)
+  const semanticDebounceRef = useRef<NodeJS.Timeout | null>(null)
 
   // View mode (grid/list + sorting)
   const { viewMode, toggleViewMode, setSortBy, toggleSortOrder } = useLibraryView()
@@ -68,11 +81,11 @@ export function LibraryPage() {
     clearDateFilter,
   } = useLibraryFilters()
 
-  // Data fetching with pagination
+  // Data fetching with pagination (for exact search mode)
   const {
-    items,
-    isLoading,
-    error,
+    items: exactItems,
+    isLoading: isExactLoading,
+    error: exactError,
     refetch,
     total,
     page,
@@ -81,6 +94,13 @@ export function LibraryPage() {
     setPage,
     setLimit,
   } = useLibraryData({ filters, viewMode })
+
+  // Determine which items/loading/error to use based on search mode
+  const isUsingSemanticSearch = semanticSearchEnabled && !!filters.search?.trim()
+  const items = isUsingSemanticSearch ? semanticResults : exactItems
+  const isLoading = isUsingSemanticSearch ? isSemanticLoading : isExactLoading
+  const error = isUsingSemanticSearch ? semanticError : exactError
+  const searchMode: SearchMode = isUsingSemanticSearch ? "semantic" : "exact"
 
   // Selection state (for batch actions)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -107,6 +127,57 @@ export function LibraryPage() {
   useEffect(() => {
     void fetchTrashCount()
   }, [fetchTrashCount])
+
+  // Semantic search effect with debounce
+  useEffect(() => {
+    if (!semanticSearchEnabled || !filters.search?.trim()) {
+      // Clear semantic results when not in use
+      setSemanticResults([])
+      setSemanticSimilarities(new Map())
+      setSemanticError(null)
+      return
+    }
+
+    // Debounce 500ms
+    if (semanticDebounceRef.current) {
+      clearTimeout(semanticDebounceRef.current)
+    }
+
+    setIsSemanticLoading(true)
+    semanticDebounceRef.current = setTimeout(async () => {
+      try {
+        setSemanticError(null)
+        const result = await searchLibrarySemanticAction(filters.search!.trim(), 20)
+
+        if (result.success) {
+          setSemanticResults(result.results.map((r) => r.item))
+          const simMap = new Map<number, number>()
+          for (const r of result.results) {
+            simMap.set(r.item.id, r.similarity)
+          }
+          setSemanticSimilarities(simMap)
+        } else {
+          setSemanticError(result.error || "Erro na busca semantica")
+          setSemanticResults([])
+          setSemanticSimilarities(new Map())
+        }
+      } catch (err) {
+        setSemanticError(
+          err instanceof Error ? err.message : "Erro na busca semantica"
+        )
+        setSemanticResults([])
+        setSemanticSimilarities(new Map())
+      } finally {
+        setIsSemanticLoading(false)
+      }
+    }, 500)
+
+    return () => {
+      if (semanticDebounceRef.current) {
+        clearTimeout(semanticDebounceRef.current)
+      }
+    }
+  }, [semanticSearchEnabled, filters.search])
 
   // When switching back from trash to library, refresh both counts
   const handleTabChange = (tab: "library" | "trash" | "analytics") => {
@@ -169,6 +240,16 @@ export function LibraryPage() {
   // Handlers
   const handleSearch = (query: string) => {
     setSearch(query)
+  }
+
+  const handleToggleSemanticSearch = () => {
+    setSemanticSearchEnabled((prev) => !prev)
+    // Clear semantic results when toggling off
+    if (semanticSearchEnabled) {
+      setSemanticResults([])
+      setSemanticSimilarities(new Map())
+      setSemanticError(null)
+    }
   }
 
   const handleEdit = (item: LibraryItemWithRelations) => {
@@ -285,7 +366,60 @@ export function LibraryPage() {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
+  // Drag & drop upload handler
+  const handleFilesDropped = useCallback(
+    async (files: File[]) => {
+      if (activeTab !== "library") return
+
+      const toastId = toast.loading(
+        `Enviando ${files.length} ${files.length === 1 ? "arquivo" : "arquivos"}...`
+      )
+
+      try {
+        const formData = new FormData()
+        for (const file of files) {
+          formData.append("files", file)
+        }
+
+        const response = await fetch("/api/library/upload", {
+          method: "POST",
+          body: formData,
+        })
+
+        const result = await response.json()
+
+        if (result.success) {
+          const { successCount, errorCount } = result
+          if (errorCount > 0) {
+            toast.warning(
+              `${successCount} ${successCount === 1 ? "imagem enviada" : "imagens enviadas"}, ${errorCount} com erro`,
+              { id: toastId }
+            )
+          } else {
+            toast.success(
+              `${successCount} ${successCount === 1 ? "imagem adicionada" : "imagens adicionadas"} a biblioteca`,
+              { id: toastId }
+            )
+          }
+          refetch()
+        } else {
+          toast.error(result.error || "Erro ao enviar arquivos", { id: toastId })
+        }
+      } catch {
+        toast.error("Erro ao enviar arquivos", { id: toastId })
+      }
+    },
+    [activeTab, refetch]
+  )
+
   return (
+    <DropZone
+      onFilesDropped={handleFilesDropped}
+      accept={["image/png", "image/jpeg", "image/webp", "image/gif"]}
+      maxFiles={10}
+      maxSizeBytes={5 * 1024 * 1024}
+      disabled={activeTab !== "library"}
+    >
     <div className="space-y-6">
       {/* Header */}
       <LibraryHeader
@@ -307,10 +441,25 @@ export function LibraryPage() {
         onImportComplete={refetch}
         onOpenCategoryManager={() => setCategoryManagerOpen(true)}
         onOpenTagManager={() => setTagManagerOpen(true)}
+        semanticSearchEnabled={semanticSearchEnabled}
+        onToggleSemanticSearch={handleToggleSemanticSearch}
       />
 
-      {/* Show filter bar only in library mode */}
-      {activeTab === "library" && (
+      {/* Semantic search indicator */}
+      {isUsingSemanticSearch && !isLoading && items.length > 0 && (
+        <div className="flex items-center gap-2 px-1">
+          <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30 text-xs">
+            <Sparkles className="w-3 h-3 mr-1" />
+            Busca Semantica
+          </Badge>
+          <span className="text-xs text-white/40">
+            {items.length} {items.length === 1 ? "resultado" : "resultados"} por relevancia
+          </span>
+        </div>
+      )}
+
+      {/* Show filter bar only in library mode (hide during semantic search) */}
+      {activeTab === "library" && !isUsingSemanticSearch && (
         <LibraryFilterBar
           filters={filters}
           onUpdateFilters={updateFilters}
@@ -349,6 +498,8 @@ export function LibraryPage() {
           onSelectAll={toggleSelectAll}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          searchMode={searchMode}
+          similarities={semanticSimilarities}
         />
       ) : (
         <LibraryList
@@ -362,11 +513,13 @@ export function LibraryPage() {
           sortBy={viewMode.sortBy}
           sortOrder={viewMode.sortOrder}
           onSortBy={setSortBy}
+          searchMode={searchMode}
+          similarities={semanticSimilarities}
         />
       )}
 
-      {/* Pagination - show when there are items (library mode only) */}
-      {activeTab === "library" && !isLoading && !error && items.length > 0 && totalPages > 1 && (
+      {/* Pagination - show when there are items (library mode only, not during semantic search) */}
+      {activeTab === "library" && !isUsingSemanticSearch && !isLoading && !error && items.length > 0 && totalPages > 1 && (
         <Pagination
           currentPage={page}
           totalPages={totalPages}
@@ -435,6 +588,7 @@ export function LibraryPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </DropZone>
   )
 }
 

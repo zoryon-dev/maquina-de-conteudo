@@ -2,7 +2,8 @@
  * Step 2 - Processing
  *
  * Shows loading/polling state while the wizard_narratives job processes.
- * Polls GET /api/wizard/[id] until narratives are ready.
+ * Uses SSE (Server-Sent Events) via /api/jobs/[id]/stream for real-time updates.
+ * Falls back to polling GET /api/wizard/[id] if SSE fails.
  * Handles job status updates and error states.
  *
  * Includes time estimates and elapsed timer for better UX.
@@ -24,6 +25,7 @@ import {
   getSpecificErrorMessage,
 } from "@/components/ui/error-feedback";
 import { cn } from "@/lib/utils";
+import { useSSE } from "@/hooks/use-sse";
 
 export interface ProcessingStatus {
   step: "idle" | "extracting" | "researching" | "generating" | "completed" | "failed";
@@ -76,6 +78,19 @@ function formatElapsedTime(seconds: number): string {
   return `${mins}m ${secs.toString().padStart(2, "0")}s`;
 }
 
+// SSE event data shape
+interface JobSSEEvent {
+  type: string;
+  data?: {
+    status?: string;
+    result?: unknown;
+    error?: string;
+    jobId?: number;
+    message?: string;
+    attempts?: number;
+  };
+}
+
 export function Step2Processing({
   wizardId,
   onComplete,
@@ -86,14 +101,15 @@ export function Step2Processing({
     step: "idle",
     message: "Iniciando processamento...",
   });
-  const [retryCount, setRetryCount] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [jobId, setJobId] = useState<number | null>(null);
+  const [sseUrl, setSseUrl] = useState<string | null>(null);
 
   const isMountedRef = useRef(true);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef(0);
+  const completionHandledRef = useRef(false);
 
   // Maximum polling time (5 minutes)
   const POLLING_TIMEOUT = 5 * 60 * 1000;
@@ -107,7 +123,308 @@ export function Step2Processing({
   // Whether processing is taking longer than expected
   const isTakingLong = elapsedSeconds > totalEstimatedSeconds;
 
-  // Elapsed time counter
+  // ====================================================================
+  // POLLING FALLBACK — extracted as a reusable function for the SSE hook
+  // ====================================================================
+  const pollWizardStatus = useCallback(async (): Promise<JobSSEEvent | null> => {
+    try {
+      const response = await fetch(`/api/wizard/${wizardId}`);
+      if (!response.ok) {
+        if (response.status === 404) {
+          return { type: "failed", data: { status: "failed", error: "O wizard nao existe ou foi excluido." } };
+        }
+        return null;
+      }
+
+      const wizard = await response.json();
+
+      // Check if narratives are ready
+      if (wizard.narratives && Array.isArray(wizard.narratives) && wizard.narratives.length > 0) {
+        return { type: "completed", data: { status: "completed" } };
+      }
+
+      // Check for job failure
+      if (wizard.currentStep === "abandoned" || wizard.jobStatus === "failed") {
+        return { type: "failed", data: { status: "failed", error: wizard.jobError || "Ocorreu um erro ao processar seu wizard." } };
+      }
+
+      // Still processing — also capture the jobId if we don't have it
+      if (wizard.jobId && !jobId) {
+        setJobId(wizard.jobId);
+      }
+
+      // Return status event with wizard-level processing progress
+      const jobStatus = wizard.jobStatus || "pending";
+      if (jobStatus === "processing" && wizard.processingProgress) {
+        return {
+          type: "status",
+          data: {
+            status: "processing",
+          },
+        };
+      }
+
+      return { type: "status", data: { status: jobStatus } };
+    } catch {
+      return null;
+    }
+  }, [wizardId, jobId]);
+
+  // ====================================================================
+  // INITIAL FETCH — get jobId from the wizard to set up SSE
+  // ====================================================================
+  useEffect(() => {
+    isMountedRef.current = true;
+    completionHandledRef.current = false;
+
+    const fetchJobId = async () => {
+      try {
+        const response = await fetch(`/api/wizard/${wizardId}`);
+        if (!response.ok) return;
+        const wizard = await response.json();
+
+        if (!isMountedRef.current) return;
+
+        // If narratives are already ready, handle completion immediately
+        if (wizard.narratives && Array.isArray(wizard.narratives) && wizard.narratives.length > 0) {
+          handleCompletion();
+          return;
+        }
+
+        // If already failed
+        if (wizard.currentStep === "abandoned" || wizard.jobStatus === "failed") {
+          setStatus({
+            step: "failed",
+            message: "Processamento falhou",
+            error: wizard.jobError || "Ocorreu um erro ao processar seu wizard.",
+          });
+          onError?.(wizard.jobError || "Processamento falhou");
+          return;
+        }
+
+        // Update progress from wizard data
+        if (wizard.jobStatus === "processing" && wizard.processingProgress) {
+          const { stage } = wizard.processingProgress;
+          setStatus({
+            step: stage === "narratives" ? "generating" : stage === "research" ? "researching" : "extracting",
+            message: getStageMessage(stage),
+            progress: wizard.processingProgress.percent,
+          });
+        }
+
+        // Set up SSE if we have a jobId
+        if (wizard.jobId) {
+          setJobId(wizard.jobId);
+          setSseUrl(`/api/jobs/${wizard.jobId}/stream`);
+        }
+      } catch {
+        // Will fall through to polling fallback via SSE hook
+      }
+    };
+
+    fetchJobId();
+
+    return () => {
+      isMountedRef.current = false;
+    };
+    // Only run on mount / wizardId change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wizardId]);
+
+  // ====================================================================
+  // COMPLETION HANDLER
+  // ====================================================================
+  const handleCompletion = useCallback(() => {
+    if (completionHandledRef.current) return;
+    completionHandledRef.current = true;
+
+    if (isMountedRef.current) {
+      setStatus({
+        step: "completed",
+        message: "Narrativas prontas!",
+        progress: 100,
+      });
+      // Disable SSE
+      setSseUrl(null);
+      // Clear any polling
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+      setTimeout(() => {
+        if (isMountedRef.current) {
+          onComplete();
+        }
+      }, 500);
+    }
+  }, [onComplete]);
+
+  // ====================================================================
+  // SSE HOOK — real-time job status with polling fallback
+  // ====================================================================
+  const handleSSEMessage = useCallback(
+    async (event: JobSSEEvent) => {
+      if (!isMountedRef.current) return;
+
+      const eventType = event.type;
+      const eventData = event.data;
+
+      if (eventType === "completed") {
+        // Job completed — verify narratives are actually ready
+        try {
+          const response = await fetch(`/api/wizard/${wizardId}`);
+          if (response.ok) {
+            const wizard = await response.json();
+            if (wizard.narratives && Array.isArray(wizard.narratives) && wizard.narratives.length > 0) {
+              handleCompletion();
+              return;
+            }
+          }
+        } catch {
+          // If verification fails, still trigger completion (job said it's done)
+        }
+        handleCompletion();
+        return;
+      }
+
+      if (eventType === "failed") {
+        const errorMsg = eventData?.error || "Ocorreu um erro ao processar seu wizard.";
+        if (isMountedRef.current) {
+          setSseUrl(null);
+          setStatus({
+            step: "failed",
+            message: "Processamento falhou",
+            error: errorMsg,
+          });
+          onError?.(errorMsg);
+        }
+        return;
+      }
+
+      if (eventType === "timeout") {
+        if (isMountedRef.current) {
+          setSseUrl(null);
+          setStatus({
+            step: "failed",
+            message: "Tempo limite excedido",
+            error: "O processamento esta demorando mais que o normal. Verifique se o worker esta configurado corretamente.",
+          });
+          onError?.("Tempo limite excedido");
+        }
+        return;
+      }
+
+      if (eventType === "status") {
+        // Fetch wizard-level processing progress for better UI
+        try {
+          const response = await fetch(`/api/wizard/${wizardId}`);
+          if (response.ok) {
+            const wizard = await response.json();
+
+            // Check if narratives became ready
+            if (wizard.narratives && Array.isArray(wizard.narratives) && wizard.narratives.length > 0) {
+              handleCompletion();
+              return;
+            }
+
+            // Check if job failed at wizard level
+            if (wizard.currentStep === "abandoned" || wizard.jobStatus === "failed") {
+              if (isMountedRef.current) {
+                setSseUrl(null);
+                setStatus({
+                  step: "failed",
+                  message: "Processamento falhou",
+                  error: wizard.jobError || "Ocorreu um erro ao processar seu wizard.",
+                });
+                onError?.(wizard.jobError || "Processamento falhou");
+              }
+              return;
+            }
+
+            // Update processing progress
+            const jobStatus = wizard.jobStatus || "pending";
+            let newStatus: ProcessingStatus;
+
+            switch (jobStatus) {
+              case "pending":
+                newStatus = {
+                  step: "idle",
+                  message: "Aguardando inicio do processamento...",
+                };
+                break;
+              case "processing":
+                if (wizard.processingProgress) {
+                  const { stage } = wizard.processingProgress;
+                  newStatus = {
+                    step: stage === "narratives" ? "generating" : stage === "research" ? "researching" : "extracting",
+                    message: getStageMessage(stage),
+                    progress: wizard.processingProgress.percent,
+                  };
+                } else {
+                  newStatus = {
+                    step: "extracting",
+                    message: "Processando informacoes...",
+                    progress: 33,
+                  };
+                }
+                break;
+              default:
+                newStatus = {
+                  step: "idle",
+                  message: "Processando...",
+                };
+            }
+
+            if (isMountedRef.current) {
+              setStatus((prev) => {
+                if (prev.step !== newStatus.step || prev.message !== newStatus.message) {
+                  return newStatus;
+                }
+                return prev;
+              });
+            }
+          }
+        } catch {
+          // Silent fail on wizard status fetch — SSE is still working
+        }
+      }
+    },
+    [wizardId, handleCompletion, onError]
+  );
+
+  // Polling fallback function for the SSE hook
+  const fallbackPoll = useCallback(async (): Promise<JobSSEEvent | null> => {
+    // Check for timeout
+    const elapsed = Date.now() - startTimeRef.current;
+    if (elapsed > POLLING_TIMEOUT) {
+      if (isMountedRef.current) {
+        setStatus({
+          step: "failed",
+          message: "Tempo limite excedido",
+          error: "O processamento esta demorando mais que o normal. Verifique se o worker esta configurado corretamente.",
+        });
+        onError?.("Tempo limite excedido");
+      }
+      return null;
+    }
+
+    return pollWizardStatus();
+  }, [pollWizardStatus, onError, POLLING_TIMEOUT]);
+
+  useSSE<JobSSEEvent>({
+    url: sseUrl,
+    onMessage: handleSSEMessage,
+    onError: (err) => {
+      console.warn("[Step2Processing] SSE error:", err.message);
+      // The useSSE hook handles fallback automatically
+    },
+    fallbackPollingMs: 2000,
+    fallbackPollFn: fallbackPoll,
+  });
+
+  // ====================================================================
+  // ELAPSED TIME COUNTER
+  // ====================================================================
   useEffect(() => {
     startTimeRef.current = Date.now();
     timerIntervalRef.current = setInterval(() => {
@@ -133,177 +450,55 @@ export function Step2Processing({
     }
   }, [status.step]);
 
-  // Poll wizard status until narratives are ready
+  // ====================================================================
+  // POLLING FALLBACK — if no SSE URL is available yet (no jobId)
+  // Falls back to polling the wizard endpoint directly
+  // ====================================================================
   useEffect(() => {
+    // Only run polling when we don't have an SSE URL (no jobId yet)
+    if (sseUrl) return;
+    // Don't poll if already completed or failed
+    if (status.step === "completed" || status.step === "failed") return;
+
     isMountedRef.current = true;
 
-    const pollWizardStatus = async () => {
-      try {
-        // Check for timeout
-        const elapsed = Date.now() - startTimeRef.current;
-        if (elapsed > POLLING_TIMEOUT) {
-          if (isMountedRef.current) {
-            setStatus({
-              step: "failed",
-              message: "Tempo limite excedido",
-              error: "O processamento esta demorando mais que o normal. Verifique se o worker esta configurado corretamente.",
-            });
-            if (pollIntervalRef.current) {
-              clearInterval(pollIntervalRef.current);
-              pollIntervalRef.current = null;
-            }
-            onError?.("Tempo limite excedido");
-          }
-          return;
-        }
+    const directPoll = async () => {
+      const result = await pollWizardStatus();
+      if (!result || !isMountedRef.current) return;
 
-        const response = await fetch(`/api/wizard/${wizardId}`);
-
-        if (!response.ok) {
-          if (response.status === 404 && isMountedRef.current) {
-            setStatus({
-              step: "failed",
-              message: "Wizard nao encontrado",
-              error: "O wizard nao existe ou foi excluido.",
-            });
-            onError?.("Wizard nao encontrado");
-          }
-          return;
-        }
-
-        const wizard = await response.json();
-
-        // Check if narratives are ready
-        if (wizard.narratives && Array.isArray(wizard.narratives) && wizard.narratives.length > 0) {
-          if (isMountedRef.current) {
-            setStatus({
-              step: "completed",
-              message: "Narrativas prontas!",
-              progress: 100,
-            });
-            // Clear polling and trigger completion after a brief delay
-            if (pollIntervalRef.current) {
-              clearInterval(pollIntervalRef.current);
-              pollIntervalRef.current = null;
-            }
-            setTimeout(() => {
-              if (isMountedRef.current) {
-                onComplete();
-              }
-            }, 500);
-          }
-          return;
-        }
-
-        // Check for job failure
-        if (wizard.currentStep === "abandoned" || wizard.jobStatus === "failed") {
-          if (isMountedRef.current) {
-            setStatus({
-              step: "failed",
-              message: "Processamento falhou",
-              error: wizard.jobError || "Ocorreu um erro ao processar seu wizard.",
-            });
-            if (pollIntervalRef.current) {
-              clearInterval(pollIntervalRef.current);
-              pollIntervalRef.current = null;
-            }
-            onError?.(wizard.jobError || "Processamento falhou");
-          }
-          return;
-        }
-
-        // Determine current processing step based on job status
-        const jobStatus = wizard.jobStatus || "pending";
-        let newStatus: ProcessingStatus;
-
-        switch (jobStatus) {
-          case "pending":
-            newStatus = {
-              step: "idle",
-              message: "Aguardando inicio do processamento...",
-            };
-            break;
-          case "processing":
-            // Check processingProgress if available
-            if (wizard.processingProgress) {
-              const { stage } = wizard.processingProgress;
-              newStatus = {
-                step: stage === "narratives" ? "generating" : stage === "research" ? "researching" : "extracting",
-                message: getStageMessage(stage),
-                progress: wizard.processingProgress.percent,
-              };
-            } else {
-              newStatus = {
-                step: "extracting",
-                message: "Processando informacoes...",
-                progress: 33,
-              };
-            }
-            break;
-          default:
-            newStatus = {
-              step: "idle",
-              message: "Processando...",
-            };
-        }
-
-        if (isMountedRef.current) {
-          setStatus((prev) => {
-            // Only update if actually changed to avoid unnecessary re-renders
-            if (prev.step !== newStatus.step || prev.message !== newStatus.message) {
-              return newStatus;
-            }
-            return prev;
-          });
-        }
-      } catch {
-        // Silent fail - polling error, will retry
-
-        if (isMountedRef.current && retryCount < 3) {
-          // Retry with exponential backoff
-          const backoffDelay = 1000 * Math.pow(2, retryCount);
-          retryTimeoutRef.current = setTimeout(() => {
-            if (isMountedRef.current) {
-              setRetryCount((prev) => prev + 1);
-            }
-          }, backoffDelay);
-        } else if (isMountedRef.current) {
-          setStatus({
-            step: "failed",
-            message: "Erro de conexao",
-            error: "Nao foi possivel conectar ao servidor. Tente novamente.",
-          });
-          onError?.("Erro de conexao");
-        }
-      }
+      // Pass through to the SSE message handler (same logic)
+      handleSSEMessage(result);
     };
 
     // Initial poll
-    pollWizardStatus();
+    directPoll();
 
-    // Set up polling interval (every 2 seconds)
-    pollIntervalRef.current = setInterval(pollWizardStatus, 2000);
+    // Poll every 2 seconds until we get an SSE URL
+    pollIntervalRef.current = setInterval(directPoll, 2000);
 
-    // Cleanup
     return () => {
-      isMountedRef.current = false;
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
-      }
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
+        pollIntervalRef.current = null;
       }
     };
-  }, [wizardId, retryCount, onComplete, onError]);
+  }, [sseUrl, status.step, pollWizardStatus, handleSSEMessage]);
 
+  // ====================================================================
+  // RETRY HANDLER
+  // ====================================================================
   const handleRetry = useCallback(() => {
-    setRetryCount(0);
     setElapsedSeconds(0);
+    completionHandledRef.current = false;
     startTimeRef.current = Date.now();
     setStatus({
       step: "idle",
       message: "Tentando novamente...",
     });
+    // Re-enable SSE if we have a jobId
+    if (jobId) {
+      setSseUrl(`/api/jobs/${jobId}/stream`);
+    }
     // Restart timer
     if (!timerIntervalRef.current) {
       timerIntervalRef.current = setInterval(() => {
@@ -312,7 +507,7 @@ export function Step2Processing({
         }
       }, 1000);
     }
-  }, []);
+  }, [jobId]);
 
   const isFailed = status.step === "failed";
   const currentStepIndex = PROCESSING_STEPS.findIndex((s) => s.key === status.step);

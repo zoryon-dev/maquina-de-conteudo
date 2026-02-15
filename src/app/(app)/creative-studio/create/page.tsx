@@ -15,9 +15,22 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { POLLING_INTERVAL_MS, MAX_QUANTITY_PER_FORMAT } from "@/lib/creative-studio/constants";
 import type { TextOverlayConfig } from "@/lib/creative-studio/types";
+import { useSSE } from "@/hooks/use-sse";
 import { Sparkles, Minus, Plus, ArrowLeft, History, Heart, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+
+// SSE event shape from the job stream
+interface JobSSEEvent {
+  type: string;
+  data?: {
+    status?: string;
+    result?: unknown;
+    error?: string;
+    jobId?: number;
+    message?: string;
+  };
+}
 
 const DEFAULT_TEXT_CONFIG: TextOverlayConfig = {
   content: "",
@@ -36,9 +49,8 @@ export default function CreativeStudioCreatePage() {
   const [templateVars, setTemplateVars] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("create");
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [sseUrl, setSseUrl] = useState<string | null>(null);
   const isMountedRef = useRef(false);
-  const pollErrorCount = useRef(0);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -47,8 +59,19 @@ export default function CreativeStudioCreatePage() {
     };
   }, []);
 
-  // Polling for generation status
-  const pollStatus = useCallback(async () => {
+  // Set up SSE URL when generation starts
+  useEffect(() => {
+    if (store.isGenerating && store.currentJobId) {
+      setSseUrl(`/api/jobs/${store.currentJobId}/stream`);
+    } else {
+      setSseUrl(null);
+    }
+  }, [store.isGenerating, store.currentJobId]);
+
+  // ====================================================================
+  // HELPER: Fetch full generation status (outputs, etc.)
+  // ====================================================================
+  const fetchGenerationStatus = useCallback(async () => {
     if (!store.currentJobId) return;
 
     try {
@@ -59,46 +82,99 @@ export default function CreativeStudioCreatePage() {
 
       if (data.status === "completed" || data.status === "failed") {
         store.setGenerating(false);
+        setSseUrl(null);
         if (data.outputs) {
           store.setOutputs(data.outputs);
         }
         if (data.status === "failed") {
           setError(data.error || "Geracao falhou");
         }
-        // Stop polling
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
-        }
       } else if (data.outputs && data.outputs.length > store.outputs.length) {
         store.setOutputs(data.outputs);
       }
-      pollErrorCount.current = 0;
-    } catch (err) {
-      pollErrorCount.current++;
-      if (pollErrorCount.current >= 10) {
-        console.error("[CreativeStudio:Polling] Too many consecutive errors, stopping", err);
-        store.setGenerating(false);
-        setError("Erro de conexao ao verificar status. Tente recarregar a pagina.");
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
-        }
-      }
+    } catch {
+      // Silent fail — SSE/polling will retry
     }
   }, [store]);
 
-  useEffect(() => {
-    if (store.isGenerating && store.currentJobId) {
-      pollingRef.current = setInterval(pollStatus, POLLING_INTERVAL_MS);
-      return () => {
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
+  // ====================================================================
+  // SSE MESSAGE HANDLER
+  // ====================================================================
+  const handleSSEMessage = useCallback(
+    async (event: JobSSEEvent) => {
+      if (!isMountedRef.current) return;
+
+      if (event.type === "completed") {
+        // Job completed — fetch outputs
+        await fetchGenerationStatus();
+        return;
+      }
+
+      if (event.type === "failed") {
+        store.setGenerating(false);
+        setSseUrl(null);
+        setError(event.data?.error || "Geracao falhou");
+        return;
+      }
+
+      if (event.type === "status") {
+        // Intermediate status — fetch to check for partial outputs
+        await fetchGenerationStatus();
+      }
+    },
+    [store, fetchGenerationStatus]
+  );
+
+  // ====================================================================
+  // POLLING FALLBACK — used when SSE fails
+  // ====================================================================
+  const fallbackPoll = useCallback(async (): Promise<JobSSEEvent | null> => {
+    if (!store.currentJobId) return null;
+
+    try {
+      const resp = await fetch(`/api/creative-studio/generate/${store.currentJobId}`);
+      const data = await resp.json();
+
+      if (!isMountedRef.current) return null;
+
+      if (data.status === "completed") {
+        if (data.outputs) {
+          store.setOutputs(data.outputs);
         }
-      };
+        store.setGenerating(false);
+        return { type: "completed", data: { status: "completed" } };
+      }
+
+      if (data.status === "failed") {
+        store.setGenerating(false);
+        setError(data.error || "Geracao falhou");
+        return { type: "failed", data: { status: "failed", error: data.error } };
+      }
+
+      // Partial outputs
+      if (data.outputs && data.outputs.length > store.outputs.length) {
+        store.setOutputs(data.outputs);
+      }
+
+      return { type: "status", data: { status: data.status } };
+    } catch {
+      return null;
     }
-  }, [store.isGenerating, store.currentJobId, pollStatus]);
+  }, [store]);
+
+  // ====================================================================
+  // SSE HOOK — real-time job status with polling fallback
+  // ====================================================================
+  useSSE<JobSSEEvent>({
+    url: sseUrl,
+    onMessage: handleSSEMessage,
+    onError: (err) => {
+      console.warn("[CreativeStudio] SSE error:", err.message);
+      // The useSSE hook handles fallback to polling automatically
+    },
+    fallbackPollingMs: POLLING_INTERVAL_MS,
+    fallbackPollFn: fallbackPoll,
+  });
 
   const handleGenerate = async () => {
     if (!store.prompt.trim() && !templateSlug) {

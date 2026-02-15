@@ -135,6 +135,8 @@ export async function getLibraryItemsAction(
         categoryId: libraryItems.categoryId,
         createdAt: libraryItems.createdAt,
         updatedAt: libraryItems.updatedAt,
+        deletedAt: libraryItems.deletedAt,
+        embedding: libraryItems.embedding,
       })
       .from(libraryItems)
       .where(and(...conditions))
@@ -444,6 +446,9 @@ export async function createLibraryItemAction(
 
     revalidatePath("/library")
 
+    // Fire-and-forget: generate embedding asynchronously
+    void triggerEmbeddingGeneration(libraryItem.id, userId)
+
     return { success: true, libraryItemId: libraryItem.id }
   } catch (error) {
     console.error("Error creating library item:", error)
@@ -583,6 +588,11 @@ export async function updateLibraryItemAction(
     }
 
     revalidatePath("/library")
+
+    // Fire-and-forget: regenerate embedding if title or content changed
+    if (data.title !== undefined || data.content !== undefined) {
+      void triggerEmbeddingGeneration(id, userId)
+    }
 
     return { success: true }
   } catch (error) {
@@ -1781,6 +1791,7 @@ export async function getTrashItemsAction(
         createdAt: libraryItems.createdAt,
         updatedAt: libraryItems.updatedAt,
         deletedAt: libraryItems.deletedAt,
+        embedding: libraryItems.embedding,
       })
       .from(libraryItems)
       .where(and(...conditions))
@@ -2103,5 +2114,210 @@ export async function emptyTrashAction(): Promise<ActionResult & { count?: numbe
       success: false,
       error: error instanceof Error ? error.message : "Erro ao esvaziar lixeira",
     }
+  }
+}
+
+// ============================================================================
+// SEMANTIC SEARCH / EMBEDDING ACTIONS
+// ============================================================================
+
+/**
+ * Generate and save embedding for a single library item
+ *
+ * @param itemId - Library item ID
+ * @returns Action result
+ */
+export async function generateItemEmbeddingAction(
+  itemId: number
+): Promise<ActionResult> {
+  let userId: string
+  try {
+    userId = await ensureAuthenticatedUser()
+  } catch {
+    return { success: false, error: "Não autenticado" }
+  }
+
+  try {
+    const { updateLibraryItemEmbedding } = await import(
+      "@/lib/embeddings/library-embeddings"
+    )
+    const result = await updateLibraryItemEmbedding(itemId, userId)
+    return result
+  } catch (error) {
+    console.error("[generateItemEmbeddingAction] Error:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Erro ao gerar embedding",
+    }
+  }
+}
+
+/**
+ * Semantic search result with relations
+ */
+export interface SemanticSearchResult {
+  item: LibraryItemWithRelations
+  similarity: number
+}
+
+/**
+ * Perform semantic search on library items
+ *
+ * @param query - Search query text
+ * @param limit - Maximum number of results (default: 20)
+ * @returns Array of items with similarity scores
+ */
+export async function searchLibrarySemanticAction(
+  query: string,
+  limit = 20
+): Promise<{ success: boolean; results: SemanticSearchResult[]; error?: string }> {
+  let userId: string
+  try {
+    userId = await ensureAuthenticatedUser()
+  } catch {
+    return { success: false, results: [], error: "Não autenticado" }
+  }
+
+  if (!query || query.trim().length === 0) {
+    return { success: false, results: [], error: "Query vazia" }
+  }
+
+  try {
+    const { searchByEmbedding } = await import(
+      "@/lib/embeddings/library-embeddings"
+    )
+    const searchResults = await searchByEmbedding(query, userId, limit)
+
+    if (searchResults.length === 0) {
+      return { success: true, results: [] }
+    }
+
+    // Fetch related data (categories, tags, published posts)
+    const itemIds = searchResults.map((r) => r.id)
+
+    // Fetch categories
+    const categoryIds = searchResults
+      .map((r) => r.categoryId)
+      .filter((id): id is number => id !== null)
+
+    const categoriesData =
+      categoryIds.length > 0
+        ? await db
+            .select()
+            .from(categories)
+            .where(inArray(categories.id, categoryIds))
+        : []
+
+    const categoryMap = new Map(categoriesData.map((c) => [c.id, c]))
+
+    // Fetch tags
+    const tagsData = await db
+      .select({
+        tagId: libraryItemTags.tagId,
+        libraryItemId: libraryItemTags.libraryItemId,
+        tag: {
+          id: tags.id,
+          userId: tags.userId,
+          name: tags.name,
+          color: tags.color,
+          createdAt: tags.createdAt,
+        },
+      })
+      .from(libraryItemTags)
+      .innerJoin(tags, eq(libraryItemTags.tagId, tags.id))
+      .where(inArray(libraryItemTags.libraryItemId, itemIds))
+
+    const tagsMap = new Map<number, Tag[]>()
+    for (const row of tagsData) {
+      if (!tagsMap.has(row.libraryItemId)) {
+        tagsMap.set(row.libraryItemId, [])
+      }
+      tagsMap.get(row.libraryItemId)!.push(row.tag as Tag)
+    }
+
+    // Fetch published posts
+    const publishedPostsData = await db
+      .select({
+        libraryItemId: publishedPosts.libraryItemId,
+        platform: publishedPosts.platform,
+        status: publishedPosts.status,
+      })
+      .from(publishedPosts)
+      .where(
+        and(
+          inArray(publishedPosts.libraryItemId, itemIds),
+          isNull(publishedPosts.deletedAt)
+        )
+      )
+
+    const postsMap = new Map<number, typeof publishedPostsData>()
+    for (const sp of publishedPostsData) {
+      if (sp.libraryItemId === null) continue
+      if (!postsMap.has(sp.libraryItemId)) {
+        postsMap.set(sp.libraryItemId, [])
+      }
+      postsMap.get(sp.libraryItemId)!.push(sp)
+    }
+
+    // Build results with relations
+    const results: SemanticSearchResult[] = searchResults.map((r) => ({
+      item: {
+        id: r.id,
+        userId: r.userId,
+        type: r.type,
+        status: r.status,
+        title: r.title,
+        content: r.content,
+        mediaUrl: r.mediaUrl,
+        metadata: r.metadata,
+        scheduledFor: r.scheduledFor,
+        publishedAt: r.publishedAt,
+        categoryId: r.categoryId,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+        embedding: null, // Don't send embedding to client
+        deletedAt: null,
+        category: r.categoryId ? (categoryMap.get(r.categoryId) || null) : null,
+        tags: tagsMap.get(r.id) || [],
+        scheduledPosts: (postsMap.get(r.id) || []).map((sp) => ({
+          ...sp,
+          platform: sp.platform as any,
+          status: sp.status as any,
+        })),
+      } as LibraryItemWithRelations,
+      similarity: r.similarity,
+    }))
+
+    return { success: true, results }
+  } catch (error) {
+    console.error("[searchLibrarySemanticAction] Error:", error)
+    return {
+      success: false,
+      results: [],
+      error: error instanceof Error ? error.message : "Erro na busca semântica",
+    }
+  }
+}
+
+/**
+ * Fire-and-forget embedding generation helper.
+ * Used internally by create/update actions to generate
+ * embeddings asynchronously without blocking the response.
+ */
+async function triggerEmbeddingGeneration(
+  itemId: number,
+  userId: string
+): Promise<void> {
+  try {
+    const { updateLibraryItemEmbedding } = await import(
+      "@/lib/embeddings/library-embeddings"
+    )
+    await updateLibraryItemEmbedding(itemId, userId)
+  } catch (error) {
+    // Log but don't throw — embedding generation is non-critical
+    console.error(
+      `[triggerEmbeddingGeneration] Error for item ${itemId}:`,
+      error instanceof Error ? error.message : error
+    )
   }
 }
