@@ -7,12 +7,15 @@
 
 "use client"
 
-import { Plus, Grid3x3, List, ArrowUpDown, Trash2, CheckCircle2, Library } from "lucide-react"
+import { useState } from "react"
+import { Plus, Grid3x3, List, ArrowUpDown, Trash2, CheckCircle2, Library, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import type { ViewMode } from "@/types/library"
+import { ExportDropdown } from "./export-dropdown"
+import { ImportDialog } from "./import-dialog"
 
 interface LibraryHeaderProps {
   viewMode: ViewMode
@@ -22,6 +25,7 @@ interface LibraryHeaderProps {
   searchQuery: string
   onSearchChange: (query: string) => void
   selectedCount: number
+  selectedIds?: number[]
   onCreateNew: () => void
   onBatchDelete?: () => void
   onBatchStatus?: (status: string) => void
@@ -29,6 +33,7 @@ interface LibraryHeaderProps {
   activeTab: "library" | "trash"
   trashCount: number
   onTabChange: (tab: "library" | "trash") => void
+  onImportComplete?: () => void
 }
 
 const SORT_OPTIONS: Array<{ value: ViewMode["sortBy"]; label: string }> = [
@@ -46,6 +51,7 @@ export function LibraryHeader({
   searchQuery,
   onSearchChange,
   selectedCount,
+  selectedIds,
   onCreateNew,
   onBatchDelete,
   onBatchStatus,
@@ -53,7 +59,9 @@ export function LibraryHeader({
   activeTab,
   trashCount,
   onTabChange,
+  onImportComplete,
 }: LibraryHeaderProps) {
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
   const hasSelection = selectedCount > 0
   const isTrashView = activeTab === "trash"
 
@@ -119,6 +127,17 @@ export function LibraryHeader({
               />
             </div>
 
+            {/* Import Button */}
+            <Button
+              onClick={() => setImportDialogOpen(true)}
+              variant="outline"
+              className="h-9 border-white/10 text-white/70 hover:text-white hover:bg-white/5"
+              size="sm"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Importar
+            </Button>
+
             {/* Create Button */}
             <Button
               onClick={onCreateNew}
@@ -162,6 +181,12 @@ export function LibraryHeader({
                 >
                   Rascunho
                 </Button>
+                <ExportDropdown
+                  selectedIds={selectedIds}
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-white/70 hover:text-white hover:bg-white/5"
+                />
                 <Button
                   variant="ghost"
                   size="sm"
@@ -214,6 +239,16 @@ export function LibraryHeader({
           )}
         </>
       )}
+
+      {/* Import Dialog */}
+      <ImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onImportComplete={() => {
+          setImportDialogOpen(false)
+          onImportComplete?.()
+        }}
+      />
     </div>
   )
 }

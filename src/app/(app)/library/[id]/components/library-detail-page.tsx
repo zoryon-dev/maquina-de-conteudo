@@ -9,16 +9,23 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Calendar, Tag, Clock, Edit2, CalendarClock, Send, RefreshCw, Download } from "lucide-react"
+import { ArrowLeft, Calendar, Tag, Clock, Edit2, CalendarClock, Send, RefreshCw, Download, Eye } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { formatDate } from "@/lib/format"
 import type { LibraryItemWithRelations } from "@/types/library"
 import { CONTENT_TYPE_CONFIGS, STATUS_CONFIGS } from "@/types/calendar"
 import { ContentPreviewSection } from "./content-preview-section"
 import { ContentActionsSection } from "./content-actions-section"
+import { SocialPreview } from "@/components/library/social-preview"
 
 // ============================================================================
 // TYPES
@@ -40,6 +47,7 @@ export interface LibraryDetailPageProps {
 
 export function LibraryDetailPage({ item, mediaUrls, carouselSlides }: LibraryDetailPageProps) {
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [socialPreviewOpen, setSocialPreviewOpen] = useState(false)
 
   // Parse metadata for additional info
   let metadata: Record<string, unknown> = {}
@@ -111,6 +119,19 @@ export function LibraryDetailPage({ item, mediaUrls, carouselSlides }: LibraryDe
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
+          {/* Social Preview */}
+          {item.type !== "video" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 border-white/10 text-white/70 hover:text-white hover:bg-white/5"
+              onClick={() => setSocialPreviewOpen(true)}
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              Preview Social
+            </Button>
+          )}
+
           {/* Download All Images */}
           {mediaUrls.length > 0 && (
             <Button
@@ -147,8 +168,36 @@ export function LibraryDetailPage({ item, mediaUrls, carouselSlides }: LibraryDe
           metadata={metadata}
           isRefreshing={isRefreshing}
           onRefresh={() => setIsRefreshing(!isRefreshing)}
+          mediaUrls={mediaUrls}
         />
       </div>
+
+      {/* Social Preview Dialog */}
+      <Dialog open={socialPreviewOpen} onOpenChange={setSocialPreviewOpen}>
+        <DialogContent className="bg-[#0a0a0f] border-white/10 text-white max-w-lg sm:max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5 text-primary" />
+              Preview nas Redes Sociais
+            </DialogTitle>
+          </DialogHeader>
+
+          <SocialPreview
+            content={{
+              title: item.title || undefined,
+              caption: caption || item.content || "",
+              hashtags,
+              imageUrl: mediaUrls[0],
+              imageUrls: mediaUrls.length > 1 ? mediaUrls : undefined,
+              type: item.type as "text" | "image" | "carousel" | "video" | "story",
+            }}
+            profile={{
+              username: "meu_perfil",
+              displayName: "Meu Perfil",
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

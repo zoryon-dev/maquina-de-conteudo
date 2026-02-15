@@ -82,6 +82,8 @@ export interface WizardFormData {
     useBrandColors?: boolean;
   };
   mappedStudioContent?: import("@/lib/wizard-services/content-mapper").MappedContent;
+  /** Edited/custom narratives from Step 3 - saved to server on submit */
+  editedNarratives?: Narrative[];
 }
 
 interface Wizard {
@@ -325,15 +327,20 @@ export function WizardPage({
     setError(null);
 
     try {
-      // Update wizard with selected narrative
+      // Update wizard with selected narrative (and edited narratives if any)
+      const patchBody: Record<string, unknown> = {
+        selectedNarrativeId: formData.selectedNarrativeId,
+        customInstructions: formData.customInstructions,
+        ragConfig: formData.ragConfig,
+      };
+      // If narratives were edited/added locally, save them to the server
+      if (formData.editedNarratives && formData.editedNarratives.length > 0) {
+        patchBody.narratives = formData.editedNarratives;
+      }
       await fetch(`/api/wizard/${wizardId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          selectedNarrativeId: formData.selectedNarrativeId,
-          customInstructions: formData.customInstructions,
-          ragConfig: formData.ragConfig,
-        }),
+        body: JSON.stringify(patchBody),
       });
 
       // Trigger generation job for ALL content types (including video)
@@ -779,6 +786,7 @@ export function WizardPage({
               onChange={setFormData}
               onSubmit={handleSubmitNarratives}
               isSubmitting={isSubmitting}
+              wizardId={wizardId ?? undefined}
             />
           </motion.div>
         )}

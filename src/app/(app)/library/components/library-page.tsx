@@ -289,6 +289,7 @@ export function LibraryPage() {
         searchQuery={filters.search ?? ""}
         onSearchChange={handleSearch}
         selectedCount={selectedIds.size}
+        selectedIds={Array.from(selectedIds)}
         onCreateNew={handleCreate}
         onBatchDelete={selectedIds.size > 0 ? handleBatchDelete : undefined}
         onBatchStatus={selectedIds.size > 0 ? handleBatchStatus : undefined}
@@ -296,6 +297,7 @@ export function LibraryPage() {
         activeTab={activeTab}
         trashCount={trashCount}
         onTabChange={handleTabChange}
+        onImportComplete={refetch}
       />
 
       {/* Show filter bar only in library mode */}

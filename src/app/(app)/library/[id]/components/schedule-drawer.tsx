@@ -8,13 +8,15 @@
 "use client"
 
 import { useState } from "react"
-import { X, Calendar as CalendarIcon, Clock, Instagram, Facebook, Linkedin, Check, Loader2 } from "lucide-react"
+import { X, Calendar as CalendarIcon, Clock, Instagram, Facebook, Linkedin, Check, Loader2, Eye, ChevronDown, ChevronUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { InstagramPreview } from "@/components/library/instagram-preview"
+import { FacebookPreview } from "@/components/library/facebook-preview"
 
 // ============================================================================
 // TYPES
@@ -27,6 +29,8 @@ export interface ScheduleDrawerProps {
   itemTitle?: string | null
   itemType?: string
   caption?: string | null
+  mediaUrls?: string[]
+  hashtags?: string[]
 }
 
 interface Platform {
@@ -57,12 +61,15 @@ export function ScheduleDrawer({
   itemTitle,
   itemType,
   caption,
+  mediaUrls = [],
+  hashtags = [],
 }: ScheduleDrawerProps) {
   const [selectedPlatform, setSelectedPlatform] = useState<string>("instagram")
   const [scheduledDate, setScheduledDate] = useState("")
   const [scheduledTime, setScheduledTime] = useState("")
   const [customMessage, setCustomMessage] = useState(caption || "")
   const [isScheduling, setIsScheduling] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
 
   // Set default date to tomorrow
   const tomorrow = new Date()
@@ -231,7 +238,50 @@ export function ScheduleDrawer({
             </div>
             {itemTitle && (
               <div className="text-xs text-white/40 truncate">
-                "{itemTitle}"
+                &ldquo;{itemTitle}&rdquo;
+              </div>
+            )}
+          </div>
+
+          {/* Social Preview (Collapsible) */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setShowPreview(!showPreview)}
+              className="flex items-center gap-2 text-sm text-white/70 hover:text-white transition-colors w-full"
+            >
+              <Eye className="w-4 h-4" />
+              <span>Preview da Publicacao</span>
+              {showPreview ? (
+                <ChevronUp className="w-4 h-4 ml-auto" />
+              ) : (
+                <ChevronDown className="w-4 h-4 ml-auto" />
+              )}
+            </button>
+
+            {showPreview && (
+              <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 overflow-x-auto">
+                <div className="min-w-[300px] max-w-full flex justify-center">
+                  {selectedPlatform === "facebook" ? (
+                    <FacebookPreview
+                      imageUrl={mediaUrls[0]}
+                      imageUrls={mediaUrls.length > 1 ? mediaUrls : undefined}
+                      displayName="Meu Perfil"
+                      caption={customMessage || caption || ""}
+                      hashtags={hashtags}
+                      className="!max-w-full !shadow-none !border-0"
+                    />
+                  ) : (
+                    <InstagramPreview
+                      imageUrl={mediaUrls[0]}
+                      imageUrls={mediaUrls.length > 1 ? mediaUrls : undefined}
+                      username="meu_perfil"
+                      caption={customMessage || caption || ""}
+                      hashtags={hashtags}
+                      className="!max-w-full !shadow-none !border-0"
+                    />
+                  )}
+                </div>
               </div>
             )}
           </div>
