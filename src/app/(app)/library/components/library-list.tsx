@@ -6,8 +6,9 @@
 
 "use client"
 
-import { Check, ArrowUp, ArrowDown } from "lucide-react"
+import { Check, ArrowUp, ArrowDown, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
 import type { LibraryItemWithRelations, ViewMode } from "@/types/library"
 import { ContentRow } from "./content-row"
 
@@ -22,10 +23,12 @@ interface LibraryListProps {
   sortBy: ViewMode["sortBy"]
   sortOrder: "asc" | "desc"
   onSortBy: (sortBy: ViewMode["sortBy"]) => void
+  searchMode?: "exact" | "semantic"
+  similarities?: Map<number, number>
 }
 
 const COLUMNS = [
-  { key: "title" as const, label: "Título", sortable: true },
+  { key: "title" as const, label: "Titulo", sortable: true },
   { key: "type" as const, label: "Tipo", sortable: false },
   { key: "status" as const, label: "Status", sortable: false },
   { key: "category" as const, label: "Categoria", sortable: false },
@@ -45,6 +48,8 @@ export function LibraryList({
   sortBy,
   sortOrder,
   onSortBy,
+  searchMode = "exact",
+  similarities,
 }: LibraryListProps) {
   if (items.length === 0) {
     return null
@@ -114,6 +119,7 @@ export function LibraryList({
                 onSelect={() => onSelectItem(item.id)}
                 onEdit={() => onEdit(item)}
                 onDelete={() => onDelete(item.id)}
+                similarity={searchMode === "semantic" ? similarities?.get(item.id) : undefined}
               />
             ))}
           </tbody>

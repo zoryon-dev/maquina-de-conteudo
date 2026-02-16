@@ -54,6 +54,7 @@ import { formatDate } from "@/lib/format"
 import type { LibraryItemWithRelations } from "@/types/library"
 import { CONTENT_TYPE_CONFIGS, STATUS_CONFIGS } from "@/types/calendar"
 import { clearMediaUrlAction } from "../../actions/library-actions"
+import { ExportDropdown } from "../../components/export-dropdown"
 import { ScheduleDrawer } from "./schedule-drawer"
 import { toast } from "sonner"
 import {
@@ -80,6 +81,7 @@ export interface ContentActionsSectionProps {
   metadata?: Record<string, unknown>
   isRefreshing: boolean
   onRefresh: () => void
+  mediaUrls?: string[]
 }
 
 interface Platform {
@@ -104,6 +106,7 @@ export function ContentActionsSection({
   hashtags,
   isRefreshing,
   onRefresh,
+  mediaUrls = [],
 }: ContentActionsSectionProps) {
   const typeConfig = CONTENT_TYPE_CONFIGS[item.type]
   const statusConfig = STATUS_CONFIGS[item.status]
@@ -589,6 +592,25 @@ export function ContentActionsSection({
                 </Button>
               )}
 
+              {/* Copy Text (caption) */}
+              <Button
+                variant="outline"
+                className="w-full justify-start border-white/10 text-white/70 hover:text-white hover:bg-white/5 h-10"
+                onClick={() => handleCopyText(caption || undefined, "Texto copiado!")}
+                disabled={!caption}
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Copiar Texto
+              </Button>
+
+              {/* Export Item */}
+              <ExportDropdown
+                itemId={item.id}
+                variant="outline"
+                size="default"
+                className="w-full justify-start border-white/10 text-white/70 hover:text-white hover:bg-white/5 h-10"
+              />
+
               {/* Clear Invalid Media */}
               {item.mediaUrl && (
                 <Button
@@ -718,6 +740,8 @@ export function ContentActionsSection({
         itemTitle={item.title}
         itemType={item.type}
         caption={caption}
+        mediaUrls={mediaUrls}
+        hashtags={hashtags}
       />
 
       {/* Publish Dialog */}

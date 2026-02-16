@@ -321,6 +321,7 @@ export const libraryItems = pgTable(
       () => categories.id,
       { onDelete: "set null" }
     ),
+    embedding: text("embedding"), // Vetor de embedding serializado como JSON string (1024 dims, voyage-4-large)
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at"),
