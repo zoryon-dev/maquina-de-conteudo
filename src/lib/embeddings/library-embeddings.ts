@@ -227,25 +227,31 @@ export async function searchByEmbedding(
   // Calculate cosine similarity for each item
   const scored = items
     .map((item) => {
-      const itemEmbedding = JSON.parse(item.embedding!) as number[]
-      const similarity = cosineSimilarity(queryEmbedding, itemEmbedding)
-      return {
-        id: item.id,
-        userId: item.userId,
-        type: item.type,
-        status: item.status,
-        title: item.title,
-        content: item.content,
-        mediaUrl: item.mediaUrl,
-        metadata: item.metadata,
-        scheduledFor: item.scheduledFor,
-        publishedAt: item.publishedAt,
-        categoryId: item.categoryId,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
-        similarity,
+      try {
+        const itemEmbedding = JSON.parse(item.embedding!) as number[]
+        const similarity = cosineSimilarity(queryEmbedding, itemEmbedding)
+        return {
+          id: item.id,
+          userId: item.userId,
+          type: item.type,
+          status: item.status,
+          title: item.title,
+          content: item.content,
+          mediaUrl: item.mediaUrl,
+          metadata: item.metadata,
+          scheduledFor: item.scheduledFor,
+          publishedAt: item.publishedAt,
+          categoryId: item.categoryId,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
+          similarity,
+        }
+      } catch {
+        console.warn(`[searchByEmbedding] Invalid embedding for item ${item.id}, skipping`)
+        return null
       }
     })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
     .filter((item) => item.similarity >= SIMILARITY_THRESHOLD)
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, limit)

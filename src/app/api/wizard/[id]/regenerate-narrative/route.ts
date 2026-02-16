@@ -9,7 +9,6 @@
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { contentWizards } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -27,13 +26,14 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { userId: clerkUserId } = await auth();
-  if (!clerkUserId) {
+  let dbUserId: string;
+  try {
+    dbUserId = await ensureAuthenticatedUser();
+  } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const dbUserId = await ensureAuthenticatedUser();
     const { id } = await params;
     const wizardId = parseInt(id, 10);
 

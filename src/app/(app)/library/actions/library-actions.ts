@@ -1344,12 +1344,12 @@ export async function clearMediaUrlAction(
   try {
     // Check ownership
     const [existing] = await db
-      .select({ mediaUrl: libraryItems.mediaUrl })
+      .select({ mediaUrl: libraryItems.mediaUrl, userId: libraryItems.userId })
       .from(libraryItems)
       .where(eq(libraryItems.id, id))
       .limit(1)
 
-    if (!existing) {
+    if (!existing || existing.userId !== userId) {
       return { success: false, error: "Conteúdo não encontrado" }
     }
 
@@ -1357,7 +1357,7 @@ export async function clearMediaUrlAction(
     await db
       .update(libraryItems)
       .set({ mediaUrl: null, updatedAt: new Date() })
-      .where(eq(libraryItems.id, id))
+      .where(and(eq(libraryItems.id, id), eq(libraryItems.userId, userId)))
 
     revalidatePath("/library")
     revalidatePath(`/library/${id}`)

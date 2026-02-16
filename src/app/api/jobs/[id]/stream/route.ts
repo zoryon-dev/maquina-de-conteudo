@@ -28,6 +28,9 @@ const POLL_INTERVAL_MS = 1_000;
 /** Maximum stream duration: 5 minutes */
 const MAX_STREAM_DURATION_MS = 5 * 60 * 1_000;
 
+/** Max consecutive DB poll errors before giving up */
+const MAX_CONSECUTIVE_DB_ERRORS = 10;
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -83,6 +86,7 @@ export async function GET(
   return createSSEResponse(async (send, close) => {
     const startTime = Date.now();
     let lastStatus = job.status;
+    let consecutiveDbErrors = 0;
 
     // Send initial status
     send({
@@ -114,6 +118,9 @@ export async function GET(
           .from(jobs)
           .where(eq(jobs.id, jobId))
           .limit(1);
+
+        // Reset error counter on successful poll
+        consecutiveDbErrors = 0;
 
         if (!currentJob) {
           send({
@@ -166,8 +173,24 @@ export async function GET(
           });
         }
       } catch (error) {
-        console.error("[SSE:JobStream] DB poll error:", error);
-        // Don't close — transient DB errors should be retried
+        consecutiveDbErrors++;
+        console.error(
+          `[SSE:JobStream] DB poll error (${consecutiveDbErrors}/${MAX_CONSECUTIVE_DB_ERRORS}):`,
+          error
+        );
+
+        if (consecutiveDbErrors >= MAX_CONSECUTIVE_DB_ERRORS) {
+          console.error(
+            `[SSE:JobStream] Max consecutive DB errors reached for job ${jobId}, closing stream`
+          );
+          send({
+            type: "error",
+            data: { error: "Unable to check job status", code: "DB_POLL_FAILED" },
+          });
+          close();
+          return;
+        }
+        // Transient DB errors — keep retrying
       }
     }
   }, request);

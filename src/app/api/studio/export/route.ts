@@ -9,7 +9,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
 import { renderSlideToHtml } from "@/lib/studio-templates/renderer";
 import type {
   StudioSlide,
@@ -51,9 +51,10 @@ interface ExportedSlide {
 // ============================================================================
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
-
-  if (!userId) {
+  let userId: string;
+  try {
+    userId = await ensureAuthenticatedUser();
+  } catch {
     return NextResponse.json(
       { success: false, error: "Nao autenticado", code: "AUTH_ERROR" },
       { status: 401 }
