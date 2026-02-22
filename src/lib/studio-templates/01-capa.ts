@@ -134,16 +134,26 @@ export function generate01CapaHtml(input: CapaTemplateInput): string {
       height: 30%;
       background: ${style.backgroundColor};
       display: flex;
-      align-items: center;
+      flex-direction: column;
+      justify-content: center;
       padding: 0 62px;
+      gap: 12px;
     }
 
     .headline {
-      font-size: 72px;
+      font-size: ${content.texto2 ? "64px" : "72px"};
       font-weight: 800;
       line-height: 1.05;
       letter-spacing: -2px;
       color: ${style.textColor};
+    }
+
+    .subtitle {
+      font-size: 28px;
+      font-weight: 500;
+      line-height: 1.3;
+      color: ${style.textColor};
+      opacity: 0.7;
     }
 
     /* Destaque no texto */
@@ -179,6 +189,7 @@ export function generate01CapaHtml(input: CapaTemplateInput): string {
     <!-- Área do headline -->
     <div class="headline-area">
       <h1 class="headline">${escapeHtml(content.texto1)}</h1>
+      ${content.texto2 ? `<p class="subtitle">${escapeHtml(content.texto2)}</p>` : ""}
     </div>
   </div>
 </body>

@@ -198,7 +198,7 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
   "01_CAPA": {
     id: "01_CAPA",
     label: "Capa",
-    description: "Imagem de fundo + headline gigante + swipe indicator",
+    description: "Imagem de fundo + headline + subtitulo + swipe indicator",
     recommendedUse: "cover",
     requiredFields: ["texto1"],
     supportsBackgroundImage: true,

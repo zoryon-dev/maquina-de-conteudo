@@ -260,7 +260,6 @@ function FullscreenPreviewDialog({
                 top: 0,
                 left: 0,
               }}
-              sandbox="allow-same-origin"
             />
           </div>
         </div>
@@ -1061,6 +1060,40 @@ export function StepVisualStudio({
                     />
                   </div>
                 )}
+
+                {/* Header (Category, Brand, Copyright) */}
+                <div className="pt-3 border-t border-white/10 space-y-3">
+                  <Label className="text-xs text-white/50 uppercase tracking-wider">Topo do Slide</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-white/40">Categoria</Label>
+                      <Input
+                        value={header.category}
+                        onChange={(e) => setHeader((h) => ({ ...h, category: e.target.value }))}
+                        className="h-8 text-xs bg-white/5 border-white/10"
+                        placeholder="ESTUDO DE CASO"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-white/40">Marca</Label>
+                      <Input
+                        value={header.brand}
+                        onChange={(e) => setHeader((h) => ({ ...h, brand: e.target.value }))}
+                        className="h-8 text-xs bg-white/5 border-white/10"
+                        placeholder="MINHA MARCA"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-white/40">Copyright</Label>
+                      <Input
+                        value={header.copyright}
+                        onChange={(e) => setHeader((h) => ({ ...h, copyright: e.target.value }))}
+                        className="h-8 text-xs bg-white/5 border-white/10"
+                        placeholder="©COPYRIGHT 2026"
+                      />
+                    </div>
+                  </div>
+                </div>
               </motion.div>
             )}
 
@@ -1253,7 +1286,6 @@ export function StepVisualStudio({
                     top: 0,
                     left: 0,
                   }}
-                  sandbox="allow-same-origin"
                 />
               </div>
             </div>

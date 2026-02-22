@@ -149,50 +149,43 @@ export async function POST(
       },
     };
 
-    // Use transaction to ensure atomicity:
-    // - Insert library item
-    // - Update wizard with library item reference
-    // - Mark theme as produced (if applicable)
-    // All operations succeed or all fail together
-    const result = await db.transaction(async (tx) => {
-      // Insert into library
-      const [libraryItem] = await tx
-        .insert(libraryItems)
-        .values({
-          userId,
-          type: contentType,
-          status: "draft" as ContentStatus,
-          title,
-          content: JSON.stringify(libraryContent),
-          // Store image URLs as JSON array for preview in library grid
-          mediaUrl: imageUrls.length > 0 ? JSON.stringify(imageUrls) : null,
-          metadata: JSON.stringify(libraryMetadata),
-        })
-        .returning();
+    // Sequential operations (neon-http driver does not support transactions)
+    // Order matters: insert first, then update references
 
-      // Update wizard with library item reference
-      await tx
-        .update(contentWizards)
-        .set({
-          libraryItemId: libraryItem.id,
-          currentStep: "completed",
-          updatedAt: new Date(),
-        })
-        .where(eq(contentWizards.id, wizardId));
+    // 1. Insert into library
+    const [libraryItem] = await db
+      .insert(libraryItems)
+      .values({
+        userId,
+        type: contentType,
+        status: "draft" as ContentStatus,
+        title,
+        content: JSON.stringify(libraryContent),
+        mediaUrl: imageUrls.length > 0 ? JSON.stringify(imageUrls) : null,
+        metadata: JSON.stringify(libraryMetadata),
+      })
+      .returning();
 
-      // Mark the origin theme as produced (if wizard was created from a theme)
-      // This is done here instead of wizard creation to avoid race condition
-      // where wizard is created but content generation fails
-      if (wizard.themeId) {
-        await tx
-          .update(themes)
-          .set({ producedAt: new Date() })
-          .where(eq(themes.id, wizard.themeId));
-        console.log(`[SaveCarousel] Theme ${wizard.themeId} marked as produced`);
-      }
+    // 2. Update wizard with library item reference
+    await db
+      .update(contentWizards)
+      .set({
+        libraryItemId: libraryItem.id,
+        currentStep: "completed",
+        updatedAt: new Date(),
+      })
+      .where(eq(contentWizards.id, wizardId));
 
-      return { libraryItemId: libraryItem.id };
-    });
+    // 3. Mark the origin theme as produced (if wizard was created from a theme)
+    if (wizard.themeId) {
+      await db
+        .update(themes)
+        .set({ producedAt: new Date() })
+        .where(eq(themes.id, wizard.themeId));
+      console.log(`[SaveCarousel] Theme ${wizard.themeId} marked as produced`);
+    }
+
+    const result = { libraryItemId: libraryItem.id };
 
     console.log(`[SaveCarousel] Wizard ${wizardId} saved to library item ${result.libraryItemId}`);
 
