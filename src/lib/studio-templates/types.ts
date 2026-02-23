@@ -34,7 +34,10 @@ export type FigmaTemplate =
   | "DARK_MODE"
   | "WHITE_MODE"
   | "TWITTER"
-  | "SUPER_HEADLINE";
+  | "SUPER_HEADLINE"
+  | "IMAGE_OVERLAY"
+  | "IMAGE_SPLIT"
+  | "IMAGE_MINIMAL";
 
 /**
  * Tipo de conteúdo que pode ser criado no Studio
@@ -275,6 +278,37 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     supportsBackgroundImage: false,
     supportsImage: false,
     defaultShowSwipe: true,
+  },
+  // === IMAGE TEMPLATES (com imagem de fundo) ===
+  "IMAGE_OVERLAY": {
+    id: "IMAGE_OVERLAY",
+    label: "Imagem Overlay",
+    description: "Imagem full-bleed + gradiente + texto sobre",
+    recommendedUse: "any",
+    requiredFields: ["texto1"],
+    supportsBackgroundImage: true,
+    supportsImage: false,
+    defaultShowSwipe: false,
+  },
+  "IMAGE_SPLIT": {
+    id: "IMAGE_SPLIT",
+    label: "Imagem Split",
+    description: "Imagem no topo + card de texto na base",
+    recommendedUse: "any",
+    requiredFields: ["texto1"],
+    supportsBackgroundImage: true,
+    supportsImage: false,
+    defaultShowSwipe: false,
+  },
+  "IMAGE_MINIMAL": {
+    id: "IMAGE_MINIMAL",
+    label: "Imagem Minimal",
+    description: "Imagem dominante + barra sutil com texto",
+    recommendedUse: "any",
+    requiredFields: ["texto1"],
+    supportsBackgroundImage: true,
+    supportsImage: false,
+    defaultShowSwipe: false,
   },
 };
 

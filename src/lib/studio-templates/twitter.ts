@@ -40,7 +40,7 @@ export function generateTwitterHtml(input: TemplateTwitterInput): string {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; box-sizing: border-box; word-break: break-word; overflow-wrap: break-word; }
     html, body {
       width: ${INSTAGRAM_DIMENSIONS.width}px;
       height: ${INSTAGRAM_DIMENSIONS.height}px;
@@ -60,8 +60,8 @@ export function generateTwitterHtml(input: TemplateTwitterInput): string {
     .header {
       position: absolute;
       top: 40px;
-      left: 64px;
-      right: 64px;
+      left: 62px;
+      right: 62px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -89,7 +89,7 @@ export function generateTwitterHtml(input: TemplateTwitterInput): string {
       left: 0;
       width: 1080px;
       height: 1080px;
-      padding: 40px 64px;
+      padding: 40px 62px;
       display: flex;
       flex-direction: column;
     }

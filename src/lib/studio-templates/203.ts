@@ -51,7 +51,7 @@ export function generate203Html(input: Template203Input): string {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; box-sizing: border-box; word-break: break-word; overflow-wrap: break-word; }
     html, body {
       width: ${INSTAGRAM_DIMENSIONS.width}px;
       height: ${INSTAGRAM_DIMENSIONS.height}px;

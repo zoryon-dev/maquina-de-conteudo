@@ -20,6 +20,8 @@ import {
   Sun,
   Twitter,
   Type,
+  Layers,
+  SplitSquareHorizontal,
   Palette,
   Image as ImageIcon,
   Wand2,
@@ -43,6 +45,9 @@ const TEMPLATE_ICONS: Record<FigmaTemplate, LucideIcon> = {
   "WHITE_MODE": Sun,
   "TWITTER": Twitter,
   "SUPER_HEADLINE": Type,
+  "IMAGE_OVERLAY": Layers,
+  "IMAGE_SPLIT": SplitSquareHorizontal,
+  "IMAGE_MINIMAL": ImageIcon,
 };
 
 // Cores de preview para cada template
@@ -58,6 +63,9 @@ const TEMPLATE_PREVIEW_COLORS: Record<
   "WHITE_MODE": { bg: "#fafafa", accent: "#f97316", textPreview: "Tema claro" },
   "TWITTER": { bg: "#ffffff", accent: "#1d9bf0", textPreview: "Estilo tweet" },
   "SUPER_HEADLINE": { bg: "#ffffff", accent: "#a3e635", textPreview: "Headline grande" },
+  "IMAGE_OVERLAY": { bg: "#1a1a2e", accent: "#ffffff", textPreview: "Texto sobre imagem" },
+  "IMAGE_SPLIT": { bg: "#f5f5f5", accent: "#1a1a2e", textPreview: "Imagem + card" },
+  "IMAGE_MINIMAL": { bg: "#2a2a3e", accent: "#e0e0e0", textPreview: "Imagem protagonista" },
 };
 
 // Categorias de templates
@@ -71,6 +79,11 @@ const TEMPLATE_CATEGORIES = {
     label: "Genéricos",
     description: "Foco no conteúdo, sem perfil",
     templates: ["DARK_MODE", "WHITE_MODE", "TWITTER", "SUPER_HEADLINE"] as FigmaTemplate[],
+  },
+  image: {
+    label: "Com Imagem",
+    description: "Templates com imagem de fundo",
+    templates: ["IMAGE_OVERLAY", "IMAGE_SPLIT", "IMAGE_MINIMAL"] as FigmaTemplate[],
   },
 };
 
@@ -194,7 +207,7 @@ export function VisualTemplateSelector({
   contentType,
   className,
 }: VisualTemplateSelectorProps) {
-  const [activeCategory, setActiveCategory] = useState<"figma" | "generic">("figma");
+  const [activeCategory, setActiveCategory] = useState<"figma" | "generic" | "image">("figma");
   const [isExpanded, setIsExpanded] = useState(!!selectedTemplate);
 
   const currentCategory = TEMPLATE_CATEGORIES[activeCategory];
@@ -276,6 +289,18 @@ export function VisualTemplateSelector({
           )}
         >
           {TEMPLATE_CATEGORIES.generic.label}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveCategory("image")}
+          className={cn(
+            "flex-1 px-3 py-2 rounded-md text-xs font-medium transition-all",
+            activeCategory === "image"
+              ? "bg-white/10 text-white shadow-sm"
+              : "text-white/50 hover:text-white/70"
+          )}
+        >
+          {TEMPLATE_CATEGORIES.image.label}
         </button>
       </div>
 

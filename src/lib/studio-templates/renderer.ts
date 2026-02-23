@@ -15,6 +15,10 @@ import { generateDarkModeHtml } from "./dark-mode";
 import { generateWhiteModeHtml } from "./white-mode";
 import { generateTwitterHtml } from "./twitter";
 import { generateSuperHeadlineHtml } from "./super-headline";
+// Image templates
+import { generateImageOverlayHtml } from "./image-overlay";
+import { generateImageSplitHtml } from "./image-split";
+import { generateImageMinimalHtml } from "./image-minimal";
 
 // ============================================================================
 // RENDERER TYPES
@@ -88,6 +92,19 @@ export function renderSlideToHtml(input: RenderSlideInput): RenderSlideResult {
 
     case "SUPER_HEADLINE":
       html = generateSuperHeadlineHtml({ slide, profile, header, isLastSlide });
+      break;
+
+    // === IMAGE TEMPLATES ===
+    case "IMAGE_OVERLAY":
+      html = generateImageOverlayHtml({ slide, profile, header, isLastSlide });
+      break;
+
+    case "IMAGE_SPLIT":
+      html = generateImageSplitHtml({ slide, profile, header, isLastSlide });
+      break;
+
+    case "IMAGE_MINIMAL":
+      html = generateImageMinimalHtml({ slide, profile, header, isLastSlide });
       break;
 
     default:

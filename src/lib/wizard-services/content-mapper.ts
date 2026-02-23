@@ -194,6 +194,14 @@ function mapSlideContent(
       texto1 = slide.titulo;
       break;
 
+    case "IMAGE_OVERLAY":
+    case "IMAGE_SPLIT":
+    case "IMAGE_MINIMAL":
+      // Image templates: titulo as headline, corpo as subtitle
+      texto1 = slide.titulo;
+      texto2 = slide.corpo;
+      break;
+
     default:
       texto1 = slide.titulo;
       texto2 = slide.corpo;
@@ -412,7 +420,7 @@ export function mapGeneratedContentToStudio(
 
     const slides: StudioSlide[] = [{
       id: crypto.randomUUID(),
-      template: finalConfig.coverTemplate, // Use cover template for single image
+      template: "IMAGE_OVERLAY" as FigmaTemplate, // Dedicated image template
       content: slideContent,
       style: {
         ...baseStyle,

@@ -1,38 +1,34 @@
 /**
- * Template 01_CAPA - Capa do Carrossel
+ * Template IMAGE_SPLIT - Imagem topo + card de texto na base
  *
  * Layout:
- * - Imagem de fundo ocupando ~70% superior
- * - Header transparente no topo
- * - Swipe indicator centralizado sobre a imagem
- * - Área branca com headline gigante na parte inferior
+ * - Imagem ocupando ~55% superior (792px)
+ * - Header sobreposto na imagem (transparente)
+ * - Card de texto ~45% inferior (648px)
+ * - Headline 56px + subtitle 26px centralizados no card
+ * - Footer com "Made By" no rodapé do card
+ * - Fallback sem imagem: cor sólida primaryColor
  *
- * Baseado no Figma Node ID: 432:826
- *
- * Especificações:
- * - Dimensões: 1080 x 1440 px
- * - Fonte: Inter (Medium, Bold)
- * - Cores padrão: branco (#FFFFFF), preto (#000000), amarelo (#FFD700)
+ * Ideal para: posts de imagem com bastante texto de apoio
  */
 
 import type { StudioSlide, StudioProfile, StudioHeader } from "./types";
 import { escapeHtml, escapeCssUrl, INSTAGRAM_DIMENSIONS } from "./types";
 
-export interface CapaTemplateInput {
+export interface TemplateImageSplitInput {
   slide: StudioSlide;
   profile: StudioProfile;
   header: StudioHeader;
+  isLastSlide?: boolean;
 }
 
 /**
- * Gera o HTML do template 01_CAPA
+ * Gera o HTML do template IMAGE_SPLIT
  */
-export function generate01CapaHtml(input: CapaTemplateInput): string {
+export function generateImageSplitHtml(input: TemplateImageSplitInput): string {
   const { slide, profile, header } = input;
   const { content, style } = slide;
 
-  // Usar imagem de fundo se disponível, senão usar cor de fundo
-  // Usar escapeCssUrl para prevenir CSS injection
   const backgroundStyle = content.backgroundImageUrl
     ? `background-image: url('${escapeCssUrl(content.backgroundImageUrl)}'); background-size: cover; background-position: center;`
     : `background-color: ${style.primaryColor};`;
@@ -42,7 +38,7 @@ export function generate01CapaHtml(input: CapaTemplateInput): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=${INSTAGRAM_DIMENSIONS.width}, height=${INSTAGRAM_DIMENSIONS.height}">
-  <title>Capa - Studio</title>
+  <title>Image Split - Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -62,26 +58,25 @@ export function generate01CapaHtml(input: CapaTemplateInput): string {
       flex-direction: column;
     }
 
-    /* Área da imagem de fundo (70% superior) */
-    .background-area {
-      height: 70%;
+    /* Área da imagem (55% superior) */
+    .image-area {
+      height: 55%;
       position: relative;
       ${backgroundStyle}
     }
 
-    /* Overlay escuro para melhorar legibilidade */
-    .background-overlay {
+    .image-overlay {
       position: absolute;
       inset: 0;
       background: linear-gradient(
         to bottom,
         rgba(0, 0, 0, 0.3) 0%,
-        rgba(0, 0, 0, 0.1) 50%,
-        rgba(0, 0, 0, 0.4) 100%
+        rgba(0, 0, 0, 0.05) 60%,
+        rgba(0, 0, 0, 0.1) 100%
       );
     }
 
-    /* Header - categoria | marca | copyright */
+    /* Header sobre a imagem */
     .header {
       position: absolute;
       top: 40px;
@@ -101,95 +96,97 @@ export function generate01CapaHtml(input: CapaTemplateInput): string {
       color: rgba(255, 255, 255, 0.9);
     }
 
-    /* Swipe indicator centralizado */
-    .swipe-indicator {
-      position: absolute;
-      bottom: 60px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 16px 32px;
-      background: ${style.primaryColor};
-      border-radius: 50px;
-      z-index: 10;
-    }
-
-    .swipe-text {
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: #000000;
-    }
-
-    .swipe-arrow {
-      width: 24px;
-      height: 24px;
-    }
-
-    /* Área do headline (30% inferior) */
-    .headline-area {
-      height: 30%;
+    /* Card de texto (45% inferior) */
+    .text-card {
+      height: 45%;
       background: ${style.backgroundColor};
       display: flex;
       flex-direction: column;
       justify-content: center;
-      padding: 0 62px;
-      gap: 12px;
+      padding: 48px 62px;
+      gap: 16px;
     }
 
     .headline {
-      font-size: ${content.texto2 ? "64px" : "72px"};
+      font-size: 56px;
       font-weight: 800;
-      line-height: 1.05;
+      line-height: 1.08;
       letter-spacing: -2px;
       color: ${style.textColor};
     }
 
     .subtitle {
-      font-size: 28px;
-      font-weight: 500;
-      line-height: 1.3;
+      font-size: 26px;
+      font-weight: 400;
+      line-height: 1.4;
       color: ${style.textColor};
       opacity: 0.7;
     }
 
-    /* Destaque no texto */
-    .headline .destaque {
-      color: ${style.primaryColor};
+    /* Footer no card */
+    .footer {
+      margin-top: auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 0 62px 32px;
+      background: ${style.backgroundColor};
+    }
+
+    .footer-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .footer-made {
+      font-size: 13px;
+      font-weight: 400;
+      color: ${style.textColor};
+      opacity: 0.4;
+    }
+
+    .footer-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: ${style.textColor};
+      text-transform: uppercase;
+    }
+
+    .footer-right {
+      font-size: 13px;
+      font-weight: 500;
+      color: ${style.textColor};
+      opacity: 0.4;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- Área da imagem de fundo -->
-    <div class="background-area">
-      <div class="background-overlay"></div>
+    <!-- Área da imagem -->
+    <div class="image-area">
+      <div class="image-overlay"></div>
 
-      <!-- Header -->
       <header class="header">
         <span class="header-text">${escapeHtml(header.category)}</span>
         <span class="header-text">${escapeHtml(header.brand)}</span>
         <span class="header-text">${escapeHtml(header.copyright)}</span>
       </header>
-
-      <!-- Swipe Indicator -->
-      ${style.showSwipeIndicator ? `
-      <div class="swipe-indicator">
-        <span class="swipe-text">Arraste pro lado</span>
-        <svg class="swipe-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M5 12h14M12 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      ` : ""}
     </div>
 
-    <!-- Área do headline -->
-    <div class="headline-area">
+    <!-- Card de texto -->
+    <div class="text-card">
       <h1 class="headline">${escapeHtml(content.texto1)}</h1>
       ${content.texto2 ? `<p class="subtitle">${escapeHtml(content.texto2)}</p>` : ""}
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="footer-left">
+        <span class="footer-made">Made By</span>
+        <span class="footer-name">${escapeHtml(profile.name)}</span>
+      </div>
+      <span class="footer-right">${escapeHtml(profile.handle)}</span>
     </div>
   </div>
 </body>

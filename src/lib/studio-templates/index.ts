@@ -66,6 +66,16 @@ export type { TemplateTwitterInput } from "./twitter";
 export { generateSuperHeadlineHtml } from "./super-headline";
 export type { TemplateSuperHeadlineInput } from "./super-headline";
 
+// Image Templates
+export { generateImageOverlayHtml } from "./image-overlay";
+export type { TemplateImageOverlayInput } from "./image-overlay";
+
+export { generateImageSplitHtml } from "./image-split";
+export type { TemplateImageSplitInput } from "./image-split";
+
+export { generateImageMinimalHtml } from "./image-minimal";
+export type { TemplateImageMinimalInput } from "./image-minimal";
+
 // ============================================================================
 // RENDERER
 // ============================================================================

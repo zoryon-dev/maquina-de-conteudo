@@ -22,6 +22,9 @@ import {
   Sun,
   Twitter,
   Type,
+  Layers,
+  SplitSquareHorizontal,
+  ImageIcon,
   LucideIcon,
 } from "lucide-react";
 import { useStudioStore, useActiveSlide } from "@/stores/studio-store";
@@ -41,6 +44,10 @@ const TEMPLATE_ICONS: Record<FigmaTemplate, LucideIcon> = {
   "WHITE_MODE": Sun,
   "TWITTER": Twitter,
   "SUPER_HEADLINE": Type,
+  // Image templates
+  "IMAGE_OVERLAY": Layers,
+  "IMAGE_SPLIT": SplitSquareHorizontal,
+  "IMAGE_MINIMAL": ImageIcon,
 };
 
 // Cores de preview para cada template
@@ -58,6 +65,10 @@ const TEMPLATE_PREVIEW_COLORS: Record<
   "WHITE_MODE": { bg: "#fafafa", accent: "#f97316" },
   "TWITTER": { bg: "#ffffff", accent: "#1d9bf0" },
   "SUPER_HEADLINE": { bg: "#ffffff", accent: "#a3e635" },
+  // Image templates
+  "IMAGE_OVERLAY": { bg: "#1a1a2e", accent: "#ffffff" },
+  "IMAGE_SPLIT": { bg: "#f5f5f5", accent: "#1a1a2e" },
+  "IMAGE_MINIMAL": { bg: "#2a2a3e", accent: "#e0e0e0" },
 };
 
 // Categorias de templates
@@ -71,6 +82,11 @@ const TEMPLATE_CATEGORIES = {
     label: "Genéricos",
     description: "Templates headline/descrição",
     templates: ["DARK_MODE", "WHITE_MODE", "TWITTER", "SUPER_HEADLINE"] as FigmaTemplate[],
+  },
+  image: {
+    label: "Com Imagem",
+    description: "Templates com imagem de fundo",
+    templates: ["IMAGE_OVERLAY", "IMAGE_SPLIT", "IMAGE_MINIMAL"] as FigmaTemplate[],
   },
 };
 
@@ -134,7 +150,7 @@ function TemplateCard({ template, isSelected, onClick }: TemplateCardProps) {
 export function TemplateGallery() {
   const activeSlide = useActiveSlide();
   const setSlideTemplate = useStudioStore((state) => state.setSlideTemplate);
-  const [activeCategory, setActiveCategory] = useState<"figma" | "generic">("figma");
+  const [activeCategory, setActiveCategory] = useState<"figma" | "generic" | "image">("figma");
 
   if (!activeSlide) return null;
 
@@ -169,6 +185,17 @@ export function TemplateGallery() {
           )}
         >
           Genéricos
+        </button>
+        <button
+          onClick={() => setActiveCategory("image")}
+          className={cn(
+            "flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors",
+            activeCategory === "image"
+              ? "bg-white/10 text-white"
+              : "text-white/50 hover:text-white/70"
+          )}
+        >
+          Com Imagem
         </button>
       </div>
 

@@ -111,6 +111,9 @@ const AVAILABLE_TEMPLATES: { value: FigmaTemplate; label: string; description: s
   { value: "WHITE_MODE", label: "White Mode", description: "Fundo claro minimalista" },
   { value: "TWITTER", label: "Twitter Style", description: "Estilo de tweet" },
   { value: "SUPER_HEADLINE", label: "Super Headline", description: "Apenas titulo impactante" },
+  { value: "IMAGE_OVERLAY", label: "Imagem Overlay", description: "Imagem + texto sobre gradiente" },
+  { value: "IMAGE_SPLIT", label: "Imagem Split", description: "Imagem topo + card de texto" },
+  { value: "IMAGE_MINIMAL", label: "Imagem Minimal", description: "Imagem dominante + barra sutil" },
 ];
 
 
