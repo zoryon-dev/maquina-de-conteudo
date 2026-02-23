@@ -13,17 +13,9 @@ import { libraryItems } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import type { StudioState } from "@/lib/studio-templates/types";
 import { MAX_SLIDES } from "@/lib/studio-templates/types";
-import { toAppError, getErrorMessage, ValidationError, NotFoundError, ForbiddenError, ConfigError } from "@/lib/errors";
-import { renderSlideToHtml } from "@/lib/studio-templates/renderer";
+import { toAppError, getErrorMessage, ValidationError, NotFoundError, ForbiddenError } from "@/lib/errors";
+import { isScreenshotOneAvailable, renderSlideToImage } from "@/lib/studio-templates/render-to-image";
 import { getStorageProvider } from "@/lib/storage";
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-const SCREENSHOT_ONE_API = "https://api.screenshotone.com/take";
-const SCREENSHOT_ONE_ACCESS_KEY = process.env.SCREENSHOT_ONE_ACCESS_KEY;
-const REQUEST_TIMEOUT = 30000; // 30 seconds for preview
 
 // ============================================================================
 // TYPES
@@ -39,15 +31,14 @@ interface SaveRequest {
 // ============================================================================
 
 /**
- * Gera uma preview image do primeiro slide
- * Retorna null se falhar (não bloqueia o save)
+ * Gera uma preview image do primeiro slide usando a utility compartilhada.
+ * Retorna null se falhar (não bloqueia o save).
  */
 async function generatePreviewImage(
   state: StudioState,
   userId: string
 ): Promise<string | null> {
-  // Se ScreenshotOne não configurado, pular preview
-  if (!SCREENSHOT_ONE_ACCESS_KEY) {
+  if (!isScreenshotOneAvailable()) {
     console.log("[StudioSave] ScreenshotOne not configured, skipping preview");
     return null;
   }
@@ -55,42 +46,17 @@ async function generatePreviewImage(
   try {
     const firstSlide = state.slides[0];
 
-    // Renderizar HTML do primeiro slide
-    const { html } = renderSlideToHtml({
-      slide: firstSlide,
-      profile: state.profile,
-      header: state.header,
-      slideIndex: 0,
-      totalSlides: state.slides.length,
-    });
+    // Render with device_scale_factor=1 for smaller preview
+    const imageBuffer = await renderSlideToImage(
+      firstSlide,
+      state.profile,
+      state.header,
+      0,
+      state.slides.length,
+      1 // Lower scale for preview
+    );
 
-    // Chamar ScreenshotOne API
-    const response = await fetch(SCREENSHOT_ONE_API, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        access_key: SCREENSHOT_ONE_ACCESS_KEY,
-        html,
-        viewport_width: 1080,
-        viewport_height: 1440,
-        format: "png",
-        device_scale_factor: 1, // Menor escala para preview
-        cache: false,
-      }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT),
-    });
-
-    if (!response.ok) {
-      console.warn("[StudioSave] ScreenshotOne failed:", response.status);
-      return null;
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const imageBuffer = Buffer.from(arrayBuffer);
-
-    // Upload para storage
+    // Upload to storage
     const storage = getStorageProvider();
     const timestamp = Date.now();
     const key = `studio/${userId}/previews/${timestamp}-preview.png`;
@@ -102,7 +68,6 @@ async function generatePreviewImage(
     return uploadResult.url;
 
   } catch (error) {
-    // Log mas não bloqueia o save
     console.warn("[StudioSave] Preview generation failed:", error instanceof Error ? error.message : error);
     return null;
   }

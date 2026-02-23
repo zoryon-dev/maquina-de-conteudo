@@ -17,6 +17,7 @@ import type { StudioSlide, StudioProfile, StudioHeader } from "@/lib/studio-temp
 import type { PostType, ContentStatus } from "@/db/schema";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
 import { toAppError, getErrorMessage, ValidationError } from "@/lib/errors";
+import { isScreenshotOneAvailable, renderAndUploadAllSlides } from "@/lib/studio-templates/render-to-image";
 
 interface SaveCarouselRequest {
   slides: StudioSlide[];
@@ -94,19 +95,44 @@ export async function POST(
       ? `Carrossel: ${wizard.objective.substring(0, 80)}${wizard.objective.length > 80 ? "..." : ""}`
       : "Carrossel sem titulo";
 
-    // Extract image URLs from slides for preview in library
-    const imageUrls: string[] = [];
-    for (const slide of slides) {
-      // Check image fields in slide content (imageUrl for content templates, backgroundImageUrl for capa)
-      if (slide.content?.imageUrl) {
-        imageUrls.push(slide.content.imageUrl);
-      } else if (slide.content?.backgroundImageUrl) {
-        imageUrls.push(slide.content.backgroundImageUrl);
+    // Render slides as PNG images via ScreenshotOne
+    let imageUrls: string[] = [];
+
+    if (isScreenshotOneAvailable()) {
+      console.log(`[SaveCarousel] Rendering ${slides.length} slides via ScreenshotOne...`);
+      const timestamp = Date.now();
+
+      const renderResult = await renderAndUploadAllSlides({
+        slides,
+        profile,
+        header,
+        userId,
+        storagePrefix: `studio/${userId}/carousel/${timestamp}`,
+      });
+
+      imageUrls = renderResult.imageUrls;
+
+      if (renderResult.errors.length > 0) {
+        console.warn(
+          `[SaveCarousel] ${renderResult.errors.length}/${slides.length} slides failed to render`
+        );
       }
     }
-    // Fallback: use profile avatar if no slide images
-    if (profile?.avatarUrl && imageUrls.length === 0) {
-      imageUrls.push(profile.avatarUrl);
+
+    // Fallback: if ScreenshotOne not available or all renders failed,
+    // extract image URLs from slide content (legacy behavior)
+    if (imageUrls.length === 0) {
+      console.log("[SaveCarousel] Using fallback: extracting image URLs from slide content");
+      for (const slide of slides) {
+        if (slide.content?.imageUrl) {
+          imageUrls.push(slide.content.imageUrl);
+        } else if (slide.content?.backgroundImageUrl) {
+          imageUrls.push(slide.content.backgroundImageUrl);
+        }
+      }
+      if (profile?.avatarUrl && imageUrls.length === 0) {
+        imageUrls.push(profile.avatarUrl);
+      }
     }
 
     // Build content structure for library
