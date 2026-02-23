@@ -74,6 +74,29 @@ export default async function LibraryDetailRootPage(props: LibraryDetailPageProp
     }
   }
 
+  // Fallback: extract image URLs from content slides (Visual Studio items)
+  if (mediaUrls.length === 0 && item.content) {
+    try {
+      const parsed = JSON.parse(item.content)
+      if (parsed.slides && Array.isArray(parsed.slides)) {
+        for (const slide of parsed.slides) {
+          const slideContent = slide.content || slide
+          if (slideContent.imageUrl) {
+            mediaUrls.push(slideContent.imageUrl)
+          } else if (slideContent.backgroundImageUrl) {
+            mediaUrls.push(slideContent.backgroundImageUrl)
+          }
+        }
+      }
+      // Last resort: profile avatar
+      if (mediaUrls.length === 0 && parsed.profile?.avatarUrl) {
+        mediaUrls.push(parsed.profile.avatarUrl)
+      }
+    } catch {
+      // Not valid JSON content
+    }
+  }
+
   // Parse content for carousel slides
   // Handles both Visual Studio format (content as object) and legacy format (content as string)
   let carouselSlides: Array<{ title?: string; content: string; imagePrompt?: string }> = []

@@ -1097,6 +1097,31 @@ export function StepVisualStudio({
                     </div>
                   </div>
                 </div>
+
+                {/* Profile / Footer */}
+                <div className="pt-3 border-t border-white/10 space-y-3">
+                  <Label className="text-xs text-white/50 uppercase tracking-wider">Rodapé / Perfil</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-white/40">Nome</Label>
+                      <Input
+                        value={profile.name}
+                        onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
+                        className="h-8 text-xs bg-white/5 border-white/10"
+                        placeholder="Seu Nome"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-white/40">Handle</Label>
+                      <Input
+                        value={profile.handle}
+                        onChange={(e) => setProfile((p) => ({ ...p, handle: e.target.value }))}
+                        className="h-8 text-xs bg-white/5 border-white/10"
+                        placeholder="@seu.handle"
+                      />
+                    </div>
+                  </div>
+                </div>
               </motion.div>
             )}
 
