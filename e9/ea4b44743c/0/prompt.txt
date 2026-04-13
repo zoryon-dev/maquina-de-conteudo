@@ -270,3 +270,32 @@ Cada padrão traz 5 exemplos reais extraídos do banco-de-headlines.md. `buildHe
 **TypeScript**: `npx tsc --noEmit --skipLibCheck` filtrado pelos 3 arquivos retornou 0 erros.</result>
 <usage><total_tokens>79603</total_tokens><tool_uses>20</tool_uses><duration_ms>298616</duration_ms></usage>
 </task-notification>
+
+---
+
+<task-notification>
+<task-id>a693d96dd3354a94d</task-id>
+<tool-use-id>toolu_01Gnz1z1RUXdAuN3fB7pxbpy</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a693d96dd3354a94d.output</output-file>
+<status>completed</status>
+<summary>Agent "PR5-B: copy blocks + referencias + orchestrator" completed</summary>
+<result>Just 1 unrelated pre-existing error in library-actions.ts — nothing tied to BD v4. All 3 files compile cleanly.
+
+---
+
+**Relatório**
+
+**Arquivos criados** (todos em `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/motors/brandsdecoded-v4/`):
+- `referencias.ts` — 2 carrosseis exemplares (Exemplo 1: 9 slides / 18 blocos; Exemplo 2: 7 slides / 13 blocos — extração literal do MD). Exporta `CarrosselReferencia`, `REFERENCIAS_EXEMPLARES` e `buildReferenciasPromptBlock(maxRefs)` que formata few-shots com espinha + copy + legenda.
+- `copy-blocks.ts` — gera os 18 blocos / 9 slides a partir da `EspinhaDorsal`. Exporta `CopyBlock`, `CopyBlocksInput`, `CopyBlocksResult`, `BLOCK_SPEC` (constante imutável com índice, slide, position, targetWords, sectionLabel) e `generateCopyBlocks`. Prompt inclui BLOCK_SPEC, espinha completa, 2 referências, injeção de marca, 12 regras editoriais do manual-de-qualidade (artigos, zero binárias, zero cacoetes, fluidez com conectivos, fechamento com pivot, etc). Temperature 0.7. Parser tolerante (`parseCopyBlocksResponse`) aceita JSON puro, markdown fence e texto ao redor.
+- `orchestrator.ts` — pipeline completo. `generateWithBrandsDecoded` encadeia triagem → 10 headlines → pick → espinha → 18 blocos → legenda. `generateLegendaInstagram` é 1 LLM call com estrutura gancho (≤125 chars) + contexto + análise + CTA, ~150 palavras.
+
+**Modelo**: `DEFAULT_TEXT_MODEL` do `@/lib/ai/config` (atualmente `openai/gpt-4.1`), com override via `model?: string` em todos os inputs. Cliente: `openrouter.chat(model)` via `generateText` do Vercel AI SDK.
+
+**Decisão sobre auto-select de headline**: Default `autoSelectHeadline = true` seleciona primeira IC (`id === 1`) com fallback para `headlines[0]` se o id=1 não existir. `forcedHeadlineId` tem precedência. Se `autoSelectHeadline=false` e sem `forcedHeadlineId`, o pipeline lança erro — força o caller a escolher manualmente (modo interativo fica no fluxo do app).
+
+**Ajuste de contrato com agent A**: Agent A entregou `generateHeadlinesForBD` dentro de `headline-patterns.ts` (não em `headline-library.ts` separado). Usa param `brandPromptVariables` (não `brandVars`) e `selectedHeadline` (não `headline`) em `EspinhaInput`. Orquestrador foi ajustado para bater com a API real dele.
+
+**Type-check**: `npx tsc --noEmit --skipLibCheck | grep brandsdecoded-v4` retornou zero erros. O único erro TS no repo é pré-existente em `library-actions.ts:1851` (não relacionado).</result>
+<usage><total_tokens>93337</total_tokens><tool_uses>37</tool_uses><duration_ms>404515</duration_ms></usage>
+</task-notification>
