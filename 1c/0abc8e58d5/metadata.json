@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "1c0abc8e58d5",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "docs/brand-integration-plan.md",
+    "package.json",
+    "scripts/seed-zoryon-brand.ts",
+    "src/db/schema.ts",
+    "src/lib/brands/context.ts",
+    "src/lib/brands/queries.ts",
+    "src/lib/brands/schema.ts",
+    "src/lib/brands/seed/parse-markdown.ts",
+    "src/lib/brands/seed/zoryon-mapper.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/1c/0abc8e58d5/0/metadata.json",
+      "transcript": "/1c/0abc8e58d5/0/full.jsonl",
+      "content_hash": "/1c/0abc8e58d5/0/content_hash.txt",
+      "prompt": "/1c/0abc8e58d5/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 59,
+    "cache_creation_tokens": 359461,
+    "cache_read_tokens": 15236989,
+    "output_tokens": 48162,
+    "api_call_count": 45
+  }
+}

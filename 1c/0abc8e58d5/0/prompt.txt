@@ -1,0 +1,9 @@
+/pr-review-toolkit:review-pr
+
+---
+
+Prefiro que faça o seguinte: 
+
+Lance agente em paralelo (sub-agent/seção) para corrigir TODAS as ações. TODAS. 
+
+Em paralelo aqui, seguimos para a próxima fase (PR2)
