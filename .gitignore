@@ -51,9 +51,6 @@ drizzle/
 .DS_Store
 Thumbs.db
 
-# Planning/temp docs
-temp_nova_feat/
-
 # Cursor - IDE specific rules
 .cursor/rules/openmemory.mdc
 

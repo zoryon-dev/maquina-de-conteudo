@@ -605,7 +605,7 @@ src/
 drizzle.config.ts             # ✅ Criado
 package.json                  # ✅ Scripts db:* adicionados
 .env.example                  # ✅ Atualizado
-DEV_AUTH.md                    # ✅ Documentação auth
+docs/DEV_AUTH.md               # ✅ Documentação auth
 ```
 
 ---
