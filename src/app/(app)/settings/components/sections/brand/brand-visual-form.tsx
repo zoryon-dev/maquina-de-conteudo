@@ -14,7 +14,7 @@ import type { BrandVisual } from "@/lib/brands/schema"
 
 type Props = {
   brand: BrandForEdit
-  onSaved: (updatedAt: string) => void
+  onSaved: () => void
 }
 
 function LogoPreview({ url }: { url: string }) {
@@ -55,24 +55,25 @@ export function BrandVisualForm({ brand, onSaved }: Props) {
   const [state, setState] = React.useState<BrandVisual>(brand.config.visual)
   const [isSaving, setIsSaving] = React.useState(false)
 
-  React.useEffect(() => {
-    setState(brand.config.visual)
-  }, [brand.config.visual])
-
   const handleSave = async () => {
     setIsSaving(true)
-    // Preserve tokens (read-only) — only logoUrl / logoAltUrl mudam pela UI.
     const payload: BrandVisual = {
       tokens: state.tokens,
       logoUrl: state.logoUrl,
       logoAltUrl: state.logoAltUrl,
     }
-    const result = await updateBrandSectionAction(brand.id, "visual", payload)
-    setIsSaving(false)
-    if (result.success) {
-      onSaved(result.data.updatedAt)
-    } else {
-      toast.error(result.error)
+    try {
+      const result = await updateBrandSectionAction(brand.id, "visual", payload)
+      if (result.success) {
+        onSaved()
+      } else {
+        toast.error(result.error)
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      toast.error(`Erro: ${msg}`)
+    } finally {
+      setIsSaving(false)
     }
   }
 

@@ -34,6 +34,9 @@ export function BrandVersionsDialog({
   const [versions, setVersions] = React.useState<BrandVersionRow[]>([])
   const [loading, setLoading] = React.useState(false)
   const [restoringId, setRestoringId] = React.useState<number | null>(null)
+  const [confirmingVersionId, setConfirmingVersionId] = React.useState<
+    number | null
+  >(null)
 
   const fetchVersions = React.useCallback(async () => {
     setLoading(true)
@@ -58,18 +61,14 @@ export function BrandVersionsDialog({
     if (open) {
       void fetchVersions()
     } else {
-      // Reset state ao fechar
       setVersions([])
       setRestoringId(null)
+      setConfirmingVersionId(null)
     }
   }, [open, fetchVersions])
 
   const handleRestore = async (versionId: number) => {
-    const ok = window.confirm(
-      "Restaurar esta versão? A versão atual será preservada como snapshot."
-    )
-    if (!ok) return
-
+    setConfirmingVersionId(null)
     setRestoringId(versionId)
     try {
       const res = await restoreBrandVersionAction(brandId, versionId)
@@ -89,6 +88,7 @@ export function BrandVersionsDialog({
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl bg-[#1a1a2e] border-white/10 text-white">
         <DialogHeader>
@@ -137,7 +137,10 @@ export function BrandVersionsDialog({
                 try {
                   formattedDate = new Date(v.createdAt).toLocaleString("pt-BR")
                 } catch {
-                  // keep raw string
+                  console.warn(
+                    "[brand-versions] invalid date format:",
+                    v.createdAt
+                  )
                 }
 
                 return (
@@ -163,7 +166,7 @@ export function BrandVersionsDialog({
                       type="button"
                       size="sm"
                       variant="outline"
-                      onClick={() => void handleRestore(v.id)}
+                      onClick={() => setConfirmingVersionId(v.id)}
                       disabled={isDisabled}
                       className="shrink-0 border-white/10 bg-white/[0.02] text-white hover:bg-white/[0.05] hover:text-white"
                     >
@@ -199,5 +202,45 @@ export function BrandVersionsDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <Dialog
+      open={confirmingVersionId !== null}
+      onOpenChange={(next) => {
+        if (!next) setConfirmingVersionId(null)
+      }}
+    >
+      <DialogContent className="sm:max-w-md bg-[#1a1a2e] border-white/10 text-white">
+        <DialogHeader>
+          <DialogTitle className="text-white">Restaurar versão?</DialogTitle>
+          <DialogDescription className="text-white/60">
+            Restaurar esta versão? A versão atual será preservada como
+            snapshot.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setConfirmingVersionId(null)}
+            className="border-white/10 bg-white/[0.02] text-white hover:bg-white/[0.05] hover:text-white"
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              if (confirmingVersionId !== null) {
+                void handleRestore(confirmingVersionId)
+              }
+            }}
+            className="gap-2"
+          >
+            <RotateCcw className="size-3.5" />
+            Restaurar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }

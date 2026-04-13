@@ -21,16 +21,17 @@ import {
   brandMetaSchema,
   type BrandConfig,
 } from "@/lib/brands/schema"
-import { isAppError } from "@/lib/errors"
-import { z } from "zod"
+import { isAppError, getErrorMessage } from "@/lib/errors"
+import { isAdmin } from "@/lib/auth/admin"
+import { z, type ZodIssue } from "zod"
 
 const ZORYON_SLUG = "zoryon"
 
 export type BrandActionResult<T = void> =
   | { success: true; data: T }
-  | { success: false; error: string }
+  | { success: false; error: string; code?: string; issues?: ZodIssue[] }
 
-const SECTION_SCHEMAS = {
+export const SECTION_SCHEMAS = {
   identity: brandIdentitySchema,
   voice: brandVoiceSchema,
   visual: brandVisualSchema,
@@ -58,6 +59,7 @@ export async function getBrandForEditAction(): Promise<
   try {
     const { userId } = await auth()
     if (!userId) return { success: false, error: "Não autenticado" }
+    if (!isAdmin(userId)) return { success: false, error: "Forbidden" }
 
     const brand = await getBrandBySlug(ZORYON_SLUG)
     if (!brand) {
@@ -84,19 +86,22 @@ export async function getBrandForEditAction(): Promise<
       },
     }
   } catch (err) {
-    return { success: false, error: extractMessage(err) }
+    console.error("[brand-action:getBrandForEditAction]", err)
+    const code = isAppError(err) ? err.code : undefined
+    return { success: false, error: getErrorMessage(err), ...(code ? { code } : {}) }
   }
 }
 
-export async function updateBrandSectionAction(
+export async function updateBrandSectionAction<S extends BrandSection>(
   brandId: number,
-  section: BrandSection,
-  value: unknown,
+  section: S,
+  value: BrandConfig[S],
   message?: string
 ): Promise<BrandActionResult<{ updatedAt: string }>> {
   try {
     const { userId } = await auth()
     if (!userId) return { success: false, error: "Não autenticado" }
+    if (!isAdmin(userId)) return { success: false, error: "Forbidden" }
 
     const sectionSchema = SECTION_SCHEMAS[section]
     const parsed = sectionSchema.safeParse(value)
@@ -104,21 +109,31 @@ export async function updateBrandSectionAction(
       return {
         success: false,
         error: `Dados inválidos: ${parsed.error.issues.map((i) => i.path.join(".") + ": " + i.message).join("; ")}`,
+        code: "VALIDATION_ERROR",
+        issues: parsed.error.issues,
       }
     }
 
     const current = await getBrandConfig(brandId)
     if (!current) {
-      return { success: false, error: "Marca não encontrada" }
+      return { success: false, error: "Marca não encontrada", code: "NOT_FOUND" }
     }
 
-    const nextConfig = brandConfigSchema.parse({
+    const combined = brandConfigSchema.safeParse({
       ...current,
       [section]: parsed.data,
     })
+    if (!combined.success) {
+      return {
+        success: false,
+        error: "Config combinado inválido",
+        code: "VALIDATION_ERROR",
+        issues: combined.error.issues,
+      }
+    }
 
     const updated = await updateBrandConfig(brandId, {
-      config: nextConfig,
+      config: combined.data,
       message: message ?? `update via UI (${section})`,
       updatedByUserId: userId,
     })
@@ -128,7 +143,9 @@ export async function updateBrandSectionAction(
 
     return { success: true, data: { updatedAt: updated.updatedAt.toISOString() } }
   } catch (err) {
-    return { success: false, error: extractMessage(err) }
+    console.error("[brand-action:updateBrandSectionAction]", { brandId, section }, err)
+    const code = isAppError(err) ? err.code : undefined
+    return { success: false, error: getErrorMessage(err), ...(code ? { code } : {}) }
   }
 }
 
@@ -145,6 +162,7 @@ export async function listBrandVersionsAction(
   try {
     const { userId } = await auth()
     if (!userId) return { success: false, error: "Não autenticado" }
+    if (!isAdmin(userId)) return { success: false, error: "Forbidden" }
 
     const versions = await listBrandVersions(brandId)
     return {
@@ -157,7 +175,9 @@ export async function listBrandVersionsAction(
       })),
     }
   } catch (err) {
-    return { success: false, error: extractMessage(err) }
+    console.error("[brand-action:listBrandVersionsAction]", { brandId }, err)
+    const code = isAppError(err) ? err.code : undefined
+    return { success: false, error: getErrorMessage(err), ...(code ? { code } : {}) }
   }
 }
 
@@ -168,18 +188,19 @@ export async function restoreBrandVersionAction(
   try {
     const { userId } = await auth()
     if (!userId) return { success: false, error: "Não autenticado" }
+    if (!isAdmin(userId)) return { success: false, error: "Forbidden" }
 
     const updated = await restoreBrandVersion(brandId, versionId, userId)
     revalidatePath("/settings")
     revalidatePath("/", "layout")
     return { success: true, data: { updatedAt: updated.updatedAt.toISOString() } }
   } catch (err) {
-    return { success: false, error: extractMessage(err) }
+    console.error(
+      "[brand-action:restoreBrandVersionAction]",
+      { brandId, versionId },
+      err
+    )
+    const code = isAppError(err) ? err.code : undefined
+    return { success: false, error: getErrorMessage(err), ...(code ? { code } : {}) }
   }
-}
-
-function extractMessage(err: unknown): string {
-  if (isAppError(err)) return err.message
-  if (err instanceof Error) return err.message
-  return String(err)
 }

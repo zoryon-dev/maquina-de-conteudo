@@ -23,24 +23,26 @@ import type {
   BrandSetor,
   BrandCourse,
 } from "@/lib/brands/schema"
+import { StringListEditor } from "./_shared/string-list-editor"
 
 type Props = {
   brand: BrandForEdit
-  onSaved: (updatedAt: string) => void
+  onSaved: () => void
 }
 
-function slugify(s: string): string {
-  return s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+function shortId(): string {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID().slice(0, 8)
+  }
+  return Math.random().toString(36).slice(2, 10)
 }
 
 function emptySetor(): BrandSetor {
   return {
-    id: `setor-${Date.now()}`,
+    id: `setor-${shortId()}`,
     nome: "",
     inclui: [],
     problemas: [],
@@ -52,71 +54,13 @@ function emptySetor(): BrandSetor {
 
 function emptyCourse(): BrandCourse {
   return {
-    id: `curso-${Date.now()}`,
+    id: `curso-${shortId()}`,
     nome: "",
     preco: "",
     modulos: [],
     prerequisitos: [],
     targetAvatar: "",
   }
-}
-
-type StringListEditorProps = {
-  label: string
-  values: string[]
-  placeholder?: string
-  onChange: (values: string[]) => void
-}
-
-function StringListEditor({
-  label,
-  values,
-  placeholder,
-  onChange,
-}: StringListEditorProps) {
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-xs text-white/70">{label}</Label>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => onChange([...values, ""])}
-          className="h-7 gap-1.5 text-xs text-white/70"
-        >
-          <Plus className="h-3 w-3" />
-          Adicionar
-        </Button>
-      </div>
-      {values.length === 0 ? (
-        <p className="text-xs text-white/40">Vazio.</p>
-      ) : (
-        <div className="space-y-1.5">
-          {values.map((v, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <Input
-                value={v}
-                onChange={(e) =>
-                  onChange(values.map((x, xi) => (xi === i ? e.target.value : x)))
-                }
-                placeholder={placeholder}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => onChange(values.filter((_, xi) => xi !== i))}
-                className="h-9 w-9 shrink-0 text-white/60 hover:text-red-400"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
 }
 
 export function BrandOfferForm({ brand, onSaved }: Props) {
@@ -136,23 +80,36 @@ export function BrandOfferForm({ brand, onSaved }: Props) {
   }))
   const [isSaving, setIsSaving] = React.useState(false)
 
-  const updatePricing = (patch: Partial<BrandOffer["pricing"]>) => {
-    setState((prev) => ({ ...prev, pricing: { ...prev.pricing, ...patch } }))
+  // Draft strings permitem input vazio/parcial sem zerar o state numérico.
+  // Sincronizam com state.pricing em onBlur (parse com fallback para valor atual).
+  const [pricingDraft, setPricingDraft] = React.useState({
+    setupMin: String(brand.config.offer.pricing.setupMin),
+    setupMax: String(brand.config.offer.pricing.setupMax),
+    recMin: String(brand.config.offer.pricing.recMin),
+    recMax: String(brand.config.offer.pricing.recMax),
+  })
+
+  const commitPricingField = (field: keyof BrandOffer["pricing"]) => {
+    const raw = pricingDraft[field].trim()
+    const parsed = raw === "" ? NaN : Number(raw)
+    if (Number.isFinite(parsed)) {
+      setState((prev) => ({
+        ...prev,
+        pricing: { ...prev.pricing, [field]: parsed },
+      }))
+    } else {
+      // Inválido: reverte o draft para o valor corrente do state (não zera).
+      setPricingDraft((prev) => ({ ...prev, [field]: String(state.pricing[field]) }))
+    }
   }
 
   const updateSetor = (index: number, patch: Partial<BrandSetor>) => {
     setState((prev) => ({
       ...prev,
-      setores: prev.setores.map((s, i) => {
-        if (i !== index) return s
-        const next = { ...s, ...patch }
-        // Auto-update id when nome changes (only if id was derived or empty)
-        if (patch.nome !== undefined) {
-          const newSlug = slugify(patch.nome)
-          if (newSlug) next.id = newSlug
-        }
-        return next
-      }),
+      // id é imutável após criação para preservar referências em conteúdo gerado
+      setores: prev.setores.map((s, i) =>
+        i === index ? { ...s, ...patch, id: s.id } : s
+      ),
     }))
   }
 
@@ -170,15 +127,10 @@ export function BrandOfferForm({ brand, onSaved }: Props) {
   const updateCourse = (index: number, patch: Partial<BrandCourse>) => {
     setState((prev) => ({
       ...prev,
-      courses: prev.courses.map((c, i) => {
-        if (i !== index) return c
-        const next = { ...c, ...patch }
-        if (patch.nome !== undefined) {
-          const newSlug = slugify(patch.nome)
-          if (newSlug) next.id = newSlug
-        }
-        return next
-      }),
+      // id é imutável após criação para preservar referências em conteúdo gerado
+      courses: prev.courses.map((c, i) =>
+        i === index ? { ...c, ...patch, id: c.id } : c
+      ),
     }))
   }
 
@@ -198,12 +150,13 @@ export function BrandOfferForm({ brand, onSaved }: Props) {
     try {
       const result = await updateBrandSectionAction(brand.id, "offer", state)
       if (result.success) {
-        onSaved(result.data.updatedAt)
+        onSaved()
       } else {
         toast.error(result.error)
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err))
+      const msg = err instanceof Error ? err.message : String(err)
+      toast.error(`Erro: ${msg}`)
     } finally {
       setIsSaving(false)
     }
@@ -221,40 +174,44 @@ export function BrandOfferForm({ brand, onSaved }: Props) {
             <Label className="text-xs text-white/70">Setup mín (R$)</Label>
             <Input
               type="number"
-              value={state.pricing.setupMin}
+              value={pricingDraft.setupMin}
               onChange={(e) =>
-                updatePricing({ setupMin: Number(e.target.value) || 0 })
+                setPricingDraft((prev) => ({ ...prev, setupMin: e.target.value }))
               }
+              onBlur={() => commitPricingField("setupMin")}
             />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-white/70">Setup máx (R$)</Label>
             <Input
               type="number"
-              value={state.pricing.setupMax}
+              value={pricingDraft.setupMax}
               onChange={(e) =>
-                updatePricing({ setupMax: Number(e.target.value) || 0 })
+                setPricingDraft((prev) => ({ ...prev, setupMax: e.target.value }))
               }
+              onBlur={() => commitPricingField("setupMax")}
             />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-white/70">Recorrência mín</Label>
             <Input
               type="number"
-              value={state.pricing.recMin}
+              value={pricingDraft.recMin}
               onChange={(e) =>
-                updatePricing({ recMin: Number(e.target.value) || 0 })
+                setPricingDraft((prev) => ({ ...prev, recMin: e.target.value }))
               }
+              onBlur={() => commitPricingField("recMin")}
             />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-white/70">Recorrência máx</Label>
             <Input
               type="number"
-              value={state.pricing.recMax}
+              value={pricingDraft.recMax}
               onChange={(e) =>
-                updatePricing({ recMax: Number(e.target.value) || 0 })
+                setPricingDraft((prev) => ({ ...prev, recMax: e.target.value }))
               }
+              onBlur={() => commitPricingField("recMax")}
             />
           </div>
         </div>

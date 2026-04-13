@@ -15,7 +15,7 @@ import type { BrandAudience, BrandAvatar } from "@/lib/brands/schema"
 
 type Props = {
   brand: BrandForEdit
-  onSaved: (updatedAt: string) => void
+  onSaved: () => void
 }
 
 function emptyAvatar(): BrandAvatar {
@@ -102,12 +102,13 @@ export function BrandAudienceForm({ brand, onSaved }: Props) {
     try {
       const result = await updateBrandSectionAction(brand.id, "audience", state)
       if (result.success) {
-        onSaved(result.data.updatedAt)
+        onSaved()
       } else {
         toast.error(result.error)
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err))
+      const msg = err instanceof Error ? err.message : String(err)
+      toast.error(`Erro: ${msg}`)
     } finally {
       setIsSaving(false)
     }

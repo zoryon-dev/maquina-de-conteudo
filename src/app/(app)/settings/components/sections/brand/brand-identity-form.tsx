@@ -15,16 +15,12 @@ import type { BrandIdentity } from "@/lib/brands/schema"
 
 type Props = {
   brand: BrandForEdit
-  onSaved: (updatedAt: string) => void
+  onSaved: () => void
 }
 
 export function BrandIdentityForm({ brand, onSaved }: Props) {
   const [state, setState] = React.useState<BrandIdentity>(brand.config.identity)
   const [isSaving, setIsSaving] = React.useState(false)
-
-  React.useEffect(() => {
-    setState(brand.config.identity)
-  }, [brand.config.identity])
 
   const updateField = <K extends keyof BrandIdentity>(
     key: K,
@@ -80,12 +76,18 @@ export function BrandIdentityForm({ brand, onSaved }: Props) {
 
   const handleSave = async () => {
     setIsSaving(true)
-    const result = await updateBrandSectionAction(brand.id, "identity", state)
-    setIsSaving(false)
-    if (result.success) {
-      onSaved(result.data.updatedAt)
-    } else {
-      toast.error(result.error)
+    try {
+      const result = await updateBrandSectionAction(brand.id, "identity", state)
+      if (result.success) {
+        onSaved()
+      } else {
+        toast.error(result.error)
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      toast.error(`Erro: ${msg}`)
+    } finally {
+      setIsSaving(false)
     }
   }
 

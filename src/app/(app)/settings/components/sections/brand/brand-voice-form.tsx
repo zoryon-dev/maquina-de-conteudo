@@ -15,7 +15,7 @@ import type { BrandVoice } from "@/lib/brands/schema"
 
 type Props = {
   brand: BrandForEdit
-  onSaved: (updatedAt: string) => void
+  onSaved: () => void
 }
 
 type AtributoKey = keyof BrandVoice["atributos"]
@@ -31,10 +31,6 @@ const ATRIBUTOS: Array<{ key: AtributoKey; label: string; hint: string }> = [
 export function BrandVoiceForm({ brand, onSaved }: Props) {
   const [state, setState] = React.useState<BrandVoice>(brand.config.voice)
   const [isSaving, setIsSaving] = React.useState(false)
-
-  React.useEffect(() => {
-    setState(brand.config.voice)
-  }, [brand.config.voice])
 
   const updateAtributo = (key: AtributoKey, value: number) => {
     setState((prev) => ({
@@ -106,12 +102,18 @@ export function BrandVoiceForm({ brand, onSaved }: Props) {
 
   const handleSave = async () => {
     setIsSaving(true)
-    const result = await updateBrandSectionAction(brand.id, "voice", state)
-    setIsSaving(false)
-    if (result.success) {
-      onSaved(result.data.updatedAt)
-    } else {
-      toast.error(result.error)
+    try {
+      const result = await updateBrandSectionAction(brand.id, "voice", state)
+      if (result.success) {
+        onSaved()
+      } else {
+        toast.error(result.error)
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      toast.error(`Erro: ${msg}`)
+    } finally {
+      setIsSaving(false)
     }
   }
 

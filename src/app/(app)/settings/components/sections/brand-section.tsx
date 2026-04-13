@@ -56,27 +56,31 @@ export function BrandSection() {
   const refresh = React.useCallback(async () => {
     setIsLoading(true)
     setError(null)
-    const result = await getBrandForEditAction()
-    if (result.success) {
-      setBrand(result.data)
-    } else {
-      setError(result.error)
-      toast.error(result.error)
+    try {
+      const result = await getBrandForEditAction()
+      if (result.success) {
+        setBrand(result.data)
+      } else {
+        setError(result.error)
+        toast.error(result.error)
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro de rede"
+      setError(msg)
+      toast.error(msg)
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }, [])
 
   React.useEffect(() => {
     refresh()
   }, [refresh])
 
-  const handleSectionSaved = React.useCallback(
-    (updatedAt: string) => {
-      if (brand) setBrand({ ...brand, updatedAt })
-      toast.success("Salvo")
-    },
-    [brand]
-  )
+  const handleSectionSaved = React.useCallback(() => {
+    toast.success("Salvo")
+    void refresh()
+  }, [refresh])
 
   if (isLoading) {
     return (
@@ -157,22 +161,46 @@ export function BrandSection() {
 
       <div className="min-h-[300px]">
         {activeTab === "identity" && (
-          <BrandIdentityForm brand={brand} onSaved={handleSectionSaved} />
+          <BrandIdentityForm
+            key={brand.updatedAt}
+            brand={brand}
+            onSaved={handleSectionSaved}
+          />
         )}
         {activeTab === "voice" && (
-          <BrandVoiceForm brand={brand} onSaved={handleSectionSaved} />
+          <BrandVoiceForm
+            key={brand.updatedAt}
+            brand={brand}
+            onSaved={handleSectionSaved}
+          />
         )}
         {activeTab === "visual" && (
-          <BrandVisualForm brand={brand} onSaved={handleSectionSaved} />
+          <BrandVisualForm
+            key={brand.updatedAt}
+            brand={brand}
+            onSaved={handleSectionSaved}
+          />
         )}
         {activeTab === "audience" && (
-          <BrandAudienceForm brand={brand} onSaved={handleSectionSaved} />
+          <BrandAudienceForm
+            key={brand.updatedAt}
+            brand={brand}
+            onSaved={handleSectionSaved}
+          />
         )}
         {activeTab === "offer" && (
-          <BrandOfferForm brand={brand} onSaved={handleSectionSaved} />
+          <BrandOfferForm
+            key={brand.updatedAt}
+            brand={brand}
+            onSaved={handleSectionSaved}
+          />
         )}
         {activeTab === "content" && (
-          <BrandContentForm brand={brand} onSaved={handleSectionSaved} />
+          <BrandContentForm
+            key={brand.updatedAt}
+            brand={brand}
+            onSaved={handleSectionSaved}
+          />
         )}
       </div>
 
