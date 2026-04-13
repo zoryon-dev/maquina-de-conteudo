@@ -849,3 +849,43 @@ No circular import occurred. Schema.ts imports types directly from `@/lib/ai/sha
 - `npm run test`: **22 test files / 196 tests passed** in 921ms.</result>
 <usage><total_tokens>78836</total_tokens><tool_uses>44</tool_uses><duration_ms>232348</duration_ms></usage>
 </task-notification>
+
+---
+
+<task-notification>
+<task-id>aba7dc18a4018c1ba</task-id>
+<tool-use-id>toolu_01MGRKEq9bm6Aac6t1BGEqUU</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/aba7dc18a4018c1ba.output</output-file>
+<status>completed</status>
+<summary>Agent "PR7.1-FIX-C: tests + extracts" completed</summary>
+<result>All 12 new tests pass. Final report:
+
+---
+
+## Resultado PR7.1 — testes aplicados
+
+### Arquivos criados (4)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/api/wizard/schema.ts` — extração do `createWizardSchema` (com `superRefine` e enum estrito `HEADLINE_PATTERN_IDS`)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/wizard/components/steps/apply-motor-change.ts` — reducer puro
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/api/wizard/__tests__/create-wizard-schema.test.ts` — 8 testes
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/wizard/components/steps/__tests__/apply-motor-change.test.ts` — 4 testes
+
+### Arquivos editados (3)
+- `src/app/api/wizard/route.ts`: removidos imports locais de `z`/`wizardMotorEnum`/`TRIBAL_ANGLE_IDS`/`HEADLINE_PATTERN_IDS` e a declaração do schema; passa a importar `createWizardSchema` de `./schema`.
+- `src/app/(app)/wizard/components/steps/step-1-inputs.tsx`: adicionado `import { applyMotorChange }`; substituído o bloco inline do `MotorSelector.onChange` por `onChange(applyMotorChange(data, motor))`.
+- `src/app/api/workers/route.ts`: adicionado `export` a `generateContentBrandsDecodedAdapter`.
+
+### Testes (12 novos)
+- **create-wizard-schema** (8): `brandsdecoded_v4 + tribalAngle válido` OK; `tribalAngle` inválido → erro no path; `tribal_v4 + tribalAngle` → bloqueado pelo `superRefine` (mensagem menciona `brandsdecoded_v4`); `bdHeadlinePatterns` válido OK; id inexistente → erro (enum Agent B); motor ausente OK (default no DB); `passthrough` preserva chave extra; `numberOfSlides: 21` rejeitado.
+- **apply-motor-change** (4): BD→tribal zera `motorOptions` e preserva demais campos; tribal→BD sem opções mantém `undefined`; BD→BD preserva `motorOptions`; pureza do reducer (não muta input).
+- **bd-adapter-dispatch**: SKIPPED — `workers/route.ts` tem ~60 imports pesados (Clerk, Neon, queue, storage, voyage, article-services), mock isolando só `generateContentBrandsDecoded` exigiria cadeia extensa de stubs. Instruções permitem skip.
+
+### Coexistência com Agents A/B
+- Agent A já havia adicionado `superRefine` no route; **preservado** na extração (lógica idêntica).
+- Agent B já havia exportado `HEADLINE_PATTERN_IDS` e trocado `z.array(z.string())` → `z.array(z.enum(HEADLINE_PATTERN_IDS))`; usado na versão mais estrita no schema extraído.
+- Sem conflitos — diffs são ortogonais.
+
+### Resultado
+`npm run test`: **Test Files 22 passed (22) · Tests 196 passed (196)** em 920ms. Todos os 12 novos testes verdes; suite prévia intacta.</result>
+<usage><total_tokens>74137</total_tokens><tool_uses>47</tool_uses><duration_ms>212862</duration_ms></usage>
+</task-notification>
