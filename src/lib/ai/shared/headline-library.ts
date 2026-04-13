@@ -1,13 +1,3 @@
-/**
- * Headline Library — biblioteca compartilhada de padrões de headline.
- *
- * Motor-agnóstica. Pode ser consumida por BrandsDecoded v4, Tribal v4
- * e futuros motores. Baseada no banco de 56 hooks outliers (+10k likes)
- * da BrandsDecoded (ver temporaria/brandformat/brandsdecoded-banco-de-headlines.md).
- *
- * Exposta como dados estáticos + helpers de lookup e prompt building.
- */
-
 export type HeadlinePattern = {
   /** Identificador estável (snake_case) — usar em referências cross-motor. */
   id: string
@@ -170,24 +160,14 @@ const HEADLINE_PATTERNS: HeadlinePattern[] = [
   },
 ]
 
-/**
- * Retorna todos os padrões de headline registrados.
- */
 export function getAllHeadlinePatterns(): HeadlinePattern[] {
   return HEADLINE_PATTERNS
 }
 
-/**
- * Busca um padrão específico por ID. Retorna undefined se não encontrado.
- */
 export function getHeadlinePattern(id: string): HeadlinePattern | undefined {
   return HEADLINE_PATTERNS.find((p) => p.id === id)
 }
 
-/**
- * Formata os 8 padrões como bloco de texto pronto para ser colado em prompt
- * de LLM. Inclui estrutura, média de likes, exemplos e instrução de geração.
- */
 export function buildHeadlineLibraryPromptBlock(): string {
   const lines: string[] = [
     "# BANCO DE PADRÕES DE HEADLINE (BrandsDecoded — 56 hooks +10k likes)",

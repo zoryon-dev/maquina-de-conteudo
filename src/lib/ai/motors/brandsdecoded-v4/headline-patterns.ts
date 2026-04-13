@@ -1,97 +1,27 @@
-/**
- * BrandsDecoded v4 — Etapa 2 do pipeline interno: Geração de Headlines.
- *
- * Gera exatamente 10 headlines em dois formatos rígidos:
- *   - Opções 1-5: Investigação Cultural (IC) — [Reenquadramento]: [Hook], ~20-24 palavras.
- *   - Opções 6-10: Narrativa Magnética (NM) — 3 frases concretas, até ~45 palavras.
- *
- * Referência: temporaria/brandformat/system-prompt-maquina-carrosseis-v4.md
- * Blocos BLOCO 4 → Etapa 2 e BLOCO 5 → Engine de Headlines.
- */
-
 import { generateText } from "ai"
 import { openrouter, DEFAULT_TEXT_MODEL } from "@/lib/ai/config"
 import { buildHeadlineLibraryPromptBlock } from "@/lib/ai/shared/headline-library"
+import { extractLooseJSON } from "./_shared/parse-json"
+import { buildBrandContextBlock } from "./_shared/brand-block"
 import type { TriagemResult } from "./espinha"
 
-/**
- * Headline gerada individual. `patternId` opcional permite trackear qual
- * padrão da biblioteca compartilhada inspirou a headline — útil pra
- * analytics e para a coluna 'Gatilho' da apresentação.
- */
 export type GeneratedHeadline = {
-  /** Número 1-10 na ordem de apresentação. 1-5 = IC, 6-10 = NM. */
   id: number
-  /** Formato rígido: IC (Investigação Cultural) ou NM (Narrativa Magnética). */
   format: "IC" | "NM"
-  /** Texto da headline. */
   text: string
-  /** Link opcional para padrão da headline-library compartilhada. */
   patternId?: string
 }
 
 export type HeadlineGenerationInput = {
-  /** Briefing original do usuário (tema + contexto + objetivo). */
   briefing: string
-  /** Resultado da Etapa 1 — Triagem. */
   triagem: TriagemResult
-  /** Variáveis de marca injetadas pelo orquestrador. */
   brandPromptVariables?: Record<string, string | undefined>
-  /** Override de modelo. Default: DEFAULT_TEXT_MODEL. */
   model?: string
 }
 
 export type HeadlineGenerationResult = {
-  /** Sempre 10 headlines: 5 IC + 5 NM. */
   headlines: GeneratedHeadline[]
-  /** Prompt final enviado ao LLM — útil pra debug e observabilidade. */
   promptUsed: string
-}
-
-/**
- * Parser tolerante de JSON vindo do LLM. Duplicado intencionalmente (não
- * importamos de wizard-services/prompts.ts) para evitar dependência cruzada
- * entre o motor e serviços legados.
- */
-function extractJSON<T = unknown>(text: string): T {
-  if (!text || text.trim().length === 0) {
-    throw new Error("LLM returned empty response.")
-  }
-
-  const cleaned = text
-    .replace(/```(?:json)?\s*/gi, "")
-    .replace(/```/g, "")
-    .trim()
-
-  const firstBrace = cleaned.indexOf("{")
-  const lastBrace = cleaned.lastIndexOf("}")
-
-  if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
-    const preview = cleaned.slice(0, 200)
-    throw new Error(`No JSON object found in LLM response. Preview: ${preview}`)
-  }
-
-  const jsonStr = cleaned.slice(firstBrace, lastBrace + 1)
-  try {
-    return JSON.parse(jsonStr) as T
-  } catch (err) {
-    console.error("[brandsdecoded-v4/headlines] JSON parse failed:", jsonStr.slice(0, 500))
-    throw err
-  }
-}
-
-function renderBrandBlock(vars?: Record<string, string | undefined>): string {
-  if (!vars) return ""
-  const entries = Object.entries(vars).filter(
-    ([, v]) => typeof v === "string" && v.trim().length > 0
-  )
-  if (entries.length === 0) return ""
-
-  const lines = ["# CONTEXTO DE MARCA (injetar no tom, sem citar literalmente)"]
-  for (const [k, v] of entries) {
-    lines.push(`- ${k}: ${v}`)
-  }
-  return lines.join("\n") + "\n\n"
 }
 
 const SYSTEM_PROMPT = `Você é o gerador de headlines da Máquina de Carrosséis BrandsDecoded.
@@ -194,7 +124,10 @@ export async function generateHeadlinesForBD(
   }
 
   const model = input.model ?? DEFAULT_TEXT_MODEL
-  const brandBlock = renderBrandBlock(input.brandPromptVariables)
+  const brandBlock = buildBrandContextBlock(input.brandPromptVariables, {
+    heading: "# CONTEXTO DE MARCA (injetar no tom, sem citar literalmente)",
+  })
+  const brandBlockFormatted = brandBlock ? `${brandBlock}\n\n` : ""
   const libraryBlock = buildHeadlineLibraryPromptBlock()
 
   const evidenciasBlock =
@@ -202,7 +135,7 @@ export async function generateHeadlinesForBD(
       ? input.triagem.evidencias.map((e, i) => `  ${String.fromCharCode(65 + i)}) ${e}`).join("\n")
       : "  (sem evidências específicas — priorizar ângulo e mecanismo)"
 
-  const prompt = `${brandBlock}${libraryBlock}
+  const prompt = `${brandBlockFormatted}${libraryBlock}
 
 ========================================
 BRIEFING ORIGINAL
@@ -232,7 +165,7 @@ Responda APENAS com o JSON no formato especificado.`
     temperature: 0.8,
   })
 
-  const parsed = extractJSON<{ headlines?: unknown }>(text)
+  const parsed = extractLooseJSON<{ headlines?: unknown }>(text, "brandsdecoded-v4/headlines")
 
   if (!Array.isArray(parsed.headlines)) {
     throw new Error("[brandsdecoded-v4/headlines] Resposta sem array 'headlines'.")
@@ -240,7 +173,12 @@ Responda APENAS com o JSON no formato especificado.`
 
   const headlines: GeneratedHeadline[] = []
   for (const raw of parsed.headlines) {
-    if (!raw || typeof raw !== "object") continue
+    if (!raw || typeof raw !== "object") {
+      console.warn("[bd/headline-patterns] headline descartada: não é objeto", {
+        got: typeof raw,
+      })
+      continue
+    }
     const obj = raw as Record<string, unknown>
     const id = typeof obj.id === "number" ? obj.id : Number.NaN
     const format = obj.format === "IC" || obj.format === "NM" ? obj.format : null
@@ -250,7 +188,25 @@ Responda APENAS com o JSON no formato especificado.`
         ? obj.patternId.trim()
         : undefined
 
-    if (!Number.isInteger(id) || id < 1 || id > 10 || !format || textValue.length === 0) {
+    if (!Number.isInteger(id) || id < 1 || id > 10) {
+      console.warn(
+        "[bd/headline-patterns] headline descartada: id não numérico ou fora de 1-10",
+        { got: obj.id }
+      )
+      continue
+    }
+    if (!format) {
+      console.warn(
+        "[bd/headline-patterns] headline descartada: format inválido (esperado IC|NM)",
+        { id, got: obj.format }
+      )
+      continue
+    }
+    if (textValue.length === 0) {
+      console.warn(
+        "[bd/headline-patterns] headline descartada: text vazio",
+        { id }
+      )
       continue
     }
 

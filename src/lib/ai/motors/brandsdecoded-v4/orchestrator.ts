@@ -1,18 +1,6 @@
-// Orquestrador do motor BrandsDecoded v4.
-//
-// Pipeline completo do Bloco 4 do system-prompt v4:
-//   Etapa 1 — Triagem
-//   Etapa 2 — Headlines (10 opções: 5 IC + 5 NM)
-//   Escolha  — auto (primeira IC) ou manual (forcedHeadlineId)
-//   Etapa 3 — Espinha dorsal
-//   Etapa 3.6 — Copy dos 18 blocos
-//   Etapa 6 — Legenda Instagram (~150 palavras)
-//
-// Os módulos de triagem, headlines e espinha são entregues pelo agent A
-// (paralelo). Este arquivo apenas os encadeia.
-
 import { generateText } from "ai"
 import { openrouter, DEFAULT_TEXT_MODEL } from "@/lib/ai/config"
+import { buildBrandContextBlock } from "./_shared/brand-block"
 
 import {
   generateHeadlinesForBD,
@@ -28,18 +16,11 @@ import {
 import { generateCopyBlocks, type CopyBlock } from "./copy-blocks"
 
 export type BrandsDecodedInput = {
-  /** Briefing bruto: tema + contexto + objetivo (texto livre). */
   briefing: string
   brandPromptVariables?: Record<string, string | undefined>
   model?: string
-  /**
-   * Se true (default), escolhe automaticamente a primeira headline IC
-   * (id=1). Se false e não houver `forcedHeadlineId`, a orquestração falha —
-   * cabe ao caller escolher manualmente e re-chamar `buildEspinhaDorsal`
-   * em um fluxo interativo.
-   */
+  // auto-select default = primeira IC (id=1); senão exige forcedHeadlineId.
   autoSelectHeadline?: boolean
-  /** Se setado, busca a headline com esse id na lista gerada. */
   forcedHeadlineId?: number
 }
 
@@ -66,6 +47,15 @@ export async function generateWithBrandsDecoded(
     autoSelectHeadline = true,
     forcedHeadlineId,
   } = input
+
+  if (
+    !brandPromptVariables ||
+    Object.values(brandPromptVariables).every((v) => !v)
+  ) {
+    console.warn(
+      "[bd/orchestrator] brandPromptVariables ausente — pipeline rodará sem contexto de marca"
+    )
+  }
 
   // Etapa 1 — Triagem (extrai transformação, fricção, ângulo, evidências).
   const triagem = await runTriagem({
@@ -112,6 +102,33 @@ export async function generateWithBrandsDecoded(
     model,
   })
 
+  // QA editorial dry-mode — mesmo padrão do Tribal v4 em llm.service.ts.
+  // Roda anti-patterns + LLM judge, LOGA o resultado e não bloqueia.
+  // Dynamic import pra evitar risco de circular dep.
+  try {
+    const fullText = [
+      ...blocks.map((b) => b.text),
+      legendaInstagram,
+    ].join("\n\n")
+    const { runEditorialQA } = await import("@/lib/ai/quality")
+    const qa = await runEditorialQA(fullText, {
+      model: process.env.QA_DRY_MODEL || "openai/gpt-4.1-mini",
+    })
+    console.log(
+      "[qa-dry:brandsdecoded-v4]",
+      JSON.stringify({
+        passed: qa.passed,
+        blockingHits: qa.blockingHits.length,
+        warnHits: qa.warnHits.length,
+        failedParams: qa.scores
+          .filter((s) => s.score < 8)
+          .map((s) => `${s.param}:${s.score}`),
+      })
+    )
+  } catch (err) {
+    console.error("[qa-dry:brandsdecoded-v4] falhou silently:", err)
+  }
+
   return {
     triagem,
     headlines,
@@ -122,11 +139,7 @@ export async function generateWithBrandsDecoded(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Seleção de headline
-// ---------------------------------------------------------------------------
-
-function pickHeadline(
+export function pickHeadline(
   headlines: GeneratedHeadline[],
   opts: { autoSelectHeadline: boolean; forcedHeadlineId?: number }
 ): GeneratedHeadline {
@@ -153,12 +166,20 @@ function pickHeadline(
   }
 
   // Default: primeira IC (id=1). Se não houver id=1, usa a primeira da lista.
-  return headlines.find((h) => h.id === 1) ?? headlines[0]
+  const byId = headlines.find((h) => h.id === 1)
+  if (byId) return byId
+  console.warn(
+    "[bd/orchestrator] id=1 não encontrado, usando headlines[0]",
+    { ids: headlines.map((h) => h.id) }
+  )
+  const fallback = headlines[0]
+  if (!fallback) {
+    throw new Error(
+      "[bd/orchestrator] Nenhuma headline válida gerada"
+    )
+  }
+  return fallback
 }
-
-// ---------------------------------------------------------------------------
-// Legenda Instagram
-// ---------------------------------------------------------------------------
 
 export async function generateLegendaInstagram(input: {
   espinha: EspinhaDorsal
@@ -183,7 +204,18 @@ export async function generateLegendaInstagram(input: {
     temperature: 0.7,
   })
 
-  return raw.trim()
+  const legenda = raw.trim()
+  const wordCount = legenda.split(/\s+/).filter(Boolean).length
+  if (wordCount < 50) {
+    console.warn("[bd/orchestrator] legenda muito curta", {
+      wordCount,
+      preview: legenda.slice(0, 100),
+    })
+  }
+  if (legenda.length === 0) {
+    throw new Error("[bd/orchestrator] legenda vazia após trim")
+  }
+  return legenda
 }
 
 function buildLegendaPrompt(
@@ -195,7 +227,10 @@ function buildLegendaPrompt(
     .map((b) => `  texto ${b.index} (slide ${b.slide}) — ${b.text}`)
     .join("\n")
 
-  const brandInjection = buildBrandInjection(brandVars)
+  const brandInjection = buildBrandContextBlock(brandVars, {
+    heading: "## MARCA — variáveis do briefing",
+    fallback: "## MARCA — contexto não fornecido",
+  })
   const ctaHint =
     brandVars?.cta ||
     brandVars?.CTA ||
@@ -252,14 +287,3 @@ function buildLegendaPrompt(
   ].join("\n")
 }
 
-function buildBrandInjection(
-  brandVars?: Record<string, string | undefined>
-): string {
-  if (!brandVars) return "## MARCA — contexto não fornecido"
-  const entries = Object.entries(brandVars).filter(
-    ([, v]) => v !== undefined && v !== null && String(v).trim().length > 0
-  )
-  if (entries.length === 0) return "## MARCA — contexto não fornecido"
-  const lines = entries.map(([k, v]) => `- **${k}:** ${v}`)
-  return ["## MARCA — variáveis do briefing", "", ...lines].join("\n")
-}

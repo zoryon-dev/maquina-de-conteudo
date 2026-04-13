@@ -1,52 +1,13 @@
-// Geração dos 18 blocos / 9 slides do carrossel BrandsDecoded v4.
-//
-// Anatomia obrigatória (Manual de Qualidade — Seção 2):
-//   Slide 1 — Capa           (texto 1  ~7p  + texto 2  ~9p)
-//   Slide 2 — Hook           (texto 3  ~28p + texto 4  ~25p)
-//   Slide 3 — Mecanismo pt1  (texto 5  ~20p + texto 6  ~18p)
-//   Slide 4 — Mecanismo pt2  (texto 7  ~24p + texto 8  ~34p)
-//   Slide 5 — Prova          (texto 9  ~30p + texto 10 ~21p)
-//   Slide 6 — Expansão       (texto 11 ~25p + texto 12 ~23p)
-//   Slide 7 — Aplicação      (texto 13 ~24p + texto 14 ~18p)
-//   Slide 8 — Direção/CTA    (texto 15 ~22p + texto 16 ~20p)
-//   Slide 9 — Fechamento     (texto 17 ~28p + texto 18 ~27p)
-
 import { generateText } from "ai"
 import { openrouter, DEFAULT_TEXT_MODEL } from "@/lib/ai/config"
 import { buildReferenciasPromptBlock } from "./referencias"
+import { extractLooseJSON } from "./_shared/parse-json"
+import { buildBrandContextBlock } from "./_shared/brand-block"
 import type { EspinhaDorsal } from "./espinha"
 
-export type CopyBlock = {
-  index: number // 1-18
-  slide: number // 1-9
-  position: "a" | "b" // primeiro ou segundo bloco do slide
-  targetWords: number
-  text: string
-}
-
-export type CopyBlocksInput = {
-  espinha: EspinhaDorsal
-  brandPromptVariables?: Record<string, string | undefined>
-  model?: string
-}
-
-export type CopyBlocksResult = {
-  blocks: CopyBlock[] // 18 blocos
-  promptUsed: string
-}
-
-/**
- * Tabela imutável com a especificação de cada um dos 18 blocos.
- * Usada para construir o prompt E para normalizar a saída do LLM
- * (slide/position/targetWords são derivados deste índice).
- */
-export const BLOCK_SPEC: ReadonlyArray<{
-  index: number
-  slide: number
-  position: "a" | "b"
-  targetWords: number
-  sectionLabel: string
-}> = [
+// BLOCK_SPEC é source of truth: slide/position/targetWords derivam deste índice
+// e CopyBlock é derivado dele via CopyBlockSpec.
+export const BLOCK_SPEC = [
   { index: 1, slide: 1, position: "a", targetWords: 7, sectionLabel: "Capa — chapéu" },
   { index: 2, slide: 1, position: "b", targetWords: 9, sectionLabel: "Capa — headline" },
   { index: 3, slide: 2, position: "a", targetWords: 28, sectionLabel: "Hook — abertura" },
@@ -67,13 +28,20 @@ export const BLOCK_SPEC: ReadonlyArray<{
   { index: 18, slide: 9, position: "b", targetWords: 27, sectionLabel: "Fechamento — implicação aberta" },
 ] as const
 
-/**
- * Gera os 18 blocos de copy a partir da espinha dorsal aprovada.
- *
- * Pipeline: monta prompt com BLOCK_SPEC + espinha + few-shots + regras
- * editoriais, chama OpenRouter com temperature 0.7, parseia JSON tolerante
- * (extrai de markdown wrap se vier), normaliza e retorna 18 blocos.
- */
+export type CopyBlockSpec = (typeof BLOCK_SPEC)[number]
+export type CopyBlock = CopyBlockSpec & { text: string }
+
+export type CopyBlocksInput = {
+  espinha: EspinhaDorsal
+  brandPromptVariables?: Record<string, string | undefined>
+  model?: string
+}
+
+export type CopyBlocksResult = {
+  blocks: CopyBlock[]
+  promptUsed: string
+}
+
 export async function generateCopyBlocks(
   input: CopyBlocksInput
 ): Promise<CopyBlocksResult> {
@@ -99,10 +67,6 @@ export async function generateCopyBlocks(
   return { blocks, promptUsed: prompt }
 }
 
-// ---------------------------------------------------------------------------
-// Prompt building
-// ---------------------------------------------------------------------------
-
 function buildCopyBlocksPrompt(
   espinha: EspinhaDorsal,
   brandVars?: Record<string, string | undefined>
@@ -112,7 +76,11 @@ function buildCopyBlocksPrompt(
       `- texto ${b.index} · slide ${b.slide} · pos ${b.position.toUpperCase()} · ~${b.targetWords} palavras · ${b.sectionLabel}`
   ).join("\n")
 
-  const brandInjection = buildBrandInjection(brandVars)
+  const brandInjection = buildBrandContextBlock(brandVars, {
+    heading: "## MARCA — variáveis do briefing",
+    note: "Use estes dados apenas para ajustar vocabulário, referências e tom — nunca para forçar segunda pessoa nem metalinguagem comercial.",
+    fallback: "## MARCA — contexto não fornecido",
+  })
   const referencias = buildReferenciasPromptBlock(2)
 
   return [
@@ -210,50 +178,8 @@ function buildCopyBlocksPrompt(
   ].join("\n")
 }
 
-function buildBrandInjection(
-  brandVars?: Record<string, string | undefined>
-): string {
-  if (!brandVars) return "## MARCA — contexto não fornecido"
-
-  const entries = Object.entries(brandVars).filter(
-    ([, v]) => v !== undefined && v !== null && String(v).trim().length > 0
-  )
-  if (entries.length === 0) return "## MARCA — contexto não fornecido"
-
-  const lines = entries.map(([k, v]) => `- **${k}:** ${v}`)
-  return [
-    `## MARCA — variáveis do briefing`,
-    ``,
-    `Use estes dados apenas para ajustar vocabulário, referências e tom —`,
-    `nunca para forçar segunda pessoa nem metalinguagem comercial.`,
-    ``,
-    ...lines,
-  ].join("\n")
-}
-
-// ---------------------------------------------------------------------------
-// Parser tolerante
-// ---------------------------------------------------------------------------
-
-/**
- * Parser tolerante: aceita JSON puro, JSON embrulhado em markdown (```json ... ```)
- * ou com texto antes/depois. Normaliza cada bloco com slide/position/targetWords
- * derivados do BLOCK_SPEC.
- */
 export function parseCopyBlocksResponse(raw: string): CopyBlock[] {
-  const cleaned = extractJsonPayload(raw)
-
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(cleaned)
-  } catch (err) {
-    throw new Error(
-      `[brandsdecoded-v4/copy-blocks] Falha ao parsear JSON do LLM: ${
-        err instanceof Error ? err.message : String(err)
-      }. Raw (primeiros 400 chars): ${raw.slice(0, 400)}`
-    )
-  }
-
+  const parsed = extractLooseJSON<unknown>(raw, "brandsdecoded-v4/copy-blocks")
   const rawBlocks = extractBlocksArray(parsed)
   if (!rawBlocks) {
     throw new Error(
@@ -266,11 +192,30 @@ export function parseCopyBlocksResponse(raw: string): CopyBlock[] {
 
   const byIndex = new Map<number, string>()
   for (const b of rawBlocks) {
-    if (!b || typeof b !== "object") continue
+    if (!b || typeof b !== "object") {
+      console.warn(
+        "[bd/copy-blocks] bloco descartado: não é objeto",
+        { got: typeof b }
+      )
+      continue
+    }
     const obj = b as Record<string, unknown>
     const idx = Number(obj.index)
     const text = typeof obj.text === "string" ? obj.text.trim() : ""
-    if (!Number.isFinite(idx) || idx < 1 || idx > 18 || !text) continue
+    if (!Number.isFinite(idx) || idx < 1 || idx > 18) {
+      console.warn(
+        "[bd/copy-blocks] bloco descartado: index inválido",
+        { got: obj.index }
+      )
+      continue
+    }
+    if (!text) {
+      console.warn(
+        "[bd/copy-blocks] bloco descartado: text vazio",
+        { index: idx }
+      )
+      continue
+    }
     byIndex.set(idx, text)
   }
 
@@ -281,31 +226,10 @@ export function parseCopyBlocksResponse(raw: string): CopyBlock[] {
         `[brandsdecoded-v4/copy-blocks] Bloco ${spec.index} ausente ou vazio na resposta do LLM.`
       )
     }
-    return {
-      index: spec.index,
-      slide: spec.slide,
-      position: spec.position,
-      targetWords: spec.targetWords,
-      text,
-    }
+    return { ...spec, text }
   })
 
   return blocks
-}
-
-function extractJsonPayload(raw: string): string {
-  const trimmed = raw.trim()
-
-  // Caso 1: markdown fence ```json ... ```
-  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)
-  if (fenceMatch && fenceMatch[1]) return fenceMatch[1].trim()
-
-  // Caso 2: texto antes/depois do JSON — pega do primeiro { ao último }.
-  const first = trimmed.indexOf("{")
-  const last = trimmed.lastIndexOf("}")
-  if (first >= 0 && last > first) return trimmed.slice(first, last + 1)
-
-  return trimmed
 }
 
 function extractBlocksArray(parsed: unknown): unknown[] | null {

@@ -3,8 +3,9 @@
 import * as React from "react"
 import { Sparkles, Newspaper } from "lucide-react"
 import { cn } from "@/lib/utils"
+import type { WizardMotor } from "@/db/schema"
 
-export type WizardMotor = "tribal_v4" | "brandsdecoded_v4"
+export type { WizardMotor }
 
 type MotorOption = {
   value: WizardMotor
@@ -36,6 +37,18 @@ type MotorSelectorProps = {
 }
 
 export function MotorSelector({ value, onChange, disabled, className }: MotorSelectorProps) {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (disabled) return
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return
+    event.preventDefault()
+    const currentIndex = MOTOR_OPTIONS.findIndex((opt) => opt.value === value)
+    if (currentIndex === -1) return
+    const direction = event.key === "ArrowRight" ? 1 : -1
+    const nextIndex =
+      (currentIndex + direction + MOTOR_OPTIONS.length) % MOTOR_OPTIONS.length
+    onChange(MOTOR_OPTIONS[nextIndex].value)
+  }
+
   return (
     <div className={cn("space-y-3", className)}>
       <div className="space-y-1">
@@ -44,7 +57,11 @@ export function MotorSelector({ value, onChange, disabled, className }: MotorSel
           Cada motor tem um estilo próprio. Você pode trocar entre wizards.
         </p>
       </div>
-      <div className="grid gap-2 md:grid-cols-2">
+      <div
+        role="radiogroup"
+        aria-label="Motor de geração textual"
+        className="grid gap-2 md:grid-cols-2"
+      >
         {MOTOR_OPTIONS.map((opt) => {
           const Icon = opt.icon
           const active = value === opt.value
@@ -52,8 +69,12 @@ export function MotorSelector({ value, onChange, disabled, className }: MotorSel
             <button
               key={opt.value}
               type="button"
+              role="radio"
+              aria-checked={active}
+              tabIndex={active ? 0 : -1}
               disabled={disabled}
               onClick={() => onChange(opt.value)}
+              onKeyDown={handleKeyDown}
               className={cn(
                 "flex items-start gap-3 rounded-lg border p-3 text-left transition-all",
                 active

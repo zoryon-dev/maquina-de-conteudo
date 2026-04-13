@@ -107,13 +107,42 @@ const MAX_RETRIES = 2;
 // ============================================================================
 
 /**
- * Fetch user variables and merge with input-provided values.
- *
- * User variables from database act as defaults, but explicit values
- * in the wizard input take precedence. This allows users to override
- * their saved variables when creating specific content.
- *
- * Also formats the variables into a context block for prompt injection.
+ * Camadas de precedência (da mais baixa para a mais alta):
+ *   1. Marca ativa (brand.config do DB)
+ *   2. User variables persistidas (userVariables)
+ *   3. Inputs explícitos do wizard (overrides)
+ */
+async function resolveAllVariables(
+  inputOverrides: Partial<UserVariables>,
+  userId?: string
+): Promise<UserVariables> {
+  const [brandVariables, savedVariables] = await Promise.all([
+    getBrandPromptVariables().catch((err) => {
+      if (isAppError(err) && (err.code === "CONFIG_ERROR" || err.code === "NOT_FOUND")) {
+        throw err
+      }
+      console.error("[llm] failed to load brand variables:", err)
+      return {} as Partial<UserVariables>
+    }),
+    getUserVariables(userId),
+  ])
+  return {
+    tone: inputOverrides.tone || savedVariables.tone || brandVariables.tone,
+    brandVoice: savedVariables.brandVoice || brandVariables.brandVoice,
+    niche: inputOverrides.niche || savedVariables.niche || brandVariables.niche,
+    targetAudience: inputOverrides.targetAudience || savedVariables.targetAudience || brandVariables.targetAudience,
+    audienceFears: savedVariables.audienceFears || brandVariables.audienceFears,
+    audienceDesires: savedVariables.audienceDesires || brandVariables.audienceDesires,
+    differentiators: savedVariables.differentiators || brandVariables.differentiators,
+    contentGoals: savedVariables.contentGoals || brandVariables.contentGoals,
+    preferredCTAs: inputOverrides.preferredCTAs || savedVariables.preferredCTAs || brandVariables.preferredCTAs,
+    negativeTerms: savedVariables.negativeTerms || brandVariables.negativeTerms,
+  }
+}
+
+/**
+ * Fetch user variables, merge with input-provided values, format for prompt
+ * and combine negative terms.
  */
 async function loadAndFormatUserVariables(
   inputTargetAudience?: string,
@@ -127,42 +156,23 @@ async function loadAndFormatUserVariables(
   variablesContext: string
   mergedNegativeTerms: string[]
 }> {
-  // Camadas de precedência (da mais baixa para a mais alta):
-  //   1. Marca ativa (brand.config do DB)         — base automática
-  //   2. User variables persistidas (userVariables) — override pessoal
-  //   3. Inputs explícitos do wizard               — override do turno
-  const [brandVariables, savedVariables] = await Promise.all([
-    getBrandPromptVariables().catch((err) => {
-      // ConfigError/NotFoundError indicam misconfiguração (seed corrompido,
-      // ACTIVE_BRAND_SLUG errado) — deixar subir para visibilidade.
-      // Outros erros (transientes, DB flaky) caem para marca vazia.
-      if (isAppError(err) && (err.code === "CONFIG_ERROR" || err.code === "NOT_FOUND")) {
-        throw err
-      }
-      console.error("[llm] failed to load brand variables:", err)
-      return {} as Partial<UserVariables>
-    }),
-    getUserVariables(userId),
-  ])
-
-  const mergedVariables: UserVariables = {
-    tone: inputTone || savedVariables.tone || brandVariables.tone,
-    brandVoice: savedVariables.brandVoice || brandVariables.brandVoice,
-    niche: inputNiche || savedVariables.niche || brandVariables.niche,
-    targetAudience: inputTargetAudience || savedVariables.targetAudience || brandVariables.targetAudience,
-    audienceFears: savedVariables.audienceFears || brandVariables.audienceFears,
-    audienceDesires: savedVariables.audienceDesires || brandVariables.audienceDesires,
-    differentiators: savedVariables.differentiators || brandVariables.differentiators,
-    contentGoals: savedVariables.contentGoals || brandVariables.contentGoals,
-    preferredCTAs: savedVariables.preferredCTAs || brandVariables.preferredCTAs,
-    negativeTerms: savedVariables.negativeTerms || brandVariables.negativeTerms,
-  }
+  const mergedVariables = await resolveAllVariables(
+    {
+      tone: inputTone,
+      niche: inputNiche,
+      targetAudience: inputTargetAudience,
+      preferredCTAs: inputCta,
+    },
+    userId
+  )
 
   // Format variables for prompt injection
   const { context: variablesContext } = formatVariablesForPrompt(mergedVariables)
 
-  // Merge negative terms (input + saved)
-  const savedNegativeTerms = getNegativeTermsArray(savedVariables)
+  // Merge negative terms (input + saved). negativeTerms já passou por
+  // resolveAllVariables (coalescido com a marca), então usamos a forma
+  // resolvida em vez de recarregar do DB.
+  const savedNegativeTerms = getNegativeTermsArray(mergedVariables)
   const mergedNegativeTerms = [...new Set([...savedNegativeTerms, ...(inputNegativeTerms || [])])]
 
   return {
@@ -499,34 +509,11 @@ export async function generateContentBrandsDecoded(
   }
 
   try {
-    const [brandVariables, savedVariables] = await Promise.all([
-      getBrandPromptVariables().catch((err) => {
-        if (
-          err &&
-          typeof err === "object" &&
-          "code" in err &&
-          (err.code === "CONFIG_ERROR" || err.code === "NOT_FOUND")
-        ) {
-          throw err;
-        }
-        console.error("[bd-motor] failed to load brand variables:", err);
-        return {} as Partial<UserVariables>;
-      }),
-      getUserVariables(userId),
-    ]);
-
-    const brandPromptVariables: Record<string, string | undefined> = {
-      tone: savedVariables.tone || brandVariables.tone,
-      brandVoice: savedVariables.brandVoice || brandVariables.brandVoice,
-      niche: savedVariables.niche || brandVariables.niche,
-      targetAudience: input.targetAudience || savedVariables.targetAudience || brandVariables.targetAudience,
-      audienceFears: savedVariables.audienceFears || brandVariables.audienceFears,
-      audienceDesires: savedVariables.audienceDesires || brandVariables.audienceDesires,
-      differentiators: savedVariables.differentiators || brandVariables.differentiators,
-      contentGoals: savedVariables.contentGoals || brandVariables.contentGoals,
-      preferredCTAs: savedVariables.preferredCTAs || brandVariables.preferredCTAs,
-      negativeTerms: savedVariables.negativeTerms || brandVariables.negativeTerms,
-    };
+    const merged = await resolveAllVariables(
+      { targetAudience: input.targetAudience },
+      userId
+    );
+    const brandPromptVariables: Record<string, string | undefined> = { ...merged };
 
     const briefingParts: string[] = [];
     if (input.theme) briefingParts.push(`Tema: ${input.theme}`);

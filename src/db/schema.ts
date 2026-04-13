@@ -87,6 +87,7 @@ export const wizardMotorEnum = pgEnum("wizard_motor", [
   "tribal_v4",
   "brandsdecoded_v4",
 ]);
+export type WizardMotor = (typeof wizardMotorEnum.enumValues)[number];
 
 // ========================================
 // SOCIAL MEDIA INTEGRATION ENUMS
