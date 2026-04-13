@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "ad2e33d439e4",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "src/lib/ai/motors/brandsdecoded-v4/_shared/parse-json.ts",
+    "src/lib/ai/motors/brandsdecoded-v4/orchestrator.ts",
+    "src/lib/ai/shared/__tests__/build-bd-headlines-prompt.test.ts",
+    "src/lib/ai/shared/__tests__/headline-patterns-block.test.ts",
+    "src/lib/ai/shared/__tests__/tribal-angles.test.ts",
+    "src/lib/ai/shared/generate-bd-headlines.ts",
+    "src/lib/ai/shared/headline-library.ts",
+    "src/lib/ai/shared/tribal-angles.ts",
+    "src/lib/wizard-services/llm.service.ts",
+    "src/lib/wizard-services/types.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/ad/2e33d439e4/0/metadata.json",
+      "transcript": "/ad/2e33d439e4/0/full.jsonl",
+      "content_hash": "/ad/2e33d439e4/0/content_hash.txt",
+      "prompt": "/ad/2e33d439e4/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 19442,
+    "cache_creation_tokens": 2240421,
+    "cache_read_tokens": 129540412,
+    "output_tokens": 358795,
+    "api_call_count": 323
+  }
+}
