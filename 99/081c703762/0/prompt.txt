@@ -1,0 +1,60 @@
+Vamos analisar agora uma mudança relativamente densa. 
+
+Eu anexei duas novas pastas na aplicação:
+
+---
+
+Vamos analisar agora uma mudança relativamente densa. 
+
+Eu anexei duas novas pastas na aplicação:
+
+1. @temporaria/zoryon-brandkit/ -> Toda a esturutra da zoryon de comunicação
+2. @temporaria/brandformat/ -> uma estrutura validada e intensa de criação de conteúdo
+
+O que preciso: 
+
+1. Que analise as pastas detalhadamente
+2. Que tenhamos como aplicar 100% do zoryon-brandkit na nossa ferramenta, de modo interno, exemplo: ao criar um item, selecionar que é para zoryon e tudo é carregado automaticamente. Mantendo toda a estrutura da zoryon.
+3. Que o material do @temporaria/brandformat/ seja incorporado ao nosso sistema, digo, de geração TEXTUAL, as imagens, podemos incorporar os templates deles, porém também mater os nosssos templates, geração de imagens e etc. Apenas o sistema de geração textual. 
+
+Analise cuidadosamente o que seria possível e como poderiamos fazer. /brainstorm se necessário
+
+---
+
+Por enquanto, apenas a zoryon é a única marca, sem previsão de outras marcas. Porém, isso precisa ter clareza, pois pode ser que tudo se ajuste em um futuro para multi-brand. Mais por hora, o mais importante é ter tudo injetado do @temporaria/zoryon-brandkit/ no sistema para zoryon
+
+2. Honestamente, não sei. A estrutura de conteúdo deles também é muito boa, acho que podemos ter os dois mundos: manter o tribal sendo seleção por nós/user no frontend ou branddecoded cada um por um caminho, mas com todos os templates de imagens e geração.
+
+3. Só eu edito via sistema
+
+4. Não sei.
+
+---
+
+1. acho que combinado pode ser.
+
+2. podemos gerar nos nossos templates e adicionar os templates deles também
+
+3. pode manter TUDO já injetado, tanto no tribal quanto brandsdecoded
+
+---
+
+Sim, por favor documente tudo possível para não nos perdermos, ok? 
+
+Pode prosseguir.
+
+---
+
+você não pode fazer essas coisas diretamente, via mcp/pluguin do neon?
+
+---
+
+ativei o pluguin do neon, apenas cuidado para não usar o projeto errado. esse projeto está em producao
+
+---
+
+1. SIM:   1. Projeto correto é shy-voice-16533241 (Máquina de Conteúdo)?                                                                                           2. B
+
+---
+
+1. SIM:   1. Projeto correto é shy-voice-16533241 (Máquina de Conteúdo)?                                                                                           2. A

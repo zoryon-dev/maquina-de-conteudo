@@ -1,0 +1,58 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "99081c703762",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "docs/brand-integration-plan.md",
+    "drizzle/0029_tranquil_nextwave.sql",
+    "drizzle/meta/0028_snapshot.json",
+    "drizzle/meta/_journal.json",
+    "package.json",
+    "public/brands/zoryon/logo-zoryon-white-v2.svg",
+    "public/brands/zoryon/logo-zoryon-white.svg",
+    "scripts/seed-zoryon-brand.ts",
+    "src/content/brands/zoryon/00-PROJETO-BASE.md",
+    "src/content/brands/zoryon/01-business-overview.md",
+    "src/content/brands/zoryon/02-posicionamento-marca.md",
+    "src/content/brands/zoryon/03-avatares-icps.md",
+    "src/content/brands/zoryon/04-modelo-receita.md",
+    "src/content/brands/zoryon/05-catalogo-servicos.md",
+    "src/content/brands/zoryon/06-estrutura-cursos.md",
+    "src/content/brands/zoryon/07-jornada-cliente.md",
+    "src/content/brands/zoryon/08-presenca-digital.md",
+    "src/content/brands/zoryon/09-estrategia-conteudo.md",
+    "src/content/brands/zoryon/10-stack-ferramentas.md",
+    "src/content/brands/zoryon/11-roadmap-execucao.md",
+    "src/content/brands/zoryon/12-plano-transicao.md",
+    "src/content/brands/zoryon/PLANO-MESTRE.md",
+    "src/content/brands/zoryon/brand-voice-guide.md",
+    "src/content/brands/zoryon/design-tokens.css",
+    "src/content/brands/zoryon/logo-zoryon-white-v2.svg",
+    "src/content/brands/zoryon/logo-zoryon-white.svg",
+    "src/content/brands/zoryon/tailwind.zoryon.js",
+    "src/content/brands/zoryon/zoryon-brand-book.html",
+    "src/db/schema.ts",
+    "src/lib/brands/context.ts",
+    "src/lib/brands/queries.ts",
+    "src/lib/brands/schema.ts",
+    "src/lib/brands/seed/parse-markdown.ts",
+    "src/lib/brands/seed/zoryon-mapper.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/99/081c703762/0/metadata.json",
+      "transcript": "/99/081c703762/0/full.jsonl",
+      "content_hash": "/99/081c703762/0/content_hash.txt",
+      "prompt": "/99/081c703762/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 222,
+    "cache_creation_tokens": 331197,
+    "cache_read_tokens": 16684636,
+    "output_tokens": 98069,
+    "api_call_count": 104
+  }
+}
