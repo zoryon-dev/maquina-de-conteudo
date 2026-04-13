@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "dc728e62de70",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "src/app/(app)/studio/components/templates/template-gallery.tsx",
+    "src/app/(app)/wizard/components/shared/motor-selector.tsx",
+    "src/app/(app)/wizard/components/shared/visual-template-selector.tsx",
+    "src/app/(app)/wizard/components/steps/step-1-inputs.tsx",
+    "src/app/api/wizard/route.ts",
+    "src/app/api/workers/route.ts",
+    "src/lib/studio-templates/brandsdecoded/__tests__/bd-process-inline.test.ts",
+    "src/lib/studio-templates/brandsdecoded/bd-capa.ts",
+    "src/lib/studio-templates/brandsdecoded/bd-cta.ts",
+    "src/lib/studio-templates/brandsdecoded/bd-dark.ts",
+    "src/lib/studio-templates/brandsdecoded/bd-light.ts",
+    "src/lib/studio-templates/brandsdecoded/shared.ts",
+    "src/lib/studio-templates/index.ts",
+    "src/lib/studio-templates/renderer.ts",
+    "src/lib/studio-templates/types.ts",
+    "src/lib/wizard-services/content-mapper.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/dc/728e62de70/0/metadata.json",
+      "transcript": "/dc/728e62de70/0/full.jsonl",
+      "content_hash": "/dc/728e62de70/0/content_hash.txt",
+      "prompt": "/dc/728e62de70/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 19377,
+    "cache_creation_tokens": 2162586,
+    "cache_read_tokens": 107469066,
+    "output_tokens": 320432,
+    "api_call_count": 293
+  }
+}
