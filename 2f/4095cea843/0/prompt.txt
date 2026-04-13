@@ -391,3 +391,45 @@ Não toquei em `_shared/`, `__tests__/`, `referencias.ts`, `index.ts` ou `headli
 - `_shared/parse-json.ts` (do Agent B) existe mas não é usado por `copy-blocks.ts` ainda — optei por testar `parseCopyBlocksResponse` diretamente conforme o estado atual.</result>
 <usage><total_tokens>74551</total_tokens><tool_uses>24</tool_uses><duration_ms>175846</duration_ms></usage>
 </task-notification>
+
+---
+
+<task-notification>
+<task-id>a614a5d7a633f209b</task-id>
+<tool-use-id>toolu_01ACUBuUtvAXZGbZk2ijvDqx</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a614a5d7a633f209b.output</output-file>
+<status>completed</status>
+<summary>Agent "PR5-FIX-B: simplifications + a11y" completed</summary>
+<result>All clean. 107/107 tests pass, no typecheck errors in any of the changed files.
+
+## Resumo
+
+**Arquivos criados:**
+- `src/lib/ai/motors/brandsdecoded-v4/_shared/parse-json.ts` — `extractLooseJSON&lt;T&gt;(text, context)` parser tolerante.
+- `src/lib/ai/motors/brandsdecoded-v4/_shared/brand-block.ts` — `buildBrandContextBlock(vars, opts)` com heading/note/fallback configuráveis.
+
+**Refatorações (PR5 motor):**
+- `espinha.ts` — banner removido, JSDoc per-field removidos, `extractJSON` + `renderBrandBlock` deletados; agora importa `extractLooseJSON` + `buildBrandContextBlock`. Corpos de `runTriagem`/`buildEspinhaDorsal` preservados (incluindo o warn de headline divergente que Agent A adicionou). Temperature rationales mantidos.
+- `headline-patterns.ts` — banner + JSDoc field-level removidos, `extractJSON` + `renderBrandBlock` deletados; warns de Agent A no loop preservados.
+- `copy-blocks.ts` — banner ASCII removido. `BLOCK_SPEC` reordenado para vir ANTES dos types. `CopyBlock = CopyBlockSpec &amp; { text: string }`. `extractJsonPayload` + `extractJSON` deletados (substituídos por `extractLooseJSON`); `extractBlocksArray` mantido pois faz extração específica do `blocks` array. `buildBrandInjection` substituído por `buildBrandContextBlock` com heading/note/fallback. Warns de Agent A em `parseCopyBlocksResponse` preservados. Construção de blocos colapsada para `{...spec, text}`.
+- `orchestrator.ts` — banner removido, section dividers `// ----` removidos, `buildBrandInjection` substituído por `buildBrandContextBlock`. Pickheadline/legenda warns de Agent A preservados.
+- `headline-library.ts` — banner + JSDoc redundantes removidos.
+
+**Fix #3 — WizardMotor derivado:**
+- `src/db/schema.ts` ganhou `export type WizardMotor = (typeof wizardMotorEnum.enumValues)[number]`.
+- `motor-selector.tsx` agora faz `import type { WizardMotor } from "@/db/schema"` e re-exporta.
+
+**Fix #6 — `resolveAllVariables`:**
+Função local em `src/lib/wizard-services/llm.service.ts` (linhas ~115-141). Usada em **2 lugares**: (a) `loadAndFormatUserVariables` (substitui o bloco duplicado original); (b) `generateContentBrandsDecoded` (substitui as ~25 linhas de `savedVariables.X || brandVariables.X`). Eliminou também a 2ª chamada a `getUserVariables` ao usar `mergedVariables` para `getNegativeTermsArray`. Trade-off: o `console.warn("[bd-motor] brand variables unavailable…")` que Agent A inseriu foi unificado com o `console.error("[llm] failed to load brand variables")` da spec — perda intencional de granularidade em troca de canônico.
+
+**Fix #4 — a11y `motor-selector`:**
+- Wrapper ganhou `role="radiogroup"` + `aria-label="Motor de geração textual"`.
+- Cada button: `role="radio"`, `aria-checked={active}`, `tabIndex={active ? 0 : -1}` (roving tabindex padrão WAI-ARIA radiogroup).
+- Handler `onKeyDown` com ArrowLeft/ArrowRight (preventDefault + navegação circular via módulo).
+
+**Verificação:**
+- `npx tsc --noEmit --skipLibCheck` — zero erros nos arquivos alvo (único erro pré-existente em `library-actions.ts:1851` não relacionado).
+- `npm run test` — 10/10 suites, 107/107 testes passando.
+- Não criei testes em `__tests__/`. Não removi nenhum catch existente. Corpos de funções com warns do Agent A preservados.</result>
+<usage><total_tokens>167604</total_tokens><tool_uses>79</tool_uses><duration_ms>585575</duration_ms></usage>
+</task-notification>
