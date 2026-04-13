@@ -1,0 +1,87 @@
+/pr-review-toolkit:review-pr
+
+---
+
+Prefiro que faça o seguinte: 
+
+Lance agente em paralelo (sub-agent/seção) para corrigir TODAS as ações. TODAS. 
+
+Em paralelo aqui, seguimos para a próxima fase (PR2)
+
+---
+
+/pr-review-toolkit:review-pr revise o pr2
+
+---
+
+positivo
+
+---
+
+<task-notification>
+<task-id>ad626706b62f67bdf</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/ad626706b62f67bdf.output</output-file>
+<status>completed</status>
+<summary>Agent "PR2-FIX-A: injection.ts" completed</summary>
+<result>Nenhuma referência em qualquer lugar do projeto. Tudo limpo.
+
+---
+
+## Relatório
+
+**Arquivo**: `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/brands/injection.ts`
+
+**Tamanho**: 156 linhas → 131 linhas (diminuiu **25 linhas**, ~16%).
+
+**Fixes aplicados**:
+
+1. **Separator bug (crítico)**: `buildAudienceFears` e `buildAudienceDesires` agora usam `", "` em vez de `"; "`, consistente com o parser `splitCsv` do consumer. Confirmado — busca no arquivo não retorna mais nenhum `.join("; ")` (o único remanescente `beliefs.join("; ")` dentro de `buildDifferentiators` é intencional, é embutido numa string rotulada, não consumido como CSV).
+
+2. **Dead code**: Função `mergeBrandWithUserVars` e seu comentário decorativo prévio deletados. Grep global confirma zero referências no repo.
+
+3. **Threshold**: Constante `TOM_ATRIBUTO_THRESHOLD = 60` extraída no topo do arquivo (após imports) e aplicada nas 5 comparações em `buildTone`.
+
+4. **Helper `joinIfAny`**:
+   ```ts
+   function joinIfAny(parts: Array&lt;string | null | undefined&gt;, sep = " | "): string | undefined {
+     const filtered = parts.filter((s): s is string =&gt; !!s &amp;&amp; s.trim().length &gt; 0)
+     return filtered.length &gt; 0 ? filtered.join(sep) : undefined
+   }
+   ```
+   Aplicado em: `buildTone`, `buildTargetAudience` (uso interno + externo com `" — "` e `" | "`), `buildAudienceDesires`, `buildDifferentiators` (com `" ∥ "`), `buildContentGoals`. `buildNegativeTerms` e `buildPreferredCTAs` mantidos (patterns diferentes).
+
+5. **Comentário decorativo removido**: linha `// ── builders (exportados para uso avançado...) ──` deletada. Comentários WHY importantes preservados (header, acoplamento, formato CSV).
+
+**Validação**: `npx tsc --noEmit --skipLibCheck | grep injection` retornou vazio. Zero referências quebradas a `mergeBrandWithUserVars` em todo o repo — nada pra coordenar.</result>
+<usage><total_tokens>37044</total_tokens><tool_uses>5</tool_uses><duration_ms>69588</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>abd5fdde9e8cf3137</task-id>
+<tool-use-id>toolu_01J8H4G8ncZaYPJw1e1vFVbH</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/abd5fdde9e8cf3137.output</output-file>
+<status>completed</status>
+<summary>Agent "PR2-FIX-B: errors + precedência + splitCsv" completed</summary>
+<result>Both pass clean: no type errors on the three touched files, and 30/30 tests green.
+
+---
+
+## Report
+
+**Arquivos tocados:**
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/wizard-services/llm.service.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/wizard-services/user-variables.service.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/api/wizard/[id]/generate-titles/route.ts`
+
+**Fix 1 — ConfigError propagation:** Importei `isAppError` de `@/lib/errors` nos dois arquivos. O `catch` interno do `getBrandPromptVariables()` agora faz `if (isAppError(err) &amp;&amp; (err.code === "CONFIG_ERROR" || err.code === "NOT_FOUND")) throw err` antes de cair no fallback silencioso. Uso `isAppError` + checagem de `err.code` porque `errors.ts` expõe `AppError` como base comum com campo `code: string` (`ConfigError` -&gt; `"CONFIG_ERROR"`, `NotFoundError` -&gt; `"NOT_FOUND"`). Na route, o re-throw acontece dentro do `.catch()` do `Promise.all` e também no `catch` externo do `try/catch` envolvente (dupla guarda), pra garantir que o erro vire 500 com contexto ao invés de ser engolido.
+
+**Fix 2 — brandVoice:** Removi `userVars.brandVoice ||` da expressão `voiceTone` na route. Justificativa documentada em comentário: `brandVoice` é descrição da voz da marca (campo separado), não é tom. Precedência agora idêntica ao `llm.service`: `userVars.tone || brandVars.tone` (sem input nessa rota específica).
+
+**Fix 3 — splitCsv:** Exportado em `user-variables.service.ts` ao final do arquivo com JSDoc explicando a diferença vs `getNegativeTermsArray` (splitCsv retorna `string[] | undefined`, `getNegativeTermsArray` retorna sempre `string[]`). `getNegativeTermsArray` foi deixado intocado — a API diverge propositalmente (semântica "sem valor" vs "array vazio") e refatorar introduziria risco sem ganho. Na route, removido o helper local e trocado por `import { ..., splitCsv } from "@/lib/wizard-services/user-variables.service"`.
+
+**Verificação:** `tsc --noEmit --skipLibCheck` zero erros nos três arquivos; `npm run test` = 30/30 passando (3 test files).</result>
+<usage><total_tokens>55932</total_tokens><tool_uses>11</tool_uses><duration_ms>86965</duration_ms></usage>
+</task-notification>
