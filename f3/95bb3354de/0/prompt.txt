@@ -1031,3 +1031,43 @@ Substituições aplicadas:
 - O prompt de rewrite reusa o `prompt` original; se o feedback for muito grande pode aumentar tokens significativamente — vale monitorar custo na primeira semana.</result>
 <usage><total_tokens>85872</total_tokens><tool_uses>37</tool_uses><duration_ms>209367</duration_ms></usage>
 </task-notification>
+
+---
+
+<task-notification>
+<task-id>a12a0c36260243e38</task-id>
+<tool-use-id>toolu_01QWiGzoSuTKZjLd77uydscs</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a12a0c36260243e38.output</output-file>
+<status>completed</status>
+<summary>Agent "FINAL-C: i18n + library fix + tests" completed</summary>
+<result>Clean tsc, all 204 tests pass.
+
+## Report
+
+**1. i18n bd-cta.ts — decisão: TODO + override opcional via input prop (não via SlideContent).**
+Adicionar `texto3Instruction?: string` ao `SlideContent` impactaria todos os 16 templates, o store Zustand (`StudioState`), inicializadores (`DEFAULT_SLIDE_CONTENT`), formulários de edição e potencialmente os snapshots/save. Optei por:
+- Constante exportada `DEFAULT_BD_CTA_INSTRUCTION = "Comenta a palavra abaixo:"` (facilita override de teste e troca futura)
+- Prop `ctaInstruction?: string` no `TemplateBDCtaInput` (override por chamador, sem mexer no shape global)
+- Render via `escapeHtml(instructionText)` (corrige XSS latente da string original que ia direto pro HTML)
+- TODO comment apontando o caminho para i18n completa quando o sistema suportar locale
+
+**2. LibraryItemWithRelations fix — decisão: adicionar `brandId` ao select, não ao tipo.**
+O tipo `LibraryItemWithRelations extends DbLibraryItem` (de `src/types/library.ts:76`) já incluía `brandId` por inferência do schema Drizzle (o campo existe na tabela `libraryItems` em `src/db/schema.ts:325`). O cast falhava porque o `select({...})` em `library-actions.ts:1779` enumera campos explicitamente e **omitia `brandId`** — então o objeto inferido não tinha a propriedade exigida pelo tipo. Adicionei `brandId: libraryItems.brandId` ao select com comentário explicativo. Não toquei no tipo.
+
+**3. generate-bd-headlines.test.ts — 8 testes:**
+- `openrouter=null` → `ConfigError` (mock via `configState.openrouter = null` num getter mockado)
+- JSON válido → parse + patternId preservado
+- Markdown wrap (` ```json ` ) → parse via `extractLooseJSON`
+- LLM lixo → `headlines:[] + diagnostics.parseFailed=true`
+- `patternIds=["morte_de_x"]` → prompt inclui apenas esse padrão
+- `count=3` → prompt menciona "Gere 3 headlines"
+- `generateText` lança → `headlines:[] + diagnostics.llmFailed=true` (não propaga)
+- Itens inválidos (text vazio/só-espaço, patternId desconhecido) → descartados com `discardedCount`
+
+Mock estratégia: `vi.mock("ai")` com `generateTextMock = vi.fn()` + `vi.mock("@/lib/ai/config")` com getter sobre `configState.openrouter` (permite alternar null/objeto sem `resetModules`).
+
+**4. workers/route.ts — comment skip-rationale (3 linhas) adicionado acima de `generateContentBrandsDecodedAdapter`.**
+
+**Verificação:** `tsc --noEmit --skipLibCheck` limpo nos 4 arquivos tocados. `npm run test` → 23 arquivos / 204 testes passam (incluindo os 8 novos).</result>
+<usage><total_tokens>85579</total_tokens><tool_uses>41</tool_uses><duration_ms>200479</duration_ms></usage>
+</task-notification>
