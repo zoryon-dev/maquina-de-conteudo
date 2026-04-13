@@ -700,3 +700,56 @@ Test 5 (integração leve) foi pulado — os 3 arquivos cobrem bem as superfíci
 - `parseHeadlinesResponse` agora throws internamente via `extractLooseJSON` para input sem `{…}`, mas é capturado — retorna `{headlines:[], diagnostics:{parseFailed:true}}` sem propagar (o teste "não tem json" passa).</result>
 <usage><total_tokens>82990</total_tokens><tool_uses>33</tool_uses><duration_ms>214443</duration_ms></usage>
 </task-notification>
+
+---
+
+<task-notification>
+<task-id>a783257564ad1f67d</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a783257564ad1f67d.output</output-file>
+<status>completed</status>
+<summary>Agent "PR7-FIX-B: simplifications + types" completed</summary>
+<result>All changes applied. Tests and typecheck clean (only pre-existing unrelated error in library-actions).
+
+## Relatório
+
+**Mudanças aplicadas** (`/Users/jonassilva/Documents/developer/maquina-de-conteudo`):
+
+**1. `src/lib/ai/shared/tribal-angles.ts`**
+- `TRIBAL_ANGLE_IDS` agora é derivado de `TRIBAL_ANGLES.map(a =&gt; a.id)` (sem drift).
+- Reordenado: `TRIBAL_ANGLE_IDS` declarado após `TRIBAL_ANGLES`.
+- Removidos JSDocs per-field em `TribalAngle` e file header compactado para 2 linhas WHY.
+
+**2. `src/lib/wizard-services/types.ts`**
+- `NarrativeAngle` agora é alias de `TribalAngleId` (source of truth única).
+- Trocado `import("...").TribalAngleId` inline por `import type` no topo.
+- Removido prefixo "PR7:" dos comentários.
+- **Alias aplicado sem quebras**: 9 consumers (bd-adapter, workers, index, youtube-seo, video-titles, video-script, prompts, client, test) continuam funcionando — mesmas 4 strings.
+
+**3. `src/lib/ai/shared/headline-library.ts` (task #4 — aplicado)**
+- `HEADLINE_PATTERNS` agora é `as const satisfies readonly HeadlinePattern[]` — literais preservados.
+- `HeadlinePattern.examples` alterado para `readonly string[]` para compatibilidade com `as const`.
+- `getHeadlinePattern` retorna `(typeof HEADLINE_PATTERNS)[number] | undefined` (id tipado como union literal).
+- `getAllHeadlinePatterns` retorna `readonly HeadlinePattern[]`.
+- Resultado: `HeadlinePatternId` agora resolve para union literal real (era `string` antes).
+
+**4. `src/lib/ai/shared/parse-json.ts`** (NOVO — decisão de mover)
+- **Movido `extractLooseJSON` de `motors/brandsdecoded-v4/_shared/parse-json.ts` para `shared/parse-json.ts`** porque `generate-bd-headlines.ts` (shared) não deveria depender de internals de motor específico.
+- `motors/brandsdecoded-v4/_shared/parse-json.ts` vira barrel que re-exporta. Mantém os 3 consumers BD (copy-blocks, espinha, headline-patterns) funcionando sem edição.
+
+**5. `src/lib/ai/shared/generate-bd-headlines.ts`**
+- Substituído bloco manual de cleaning/JSON.parse por `extractLooseJSON`.
+- Removida import não usado `HeadlinePattern`.
+- Casts `as HeadlinePattern | undefined` e `as HeadlinePatternId` removidos (graças ao tightening do #4).
+- File header compactado para 2 linhas.
+- Preservado comportamento de Agent A: diagnostics.parseFailed em catch.
+
+**6. `src/lib/ai/motors/brandsdecoded-v4/orchestrator.ts`**
+- Removidos prefixos "PR7:" dos comentários (3 locais: input docblock, inline, helper docblock).
+- Task #7 (1-ternário) já estava implicitamente resolvida: Agent A extraiu para helper `composeBriefingWithTribalAngle`, que é mais limpo que o ternário único.
+
+**Validação**:
+- `npx tsc --noEmit --skipLibCheck`: 0 erros nos arquivos tocados. Único erro existente está em `library-actions.ts:1851` (pré-existente, unrelated).
+- `npm run test`: 184/184 passed (20 test files).</result>
+<usage><total_tokens>94623</total_tokens><tool_uses>46</tool_uses><duration_ms>313943</duration_ms></usage>
+</task-notification>
