@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "644782da0803",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "src/app/(app)/wizard/components/steps/step-1-inputs.tsx",
+    "src/app/api/wizard/route.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/64/4782da0803/0/metadata.json",
+      "transcript": "/64/4782da0803/0/full.jsonl",
+      "content_hash": "/64/4782da0803/0/content_hash.txt",
+      "prompt": "/64/4782da0803/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 5172,
+    "cache_creation_tokens": 2108355,
+    "cache_read_tokens": 98642208,
+    "output_tokens": 293601,
+    "api_call_count": 280
+  }
+}
