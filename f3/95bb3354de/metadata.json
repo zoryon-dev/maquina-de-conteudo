@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "f395bb3354de",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "docs/admin-setup.md",
+    "docs/brand-integration-plan.md",
+    "src/app/(app)/library/actions/library-actions.ts",
+    "src/app/(app)/wizard/components/shared/bd-headline-patterns-selector.tsx",
+    "src/app/(app)/wizard/components/steps/step-1-inputs.tsx",
+    "src/app/api/workers/route.ts",
+    "src/lib/ai/motors/brandsdecoded-v4/_shared/temperatures.ts",
+    "src/lib/ai/motors/brandsdecoded-v4/copy-blocks.ts",
+    "src/lib/ai/motors/brandsdecoded-v4/espinha.ts",
+    "src/lib/ai/motors/brandsdecoded-v4/headline-patterns.ts",
+    "src/lib/ai/motors/brandsdecoded-v4/orchestrator.ts",
+    "src/lib/studio-templates/brandsdecoded/bd-cta.ts",
+    "src/lib/wizard-services/llm.service.ts",
+    "src/lib/wizard-services/types.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/f3/95bb3354de/0/metadata.json",
+      "transcript": "/f3/95bb3354de/0/full.jsonl",
+      "content_hash": "/f3/95bb3354de/0/content_hash.txt",
+      "prompt": "/f3/95bb3354de/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 26975,
+    "cache_creation_tokens": 5663035,
+    "cache_read_tokens": 163235500,
+    "output_tokens": 411363,
+    "api_call_count": 368
+  }
+}
