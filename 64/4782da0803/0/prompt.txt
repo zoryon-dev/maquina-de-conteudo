@@ -437,3 +437,44 @@ Função local em `src/lib/wizard-services/llm.service.ts` (linhas ~115-141). Us
 ---
 
 Siga em paralelo com o PR5.1 e lance o PR6 em background
+
+---
+
+<task-notification>
+<task-id>a81e42046a460ca0f</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a81e42046a460ca0f.output</output-file>
+<status>completed</status>
+<summary>Agent "PR6: templates visuais BD" completed</summary>
+<result>All done. Here is the report:
+
+---
+
+**PR6 — BrandsDecoded templates implementados.**
+
+**Arquivos criados** (`src/lib/studio-templates/brandsdecoded/`):
+- `shared.ts` — paleta BD derivada da cor primária via `buildBDPalette()` (warm LB `#F5F2EF`, DB `#0F0D0C`, PL/PD via mix ±20/30%), CSS comum (accent bar gradient, brand bar, progress bar com numeração `01/09`), helpers `bdBrandBarHtml()`, `bdProgressBarHtml()`, `bdProcessInline()` (`**em**` → accent, `__strong__` → bold), fontes via Google Fonts (Barlow Condensed + Plus Jakarta Sans).
+- `bd-capa.ts` — slide 1. Imagem full-bleed + gradient escuro pesado (94% no rodapé, contraste 4.5:1), badge do handle alinhado à esquerda acima da headline, type-badge da categoria, headline 104px Barlow Condensed 900 uppercase com accent em palavras-chave, subtítulo 26px opcional.
+- `bd-dark.ts` — slides 2/4/6. Fundo `--DB`, número decorativo 380px na esquina (opacity 4%), tag, headline 80px, body 36px (strong branco, em `--PL`), card opcional com border-left accent. Suporta imagem de fundo com overlay 82%+.
+- `bd-light.ts` — slides 3/5/7/9. Fundo `--LB`, img-box 320px opcional no topo, headline 68px `--DB`, body 36px (strong `--DB`, em `--P`), card branco opcional com border-left 7px accent.
+- `bd-cta.ts` — slide 8. Fundo `var(--G)` (gradient 165° PD→P→PL), número decorativo 420px, headline 80px branca, body 36px, keyword box opcional (card branco com instrução + palavra-chave 68px no accent).
+
+**Registro no registry**:
+- `types.ts` — adicionados 4 IDs (`BD_CAPA`, `BD_DARK`, `BD_LIGHT`, `BD_CTA`) ao union `FigmaTemplate`, novo tipo `TemplateMotor = "tribal_v4" | "brandsdecoded_v4"`, campos opcionais `motor` e `tags` no `TemplateMetadata`, 4 entradas em `TEMPLATE_METADATA` com `motor: "brandsdecoded_v4"`.
+- `renderer.ts` — 4 cases novos no switch dispatch, passando `slideIndex`/`totalSlides`.
+- `index.ts` — novos `export { generateBD* }` + types; helper `getTemplatesForMotor(motor?)` que retorna templates do motor + templates sem motor (genéricos).
+
+**Selector (`visual-template-selector.tsx`)**:
+- Nova prop opcional `motorFilter?: TemplateMotor`.
+- Categorias agora são um `Record&lt;CategoryKey, ...&gt;` com campo `motor` opcional. Filtro: mostra categorias sem motor + categoria cujo motor bate. Sem filtro → todas aparecem (nada removido).
+- Default tab quando `motorFilter="brandsdecoded_v4"` → categoria BrandsDecoded; caso contrário → "figma". Estado resetado se a categoria ativa ficar invisível.
+- Ícone `Sparkles` na aba BD; badge "Recomendado" em BD_* quando filtro ativo.
+- `TEMPLATE_ICONS` e `TEMPLATE_PREVIEW_COLORS` estendidos (Record exaustivo).
+
+**Colaterais obrigatórios** (Record exaustivo de `FigmaTemplate`):
+- `src/app/(app)/studio/components/templates/template-gallery.tsx` — entradas BD adicionadas em ícones/cores, nova categoria "BrandsDecoded" e 4ª aba.
+- `src/lib/wizard-services/content-mapper.ts` — cases explícitos BD_CAPA/DARK/LIGHT/CTA mapeando `titulo→texto1`, `corpo→texto2`, `conexao_proximo→texto3` (keyword no CTA).
+
+**Verificação**: `tsc --noEmit` sem erros nos arquivos tocados (único erro remanescente é preexistente em `library-actions.ts:1851` com `brandId`). `npm run test`: 10 files / 107 tests passam. **Nenhum arquivo da lista de PR5.1 foi tocado.**</result>
+<usage><total_tokens>124477</total_tokens><tool_uses>57</tool_uses><duration_ms>509472</duration_ms></usage>
+</task-notification>
