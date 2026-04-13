@@ -7,6 +7,7 @@ import {
   TRIBAL_ANGLE_IDS,
   type TribalAngleId,
 } from "../tribal-angles"
+import { ValidationError } from "@/lib/errors"
 
 describe("tribal-angles registry", () => {
   it("expõe exatamente 4 ângulos", () => {
@@ -63,9 +64,10 @@ describe("buildTribalAngleInjection", () => {
     expect(block).toContain("HEREGE")
   })
 
-  it("retorna string vazia para id inválido", () => {
-    const block = buildTribalAngleInjection("nope" as TribalAngleId)
-    expect(block).toBe("")
+  it("lança ValidationError para id inválido", () => {
+    expect(() =>
+      buildTribalAngleInjection("nope" as TribalAngleId)
+    ).toThrow(ValidationError)
   })
 
   it("inclui promptInstruction completo", () => {

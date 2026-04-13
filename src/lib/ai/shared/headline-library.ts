@@ -1,3 +1,5 @@
+import { ValidationError } from "@/lib/errors"
+
 export type HeadlinePattern = {
   /** Identificador estável (snake_case) — usar em referências cross-motor. */
   id: string
@@ -13,7 +15,7 @@ export type HeadlinePattern = {
   /** Média de likes observada nos exemplos do banco BrandsDecoded. */
   avgLikes?: number
   /** 3-5 exemplos REAIS extraídos do banco-de-headlines. */
-  examples: string[]
+  examples: readonly string[]
   /**
    * Instrução em PT-BR pronta para ser injetada em prompt de LLM quando se
    * deseja gerar headlines usando este padrão específico.
@@ -21,7 +23,7 @@ export type HeadlinePattern = {
   generatorInstruction: string
 }
 
-const HEADLINE_PATTERNS: HeadlinePattern[] = [
+const HEADLINE_PATTERNS = [
   {
     id: "morte_de_x",
     name: "A Morte / O Fim de X",
@@ -158,25 +160,35 @@ const HEADLINE_PATTERNS: HeadlinePattern[] = [
     generatorInstruction:
       "Formule uma pergunta que confronte um valor, hábito ou narrativa que o público toma como dado. O tom é de colunista provocador — não é pergunta didática, é provocação com carga filosófica. Precisa soar inevitável, não retórica fácil.",
   },
-]
+] as const satisfies readonly HeadlinePattern[]
 
-export function getAllHeadlinePatterns(): HeadlinePattern[] {
+export type HeadlinePatternId = (typeof HEADLINE_PATTERNS)[number]["id"]
+
+export function getAllHeadlinePatterns(): readonly HeadlinePattern[] {
   return HEADLINE_PATTERNS
 }
 
-export function getHeadlinePattern(id: string): HeadlinePattern | undefined {
+export function getHeadlinePattern(
+  id: string
+): (typeof HEADLINE_PATTERNS)[number] | undefined {
   return HEADLINE_PATTERNS.find((p) => p.id === id)
 }
-
-export type HeadlinePatternId = (typeof HEADLINE_PATTERNS)[number]["id"]
 
 // Bloco focado em padrões específicos. Usado quando o caller já escolheu
 // um subset (ex: Tribal v4 com bdHeadlinePatterns=["morte_de_x", "investigando_x"]).
 // Se nenhum id for passado, cai em buildHeadlineLibraryPromptBlock (todos).
 export function buildHeadlinePatternsBlock(ids?: HeadlinePatternId[]): string {
-  const selected = ids && ids.length > 0
-    ? HEADLINE_PATTERNS.filter((p) => ids.includes(p.id as HeadlinePatternId))
+  const idsProvided = !!ids && ids.length > 0
+  const selected = idsProvided
+    ? HEADLINE_PATTERNS.filter((p) => ids!.includes(p.id as HeadlinePatternId))
     : HEADLINE_PATTERNS
+
+  if (idsProvided && selected.length === 0) {
+    throw new ValidationError(
+      `Nenhum HeadlinePatternId válido entre os fornecidos`,
+      { providedIds: ids, validIds: HEADLINE_PATTERNS.map((p) => p.id) }
+    )
+  }
 
   if (selected.length === 0) return ""
 

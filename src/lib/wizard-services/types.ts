@@ -5,15 +5,17 @@
  * All services use these interfaces for consistent data flow.
  */
 
+import type { TribalAngleId } from "@/lib/ai/shared/tribal-angles";
+
 // ============================================================================
 // NARRATIVE TYPES
 // ============================================================================
 
 /**
  * Tribal narrative angles based on Seth Godin's "Tribes" philosophy.
- * Each angle represents a different leadership approach for content creation.
+ * Alias para TribalAngleId — fonte única em `@/lib/ai/shared/tribal-angles`.
  */
-export type NarrativeAngle = "herege" | "visionario" | "tradutor" | "testemunha";
+export type NarrativeAngle = TribalAngleId;
 
 export interface NarrativeOption {
   id: string;
@@ -363,9 +365,9 @@ export interface WizardGenerationInput extends WizardInputData {
   ragContext?: string;
   ragSources?: Array<{ id: number; title: string }>;
   customInstructions?: string;
-  // PR7: ângulo tribal opcional para combinação cross-motor (BrandsDecoded
-  // com postura tribal). Quando setado, modula o tom da geração BD.
-  tribalAngle?: import("@/lib/ai/shared/tribal-angles").TribalAngleId;
+  // Ângulo tribal opcional para combinação cross-motor (BrandsDecoded com
+  // postura tribal). Quando setado, modula o tom da geração BD.
+  tribalAngle?: TribalAngleId;
   // v4.0 video-specific fields
   videoDuration?: VideoDuration;
   videoIntention?: string;

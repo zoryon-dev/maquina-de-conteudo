@@ -1,15 +1,16 @@
-// 4 ângulos tribais (Seth Godin's Tribes). Motor-agnóstico — extraído do
-// prompts.ts do Tribal v4 para permitir reuso pelo BrandsDecoded v4 (modula
-// tom da geração) e por motores futuros.
+// 4 ângulos tribais (Seth Godin's Tribes). Motor-agnóstico — permite reuso
+// por Tribal v4, BrandsDecoded v4 e motores futuros que modulam tom.
+
+import { ValidationError } from "@/lib/errors"
 
 export type TribalAngleId = "herege" | "visionario" | "tradutor" | "testemunha"
 
 export type TribalAngle = {
   id: TribalAngleId
-  label: string // título amigável
-  description: string // 1 linha: o que o ângulo faz
-  example: string // exemplo de hook típico
-  promptInstruction: string // bloco em PT-BR para injetar em prompts
+  label: string
+  description: string
+  example: string
+  promptInstruction: string
 }
 
 const TRIBAL_ANGLES: TribalAngle[] = [
@@ -55,6 +56,8 @@ const TRIBAL_ANGLES: TribalAngle[] = [
   },
 ]
 
+export const TRIBAL_ANGLE_IDS = TRIBAL_ANGLES.map((a) => a.id) as ReadonlyArray<TribalAngleId>
+
 export function getAllTribalAngles(): TribalAngle[] {
   return TRIBAL_ANGLES
 }
@@ -84,7 +87,12 @@ export function buildTribalAnglesPromptBlock(): string {
 // modular o tom (ex: BrandsDecoded v4 com tom tribal seleto).
 export function buildTribalAngleInjection(id: TribalAngleId): string {
   const angle = getTribalAngle(id)
-  if (!angle) return ""
+  if (!angle) {
+    throw new ValidationError(
+      `Ângulo tribal inválido: "${id}"`,
+      { providedId: id, validIds: TRIBAL_ANGLES.map((a) => a.id) }
+    )
+  }
   return [
     "# ÂNGULO TRIBAL ESCOLHIDO",
     `**${angle.label}**: ${angle.description}`,
@@ -93,10 +101,3 @@ export function buildTribalAngleInjection(id: TribalAngleId): string {
     "",
   ].join("\n")
 }
-
-export const TRIBAL_ANGLE_IDS: ReadonlyArray<TribalAngleId> = [
-  "herege",
-  "visionario",
-  "tradutor",
-  "testemunha",
-]

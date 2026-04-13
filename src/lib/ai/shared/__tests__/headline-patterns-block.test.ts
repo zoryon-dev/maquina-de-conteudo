@@ -5,6 +5,7 @@ import {
   getAllHeadlinePatterns,
   type HeadlinePatternId,
 } from "../headline-library"
+import { ValidationError } from "@/lib/errors"
 
 describe("buildHeadlinePatternsBlock", () => {
   it("sem ids retorna todos os 8 padrões", () => {
@@ -32,9 +33,10 @@ describe("buildHeadlinePatternsBlock", () => {
     expect(block).toContain(`(${all.length})`)
   })
 
-  it("ids inválidos resultam em bloco vazio", () => {
-    const block = buildHeadlinePatternsBlock(["nope" as HeadlinePatternId])
-    expect(block).toBe("")
+  it("ids inválidos lançam ValidationError", () => {
+    expect(() =>
+      buildHeadlinePatternsBlock(["nope" as HeadlinePatternId])
+    ).toThrow(ValidationError)
   })
 
   it("inclui exemplos limitados (top 2)", () => {

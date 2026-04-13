@@ -16,8 +16,10 @@ import {
 import { generateCopyBlocks, type CopyBlock } from "./copy-blocks"
 import {
   buildTribalAngleInjection,
+  TRIBAL_ANGLE_IDS,
   type TribalAngleId,
 } from "@/lib/ai/shared/tribal-angles"
+import { ValidationError } from "@/lib/errors"
 
 export type BrandsDecodedInput = {
   briefing: string
@@ -26,7 +28,7 @@ export type BrandsDecodedInput = {
   // auto-select default = primeira IC (id=1); senão exige forcedHeadlineId.
   autoSelectHeadline?: boolean
   forcedHeadlineId?: number
-  // PR7: ângulo tribal opcional. Quando setado, modula o tom da geração
+  // Ângulo tribal opcional. Quando setado, modula o tom da geração
   // (concatenado ao briefing antes de cada step do pipeline). Permite
   // combinação cross-motor: BD usa estrutura jornalística + postura tribal.
   tribalAngle?: TribalAngleId
@@ -66,11 +68,10 @@ export async function generateWithBrandsDecoded(
     )
   }
 
-  // PR7: prefixar bloco do ângulo tribal ao briefing quando solicitado.
+  // Prefixa bloco do ângulo tribal ao briefing quando solicitado.
   // Cada step do pipeline (triagem, headlines, espinha, copy) recebe o
   // briefing aumentado e absorve a postura via system prompt natural.
-  const tribalBlock = tribalAngle ? buildTribalAngleInjection(tribalAngle) : ""
-  const briefing = tribalBlock ? `${tribalBlock}\n\n${rawBriefing}` : rawBriefing
+  const briefing = composeBriefingWithTribalAngle(rawBriefing, tribalAngle)
 
   // Etapa 1 — Triagem (extrai transformação, fricção, ângulo, evidências).
   const triagem = await runTriagem({
@@ -152,6 +153,26 @@ export async function generateWithBrandsDecoded(
     blocks,
     legendaInstagram,
   }
+}
+
+/**
+ * Helper puro: compõe o briefing final prefixando o bloco de ângulo tribal
+ * quando `tribalAngle` é fornecido. Quando ausente, retorna o briefing
+ * inalterado. Extraído para permitir testes unitários e reuso.
+ */
+export function composeBriefingWithTribalAngle(
+  rawBriefing: string,
+  tribalAngle?: TribalAngleId
+): string {
+  if (!tribalAngle) return rawBriefing
+  if (!TRIBAL_ANGLE_IDS.includes(tribalAngle)) {
+    throw new ValidationError(
+      `tribalAngle inválido: "${tribalAngle}"`,
+      { providedId: tribalAngle, validIds: [...TRIBAL_ANGLE_IDS] }
+    )
+  }
+  const tribalBlock = buildTribalAngleInjection(tribalAngle)
+  return `${tribalBlock}\n\n${rawBriefing}`
 }
 
 export function pickHeadline(

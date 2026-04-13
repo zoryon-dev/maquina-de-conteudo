@@ -33,6 +33,7 @@ import {
   generateWithBrandsDecoded,
   type BrandsDecodedResult,
 } from "@/lib/ai/motors/brandsdecoded-v4";
+import { TRIBAL_ANGLE_IDS } from "@/lib/ai/shared/tribal-angles";
 import { isAppError } from "@/lib/errors";
 import type {
   NarrativeOption,
@@ -506,6 +507,16 @@ export async function generateContentBrandsDecoded(
 ): Promise<ServiceResult<BrandsDecodedResult>> {
   if (!openrouter) {
     return { success: false, error: "OpenRouter API key not configured." };
+  }
+
+  if (
+    input.tribalAngle &&
+    !TRIBAL_ANGLE_IDS.includes(input.tribalAngle)
+  ) {
+    return {
+      success: false,
+      error: `tribalAngle inválido: "${input.tribalAngle}"`,
+    };
   }
 
   try {

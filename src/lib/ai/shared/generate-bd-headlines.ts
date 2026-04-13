@@ -1,16 +1,16 @@
-// Gera N headlines usando os 8 padrões da biblioteca BrandsDecoded.
+// Gera N headlines usando os padrões da biblioteca BrandsDecoded.
 // Helper cross-motor: chamável por Tribal v4, BrandsDecoded v4 ou motores
-// futuros que queiram oferecer "headlines extras no estilo BD" como
-// alternativa ao output principal.
+// futuros que queiram headlines alternativas no estilo BD.
 
 import { generateText } from "ai"
 import { openrouter, DEFAULT_TEXT_MODEL } from "@/lib/ai/config"
+import { ConfigError } from "@/lib/errors"
 import {
   buildHeadlinePatternsBlock,
   type HeadlinePatternId,
-  type HeadlinePattern,
   getHeadlinePattern,
 } from "./headline-library"
+import { extractLooseJSON } from "./parse-json"
 
 export type BdHeadlineSuggestion = {
   text: string
@@ -29,20 +29,30 @@ export type GenerateBdHeadlinesInput = {
   model?: string
 }
 
+export type GenerateBdHeadlinesDiagnostics = {
+  llmFailed?: boolean
+  parseFailed?: boolean
+  discardedCount?: number
+  expectedCount?: number
+}
+
 export type GenerateBdHeadlinesResult = {
   headlines: BdHeadlineSuggestion[]
   promptUsed: string
+  diagnostics?: GenerateBdHeadlinesDiagnostics
 }
 
-const DEFAULT_COUNT = 5
+export const DEFAULT_COUNT = 5
 
-export async function generateBdHeadlines(
-  input: GenerateBdHeadlinesInput
-): Promise<GenerateBdHeadlinesResult> {
-  if (!openrouter) {
-    return { headlines: [], promptUsed: "" }
-  }
-
+/**
+ * Helper puro (PR7): compõe o prompt completo + conta validada para geração
+ * de headlines BD. Extraído para permitir testes unitários sem chamar o LLM.
+ * Faz clamp do `count` entre 1 e 10 e injeta patternsBlock + brandContextBlock.
+ */
+export function buildBdHeadlinesPrompt(input: GenerateBdHeadlinesInput): {
+  prompt: string
+  count: number
+} {
   const count = Math.max(1, Math.min(input.count ?? DEFAULT_COUNT, 10))
   const patternsBlock = buildHeadlinePatternsBlock(input.patternIds)
   const brandBlock = input.brandContextBlock?.trim() ?? ""
@@ -72,6 +82,20 @@ export async function generateBdHeadlines(
     .filter(Boolean)
     .join("\n")
 
+  return { prompt, count }
+}
+
+export async function generateBdHeadlines(
+  input: GenerateBdHeadlinesInput
+): Promise<GenerateBdHeadlinesResult> {
+  if (!openrouter) {
+    throw new ConfigError(
+      "OpenRouter não configurado — defina OPENROUTER_API_KEY"
+    )
+  }
+
+  const { prompt, count } = buildBdHeadlinesPrompt(input)
+
   let raw: string
   try {
     const { text } = await generateText({
@@ -82,51 +106,73 @@ export async function generateBdHeadlines(
     raw = text
   } catch (err) {
     console.error("[generate-bd-headlines] LLM call failed:", err)
-    return { headlines: [], promptUsed: prompt }
+    return {
+      headlines: [],
+      promptUsed: prompt,
+      diagnostics: { llmFailed: true, expectedCount: count },
+    }
   }
 
-  const headlines = parseHeadlinesResponse(raw, count)
-  return { headlines, promptUsed: prompt }
+  const { headlines, diagnostics } = parseHeadlinesResponse(raw, count)
+  const finalDiagnostics: GenerateBdHeadlinesDiagnostics = {
+    ...diagnostics,
+    expectedCount: count,
+  }
+  const hasDiagnostic =
+    finalDiagnostics.parseFailed !== undefined ||
+    (finalDiagnostics.discardedCount !== undefined && finalDiagnostics.discardedCount > 0) ||
+    headlines.length < count
+
+  return {
+    headlines,
+    promptUsed: prompt,
+    ...(hasDiagnostic ? { diagnostics: finalDiagnostics } : {}),
+  }
 }
 
-function parseHeadlinesResponse(raw: string, expectedCount: number): BdHeadlineSuggestion[] {
-  const cleaned = raw
-    .replace(/```(?:json)?\s*/gi, "")
-    .replace(/```/g, "")
-    .trim()
+export function parseHeadlinesResponse(
+  raw: string,
+  expectedCount: number = DEFAULT_COUNT
+): { headlines: BdHeadlineSuggestion[]; diagnostics: GenerateBdHeadlinesDiagnostics } {
+  const diagnostics: GenerateBdHeadlinesDiagnostics = {}
 
-  let parsed: unknown
+  let data: { headlines?: Array<{ text?: unknown; patternId?: unknown }> }
   try {
-    parsed = JSON.parse(cleaned)
-  } catch {
-    const match = cleaned.match(/\{[\s\S]*\}/)
-    if (!match) {
-      console.warn("[generate-bd-headlines] sem JSON parseável no output")
-      return []
-    }
-    try {
-      parsed = JSON.parse(match[0])
-    } catch {
-      console.warn("[generate-bd-headlines] JSON malformado no fallback")
-      return []
-    }
+    data = extractLooseJSON<{
+      headlines?: Array<{ text?: unknown; patternId?: unknown }>
+    }>(raw, "generate-bd-headlines")
+  } catch (err) {
+    console.warn(
+      "[generate-bd-headlines] parse falhou:",
+      err instanceof Error ? err.message : err
+    )
+    diagnostics.parseFailed = true
+    return { headlines: [], diagnostics }
   }
 
-  const data = parsed as { headlines?: Array<{ text?: unknown; patternId?: unknown }> }
-  if (!Array.isArray(data?.headlines)) return []
+  if (!Array.isArray(data?.headlines)) {
+    diagnostics.parseFailed = true
+    return { headlines: [], diagnostics }
+  }
 
   const valid: BdHeadlineSuggestion[] = []
+  let discarded = 0
   for (const item of data.headlines) {
     if (typeof item?.text !== "string" || item.text.trim().length === 0) {
       console.warn("[generate-bd-headlines] item descartado: text inválido")
+      discarded++
       continue
     }
     let patternId: HeadlinePatternId | undefined
     if (typeof item.patternId === "string") {
-      const pattern = getHeadlinePattern(item.patternId) as HeadlinePattern | undefined
-      if (pattern) patternId = pattern.id as HeadlinePatternId
+      const pattern = getHeadlinePattern(item.patternId)
+      if (pattern) patternId = pattern.id
     }
     valid.push({ text: item.text.trim(), patternId })
+  }
+
+  if (discarded > 0) {
+    diagnostics.discardedCount = discarded
   }
 
   if (valid.length === 0) {
@@ -137,5 +183,5 @@ function parseHeadlinesResponse(raw: string, expectedCount: number): BdHeadlineS
     )
   }
 
-  return valid
+  return { headlines: valid, diagnostics }
 }
