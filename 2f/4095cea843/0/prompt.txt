@@ -1,0 +1,393 @@
+/pr-review-toolkit:review-pr
+
+---
+
+Prefiro que faça o seguinte: 
+
+Lance agente em paralelo (sub-agent/seção) para corrigir TODAS as ações. TODAS. 
+
+Em paralelo aqui, seguimos para a próxima fase (PR2)
+
+---
+
+/pr-review-toolkit:review-pr revise o pr2
+
+---
+
+positivo
+
+---
+
+<task-notification>
+<task-id>ad626706b62f67bdf</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/ad626706b62f67bdf.output</output-file>
+<status>completed</status>
+<summary>Agent "PR2-FIX-A: injection.ts" completed</summary>
+<result>Nenhuma referência em qualquer lugar do projeto. Tudo limpo.
+
+---
+
+## Relatório
+
+**Arquivo**: `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/brands/injection.ts`
+
+**Tamanho**: 156 linhas → 131 linhas (diminuiu **25 linhas**, ~16%).
+
+**Fixes aplicados**:
+
+1. **Separator bug (crítico)**: `buildAudienceFears` e `buildAudienceDesires` agora usam `", "` em vez de `"; "`, consistente com o parser `splitCsv` do consumer. Confirmado — busca no arquivo não retorna mais nenhum `.join("; ")` (o único remanescente `beliefs.join("; ")` dentro de `buildDifferentiators` é intencional, é embutido numa string rotulada, não consumido como CSV).
+
+2. **Dead code**: Função `mergeBrandWithUserVars` e seu comentário decorativo prévio deletados. Grep global confirma zero referências no repo.
+
+3. **Threshold**: Constante `TOM_ATRIBUTO_THRESHOLD = 60` extraída no topo do arquivo (após imports) e aplicada nas 5 comparações em `buildTone`.
+
+4. **Helper `joinIfAny`**:
+   ```ts
+   function joinIfAny(parts: Array&lt;string | null | undefined&gt;, sep = " | "): string | undefined {
+     const filtered = parts.filter((s): s is string =&gt; !!s &amp;&amp; s.trim().length &gt; 0)
+     return filtered.length &gt; 0 ? filtered.join(sep) : undefined
+   }
+   ```
+   Aplicado em: `buildTone`, `buildTargetAudience` (uso interno + externo com `" — "` e `" | "`), `buildAudienceDesires`, `buildDifferentiators` (com `" ∥ "`), `buildContentGoals`. `buildNegativeTerms` e `buildPreferredCTAs` mantidos (patterns diferentes).
+
+5. **Comentário decorativo removido**: linha `// ── builders (exportados para uso avançado...) ──` deletada. Comentários WHY importantes preservados (header, acoplamento, formato CSV).
+
+**Validação**: `npx tsc --noEmit --skipLibCheck | grep injection` retornou vazio. Zero referências quebradas a `mergeBrandWithUserVars` em todo o repo — nada pra coordenar.</result>
+<usage><total_tokens>37044</total_tokens><tool_uses>5</tool_uses><duration_ms>69588</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>abd5fdde9e8cf3137</task-id>
+<tool-use-id>toolu_01J8H4G8ncZaYPJw1e1vFVbH</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/abd5fdde9e8cf3137.output</output-file>
+<status>completed</status>
+<summary>Agent "PR2-FIX-B: errors + precedência + splitCsv" completed</summary>
+<result>Both pass clean: no type errors on the three touched files, and 30/30 tests green.
+
+---
+
+## Report
+
+**Arquivos tocados:**
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/wizard-services/llm.service.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/wizard-services/user-variables.service.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/api/wizard/[id]/generate-titles/route.ts`
+
+**Fix 1 — ConfigError propagation:** Importei `isAppError` de `@/lib/errors` nos dois arquivos. O `catch` interno do `getBrandPromptVariables()` agora faz `if (isAppError(err) &amp;&amp; (err.code === "CONFIG_ERROR" || err.code === "NOT_FOUND")) throw err` antes de cair no fallback silencioso. Uso `isAppError` + checagem de `err.code` porque `errors.ts` expõe `AppError` como base comum com campo `code: string` (`ConfigError` -&gt; `"CONFIG_ERROR"`, `NotFoundError` -&gt; `"NOT_FOUND"`). Na route, o re-throw acontece dentro do `.catch()` do `Promise.all` e também no `catch` externo do `try/catch` envolvente (dupla guarda), pra garantir que o erro vire 500 com contexto ao invés de ser engolido.
+
+**Fix 2 — brandVoice:** Removi `userVars.brandVoice ||` da expressão `voiceTone` na route. Justificativa documentada em comentário: `brandVoice` é descrição da voz da marca (campo separado), não é tom. Precedência agora idêntica ao `llm.service`: `userVars.tone || brandVars.tone` (sem input nessa rota específica).
+
+**Fix 3 — splitCsv:** Exportado em `user-variables.service.ts` ao final do arquivo com JSDoc explicando a diferença vs `getNegativeTermsArray` (splitCsv retorna `string[] | undefined`, `getNegativeTermsArray` retorna sempre `string[]`). `getNegativeTermsArray` foi deixado intocado — a API diverge propositalmente (semântica "sem valor" vs "array vazio") e refatorar introduziria risco sem ganho. Na route, removido o helper local e trocado por `import { ..., splitCsv } from "@/lib/wizard-services/user-variables.service"`.
+
+**Verificação:** `tsc --noEmit --skipLibCheck` zero erros nos três arquivos; `npm run test` = 30/30 passando (3 test files).</result>
+<usage><total_tokens>55932</total_tokens><tool_uses>11</tool_uses><duration_ms>86965</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>a96af71efa1b3aae8</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a96af71efa1b3aae8.output</output-file>
+<status>completed</status>
+<summary>Agent "PR2-FIX-C: injection.test.ts" completed</summary>
+<result>All 66 tests pass (36 new for injection + 30 existing).
+
+---
+
+## Relatório
+
+**Arquivo criado**: `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/brands/__tests__/injection.test.ts`
+
+**Tests**: 36 tests novos, **todos passam**. Total do suite agora: 66/66 passando (4 arquivos).
+
+**Cobertura por função** (`describe` blocks):
+- `brandConfigToPromptVariables` (2) — todas undefined quando marca não configurada + regressão dos defaults do schema
+- `buildTone` (7) — threshold 59/60/61, ordem estável, casos vazios, tom sem separator órfão
+- `buildTargetAudience` (4) — avatar parcial sem `—` trailing, múltiplos avatares, array vazio, todos preenchidos
+- `buildAudienceFears` (3) — separator `", "`, filtragem, undefined
+- `buildAudienceDesires` (3) — separator `", "`, filtragem de espaços, undefined
+- `buildPreferredCTAs` (3) — undefined para CTA vazia, concat `" | "`, sem pilares
+- `buildDifferentiators` (4) — sem `" ∥ "` órfão em estruturas parciais, combo completo
+- `buildBrandVoice`, `buildNiche`, `buildNegativeTerms`, `buildContentGoals` (2 each) — contratos básicos
+
+**Ajuste necessário (1 teste)**: A spec do prompt dizia que `createEmptyBrandConfig()` deveria produzir todas 10 chaves `undefined`. **Isso é falso**: o `brandVoiceAtributosSchema` no schema tem defaults oficiais (80/70/75/75/30) que disparam `buildTone`. Corrigi zerando `voice.atributos` explicitamente para representar uma marca realmente não-configurada, e adicionei um segundo teste de regressão documentando o comportamento dos defaults nativos.
+
+**Race condition**: não detectada — o arquivo `injection.ts` já estava no estado pós-refactor do Agent A (separator `", "`, `joinIfAny` exportado, `TOM_ATRIBUTO_THRESHOLD = 60` constante, `mergeBrandWithUserVars` inexistente). Todos os testes refletem essa realidade.
+
+**Mocks necessários**: `vi.mock("server-only", () =&gt; ({}))` e `vi.mock("../context", ...)` para evitar imports do `@/db` via `context.ts`.</result>
+<usage><total_tokens>55927</total_tokens><tool_uses>25</tool_uses><duration_ms>171279</duration_ms></usage>
+</task-notification>
+
+---
+
+sim, prossiga. 3
+
+---
+
+<task-notification>
+<task-id>aaa53d2158a147428</task-id>
+<tool-use-id>toolu_01D1UFBaoHFcDuaUESNq9ynL</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/aaa53d2158a147428.output</output-file>
+<status>completed</status>
+<summary>Agent "PR3-D: versions dialog" completed</summary>
+<result>Typecheck passed (no errors grep'd for the file).
+
+---
+
+**Report**
+
+- **Arquivo criado:** `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/settings/components/sections/brand/brand-versions-dialog.tsx`
+- **Linhas:** ~195
+- **Typecheck:** `npx tsc --noEmit --skipLibCheck` passou sem erros para o arquivo.
+
+**Escolha de UX para confirmação:** Optei por `window.confirm()` simples (conforme instrução explícita), em vez de um sub-dialog aninhado. Racional: (1) evita gerenciar estado de sub-dialog dentro de um dialog já aberto (problemas conhecidos de foco/z-index no Radix), (2) a mensagem "Restaurar esta versão? A versão atual será preservada como snapshot." tranquiliza o usuário (ação reversível), reduzindo a necessidade de fricção extra, (3) mantém escopo do arquivo enxuto.
+
+**Pequenos toques UX:**
+- `restoringId` bloqueia outros botões enquanto um restore está em andamento (evita race conditions).
+- Reset de estado ao fechar o dialog (evita flash de versões antigas no próximo open).
+- `try/catch` em `new Date().toLocaleString("pt-BR")` por segurança (fallback para string bruta).
+- Botão "Atualizar" no header, desabilitado durante loading.
+- Empty state distinto (ícone Clock + mensagem amigável) vs loading state (spinner).
+- Tema dark consistente com design system (`bg-[#1a1a2e]`, `border-white/10`, `text-white/*`, `text-primary`).</result>
+<usage><total_tokens>36994</total_tokens><tool_uses>6</tool_uses><duration_ms>65842</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>afabe238b51324d30</task-id>
+<tool-use-id>toolu_01DHREBizgv1bWtSG5CG15Xc</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/afabe238b51324d30.output</output-file>
+<status>completed</status>
+<summary>Agent "PR3-B: forms simples" completed</summary>
+<result>## Report
+
+Criados 3 forms client-side em `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/settings/components/sections/brand/`:
+
+- `brand-identity-form.tsx` — 283 linhas
+- `brand-voice-form.tsx` — 392 linhas
+- `brand-visual-form.tsx` — 277 linhas
+
+**Typecheck:** `npx tsc --noEmit --skipLibCheck` passou sem erros nos 3 arquivos.
+
+**Decisões de UI:**
+- **Slider (voice):** usei `&lt;input type="range" min=0 max=100 step=1&gt;` nativo com `accent-primary` (Tailwind) — não há Slider em `@/components/ui`. Valor atual mostrado em chip `bg-white/10` monoespaçado à direita do label. Cada atributo tem hint curto ("— vai ao ponto, sem rodeios") para contexto.
+- **LogoPreview (visual):** subcomponente interno com fallback — placeholder `ImageOff` quando URL vazio, erro vermelho quando `onError` dispara. Reseta erro via `useEffect` quando URL muda. Usei `&lt;img&gt;` nativo (com eslint-disable) pois as URLs são externas/arbitrárias.
+- **Visual read-only:** tokens (`colors`, `fonts`, `spacing`, `shadows`) renderizados a partir de `Object.entries`. Cores mostram swatch + nome + hex; fontes renderizam o nome na própria família. Payload do save preserva `tokens` inalterado.
+- **Padrão compartilhado:** `useState` local sincronizado com `brand.config.*` via `useEffect` (para refresh externo). Botão Salvar desabilita durante `isSaving`, mostra `Loader2` spinning. Seções envolvidas em `rounded-lg border border-white/[0.05] bg-white/[0.02]`. Removers usam `Trash2` ghost button que vira vermelho no hover.
+- **Listas de strings** (beliefs, crencasCombatidas, antiPatterns, vocab.use/avoid) têm vazio-state (`text-white/40`) e botão "+ Adicionar" no header da seção.
+
+Nenhum commit feito. Nenhum arquivo fora do escopo tocado.</result>
+<usage><total_tokens>56359</total_tokens><tool_uses>18</tool_uses><duration_ms>173744</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>a7a1eaff0a9f2f08b</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a7a1eaff0a9f2f08b.output</output-file>
+<status>completed</status>
+<summary>Agent "PR3-C: forms complexos" completed</summary>
+<result>Clean. All three forms compile without errors.
+
+---
+
+**Arquivos criados:**
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/settings/components/sections/brand/brand-audience-form.tsx` (~290 linhas)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/settings/components/sections/brand/brand-offer-form.tsx` (~450 linhas)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/settings/components/sections/brand/brand-content-form.tsx` (~340 linhas)
+
+**Decisões:**
+- **Cards sempre expandidos** (não collapsible): simplicidade — usuário vê tudo, evita estado extra. Header de cada card mostra `{nome} || "Avatar/Setor/Curso/Pilar N"` como fallback vazio + botão Remover.
+- **`StringListEditor` helper local** em `offer-form` e `content-form`: componente interno reutilizado para listas `string[]` (inclui/problemas/métricas/módulos/pré-requisitos/exemplos) — evita repetição massiva de JSX.
+- **`slugify()` local** em `offer-form`: NFD + lowercase + `[^a-z0-9]→-` + trim de hífens. Atualiza `id` do setor/curso automaticamente quando o `nome` muda (só sobrescreve se slug não-vazio).
+- **Canais compactos em grid 5-col** (`1.2fr 1fr 1fr 0.7fr auto`): layout horizontal porque são poucos campos curtos, contrastando com cards maiores dos pilares.
+- **Deep-copy no `useState` inicial** (spread de arrays aninhados) para não mutar `brand.config`.
+- **Toast apenas em erro**; sucesso delegado a `onSaved()` do parent (que já emite toast em `brand-section.tsx`).
+- **`tsc --noEmit`**: zero erros nos três arquivos.
+
+Sem commit, conforme instruído.</result>
+<usage><total_tokens>58017</total_tokens><tool_uses>14</tool_uses><duration_ms>210758</duration_ms></usage>
+</task-notification>
+
+---
+
+/pr-review-toolkit:review-pr
+
+---
+
+sim. agentes paralelos para TODAS as correcoes e inicio do pr4
+
+---
+
+Prossiga
+
+---
+
+Prossiga
+
+---
+
+<task-notification>
+<task-id>accbbcacc5187cbed</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/accbbcacc5187cbed.output</output-file>
+<status>completed</status>
+<summary>Agent "PR5-A: headlines library + patterns + espinha" completed</summary>
+<result>OK, the earlier filtered tsc already confirmed no errors in our files. Done.
+
+## Relatório
+
+**Arquivos criados** (3, todos absolutos):
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/shared/headline-library.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/motors/brandsdecoded-v4/espinha.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/motors/brandsdecoded-v4/headline-patterns.ts`
+
+**8 padrões na headline-library** (IDs, nome, média de likes):
+1. `morte_de_x` — A Morte/Fim de X — ~57k
+2. `por_que_geracao_x` — Por que [Geração] está [Inesperado] — ~28k
+3. `investigando_x` — Investigando [Fenômeno] — ~18k
+4. `nome_marca_revelacao` — [Nome/Marca] + Revelação — ~18k
+5. `contraste_antitese` — Contraste/Antítese — ~22k
+6. `dois_pontos_enquadramento` — Dois-Pontos: [Enquadramento]: [Hook] — ~40k
+7. `por_que_x_tendencia` — Por que [X] está [Tendência]? — ~16k
+8. `provocacao_existencial` — Provocação Existencial — ~14k
+
+Cada padrão traz 5 exemplos reais extraídos do banco-de-headlines.md. `buildHeadlineLibraryPromptBlock()` renderiza todos em um bloco markdown pronto pra colar no prompt do LLM.
+
+**Decisões**:
+- **Temperature**: `0.3` para Triagem (extração/compressão), `0.5` para Espinha (densidade editorial sem experimental), `0.8` para Headlines (variação criativa genuína entre as 10 opções — formatos IC/NM são guardrails estruturais, criatividade fica nos reenquadramentos).
+- **Parser JSON**: Dupliquei uma versão local (`extractJSON&lt;T&gt;`) em cada arquivo do motor BD v4. Razão: evitar dependência cruzada do motor novo para `wizard-services/prompts.ts` (3000+ linhas, legado). A versão local também é mais tolerante — remove markdown fences antes de procurar `{...}`.
+- **Validação shape**: headlines faz strict check de distribuição IC (1-5) / NM (6-10) e lança erro se não for exatamente 10. Espinha valida todos os 5 campos obrigatórios. Retries ficam a cargo do orquestrador (outro agente).
+- **brandPromptVariables**: aceito como `Record&lt;string, string | undefined&gt;` genérico e renderizado como bloco textual `# CONTEXTO DE MARCA` — deixa pra integração futura definir shape concreto.
+- **`TriagemResult` importado de espinha.ts por headline-patterns.ts** para evitar duplicação de tipo.
+
+**TypeScript**: `npx tsc --noEmit --skipLibCheck` filtrado pelos 3 arquivos retornou 0 erros.</result>
+<usage><total_tokens>79603</total_tokens><tool_uses>20</tool_uses><duration_ms>298616</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>a693d96dd3354a94d</task-id>
+<tool-use-id>toolu_01Gnz1z1RUXdAuN3fB7pxbpy</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a693d96dd3354a94d.output</output-file>
+<status>completed</status>
+<summary>Agent "PR5-B: copy blocks + referencias + orchestrator" completed</summary>
+<result>Just 1 unrelated pre-existing error in library-actions.ts — nothing tied to BD v4. All 3 files compile cleanly.
+
+---
+
+**Relatório**
+
+**Arquivos criados** (todos em `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/motors/brandsdecoded-v4/`):
+- `referencias.ts` — 2 carrosseis exemplares (Exemplo 1: 9 slides / 18 blocos; Exemplo 2: 7 slides / 13 blocos — extração literal do MD). Exporta `CarrosselReferencia`, `REFERENCIAS_EXEMPLARES` e `buildReferenciasPromptBlock(maxRefs)` que formata few-shots com espinha + copy + legenda.
+- `copy-blocks.ts` — gera os 18 blocos / 9 slides a partir da `EspinhaDorsal`. Exporta `CopyBlock`, `CopyBlocksInput`, `CopyBlocksResult`, `BLOCK_SPEC` (constante imutável com índice, slide, position, targetWords, sectionLabel) e `generateCopyBlocks`. Prompt inclui BLOCK_SPEC, espinha completa, 2 referências, injeção de marca, 12 regras editoriais do manual-de-qualidade (artigos, zero binárias, zero cacoetes, fluidez com conectivos, fechamento com pivot, etc). Temperature 0.7. Parser tolerante (`parseCopyBlocksResponse`) aceita JSON puro, markdown fence e texto ao redor.
+- `orchestrator.ts` — pipeline completo. `generateWithBrandsDecoded` encadeia triagem → 10 headlines → pick → espinha → 18 blocos → legenda. `generateLegendaInstagram` é 1 LLM call com estrutura gancho (≤125 chars) + contexto + análise + CTA, ~150 palavras.
+
+**Modelo**: `DEFAULT_TEXT_MODEL` do `@/lib/ai/config` (atualmente `openai/gpt-4.1`), com override via `model?: string` em todos os inputs. Cliente: `openrouter.chat(model)` via `generateText` do Vercel AI SDK.
+
+**Decisão sobre auto-select de headline**: Default `autoSelectHeadline = true` seleciona primeira IC (`id === 1`) com fallback para `headlines[0]` se o id=1 não existir. `forcedHeadlineId` tem precedência. Se `autoSelectHeadline=false` e sem `forcedHeadlineId`, o pipeline lança erro — força o caller a escolher manualmente (modo interativo fica no fluxo do app).
+
+**Ajuste de contrato com agent A**: Agent A entregou `generateHeadlinesForBD` dentro de `headline-patterns.ts` (não em `headline-library.ts` separado). Usa param `brandPromptVariables` (não `brandVars`) e `selectedHeadline` (não `headline`) em `EspinhaInput`. Orquestrador foi ajustado para bater com a API real dele.
+
+**Type-check**: `npx tsc --noEmit --skipLibCheck | grep brandsdecoded-v4` retornou zero erros. O único erro TS no repo é pré-existente em `library-actions.ts:1851` (não relacionado).</result>
+<usage><total_tokens>93337</total_tokens><tool_uses>37</tool_uses><duration_ms>404515</duration_ms></usage>
+</task-notification>
+
+---
+
+siga com o processo normal
+
+---
+
+sim, lance
+
+---
+
+<task-notification>
+<task-id>a024d943ed362ced5</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a024d943ed362ced5.output</output-file>
+<status>completed</status>
+<summary>Agent "PR5-FIX-A: silent failures + QA" completed</summary>
+<result>All tests pass (71/71) and no TypeScript errors. The external modification only exported `pickHeadline` (harmless; not my concern).
+
+---
+
+## Report
+
+### Mudanças aplicadas
+
+**1. `orchestrator.ts`**
+- **Fix 1 (QA dry-mode):** integrado após gerar blocos + legenda, antes do return final. Usa dynamic import `@/lib/ai/quality` pra evitar circular deps. Loga `[qa-dry:brandsdecoded-v4]` com `passed`, `blockingHits`, `warnHits`, `failedParams` — mesmo shape do Tribal v4. Try/catch não bloqueia pipeline.
+- **Fix 3 (legenda):** `generateLegendaInstagram` agora valida `wordCount &lt; 50` (warn) e `length === 0` (throw).
+- **Fix 4 (pickHeadline):** warn quando `id===1` não encontrado, lista os ids disponíveis. Se `headlines[0]` undefined, throw "Nenhuma headline válida gerada".
+- **Fix 7 (brand vars vazio):** warn no início de `generateWithBrandsDecoded` se `brandPromptVariables` ausente ou todos os valores falsy.
+
+**2. `espinha.ts`**
+- **Fix 5:** warn em `buildEspinhaDorsal` quando `parsed.headline` diverge de `input.selectedHeadline` (comparação case-insensitive trim). Loga both `selected` e `generated` antes do override.
+
+**3. `copy-blocks.ts`**
+- **Fix 2a (parseCopyBlocksResponse):** três warns específicos — "não é objeto", "index inválido", "text vazio" — em vez de `continue` silencioso.
+- **Fix 2b (extractJsonPayload):** warn quando cai no fallback heurístico `indexOf("{")`/`lastIndexOf("}")`, com `rawLen`, `firstBrace`, `lastBrace`.
+
+**4. `headline-patterns.ts`**
+- **Fix 2c:** warns por razão — "não é objeto", "id não numérico ou fora de 1-10", "format inválido (esperado IC|NM)", "text vazio". Substituiu o `continue` silencioso do loop de validação.
+
+**5. `llm.service.ts` (apenas `generateContentBrandsDecoded`)**
+- **Fix 6:** substituído check manual `"code" in err` por `isAppError(err)` (já importado). Mensagem trocada de `console.error` para `console.warn` com prefixo mais específico: "brand variables unavailable — gerando sem contexto de marca".
+
+### Confirmação QA dry-mode
+QA editorial dry-mode integrado em `orchestrator.ts` linhas ~119-143 (pós-legenda, pré-return), concatenando `blocks.map(b =&gt; b.text)` + `legendaInstagram` com `\n\n`. Namespace do log: `[qa-dry:brandsdecoded-v4]`. Padrão idêntico ao Tribal v4 existente.
+
+### Verificação
+- `npx tsc --noEmit --skipLibCheck`: **zero erros** nos arquivos-alvo.
+- `npm run test`: **71/71 passando** em 5 test files (386ms).
+
+Não toquei em `_shared/`, `__tests__/`, `referencias.ts`, `index.ts` ou `headline-library.ts`. Nenhum arquivo novo criado. Nenhum commit feito.</result>
+<usage><total_tokens>70531</total_tokens><tool_uses>23</tool_uses><duration_ms>154490</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>a9cea79ed41a229ca</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a9cea79ed41a229ca.output</output-file>
+<status>completed</status>
+<summary>Agent "PR5-FIX-C: 5 testes + type tweaks" completed</summary>
+<result>All 43 new tests pass. Here is the final report:
+
+---
+
+## Report
+
+### Arquivos criados (5)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/motors/brandsdecoded-v4/__tests__/block-spec.test.ts` (9 casos)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/motors/brandsdecoded-v4/__tests__/parse-copy-blocks.test.ts` (8 casos)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/motors/brandsdecoded-v4/__tests__/pick-headline.test.ts` (6 casos)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/shared/__tests__/headline-library.test.ts` (7 casos)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/motors/brandsdecoded-v4/__tests__/referencias.test.ts` (6 casos)
+
+### Resultado
+`npm run test` → **107 passed (107)** em 10 arquivos, 614ms. Os 43 novos testes passam todos; zero skipped.
+
+### Exports alterados nos arquivos do motor
+- **`orchestrator.ts`:** adicionei `export` em `pickHeadline` (única mudança permitida, mínima). Antes era função privada.
+- **`copy-blocks.ts`:** `parseCopyBlocksResponse` **já estava exportado** — nenhuma alteração necessária.
+- **`referencias.ts`:** `REFERENCIAS_EXEMPLARES` e `buildReferenciasPromptBlock` já exportados.
+
+### Observações / achados
+- `vitest.config.ts` usa pattern `src/**/*.test.ts`, que cobre `__tests__/` subdirs corretamente (precedente: `src/lib/brands/__tests__/`).
+- No Test 2 descobri que um caso vale dois assertions: (a) `index=42` sozinho é descartado mas gera throw se outro bloco válido sumiu, e (b) `index=42` junto dos 18 válidos é aceito. Adicionei ambos — documenta claramente o contrato do parser.
+- No Test 5, o comportamento de `buildReferenciasPromptBlock()` sem arg foi descoberto como "default = 2" (através de `Math.max(1, Math.min(maxRefs ?? 2, 2))`) — testei diretamente a saída, não o docstring.
+- **Nenhum refactor em voo detectado** durante a execução — os símbolos importados (`BLOCK_SPEC`, `parseCopyBlocksResponse`, `REFERENCIAS_EXEMPLARES`, `buildReferenciasPromptBlock`, `pickHeadline`, `getAllHeadlinePatterns`, `getHeadlinePattern`, `buildHeadlineLibraryPromptBlock`) estavam todos estáveis.
+- `_shared/parse-json.ts` (do Agent B) existe mas não é usado por `copy-blocks.ts` ainda — optei por testar `parseCopyBlocksResponse` diretamente conforme o estado atual.</result>
+<usage><total_tokens>74551</total_tokens><tool_uses>24</tool_uses><duration_ms>175846</duration_ms></usage>
+</task-notification>

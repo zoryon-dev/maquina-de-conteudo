@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "2f4095cea843",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "src/app/(app)/wizard/components/shared/motor-selector.tsx",
+    "src/db/schema.ts",
+    "src/lib/ai/motors/brandsdecoded-v4/__tests__/parse-copy-blocks.test.ts",
+    "src/lib/ai/motors/brandsdecoded-v4/copy-blocks.ts",
+    "src/lib/ai/motors/brandsdecoded-v4/espinha.ts",
+    "src/lib/ai/motors/brandsdecoded-v4/headline-patterns.ts",
+    "src/lib/ai/motors/brandsdecoded-v4/orchestrator.ts",
+    "src/lib/wizard-services/llm.service.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/2f/4095cea843/0/metadata.json",
+      "transcript": "/2f/4095cea843/0/full.jsonl",
+      "content_hash": "/2f/4095cea843/0/content_hash.txt",
+      "prompt": "/2f/4095cea843/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 5128,
+    "cache_creation_tokens": 2073657,
+    "cache_read_tokens": 76954578,
+    "output_tokens": 277565,
+    "api_call_count": 246
+  }
+}
