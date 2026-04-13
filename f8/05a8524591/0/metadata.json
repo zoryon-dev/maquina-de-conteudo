@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "f805a8524591",
+  "session_id": "2684fc8c-aada-4d15-bfa9-f723a14e5c35",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-13T15:33:53.237164Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/lib/wizard-services/llm.service.ts"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "66948db07676",
+  "token_usage": {
+    "input_tokens": 2159,
+    "cache_creation_tokens": 851620,
+    "cache_read_tokens": 56623848,
+    "output_tokens": 231362,
+    "api_call_count": 206
+  },
+  "session_metrics": {
+    "turn_count": 20
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-13T15:33:53.192053Z",
+    "agent_lines": 52,
+    "agent_removed": 0,
+    "human_added": 648,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 700,
+    "total_lines_changed": 700,
+    "agent_percentage": 7.428571428571429,
+    "metric_version": 2
+  }
+}
