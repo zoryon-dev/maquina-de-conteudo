@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "9eb9f8f7928c",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "src/app/(app)/wizard/components/shared/tribal-angle-selector.tsx",
+    "src/app/(app)/wizard/components/steps/step-1-inputs.tsx",
+    "src/app/api/wizard/[id]/route.ts",
+    "src/app/api/wizard/route.ts",
+    "src/app/api/workers/route.ts",
+    "src/db/schema.ts",
+    "src/lib/ai/shared/headline-library.ts",
+    "src/lib/wizard-services/types.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/9e/b9f8f7928c/0/metadata.json",
+      "transcript": "/9e/b9f8f7928c/0/full.jsonl",
+      "content_hash": "/9e/b9f8f7928c/0/content_hash.txt",
+      "prompt": "/9e/b9f8f7928c/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 26897,
+    "cache_creation_tokens": 3091934,
+    "cache_read_tokens": 154562795,
+    "output_tokens": 391559,
+    "api_call_count": 355
+  }
+}
