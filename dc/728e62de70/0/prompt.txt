@@ -582,3 +582,38 @@ Para `motor=tribal_v4` (ou omitido), mantém legacy: `01_CAPA` / `202` / `203`. 
 - **não tocado** (Agent B já mexeu): `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/api/workers/route.ts` — adapter já está com Map e mapeamento title/content correto sem conexao_proximo.</result>
 <usage><total_tokens>102849</total_tokens><tool_uses>49</tool_uses><duration_ms>385359</duration_ms></usage>
 </task-notification>
+
+---
+
+<task-notification>
+<task-id>af1ed7462553ff114</task-id>
+<tool-use-id>toolu_01DpiApdx1hTkLZPoL3bUjxB</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/af1ed7462553ff114.output</output-file>
+<status>completed</status>
+<summary>Agent "PR5.1+6-FIX-C: tests + dedup" completed</summary>
+<result>The library-actions.ts error is pre-existing and unrelated to my changes. All my added files and edits compile cleanly. All 143 tests pass.
+
+## Summary
+
+**Arquivos criados (6):**
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/studio-templates/ui-meta.ts` — helpers `getTemplateIcon` e `getTemplatePreview`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/wizard-services/bd-adapter.ts` — helper puro `bdResultToGeneratedContent` + `buildAdapterOptionsFromNarrative` + `BD_TOTAL_SLIDES`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/wizard-services/__tests__/bd-adapter.test.ts` — 7 testes (mapping completo, bloco faltante, fora de ordem, fallbacks de id/angle/ragUsed, blocos vazios)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/studio-templates/brandsdecoded/__tests__/bd-process-inline.test.ts` — 10 testes (XSS, `**` → `&lt;em&gt;`, `__` → `&lt;strong&gt;`, edge cases)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/studio-templates/brandsdecoded/__tests__/build-bd-palette.test.ts` — 6 testes (hex válido, expansão 3-dig, fallback vazio, warn+fallback em inputs inválidos, `#FFFFFF`)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/studio-templates/brandsdecoded/__tests__/generate-bd-capa.test.ts` — 7 testes (XSS em texto1, markdown em texto2, escape do header, classes CSS, fontes, progress bar, CSS injection)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/studio-templates/__tests__/get-compatible-templates.test.ts` — 6 testes (filtro por motor, exclusões BD, genéricos, cardinalidade)
+
+**Arquivos editados (2):**
+- `src/lib/studio-templates/types.ts` — `TemplateMotor = WizardMotor` (alias a partir de `@/db/schema`, fix #1), `TemplatePreview` interface, campos `icon`/`preview` adicionados a `TemplateMetadata` + todos os 15 templates populados (fix #2)
+- `src/lib/studio-templates/index.ts` — `getTemplatesForMotor` → `getCompatibleTemplates(motor: TemplateMotor)` (sem opcional, fix #3), re-exports de `TemplatePreview` + `ui-meta` helpers
+
+**Resultados:**
+- `npx tsc --noEmit --skipLibCheck` → limpo nos escopos `studio-templates`, `wizard-services/bd-adapter`, `__tests__`. O único erro existente (`library-actions.ts:1851`) é pré-existente e não-relacionado.
+- `npm run test` → **15 test files passed, 143 tests passed, 0 falhando, 0 skipped efetivos**.
+- `skipIf` nos testes de hex inválido (`"red"`, `"rgb(0,0,0)"`) executou os testes — Agent B já implementou `isValidHex` em `shared.ts`. Ambos passaram, confirmando fallback + warn.
+- `TemplateMotor` agora é alias direto de `WizardMotor` (`@/db/schema`) — sincronia automática com enum Drizzle.
+
+**Não toquei** em: `brandsdecoded/*` (exceto testes), `motor-selector.tsx`, `content-mapper.ts`, `template-gallery.tsx`, `visual-template-selector.tsx`, `workers/route.ts`. Os Records duplicados (`TEMPLATE_ICONS`/`TEMPLATE_PREVIEW_COLORS`) ficam intactos para Agent A migrar depois usando os helpers exportados.</result>
+<usage><total_tokens>116258</total_tokens><tool_uses>65</tool_uses><duration_ms>525002</duration_ms></usage>
+</task-notification>
