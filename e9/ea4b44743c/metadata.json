@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "e9ea4b44743c",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "drizzle/meta/_journal.json",
+    "src/app/(app)/wizard/components/shared/motor-selector.tsx",
+    "src/db/schema.ts",
+    "src/lib/ai/shared/headline-library.ts",
+    "src/lib/wizard-services/llm.service.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e9/ea4b44743c/0/metadata.json",
+      "transcript": "/e9/ea4b44743c/0/full.jsonl",
+      "content_hash": "/e9/ea4b44743c/0/content_hash.txt",
+      "prompt": "/e9/ea4b44743c/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2286,
+    "cache_creation_tokens": 883397,
+    "cache_read_tokens": 71538249,
+    "output_tokens": 254173,
+    "api_call_count": 235
+  }
+}
