@@ -27,6 +27,7 @@ import {
   type UserVariables,
 } from "./user-variables.service";
 import { getBrandPromptVariables } from "@/lib/brands/injection";
+import { isAppError } from "@/lib/errors";
 import type {
   NarrativeOption,
   GeneratedContent,
@@ -83,6 +84,12 @@ async function loadAndFormatUserVariables(
   //   3. Inputs explícitos do wizard               — override do turno
   const [brandVariables, savedVariables] = await Promise.all([
     getBrandPromptVariables().catch((err) => {
+      // ConfigError/NotFoundError indicam misconfiguração (seed corrompido,
+      // ACTIVE_BRAND_SLUG errado) — deixar subir para visibilidade.
+      // Outros erros (transientes, DB flaky) caem para marca vazia.
+      if (isAppError(err) && (err.code === "CONFIG_ERROR" || err.code === "NOT_FOUND")) {
+        throw err
+      }
       console.error("[llm] failed to load brand variables:", err)
       return {} as Partial<UserVariables>
     }),

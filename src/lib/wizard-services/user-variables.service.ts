@@ -263,3 +263,33 @@ export function checkForNegativeTerms(text: string, variables: UserVariables): s
 
   return negativeTerms.filter((term) => lowerText.includes(term))
 }
+
+// ============================================================================
+// CSV HELPER
+// ============================================================================
+
+/**
+ * Split a comma-separated string into a trimmed, non-empty array.
+ *
+ * Returns `undefined` when the input is empty/null/undefined or when it
+ * contains only whitespace/commas. Useful when callers want to differentiate
+ * "no value" from "empty array" (e.g. to conditionally merge brand context).
+ *
+ * For the "always return array" variant, see {@link getNegativeTermsArray}.
+ *
+ * @param value - Raw comma-separated string
+ * @returns Array of trimmed terms, or `undefined` if none
+ *
+ * @example
+ * ```ts
+ * splitCsv("a, b , c")   // ["a", "b", "c"]
+ * splitCsv("")           // undefined
+ * splitCsv(null)         // undefined
+ * splitCsv("  ,  , ")    // undefined
+ * ```
+ */
+export function splitCsv(value: string | undefined | null): string[] | undefined {
+  if (!value) return undefined
+  const parts = value.split(",").map((s) => s.trim()).filter(Boolean)
+  return parts.length > 0 ? parts : undefined
+}

@@ -11,14 +11,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { generateVideoTitles } from "@/lib/wizard-services/video-titles.service";
 import type { VideoTitleOption } from "@/lib/wizard-services/video-titles.service";
-import { getUserVariables } from "@/lib/wizard-services/user-variables.service";
+import { getUserVariables, splitCsv } from "@/lib/wizard-services/user-variables.service";
 import { getBrandPromptVariables } from "@/lib/brands/injection";
-
-function splitCsv(value: string | undefined | null): string[] | undefined {
-  if (!value) return undefined;
-  const parts = value.split(",").map((s) => s.trim()).filter(Boolean);
-  return parts.length > 0 ? parts : undefined;
-}
+import { isAppError } from "@/lib/errors";
 
 // ============================================================================
 // TYPES
@@ -91,12 +86,24 @@ export async function POST(
     if (!brandContext) {
       try {
         const [brandVars, userVars] = await Promise.all([
-          getBrandPromptVariables().catch(() => ({} as Record<string, string | undefined>)),
+          getBrandPromptVariables().catch((err) => {
+            // ConfigError/NotFoundError indicam misconfiguração — re-throw
+            // para o try/catch externo surfaçar o 500 com contexto correto.
+            // Outros erros (transientes) caem para brand vars vazio.
+            if (isAppError(err) && (err.code === "CONFIG_ERROR" || err.code === "NOT_FOUND")) {
+              throw err
+            }
+            console.error("[VIDEO TITLES-API] failed to load brand variables:", err)
+            return {} as Record<string, string | undefined>
+          }),
           getUserVariables(),
         ]);
 
+        // brandVoice é um campo SEPARADO (descrição da voz da marca),
+        // NÃO é fallback de tone. Precedência alinhada com llm.service:
+        //   input (não aplicável aqui) < userVars.tone < brandVars.tone
         const merged = {
-          voiceTone: userVars.tone || userVars.brandVoice || brandVars.tone,
+          voiceTone: userVars.tone || brandVars.tone,
           targetAudience: userVars.targetAudience || brandVars.targetAudience,
           fearsAndPains: splitCsv(userVars.audienceFears) ?? splitCsv(brandVars.audienceFears),
           desiresAndAspirations: splitCsv(userVars.audienceDesires) ?? splitCsv(brandVars.audienceDesires),
@@ -108,7 +115,11 @@ export async function POST(
         }
       } catch (error) {
         console.error("[VIDEO TITLES-API] Error fetching brand/user variables:", error);
-        // Continue without brand context on error
+        // Re-throw ConfigError/NotFoundError para o try/catch externo
+        // tratar como 500 com contexto; demais erros seguem sem brand context.
+        if (isAppError(error) && (error.code === "CONFIG_ERROR" || error.code === "NOT_FOUND")) {
+          throw error
+        }
       }
     }
 
