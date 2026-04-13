@@ -15,7 +15,9 @@
     "cron:setup": "tsx scripts/setup-qstash.ts setup",
     "cron:remove": "tsx scripts/setup-qstash.ts remove",
     "cron:health": "tsx scripts/setup-qstash.ts health",
-    "cron:trigger": "tsx scripts/setup-qstash.ts trigger"
+    "cron:trigger": "tsx scripts/setup-qstash.ts trigger",
+    "brand:seed:zoryon": "tsx scripts/seed-zoryon-brand.ts",
+    "brand:seed:zoryon:dry": "tsx scripts/seed-zoryon-brand.ts --dry"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.12",

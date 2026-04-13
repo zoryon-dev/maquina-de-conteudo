@@ -1,0 +1,146 @@
+/* ═══════════════════════════════════════════════════
+   ZORYON — Design System Tokens
+   v2.0 | Abril 2026
+   ═══════════════════════════════════════════════════ */
+
+:root {
+  /* ─── Colors: Brand ─── */
+  --color-primary: #837BF4;
+  --color-primary-light: #A9A3F7;
+  --color-primary-dark: #6A62D4;
+  --color-primary-50: rgba(131, 123, 244, 0.05);
+  --color-primary-100: rgba(131, 123, 244, 0.10);
+  --color-primary-200: rgba(131, 123, 244, 0.20);
+
+  /* ─── Colors: Accents ─── */
+  --color-accent-orange: #FF7D3B;
+  --color-accent-orange-light: #FF9E6B;
+  --color-accent-orange-dark: #E5682A;
+  --color-accent-green: #2BD0A8;
+  --color-accent-green-light: #5EDDC0;
+  --color-accent-green-dark: #1FA882;
+
+  /* ─── Colors: Neutral ─── */
+  --color-background: #F2F2FA;
+  --color-surface: #FFFFFF;
+  --color-surface-raised: #F7F7FC;
+  --color-border: #E8E8F0;
+  --color-border-subtle: #EDEDF5;
+
+  /* ─── Colors: Text ─── */
+  --color-text: #212130;
+  --color-text-muted: #6E7191;
+  --color-text-subtle: #B0B0C8;
+  --color-text-inverse: #FFFFFF;
+  --color-text-on-primary: #FFFFFF;
+
+  /* ─── Colors: Semantic ─── */
+  --color-success: #2BD0A8;
+  --color-warning: #FF7D3B;
+  --color-error: #E5484D;
+  --color-info: #837BF4;
+
+  /* ─── Typography: Families ─── */
+  --font-display: 'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+
+  /* ─── Typography: Sizes ─── */
+  --text-xs: 0.6875rem;   /* 11px */
+  --text-sm: 0.875rem;    /* 14px */
+  --text-base: 1rem;      /* 16px */
+  --text-lg: 1.25rem;     /* 20px */
+  --text-xl: 1.5rem;      /* 24px */
+  --text-2xl: 2rem;       /* 32px */
+  --text-3xl: 2.5rem;     /* 40px */
+  --text-4xl: 3rem;       /* 48px */
+  --text-5xl: 3.5rem;     /* 56px */
+
+  /* ─── Typography: Line Heights ─── */
+  --leading-tight: 1.1;
+  --leading-snug: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.7;
+
+  /* ─── Typography: Letter Spacing ─── */
+  --tracking-tight: -1.5px;
+  --tracking-snug: -0.8px;
+  --tracking-normal: 0;
+  --tracking-wide: 1px;
+  --tracking-wider: 2px;
+
+  /* ─── Typography: Weights ─── */
+  --font-light: 300;
+  --font-regular: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+  --font-extrabold: 800;
+
+  /* ─── Spacing ─── */
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+  --space-20: 5rem;     /* 80px */
+  --space-24: 6rem;     /* 96px */
+
+  /* ─── Border Radius ─── */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* ─── Shadows ─── */
+  --shadow-sm: 0 1px 2px rgba(33, 33, 48, 0.04);
+  --shadow-md: 0 4px 12px rgba(33, 33, 48, 0.06);
+  --shadow-lg: 0 12px 32px rgba(33, 33, 48, 0.08);
+  --shadow-xl: 0 24px 48px rgba(33, 33, 48, 0.12);
+  --shadow-primary: 0 4px 16px rgba(131, 123, 244, 0.25);
+
+  /* ─── Transitions ─── */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+  --transition-spring: 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ─── Z-Index ─── */
+  --z-base: 0;
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-overlay: 30;
+  --z-modal: 40;
+  --z-toast: 50;
+
+  /* ─── Container ─── */
+  --max-width-sm: 640px;
+  --max-width-md: 768px;
+  --max-width-lg: 1024px;
+  --max-width-xl: 1200px;
+  --max-width-content: 720px;
+}
+
+/* ═══════════════════════════════════════════════════
+   Dark Mode Override
+   ═══════════════════════════════════════════════════ */
+
+[data-theme="dark"] {
+  --color-background: #141420;
+  --color-surface: #1C1C2E;
+  --color-surface-raised: #242438;
+  --color-border: #2E2E44;
+  --color-border-subtle: #262638;
+  --color-text: #F2F2FA;
+  --color-text-muted: #9898B0;
+  --color-text-subtle: #6E6E88;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.4);
+}

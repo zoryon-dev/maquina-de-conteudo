@@ -204,6 +204,13 @@
       "when": 1770681600000,
       "tag": "0028_migrate_aspect_ratio_4_5_to_3_4",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1776088730707,
+      "tag": "0029_tranquil_nextwave",
+      "breakpoints": true
     }
   ]
 }

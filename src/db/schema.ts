@@ -309,6 +309,9 @@ export const libraryItems = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    brandId: integer("brand_id").references(() => brands.id, {
+      onDelete: "set null",
+    }),
     type: postTypeEnum("type").notNull(),
     status: contentStatusEnum("status").notNull(),
     title: text("title"),
@@ -518,6 +521,9 @@ export const scheduledPosts = pgTable(
     libraryItemId: integer("library_item_id")
       .notNull()
       .references(() => libraryItems.id, { onDelete: "cascade" }),
+    brandId: integer("brand_id").references(() => brands.id, {
+      onDelete: "set null",
+    }),
     platform: text("platform").notNull(), // instagram, twitter, linkedin
     scheduledFor: timestamp("scheduled_for").notNull(),
     status: text("status").notNull(), // pending, published, failed
@@ -540,6 +546,9 @@ export const contentWizards = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    brandId: integer("brand_id").references(() => brands.id, {
+      onDelete: "set null",
+    }),
     currentStep: wizardStepEnum("current_step").notNull().default("input"),
 
     // Inputs do usuário
@@ -1317,6 +1326,9 @@ export const themes = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    brandId: integer("brand_id").references(() => brands.id, {
+      onDelete: "set null",
+    }),
 
     // Core fields (compatível com Wizard)
     title: text("title").notNull(),
@@ -1863,6 +1875,9 @@ export const creativeProjects = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    brandId: integer("brand_id").references(() => brands.id, {
+      onDelete: "set null",
+    }),
 
     // Core
     mode: creativeStudioModeEnum("mode").notNull(),
@@ -2004,3 +2019,72 @@ export type CreativeStudioMode = typeof creativeStudioModeEnum.enumValues[number
 export type CreativeProjectStatus = typeof creativeProjectStatusEnum.enumValues[number];
 export type CreativeVariationType = typeof creativeVariationTypeEnum.enumValues[number];
 export type CreativeTextMode = typeof creativeTextModeEnum.enumValues[number];
+
+// ========================================
+// BRANDS - Multi-brand support
+// ========================================
+// Estrutura preparada para múltiplas marcas. Hoje há apenas Zoryon (is_default=true).
+// O config JSONB carrega toda a árvore do brandkit (identity, voice, visual, audience, offer, journey, content, meta).
+// Validação Zod em src/lib/brands/schema.ts.
+// Edições via UI (/settings/brand) criam snapshot em brand_versions.
+
+export const brands = pgTable(
+  "brands",
+  {
+    id: serial("id").primaryKey(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    isDefault: boolean("is_default").default(false).notNull(),
+    ownerUserId: text("owner_user_id").references(() => users.id, { onDelete: "set null" }),
+    config: jsonb("config").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("brands_slug_idx").on(table.slug),
+    index("brands_is_default_idx").on(table.isDefault),
+    index("brands_owner_user_id_idx").on(table.ownerUserId),
+  ]
+);
+
+export const brandVersions = pgTable(
+  "brand_versions",
+  {
+    id: serial("id").primaryKey(),
+    brandId: integer("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    config: jsonb("config").notNull(),
+    message: text("message"),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("brand_versions_brand_id_idx").on(table.brandId),
+    index("brand_versions_created_at_idx").on(table.createdAt),
+  ]
+);
+
+export const brandsRelations = relations(brands, ({ many, one }) => ({
+  versions: many(brandVersions),
+  owner: one(users, {
+    fields: [brands.ownerUserId],
+    references: [users.id],
+  }),
+}));
+
+export const brandVersionsRelations = relations(brandVersions, ({ one }) => ({
+  brand: one(brands, {
+    fields: [brandVersions.brandId],
+    references: [brands.id],
+  }),
+  creator: one(users, {
+    fields: [brandVersions.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export type Brand = typeof brands.$inferSelect;
+export type NewBrand = typeof brands.$inferInsert;
+export type BrandVersion = typeof brandVersions.$inferSelect;
+export type NewBrandVersion = typeof brandVersions.$inferInsert;

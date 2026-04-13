@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zoryon — Brand Guidelines</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #837BF4;
+    --primary-light: #A9A3F7;
+    --primary-dark: #6A62D4;
+    --background: #F2F2FA;
+    --accent-orange: #FF7D3B;
+    --accent-green: #2BD0A8;
+    --text-primary: #212130;
+    --text-secondary: #6E7191;
+    --white: #FFFFFF;
+    --black: #000000;
+    --gray-100: #F7F7FC;
+    --gray-200: #EDEDF5;
+    --gray-300: #D9D9E8;
+    --gray-400: #B0B0C8;
+    --font-display: 'Sora', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    background: var(--white);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── NAV ─── */
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 240px;
+    height: 100vh;
+    background: var(--text-primary);
+    padding: 32px 24px;
+    z-index: 100;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  nav .nav-logo {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--white);
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+
+  nav .nav-subtitle {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--primary-light);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 24px;
+  }
+
+  nav a {
+    display: block;
+    color: var(--gray-400);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: all 0.2s;
+  }
+
+  nav a:hover, nav a.active {
+    color: var(--white);
+    background: rgba(131, 123, 244, 0.15);
+  }
+
+  nav a.active {
+    color: var(--primary-light);
+  }
+
+  nav .nav-section {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 16px 12px 4px;
+  }
+
+  /* ─── MAIN ─── */
+  main {
+    margin-left: 240px;
+  }
+
+  section {
+    padding: 80px 64px;
+    border-bottom: 1px solid var(--gray-200);
+  }
+
+  section:last-child { border-bottom: none; }
+
+  .section-label {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: 48px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -1.5px;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+  }
+
+  h2 {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.8px;
+    margin-bottom: 16px;
+  }
+
+  h3 {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    margin-bottom: 12px;
+  }
+
+  p {
+    font-size: 15px;
+    color: var(--text-secondary);
+    max-width: 640px;
+    line-height: 1.7;
+  }
+
+  p + p { margin-top: 12px; }
+
+  /* ─── HERO ─── */
+  .hero {
+    background: var(--text-primary);
+    color: var(--white);
+    padding: 120px 64px 100px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    top: -200px;
+    right: -200px;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(131,123,244,0.15) 0%, transparent 70%);
+  }
+
+  .hero h1 { color: var(--white); font-size: 56px; }
+  .hero p { color: var(--gray-400); font-size: 18px; max-width: 540px; }
+
+  .hero .version {
+    display: inline-block;
+    background: rgba(131,123,244,0.2);
+    color: var(--primary-light);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 24px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ─── COLOR GRID ─── */
+  .color-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+    margin-top: 40px;
+  }
+
+  .color-card {
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--gray-200);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+  }
+
+  .color-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+  }
+
+  .color-swatch {
+    height: 120px;
+    position: relative;
+  }
+
+  .color-swatch .copy-hint {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(0,0,0,0.4);
+    color: white;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .color-card:hover .copy-hint { opacity: 1; }
+
+  .color-info {
+    padding: 16px;
+    background: var(--white);
+  }
+
+  .color-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary);
+  }
+
+  .color-role {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+
+  .color-hex {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    background: var(--gray-100);
+    padding: 4px 8px;
+    border-radius: 6px;
+    display: inline-block;
+  }
+
+  .color-copied {
+    font-size: 11px;
+    color: var(--accent-green);
+    font-weight: 600;
+    margin-left: 8px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .color-copied.show { opacity: 1; }
+
+  /* ─── TYPOGRAPHY ─── */
+  .type-specimen {
+    margin-top: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+
+  .type-row {
+    display: flex;
+    align-items: baseline;
+    gap: 40px;
+    padding: 24px 0;
+    border-bottom: 1px solid var(--gray-200);
+  }
+
+  .type-label {
+    flex: 0 0 160px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .type-sample {
+    flex: 1;
+  }
+
+  .type-meta {
+    font-size: 12px;
+    color: var(--gray-400);
+    font-family: 'SF Mono', monospace;
+    margin-top: 8px;
+  }
+
+  /* ─── LOGO ─── */
+  .logo-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-top: 40px;
+  }
+
+  .logo-box {
+    border-radius: 16px;
+    padding: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    position: relative;
+  }
+
+  .logo-box .label {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+
+  .logo-box.dark {
+    background: var(--text-primary);
+  }
+
+  .logo-box.dark .label {
+    color: var(--gray-400);
+    background: rgba(255,255,255,0.08);
+  }
+
+  .logo-box.light {
+    background: var(--background);
+    border: 1px solid var(--gray-200);
+  }
+
+  .logo-box.light .label {
+    color: var(--text-secondary);
+    background: rgba(0,0,0,0.04);
+  }
+
+  .logo-box.primary-bg {
+    background: var(--primary);
+  }
+
+  .logo-box.primary-bg .label {
+    color: rgba(255,255,255,0.7);
+    background: rgba(255,255,255,0.1);
+  }
+
+  .logo-text {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 42px;
+    letter-spacing: -1px;
+  }
+
+  .logo-svg {
+    height: 80px;
+    width: auto;
+  }
+
+  .logo-svg.small {
+    height: 48px;
+  }
+
+  .logo-lockup {
+    display: flex;
+    align-items: center;
+  }
+
+  /* ─── DO/DON'T ─── */
+  .dos-donts {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-top: 40px;
+  }
+
+  .do-card, .dont-card {
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--gray-200);
+  }
+
+  .do-card .card-preview, .dont-card .card-preview {
+    height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gray-100);
+    position: relative;
+  }
+
+  .dont-card .card-preview {
+    opacity: 0.6;
+  }
+
+  .dont-card .card-preview::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 20px,
+      rgba(255,0,0,0.03) 20px,
+      rgba(255,0,0,0.03) 40px
+    );
+  }
+
+  .card-label {
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .card-label.do {
+    color: var(--accent-green);
+  }
+
+  .card-label.dont {
+    color: #E5484D;
+  }
+
+  .card-label .icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .card-label.do .icon {
+    background: rgba(43,208,168,0.12);
+    color: var(--accent-green);
+  }
+
+  .card-label.dont .icon {
+    background: rgba(229,72,77,0.12);
+    color: #E5484D;
+  }
+
+  .card-description {
+    padding: 0 16px 16px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* ─── VOICE ─── */
+  .voice-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-top: 40px;
+  }
+
+  .voice-card {
+    background: var(--gray-100);
+    border-radius: 16px;
+    padding: 28px;
+    border: 1px solid var(--gray-200);
+  }
+
+  .voice-card h4 {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .voice-card p {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  .voice-card .spectrum {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .spectrum-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--gray-300);
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .spectrum-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--primary);
+  }
+
+  .spectrum-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  /* ─── VOCAB ─── */
+  .vocab-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin-top: 32px;
+  }
+
+  .vocab-col h4 {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .vocab-list {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .vocab-list li {
+    background: var(--gray-100);
+    border: 1px solid var(--gray-200);
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .vocab-col.avoid .vocab-list li {
+    background: rgba(229,72,77,0.04);
+    border-color: rgba(229,72,77,0.15);
+    color: #9E3A3D;
+    text-decoration: line-through;
+    text-decoration-color: rgba(229,72,77,0.3);
+  }
+
+  .vocab-col.use .vocab-list li {
+    background: rgba(43,208,168,0.06);
+    border-color: rgba(43,208,168,0.2);
+    color: #1A7A63;
+  }
+
+  /* ─── SPACING ─── */
+  .spacing-demo {
+    margin-top: 40px;
+    background: var(--gray-100);
+    border-radius: 16px;
+    padding: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border: 1px solid var(--gray-200);
+  }
+
+  .clearspace {
+    position: relative;
+    padding: 40px;
+  }
+
+  .clearspace::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    border: 2px dashed var(--primary-light);
+    border-radius: 8px;
+    opacity: 0.5;
+  }
+
+  .clearspace .measure {
+    position: absolute;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .clearspace .measure-top { top: -20px; left: 50%; transform: translateX(-50%); }
+  .clearspace .measure-left { left: -36px; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+
+  /* ─── TOKENS ─── */
+  .token-table {
+    width: 100%;
+    margin-top: 32px;
+    border-collapse: collapse;
+  }
+
+  .token-table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 12px 16px;
+    border-bottom: 2px solid var(--gray-200);
+  }
+
+  .token-table td {
+    padding: 12px 16px;
+    font-size: 14px;
+    border-bottom: 1px solid var(--gray-200);
+    vertical-align: middle;
+  }
+
+  .token-table code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    background: var(--gray-100);
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: var(--primary-dark);
+  }
+
+  .token-swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 8px;
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 900px) {
+    nav { display: none; }
+    main { margin-left: 0; }
+    section { padding: 48px 24px; }
+    .hero { padding: 80px 24px 64px; }
+    .hero h1 { font-size: 36px; }
+    h1 { font-size: 36px; }
+    h2 { font-size: 24px; }
+    .color-grid { grid-template-columns: repeat(2, 1fr); }
+    .logo-grid { grid-template-columns: 1fr; }
+    .dos-donts { grid-template-columns: 1fr; }
+    .voice-grid { grid-template-columns: 1fr; }
+    .vocab-columns { grid-template-columns: 1fr; }
+    .type-row { flex-direction: column; gap: 8px; }
+    .type-label { flex: none; }
+  }
+
+  /* ─── UTILS ─── */
+  .mt-24 { margin-top: 24px; }
+  .mt-40 { margin-top: 40px; }
+  .mt-64 { margin-top: 64px; }
+
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-primary { background: rgba(131,123,244,0.1); color: var(--primary); }
+  .badge-orange { background: rgba(255,125,59,0.1); color: var(--accent-orange); }
+  .badge-green { background: rgba(43,208,168,0.1); color: #1A7A63; }
+
+  /* ─── SMOOTH SCROLL ACTIVE STATES ─── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--text-primary);
+    color: var(--white);
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 200;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.3s;
+    pointer-events: none;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .full-width {
+    grid-column: 1 / -1;
+  }
+
+  /* ─── ACCESSIBILITY COMBOS ─── */
+  .a11y-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 32px;
+  }
+
+  .a11y-card {
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .a11y-card .sample-text {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .a11y-card .ratio {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .a11y-card .pass {
+    color: var(--accent-green);
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">zoryon</div>
+  <div class="nav-subtitle">Brand Guidelines</div>
+
+  <div class="nav-section">Fundação</div>
+  <a href="#overview" class="active">Overview</a>
+  <a href="#colors">Cores</a>
+  <a href="#typography">Tipografia</a>
+
+  <div class="nav-section">Identidade</div>
+  <a href="#logo">Logo</a>
+  <a href="#logo-usage">Uso do Logo</a>
+  <a href="#spacing">Espaçamento</a>
+
+  <div class="nav-section">Voz</div>
+  <a href="#voice">Tom de Voz</a>
+  <a href="#vocabulary">Vocabulário</a>
+
+  <div class="nav-section">Sistema</div>
+  <a href="#tokens">Design Tokens</a>
+  <a href="#accessibility">Acessibilidade</a>
+</nav>
+
+<!-- TOAST -->
+<div class="toast" id="toast">Cor copiada!</div>
+
+<!-- MAIN CONTENT -->
+<main>
+
+  <!-- HERO -->
+  <section class="hero" id="overview">
+    <div class="version">v2.0 — Abril 2026</div>
+    <h1>Zoryon<br>Brand Guidelines</h1>
+    <p>Guia oficial de identidade visual, tom de voz e sistema de design da Zoryon — empresa de IA aplicada a negócios.</p>
+    <p class="mt-24" style="font-size: 14px;">Setorização por IA. Diagnóstico. Resultado de negócio.</p>
+  </section>
+
+  <!-- COLORS -->
+  <section id="colors">
+    <div class="section-label">Fundação</div>
+    <h2>Paleta de Cores</h2>
+    <p>A paleta da Zoryon equilibra sofisticação técnica com acessibilidade. O roxo transmite inteligência e inovação; os acentos trazem energia e confiança.</p>
+
+    <div class="color-grid">
+      <!-- Primary -->
+      <div class="color-card" onclick="copyColor('#837BF4')">
+        <div class="color-swatch" style="background: #837BF4;">
+          <span class="copy-hint">Clique para copiar</span>
+        </div>
+        <div class="color-info">
+          <div class="color-name">Purple</div>
+          <div class="color-role">Cor principal — CTAs, links, destaques</div>
+          <div class="color-hex">#837BF4</div>
+        </div>
+      </div>
+
+      <!-- Primary Light -->
+      <div class="color-card" onclick="copyColor('#A9A3F7')">
+        <div class="color-swatch" style="background: #A9A3F7;">
+          <span class="copy-hint">Clique para copiar</span>
+        </div>
+        <div class="color-info">
+          <div class="color-name">Purple Light</div>
+          <div class="color-role">Hover states, bordas, badges</div>
+          <div class="color-hex">#A9A3F7</div>
+        </div>
+      </div>
+
+      <!-- Primary Dark -->
+      <div class="color-card" onclick="copyColor('#6A62D4')">
+        <div class="color-swatch" style="background: #6A62D4;">
+          <span class="copy-hint">Clique para copiar</span>
+        </div>
+        <div class="color-info">
+          <div class="color-name">Purple Dark</div>
+          <div class="color-role">Active states, texto sobre fundo claro</div>
+          <div class="color-hex">#6A62D4</div>
+        </div>
+      </div>
+
+      <!-- Background -->
+      <div class="color-card" onclick="copyColor('#F2F2FA')">
+        <div class="color-swatch" style="background: #F2F2FA; border-bottom: 1px solid #E8E8F0;">
+          <span class="copy-hint">Clique para copiar</span>
+        </div>
+        <div class="color-info">
+          <div class="color-name">Lavender</div>
+          <div class="color-role">Background principal, seções alternadas</div>
+          <div class="color-hex">#F2F2FA</div>
+        </div>
+      </div>
+
+      <!-- Accent Orange -->
+      <div class="color-card" onclick="copyColor('#FF7D3B')">
+        <div class="color-swatch" style="background: #FF7D3B;">
+          <span class="copy-hint">Clique para copiar</span>
+        </div>
+        <div class="color-info">
+          <div class="color-name">Tangerine</div>
+          <div class="color-role">Destaque quente — urgência, energia, CTAs secundários</div>
+          <div class="color-hex">#FF7D3B</div>
+        </div>
+      </div>
+
+      <!-- Accent Green -->
+      <div class="color-card" onclick="copyColor('#2BD0A8')">
+        <div class="color-swatch" style="background: #2BD0A8;">
+          <span class="copy-hint">Clique para copiar</span>
+        </div>
+        <div class="color-info">
+          <div class="color-name">Emerald</div>
+          <div class="color-role">Destaque frio — sucesso, resultados, confirmação</div>
+          <div class="color-hex">#2BD0A8</div>
+        </div>
+      </div>
+
+      <!-- Text Primary -->
+      <div class="color-card" onclick="copyColor('#212130')">
+        <div class="color-swatch" style="background: #212130;">
+          <span class="copy-hint">Clique para copiar</span>
+        </div>
+        <div class="color-info">
+          <div class="color-name">Ink</div>
+          <div class="color-role">Texto principal, headings, fundos dark</div>
+          <div class="color-hex">#212130</div>
+        </div>
+      </div>
+
+      <!-- Text Secondary -->
+      <div class="color-card" onclick="copyColor('#6E7191')">
+        <div class="color-swatch" style="background: #6E7191;">
+          <span class="copy-hint">Clique para copiar</span>
+        </div>
+        <div class="color-info">
+          <div class="color-name">Slate</div>
+          <div class="color-role">Texto secundário, descrições, placeholders</div>
+          <div class="color-hex">#6E7191</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TYPOGRAPHY -->
+  <section id="typography">
+    <div class="section-label">Fundação</div>
+    <h2>Tipografia</h2>
+    <p>Duas fontes, papéis claros. Sora para impacto e identidade. Inter para legibilidade e corpo de texto.</p>
+
+    <div class="type-specimen">
+      <div class="type-row">
+        <div class="type-label">Display / Logo</div>
+        <div class="type-sample">
+          <div style="font-family: var(--font-display); font-size: 48px; font-weight: 800; letter-spacing: -1.5px; line-height: 1.1;">
+            zoryon
+          </div>
+          <div class="type-meta">Sora · 800 ExtraBold · -1.5px tracking</div>
+        </div>
+      </div>
+
+      <div class="type-row">
+        <div class="type-label">H1 — Hero</div>
+        <div class="type-sample">
+          <div style="font-family: var(--font-display); font-size: 48px; font-weight: 700; letter-spacing: -1.5px; line-height: 1.1;">
+            IA aplicada ao seu negócio
+          </div>
+          <div class="type-meta">Sora · 700 Bold · 48px · -1.5px tracking</div>
+        </div>
+      </div>
+
+      <div class="type-row">
+        <div class="type-label">H2 — Seção</div>
+        <div class="type-sample">
+          <div style="font-family: var(--font-display); font-size: 32px; font-weight: 700; letter-spacing: -0.8px; line-height: 1.2;">
+            Setorização por inteligência artificial
+          </div>
+          <div class="type-meta">Sora · 700 Bold · 32px · -0.8px tracking</div>
+        </div>
+      </div>
+
+      <div class="type-row">
+        <div class="type-label">H3 — Subtítulo</div>
+        <div class="type-sample">
+          <div style="font-family: var(--font-display); font-size: 20px; font-weight: 600; letter-spacing: -0.3px;">
+            Diagnóstico completo do negócio
+          </div>
+          <div class="type-meta">Sora · 600 SemiBold · 20px · -0.3px tracking</div>
+        </div>
+      </div>
+
+      <div class="type-row">
+        <div class="type-label">Body — Padrão</div>
+        <div class="type-sample">
+          <div style="font-family: var(--font-body); font-size: 16px; font-weight: 400; line-height: 1.7; color: var(--text-secondary); max-width: 540px;">
+            A Zoryon cria departamentos operacionais completos dentro do seu negócio usando inteligência artificial. Não é uma ferramenta isolada — é uma transformação estrutural.
+          </div>
+          <div class="type-meta">Inter · 400 Regular · 16px · 1.7 line-height</div>
+        </div>
+      </div>
+
+      <div class="type-row">
+        <div class="type-label">Body — Small</div>
+        <div class="type-sample">
+          <div style="font-family: var(--font-body); font-size: 14px; font-weight: 400; line-height: 1.6; color: var(--text-secondary);">
+            Setup + acompanhamento contínuo. Resultado auditável desde o primeiro mês.
+          </div>
+          <div class="type-meta">Inter · 400 Regular · 14px · 1.6 line-height</div>
+        </div>
+      </div>
+
+      <div class="type-row">
+        <div class="type-label">Label / Overline</div>
+        <div class="type-sample">
+          <div style="font-family: var(--font-display); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; color: var(--primary);">
+            INTELIGÊNCIA OPERACIONAL
+          </div>
+          <div class="type-meta">Sora · 600 SemiBold · 11px · 2px tracking · uppercase</div>
+        </div>
+      </div>
+
+      <div class="type-row">
+        <div class="type-label">Button</div>
+        <div class="type-sample">
+          <div style="display: inline-flex; align-items: center; gap: 8px;">
+            <span style="font-family: var(--font-display); font-size: 14px; font-weight: 600; background: var(--primary); color: white; padding: 12px 24px; border-radius: 10px; letter-spacing: -0.2px;">Agendar diagnóstico</span>
+            <span style="font-family: var(--font-display); font-size: 14px; font-weight: 600; background: transparent; color: var(--primary); padding: 12px 24px; border-radius: 10px; border: 1.5px solid var(--primary); letter-spacing: -0.2px;">Saiba mais</span>
+          </div>
+          <div class="type-meta">Sora · 600 SemiBold · 14px · -0.2px tracking</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOGO -->
+  <section id="logo">
+    <div class="section-label">Identidade</div>
+    <h2>Logo</h2>
+    <p>O logo combina o vortex (símbolo) com a wordmark "zoryon" em Sora Bold. O vortex representa a transformação estrutural — processos convergindo para inteligência.</p>
+
+    <div class="logo-grid">
+      <div class="logo-box dark">
+        <img src="logo-zoryon-white.svg" alt="Zoryon logo white" class="logo-svg">
+        <span class="label">Principal — fundo escuro (branco)</span>
+      </div>
+
+      <div class="logo-box dark">
+        <img src="logo-zoryon-white-v2.svg" alt="Zoryon logo purple" class="logo-svg">
+        <span class="label">Variante purple — fundo escuro</span>
+      </div>
+
+      <div class="logo-box light">
+        <img src="logo-zoryon-white-v2.svg" alt="Zoryon logo purple on light" class="logo-svg">
+        <span class="label">Purple — fundo claro</span>
+      </div>
+
+      <div class="logo-box primary-bg">
+        <img src="logo-zoryon-white.svg" alt="Zoryon logo white on purple" class="logo-svg">
+        <span class="label">White — fundo roxo</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOGO USAGE -->
+  <section id="logo-usage">
+    <div class="section-label">Identidade</div>
+    <h2>Uso do Logo — Do's & Don'ts</h2>
+    <p>Regras para manter a consistência visual do logo em todos os contextos.</p>
+
+    <div class="dos-donts">
+      <div class="do-card">
+        <div class="card-preview" style="background: var(--text-primary);">
+          <span style="font-family: var(--font-display); font-weight: 700; font-size: 28px; color: white;">zoryon</span>
+        </div>
+        <div class="card-label do"><span class="icon">✓</span> Use sobre fundos sólidos</div>
+        <div class="card-description">Sempre aplique o logo sobre fundos sólidos com contraste adequado.</div>
+      </div>
+
+      <div class="dont-card">
+        <div class="card-preview" style="background: linear-gradient(135deg, #FF7D3B, #837BF4);">
+          <span style="font-family: var(--font-display); font-weight: 700; font-size: 28px; color: white;">zoryon</span>
+        </div>
+        <div class="card-label dont"><span class="icon">✕</span> Não use sobre gradientes</div>
+        <div class="card-description">Evite aplicar o logo sobre backgrounds com gradientes que comprometam a legibilidade.</div>
+      </div>
+
+      <div class="do-card">
+        <div class="card-preview" style="background: var(--background);">
+          <span style="font-family: var(--font-display); font-weight: 700; font-size: 28px; color: var(--text-primary);">zoryon</span>
+        </div>
+        <div class="card-label do"><span class="icon">✓</span> Mantenha a proporção</div>
+        <div class="card-description">Sempre redimensione proporcionalmente. O símbolo e a wordmark devem manter a relação original.</div>
+      </div>
+
+      <div class="dont-card">
+        <div class="card-preview" style="background: var(--gray-100);">
+          <span style="font-family: var(--font-display); font-weight: 700; font-size: 28px; color: var(--text-primary); transform: scaleX(1.4); display: inline-block;">zoryon</span>
+        </div>
+        <div class="card-label dont"><span class="icon">✕</span> Não distorça</div>
+        <div class="card-description">Nunca esticar, comprimir ou rotacionar o logo.</div>
+      </div>
+
+      <div class="do-card">
+        <div class="card-preview" style="background: var(--text-primary);">
+          <span style="font-family: var(--font-display); font-weight: 700; font-size: 28px; color: white; letter-spacing: -1px;">zoryon</span>
+        </div>
+        <div class="card-label do"><span class="icon">✓</span> Use sempre em lowercase</div>
+        <div class="card-description">A wordmark "zoryon" é sempre em lowercase. Essa é a forma oficial.</div>
+      </div>
+
+      <div class="dont-card">
+        <div class="card-preview" style="background: var(--gray-100);">
+          <span style="font-family: var(--font-display); font-weight: 700; font-size: 28px; color: var(--text-primary);">ZORYON</span>
+        </div>
+        <div class="card-label dont"><span class="icon">✕</span> Não use em uppercase</div>
+        <div class="card-description">Nunca escreva "ZORYON" ou "Zoryon" no logo. A marca é sempre "zoryon" em minúsculas.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SPACING -->
+  <section id="spacing">
+    <div class="section-label">Identidade</div>
+    <h2>Área de Proteção</h2>
+    <p>O logo deve sempre ter uma área de respiro ao redor equivalente à altura da letra "z" da wordmark. Nenhum elemento gráfico, texto ou borda deve invadir esse espaço.</p>
+
+    <div class="spacing-demo">
+      <div class="clearspace">
+        <span class="measure measure-top">1x</span>
+        <span class="measure measure-left">1x</span>
+        <img src="logo-zoryon-white-v2.svg" alt="Zoryon logo" class="logo-svg small">
+      </div>
+    </div>
+
+    <p class="mt-24">A unidade "1x" corresponde à altura da letra minúscula "z" na wordmark. Esse é o espaço mínimo obrigatório em todas as direções.</p>
+  </section>
+
+  <!-- VOICE -->
+  <section id="voice">
+    <div class="section-label">Voz</div>
+    <h2>Tom de Voz</h2>
+    <p>A Zoryon fala a linguagem de resultado de negócio, não de tecnologia. Começa pelo problema do cliente, nunca pela ferramenta. O tom é direto sem ser frio, acessível sem ser superficial.</p>
+
+    <div class="voice-grid">
+      <div class="voice-card">
+        <h4>Direto</h4>
+        <p>Vai ao ponto. Sem rodeios, sem jargão desnecessário. Cada frase tem um propósito claro.</p>
+        <div class="spectrum">
+          <span class="spectrum-label">Sutil</span>
+          <div class="spectrum-bar"><div class="spectrum-fill" style="width: 80%;"></div></div>
+          <span class="spectrum-label">Direto</span>
+        </div>
+      </div>
+
+      <div class="voice-card">
+        <h4>Acessível</h4>
+        <p>Empresário de R$200K/mês entende na primeira leitura. Sem termos técnicos que afastem o público.</p>
+        <div class="spectrum">
+          <span class="spectrum-label">Técnico</span>
+          <div class="spectrum-bar"><div class="spectrum-fill" style="width: 30%;"></div></div>
+          <span class="spectrum-label">Acessível</span>
+        </div>
+      </div>
+
+      <div class="voice-card">
+        <h4>Firme</h4>
+        <p>Tem convicção sobre o que funciona. Não pede desculpas por ter opinião. Posiciona sem arrogância.</p>
+        <div class="spectrum">
+          <span class="spectrum-label">Neutro</span>
+          <div class="spectrum-bar"><div class="spectrum-fill" style="width: 75%;"></div></div>
+          <span class="spectrum-label">Firme</span>
+        </div>
+      </div>
+
+      <div class="voice-card">
+        <h4>Humano</h4>
+        <p>Quem fala é o Jonas — com bagagem real de 10+ anos em operações. Não é uma marca corporativa genérica.</p>
+        <div class="spectrum">
+          <span class="spectrum-label">Corporativo</span>
+          <div class="spectrum-bar"><div class="spectrum-fill" style="width: 25%;"></div></div>
+          <span class="spectrum-label">Humano</span>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="mt-64">Princípios de Comunicação</h3>
+
+    <div class="voice-grid mt-24">
+      <div class="voice-card">
+        <h4>Problema primeiro, solução depois</h4>
+        <p>"Seu time gasta 15h/semana em tarefas manuais" → depois explica como a IA resolve. Nunca começa com a tecnologia.</p>
+      </div>
+      <div class="voice-card">
+        <h4>Resultado auditável</h4>
+        <p>Tudo que a Zoryon promete pode ser medido. Sem "resultados incríveis" — com números, antes/depois, ROI concreto.</p>
+      </div>
+      <div class="voice-card">
+        <h4>Operador, não influencer</h4>
+        <p>Jonas fala de dentro da operação. A credibilidade vem de ter feito, não de teoria. Experiência > hype.</p>
+      </div>
+      <div class="voice-card">
+        <h4>IA como meio, não fim</h4>
+        <p>A Zoryon não vende IA. Vende operação inteligente, crescimento saudável, time potencializado. IA é o como, não o quê.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- VOCABULARY -->
+  <section id="vocabulary">
+    <div class="section-label">Voz</div>
+    <h2>Vocabulário da Marca</h2>
+    <p>Palavras que definem a Zoryon — e palavras que a marca nunca usa.</p>
+
+    <div class="vocab-columns">
+      <div class="vocab-col use">
+        <h4><span style="color: var(--accent-green);">●</span> Use</h4>
+        <ul class="vocab-list">
+          <li>Setorização por IA</li>
+          <li>Inteligência operacional</li>
+          <li>Diagnóstico</li>
+          <li>Resultado de negócio</li>
+          <li>Resultado auditável</li>
+          <li>Crescimento saudável</li>
+          <li>Acompanhamento contínuo</li>
+          <li>Potencializar</li>
+          <li>IA aplicada</li>
+          <li>Operação inteligente</li>
+          <li>Departamento por IA</li>
+          <li>Transformação estrutural</li>
+        </ul>
+      </div>
+
+      <div class="vocab-col avoid">
+        <h4><span style="color: #E5484D;">●</span> Evite</h4>
+        <ul class="vocab-list">
+          <li>Milagre</li>
+          <li>Mágica</li>
+          <li>Instantâneo</li>
+          <li>Disruptivo</li>
+          <li>Revolucionário</li>
+          <li>ML / NLP / LLM</li>
+          <li>Linguagem de coach</li>
+          <li>Fácil / rápido / automático</li>
+          <li>Chatbot</li>
+          <li>Solução inovadora</li>
+          <li>Transformação digital</li>
+          <li>Game changer</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOKENS -->
+  <section id="tokens">
+    <div class="section-label">Sistema</div>
+    <h2>Design Tokens</h2>
+    <p>Tokens prontos para uso em CSS e Tailwind. Copie e use diretamente no código.</p>
+
+    <h3 class="mt-40">Cores</h3>
+    <table class="token-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Token</th>
+          <th>CSS Variable</th>
+          <th>Tailwind</th>
+          <th>Hex</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="token-swatch" style="background: #837BF4;"></span></td>
+          <td>Primary</td>
+          <td><code>--color-primary</code></td>
+          <td><code>zoryon-purple</code></td>
+          <td><code>#837BF4</code></td>
+        </tr>
+        <tr>
+          <td><span class="token-swatch" style="background: #A9A3F7;"></span></td>
+          <td>Primary Light</td>
+          <td><code>--color-primary-light</code></td>
+          <td><code>zoryon-purple-light</code></td>
+          <td><code>#A9A3F7</code></td>
+        </tr>
+        <tr>
+          <td><span class="token-swatch" style="background: #6A62D4;"></span></td>
+          <td>Primary Dark</td>
+          <td><code>--color-primary-dark</code></td>
+          <td><code>zoryon-purple-dark</code></td>
+          <td><code>#6A62D4</code></td>
+        </tr>
+        <tr>
+          <td><span class="token-swatch" style="background: #F2F2FA;"></span></td>
+          <td>Background</td>
+          <td><code>--color-background</code></td>
+          <td><code>zoryon-bg</code></td>
+          <td><code>#F2F2FA</code></td>
+        </tr>
+        <tr>
+          <td><span class="token-swatch" style="background: #FF7D3B;"></span></td>
+          <td>Accent Warm</td>
+          <td><code>--color-accent-orange</code></td>
+          <td><code>zoryon-tangerine</code></td>
+          <td><code>#FF7D3B</code></td>
+        </tr>
+        <tr>
+          <td><span class="token-swatch" style="background: #2BD0A8;"></span></td>
+          <td>Accent Cool</td>
+          <td><code>--color-accent-green</code></td>
+          <td><code>zoryon-emerald</code></td>
+          <td><code>#2BD0A8</code></td>
+        </tr>
+        <tr>
+          <td><span class="token-swatch" style="background: #212130;"></span></td>
+          <td>Text Primary</td>
+          <td><code>--color-text</code></td>
+          <td><code>zoryon-ink</code></td>
+          <td><code>#212130</code></td>
+        </tr>
+        <tr>
+          <td><span class="token-swatch" style="background: #6E7191;"></span></td>
+          <td>Text Secondary</td>
+          <td><code>--color-text-muted</code></td>
+          <td><code>zoryon-slate</code></td>
+          <td><code>#6E7191</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 class="mt-40">Tipografia</h3>
+    <table class="token-table">
+      <thead>
+        <tr>
+          <th>Role</th>
+          <th>Font</th>
+          <th>Weight</th>
+          <th>Size</th>
+          <th>Tracking</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Display / Logo</td>
+          <td><code>Sora</code></td>
+          <td><code>800</code></td>
+          <td><code>48px</code></td>
+          <td><code>-1.5px</code></td>
+        </tr>
+        <tr>
+          <td>H1</td>
+          <td><code>Sora</code></td>
+          <td><code>700</code></td>
+          <td><code>48px</code></td>
+          <td><code>-1.5px</code></td>
+        </tr>
+        <tr>
+          <td>H2</td>
+          <td><code>Sora</code></td>
+          <td><code>700</code></td>
+          <td><code>32px</code></td>
+          <td><code>-0.8px</code></td>
+        </tr>
+        <tr>
+          <td>H3</td>
+          <td><code>Sora</code></td>
+          <td><code>600</code></td>
+          <td><code>20px</code></td>
+          <td><code>-0.3px</code></td>
+        </tr>
+        <tr>
+          <td>Body</td>
+          <td><code>Inter</code></td>
+          <td><code>400</code></td>
+          <td><code>16px</code></td>
+          <td><code>0</code></td>
+        </tr>
+        <tr>
+          <td>Body Small</td>
+          <td><code>Inter</code></td>
+          <td><code>400</code></td>
+          <td><code>14px</code></td>
+          <td><code>0</code></td>
+        </tr>
+        <tr>
+          <td>Label</td>
+          <td><code>Sora</code></td>
+          <td><code>600</code></td>
+          <td><code>11px</code></td>
+          <td><code>2px</code></td>
+        </tr>
+        <tr>
+          <td>Button</td>
+          <td><code>Sora</code></td>
+          <td><code>600</code></td>
+          <td><code>14px</code></td>
+          <td><code>-0.2px</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 class="mt-40">Espaçamento</h3>
+    <table class="token-table">
+      <thead>
+        <tr>
+          <th>Token</th>
+          <th>Value</th>
+          <th>Use</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>--space-xs</code></td>
+          <td>4px</td>
+          <td>Inline gaps, ícone-texto</td>
+        </tr>
+        <tr>
+          <td><code>--space-sm</code></td>
+          <td>8px</td>
+          <td>Tags, badges, inputs internos</td>
+        </tr>
+        <tr>
+          <td><code>--space-md</code></td>
+          <td>16px</td>
+          <td>Cards internos, grid gaps</td>
+        </tr>
+        <tr>
+          <td><code>--space-lg</code></td>
+          <td>24px</td>
+          <td>Seções internas, card padding</td>
+        </tr>
+        <tr>
+          <td><code>--space-xl</code></td>
+          <td>40px</td>
+          <td>Entre blocos, section spacing</td>
+        </tr>
+        <tr>
+          <td><code>--space-2xl</code></td>
+          <td>64px</td>
+          <td>Section padding, hero spacing</td>
+        </tr>
+        <tr>
+          <td><code>--space-3xl</code></td>
+          <td>80px</td>
+          <td>Page sections, major blocks</td>
+        </tr>
+        <tr>
+          <td><code>--radius-sm</code></td>
+          <td>6px</td>
+          <td>Badges, tags, small elements</td>
+        </tr>
+        <tr>
+          <td><code>--radius-md</code></td>
+          <td>10px</td>
+          <td>Buttons, inputs</td>
+        </tr>
+        <tr>
+          <td><code>--radius-lg</code></td>
+          <td>16px</td>
+          <td>Cards, modals, sections</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ACCESSIBILITY -->
+  <section id="accessibility">
+    <div class="section-label">Sistema</div>
+    <h2>Acessibilidade</h2>
+    <p>Combinações aprovadas de cor para garantir contraste WCAG AA (mínimo 4.5:1 para texto normal).</p>
+
+    <div class="a11y-grid mt-40">
+      <div class="a11y-card" style="background: var(--white); border: 1px solid var(--gray-200);">
+        <div class="sample-text" style="color: var(--text-primary);">Aa</div>
+        <div style="font-size: 13px; color: var(--text-secondary);">Ink on White</div>
+        <div class="ratio pass">✓ 15.2:1</div>
+      </div>
+
+      <div class="a11y-card" style="background: var(--background); border: 1px solid var(--gray-200);">
+        <div class="sample-text" style="color: var(--text-primary);">Aa</div>
+        <div style="font-size: 13px; color: var(--text-secondary);">Ink on Lavender</div>
+        <div class="ratio pass">✓ 13.8:1</div>
+      </div>
+
+      <div class="a11y-card" style="background: var(--text-primary);">
+        <div class="sample-text" style="color: var(--white);">Aa</div>
+        <div style="font-size: 13px; color: var(--gray-400);">White on Ink</div>
+        <div class="ratio pass">✓ 15.2:1</div>
+      </div>
+
+      <div class="a11y-card" style="background: var(--primary);">
+        <div class="sample-text" style="color: var(--white);">Aa</div>
+        <div style="font-size: 13px; color: rgba(255,255,255,0.7);">White on Purple</div>
+        <div class="ratio pass">✓ 4.6:1</div>
+      </div>
+
+      <div class="a11y-card" style="background: var(--white); border: 1px solid var(--gray-200);">
+        <div class="sample-text" style="color: var(--text-secondary);">Aa</div>
+        <div style="font-size: 13px; color: var(--text-secondary);">Slate on White</div>
+        <div class="ratio pass">✓ 5.8:1</div>
+      </div>
+
+      <div class="a11y-card" style="background: var(--text-primary);">
+        <div class="sample-text" style="color: var(--primary-light);">Aa</div>
+        <div style="font-size: 13px; color: var(--gray-400);">Purple Light on Ink</div>
+        <div class="ratio pass">✓ 7.1:1</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  // Copy color to clipboard
+  function copyColor(hex) {
+    navigator.clipboard.writeText(hex).then(() => {
+      const toast = document.getElementById('toast');
+      toast.textContent = `${hex} copiado!`;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 1500);
+    });
+  }
+
+  // Active nav state on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('nav a');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(link => link.classList.remove('active'));
+        const activeLink = document.querySelector(`nav a[href="#${entry.target.id}"]`);
+        if (activeLink) activeLink.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -80% 0px' });
+
+  sections.forEach(section => observer.observe(section));
+</script>
+
+</body>
+</html>
