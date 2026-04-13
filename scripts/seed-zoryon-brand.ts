@@ -15,18 +15,32 @@ loadEnv({ quiet: true })
 
 import { readFile } from "node:fs/promises"
 import { resolve } from "node:path"
-import { eq } from "drizzle-orm"
-import { neon } from "@neondatabase/serverless"
-import { drizzle } from "drizzle-orm/neon-http"
 
 import { buildZoryonConfig } from "../src/lib/brands/seed/zoryon-mapper"
-import { brands, brandVersions } from "../src/db/schema"
+import {
+  createBrand,
+  getBrandBySlug,
+  updateBrandConfig,
+} from "../src/lib/brands/queries"
+import { brandConfigSchema, type BrandConfig } from "../src/lib/brands/schema"
 
 const BRANDKIT_DIR = resolve(process.cwd(), "src/content/brands/zoryon")
 
-async function readIfExists(filename: string): Promise<string> {
+/**
+ * Lê um arquivo do brandkit local. Lança erro com nome lógico do campo
+ * (não só o path) para facilitar diagnóstico quando o brandkit fica
+ * desincronizado com o mapper.
+ */
+async function readBrandkitFile(field: string, filename: string): Promise<string> {
   const path = resolve(BRANDKIT_DIR, filename)
-  return readFile(path, "utf-8")
+  try {
+    return await readFile(path, "utf-8")
+  } catch (err) {
+    const cause = err instanceof Error ? err.message : String(err)
+    throw new Error(
+      `Missing Zoryon brandkit file for '${field}' (${filename}): ${cause}`
+    )
+  }
 }
 
 async function main() {
@@ -38,17 +52,17 @@ async function main() {
   }
 
   const files = {
-    businessOverview: await readIfExists("01-business-overview.md"),
-    posicionamento: await readIfExists("02-posicionamento-marca.md"),
-    avatares: await readIfExists("03-avatares-icps.md"),
-    modeloReceita: await readIfExists("04-modelo-receita.md"),
-    catalogoServicos: await readIfExists("05-catalogo-servicos.md"),
-    estruturaCursos: await readIfExists("06-estrutura-cursos.md"),
-    jornadaCliente: await readIfExists("07-jornada-cliente.md"),
-    presencaDigital: await readIfExists("08-presenca-digital.md"),
-    estrategiaConteudo: await readIfExists("09-estrategia-conteudo.md"),
-    voiceGuide: await readIfExists("brand-voice-guide.md"),
-    designTokens: await readIfExists("design-tokens.css"),
+    businessOverview: await readBrandkitFile("businessOverview", "01-business-overview.md"),
+    posicionamento: await readBrandkitFile("posicionamento", "02-posicionamento-marca.md"),
+    avatares: await readBrandkitFile("avatares", "03-avatares-icps.md"),
+    modeloReceita: await readBrandkitFile("modeloReceita", "04-modelo-receita.md"),
+    catalogoServicos: await readBrandkitFile("catalogoServicos", "05-catalogo-servicos.md"),
+    estruturaCursos: await readBrandkitFile("estruturaCursos", "06-estrutura-cursos.md"),
+    jornadaCliente: await readBrandkitFile("jornadaCliente", "07-jornada-cliente.md"),
+    presencaDigital: await readBrandkitFile("presencaDigital", "08-presenca-digital.md"),
+    estrategiaConteudo: await readBrandkitFile("estrategiaConteudo", "09-estrategia-conteudo.md"),
+    voiceGuide: await readBrandkitFile("voiceGuide", "brand-voice-guide.md"),
+    designTokens: await readBrandkitFile("designTokens", "design-tokens.css"),
     logoUrl: "/brands/zoryon/logo-zoryon-white.svg",
     logoAltUrl: "/brands/zoryon/logo-zoryon-white-v2.svg",
   }
@@ -56,11 +70,18 @@ async function main() {
   if (!emitJson) {
     console.log("[seed] building config via mapper...")
   }
-  const config = buildZoryonConfig(files)
+  const { config, warnings } = buildZoryonConfig(files)
 
   if (emitJson) {
     process.stdout.write(JSON.stringify(config))
     return
+  }
+
+  if (warnings.length > 0) {
+    console.warn(`[seed] mapper produced ${warnings.length} warning(s):`)
+    for (const w of warnings) {
+      console.warn(`  - [${w.section}.${w.field}] ${w.reason}`)
+    }
   }
 
   const summary = {
@@ -104,39 +125,41 @@ async function main() {
     throw new Error("DATABASE_URL is required to seed brand")
   }
 
-  const sql = neon(process.env.DATABASE_URL)
-  const db = drizzle({ client: sql })
-
-  const [existing] = await db
-    .select()
-    .from(brands)
-    .where(eq(brands.slug, "zoryon"))
-    .limit(1)
+  // Toda escrita passa pela camada de queries para garantir validação Zod
+  // + snapshot atômico em brand_versions (via db.batch).
+  const existing = await getBrandBySlug("zoryon")
 
   if (existing) {
     console.log("[seed] updating existing Zoryon brand (id =", existing.id, ")")
-    await db.insert(brandVersions).values({
-      brandId: existing.id,
-      config: existing.config,
-      message: "pre-seed snapshot",
+
+    // Preserva seededAt original; bumpa seedVersion para a do mapper atual.
+    const previous = brandConfigSchema.safeParse(existing.config)
+    const originalSeededAt =
+      previous.success && previous.data.meta.seededAt
+        ? previous.data.meta.seededAt
+        : config.meta.seededAt
+
+    const merged: BrandConfig = {
+      ...config,
+      meta: {
+        ...config.meta,
+        seededAt: originalSeededAt,
+      },
+    }
+
+    const updated = await updateBrandConfig(existing.id, {
+      config: merged,
+      message: `seed reapply (seedVersion=${merged.meta.seedVersion})`,
     })
-    const [updated] = await db
-      .update(brands)
-      .set({ config, name: "Zoryon", isDefault: true, updatedAt: new Date() })
-      .where(eq(brands.id, existing.id))
-      .returning()
     console.log("[seed] updated. id =", updated.id)
   } else {
     console.log("[seed] creating new Zoryon brand")
-    const [created] = await db
-      .insert(brands)
-      .values({
-        slug: "zoryon",
-        name: "Zoryon",
-        isDefault: true,
-        config,
-      })
-      .returning()
+    const created = await createBrand({
+      slug: "zoryon",
+      name: "Zoryon",
+      isDefault: true,
+      config,
+    })
     console.log("[seed] created. id =", created.id)
   }
 

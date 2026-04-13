@@ -12,6 +12,13 @@ import { auth } from "@clerk/nextjs/server";
 import { generateVideoTitles } from "@/lib/wizard-services/video-titles.service";
 import type { VideoTitleOption } from "@/lib/wizard-services/video-titles.service";
 import { getUserVariables } from "@/lib/wizard-services/user-variables.service";
+import { getBrandPromptVariables } from "@/lib/brands/injection";
+
+function splitCsv(value: string | undefined | null): string[] | undefined {
+  if (!value) return undefined;
+  const parts = value.split(",").map((s) => s.trim()).filter(Boolean);
+  return parts.length > 0 ? parts : undefined;
+}
 
 // ============================================================================
 // TYPES
@@ -78,30 +85,29 @@ export async function POST(
       );
     }
 
-    // Fetch user variables if brandContext not provided
+    // Fetch brand + user variables if brandContext not provided.
+    // Precedência: brand ativo (base) < user variables (override).
     let brandContext = body.brandContext;
     if (!brandContext) {
       try {
-        const userVars = await getUserVariables();
+        const [brandVars, userVars] = await Promise.all([
+          getBrandPromptVariables().catch(() => ({} as Record<string, string | undefined>)),
+          getUserVariables(),
+        ]);
 
-        // Convert user variables to brand context
-        if (Object.keys(userVars).length > 0) {
-          brandContext = {
-            voiceTone: userVars.tone || userVars.brandVoice,
-            targetAudience: userVars.targetAudience,
-            fearsAndPains: userVars.audienceFears
-              ? userVars.audienceFears.split(",").map((s) => s.trim())
-              : undefined,
-            desiresAndAspirations: userVars.audienceDesires
-              ? userVars.audienceDesires.split(",").map((s) => s.trim())
-              : undefined,
-            forbiddenTerms: userVars.negativeTerms
-              ? userVars.negativeTerms.split(",").map((s) => s.trim())
-              : undefined,
-          };
+        const merged = {
+          voiceTone: userVars.tone || userVars.brandVoice || brandVars.tone,
+          targetAudience: userVars.targetAudience || brandVars.targetAudience,
+          fearsAndPains: splitCsv(userVars.audienceFears) ?? splitCsv(brandVars.audienceFears),
+          desiresAndAspirations: splitCsv(userVars.audienceDesires) ?? splitCsv(brandVars.audienceDesires),
+          forbiddenTerms: splitCsv(userVars.negativeTerms) ?? splitCsv(brandVars.negativeTerms),
+        };
+
+        if (Object.values(merged).some((v) => v !== undefined)) {
+          brandContext = merged;
         }
       } catch (error) {
-        console.error("[VIDEO TITLES-API] Error fetching user variables:", error);
+        console.error("[VIDEO TITLES-API] Error fetching brand/user variables:", error);
         // Continue without brand context on error
       }
     }

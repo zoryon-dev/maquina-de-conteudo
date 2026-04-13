@@ -26,6 +26,7 @@ import {
   formatVariablesForPrompt,
   type UserVariables,
 } from "./user-variables.service";
+import { getBrandPromptVariables } from "@/lib/brands/injection";
 import type {
   NarrativeOption,
   GeneratedContent,
@@ -76,21 +77,29 @@ async function loadAndFormatUserVariables(
   variablesContext: string
   mergedNegativeTerms: string[]
 }> {
-  // Fetch saved variables from database (pass userId for worker context)
-  const savedVariables = await getUserVariables(userId)
+  // Camadas de precedência (da mais baixa para a mais alta):
+  //   1. Marca ativa (brand.config do DB)         — base automática
+  //   2. User variables persistidas (userVariables) — override pessoal
+  //   3. Inputs explícitos do wizard               — override do turno
+  const [brandVariables, savedVariables] = await Promise.all([
+    getBrandPromptVariables().catch((err) => {
+      console.error("[llm] failed to load brand variables:", err)
+      return {} as Partial<UserVariables>
+    }),
+    getUserVariables(userId),
+  ])
 
-  // Merge: input values take precedence over saved variables
   const mergedVariables: UserVariables = {
-    tone: inputTone || savedVariables.tone,
-    brandVoice: savedVariables.brandVoice,
-    niche: inputNiche || savedVariables.niche,
-    targetAudience: inputTargetAudience || savedVariables.targetAudience,
-    audienceFears: savedVariables.audienceFears,
-    audienceDesires: savedVariables.audienceDesires,
-    differentiators: savedVariables.differentiators,
-    contentGoals: savedVariables.contentGoals,
-    preferredCTAs: savedVariables.preferredCTAs,
-    negativeTerms: savedVariables.negativeTerms,
+    tone: inputTone || savedVariables.tone || brandVariables.tone,
+    brandVoice: savedVariables.brandVoice || brandVariables.brandVoice,
+    niche: inputNiche || savedVariables.niche || brandVariables.niche,
+    targetAudience: inputTargetAudience || savedVariables.targetAudience || brandVariables.targetAudience,
+    audienceFears: savedVariables.audienceFears || brandVariables.audienceFears,
+    audienceDesires: savedVariables.audienceDesires || brandVariables.audienceDesires,
+    differentiators: savedVariables.differentiators || brandVariables.differentiators,
+    contentGoals: savedVariables.contentGoals || brandVariables.contentGoals,
+    preferredCTAs: savedVariables.preferredCTAs || brandVariables.preferredCTAs,
+    negativeTerms: savedVariables.negativeTerms || brandVariables.negativeTerms,
   }
 
   // Format variables for prompt injection

@@ -1,14 +1,12 @@
 import { z } from "zod"
 
-// ============================================================================
-// BRAND CONFIG SCHEMA
-// ============================================================================
 // Validação do JSONB `brands.config`. Árvore completa do brandkit.
 // Toda edição via UI passa por aqui antes de gravar snapshot em brand_versions.
 // Campos string/array aceitam vazios para permitir edição incremental.
-// ============================================================================
 
-// -------- identity --------
+export const slugSchema = z
+  .string()
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "slug must be kebab-case lowercase")
 
 export const brandIdentityValueSchema = z.object({
   name: z.string(),
@@ -24,8 +22,6 @@ export const brandIdentitySchema = z.object({
   beliefs: z.array(z.string()).default([]),
 })
 
-// -------- voice --------
-
 export const brandVoiceAtributosSchema = z.object({
   direto: z.number().min(0).max(100).default(50),
   acessivel: z.number().min(0).max(100).default(50),
@@ -35,6 +31,7 @@ export const brandVoiceAtributosSchema = z.object({
 })
 
 export const brandVoiceSchema = z.object({
+  // atributos: valores oficiais do voice guide
   atributos: brandVoiceAtributosSchema.default({
     direto: 80,
     acessivel: 70,
@@ -53,8 +50,6 @@ export const brandVoiceSchema = z.object({
   antiPatterns: z.array(z.string()).default([]),
 })
 
-// -------- visual --------
-
 export const brandVisualSchema = z.object({
   tokens: z
     .object({
@@ -67,8 +62,6 @@ export const brandVisualSchema = z.object({
   logoUrl: z.string().default(""),
   logoAltUrl: z.string().default(""),
 })
-
-// -------- audience --------
 
 export const brandAvatarSchema = z.object({
   nome: z.string(),
@@ -84,8 +77,6 @@ export const brandAudienceSchema = z.object({
   avatares: z.array(brandAvatarSchema).default([]),
   antiAvatar: z.string().default(""),
 })
-
-// -------- offer --------
 
 export const brandSetorSchema = z.object({
   id: z.string(),
@@ -115,25 +106,33 @@ export const brandOfferSchema = z.object({
       recMin: z.number().default(0),
       recMax: z.number().default(0),
     })
+    .refine((p) => p.setupMin <= p.setupMax, {
+      message: "setupMin must be <= setupMax",
+    })
+    .refine((p) => p.recMin <= p.recMax, {
+      message: "recMin must be <= recMax",
+    })
     .default({ setupMin: 0, setupMax: 0, recMin: 0, recMax: 0 }),
   courses: z.array(brandCourseSchema).default([]),
 })
 
-// -------- journey --------
-
-export const brandJourneyStageSchema = z.object({
+export const brandJourneyServicoStageSchema = z.object({
   stage: z.string(),
   canal: z.string().default(""),
   acao: z.string().default(""),
   saidas: z.array(z.string()).default([]),
 })
 
-export const brandJourneySchema = z.object({
-  motorServicos: z.array(brandJourneyStageSchema).default([]),
-  motorEducacao: z.array(brandJourneyStageSchema).default([]),
+export const brandJourneyEducacaoStageSchema = z.object({
+  stage: z.string(),
+  canal: z.string().default(""),
+  acao: z.string().default(""),
 })
 
-// -------- content --------
+export const brandJourneySchema = z.object({
+  motorServicos: z.array(brandJourneyServicoStageSchema).default([]),
+  motorEducacao: z.array(brandJourneyEducacaoStageSchema).default([]),
+})
 
 export const brandContentPilarSchema = z.object({
   nome: z.string(),
@@ -156,17 +155,14 @@ export const brandContentSchema = z.object({
   canais: z.array(brandContentCanalSchema).default([]),
 })
 
-// -------- meta --------
-
 export const brandMetaSchema = z.object({
   seedVersion: z.string().default("1.0.0"),
-  seededAt: z.string().default(""),
+  seededAt: z
+    .string()
+    .datetime()
+    .default(() => new Date().toISOString()),
   qaEnabled: z.boolean().default(true),
 })
-
-// ============================================================================
-// ROOT CONFIG
-// ============================================================================
 
 export const brandConfigSchema = z.object({
   identity: brandIdentitySchema.default(() => brandIdentitySchema.parse({})),
@@ -189,15 +185,12 @@ export type BrandOffer = z.infer<typeof brandOfferSchema>
 export type BrandSetor = z.infer<typeof brandSetorSchema>
 export type BrandCourse = z.infer<typeof brandCourseSchema>
 export type BrandJourney = z.infer<typeof brandJourneySchema>
-export type BrandJourneyStage = z.infer<typeof brandJourneyStageSchema>
+export type BrandJourneyServicoStage = z.infer<typeof brandJourneyServicoStageSchema>
+export type BrandJourneyEducacaoStage = z.infer<typeof brandJourneyEducacaoStageSchema>
 export type BrandContent = z.infer<typeof brandContentSchema>
 export type BrandContentPilar = z.infer<typeof brandContentPilarSchema>
 export type BrandContentCanal = z.infer<typeof brandContentCanalSchema>
 export type BrandMeta = z.infer<typeof brandMetaSchema>
-
-// ============================================================================
-// HELPERS
-// ============================================================================
 
 export function createEmptyBrandConfig(): BrandConfig {
   return brandConfigSchema.parse({})

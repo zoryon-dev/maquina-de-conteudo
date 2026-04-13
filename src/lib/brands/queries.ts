@@ -1,7 +1,11 @@
-import "server-only"
-import { and, desc, eq, isNull } from "drizzle-orm"
+// NOTE: Este módulo é usado tanto em React Server Components/Server Actions
+// quanto em scripts Node (ex: scripts/seed-zoryon-brand.ts). Por isso NÃO
+// importamos "server-only" aqui — neon-http já é server-side por natureza
+// (depende de DATABASE_URL). Não importe deste arquivo em código client.
+import { desc, eq } from "drizzle-orm"
 import { db } from "@/db"
 import { brands, brandVersions, type Brand, type BrandVersion } from "@/db/schema"
+import { ConfigError, NotFoundError } from "@/lib/errors"
 import {
   brandConfigSchema,
   safeValidateBrandConfig,
@@ -38,13 +42,21 @@ export async function listBrands(): Promise<Brand[]> {
   return db.select().from(brands).orderBy(desc(brands.isDefault), brands.name)
 }
 
+/**
+ * Lê e valida o BrandConfig persistido. Retorna `null` apenas se a brand não
+ * existir; se a brand existe mas o JSON está corrompido/incompatível com o
+ * schema, lança ConfigError (com `details.issues` do Zod) — silenciar essa
+ * falha esconderia bugs de migration/seed.
+ */
 export async function getBrandConfig(brandId: number): Promise<BrandConfig | null> {
   const brand = await getBrandById(brandId)
   if (!brand) return null
   const result = safeValidateBrandConfig(brand.config)
   if (!result.success) {
-    console.error("[brands] invalid config in DB for brand", brandId, result.error)
-    return null
+    throw new ConfigError(
+      `Brand ${brandId} has invalid config in DB`,
+      { brandId, issues: result.error.issues }
+    )
   }
   return result.data
 }
@@ -88,19 +100,28 @@ export async function updateBrandConfig(
 ): Promise<Brand> {
   const config = brandConfigSchema.parse(input.config)
 
-  await db.insert(brandVersions).values({
-    brandId,
-    config,
-    message: input.message ?? null,
-    createdBy: input.updatedByUserId ?? null,
-  })
+  // Atomicidade: o driver neon-http NÃO suporta transações interativas
+  // (db.transaction lança erro), mas suporta `db.batch([...])` que executa
+  // todas as queries numa única round-trip transacional. Se qualquer step
+  // falhar, nenhum efeito é persistido.
+  const [, updatedRows] = await db.batch([
+    db.insert(brandVersions).values({
+      brandId,
+      config,
+      message: input.message ?? null,
+      createdBy: input.updatedByUserId ?? null,
+    }),
+    db
+      .update(brands)
+      .set({ config, updatedAt: new Date() })
+      .where(eq(brands.id, brandId))
+      .returning(),
+  ])
 
-  const [updated] = await db
-    .update(brands)
-    .set({ config, updatedAt: new Date() })
-    .where(eq(brands.id, brandId))
-    .returning()
-
+  const updated = updatedRows[0]
+  if (!updated) {
+    throw new NotFoundError("Brand", String(brandId))
+  }
   return updated
 }
 
@@ -144,7 +165,7 @@ export async function restoreBrandVersion(
 ): Promise<Brand> {
   const version = await getBrandVersion(versionId)
   if (!version || version.brandId !== brandId) {
-    throw new Error("Brand version not found or does not belong to this brand")
+    throw new NotFoundError("BrandVersion", `${versionId} (brand=${brandId})`)
   }
   return updateBrandConfig(brandId, {
     config: version.config,

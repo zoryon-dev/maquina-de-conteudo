@@ -1,11 +1,12 @@
-// ============================================================================
-// ZORYON MAPPER
-// ============================================================================
-// Dado os arquivos do brandkit Zoryon (em src/content/brands/zoryon/),
-// monta o BrandConfig. Campos estruturáveis são parseados heuristicamente;
-// campos que exigiriam parser complexo (avatares com múltiplas subseções)
-// caem em strings semi-estruturadas baseadas em seções.
-// ============================================================================
+// Parser heurístico pragmático: dado os arquivos do brandkit Zoryon
+// (em src/content/brands/zoryon/), monta o BrandConfig. Campos
+// estruturáveis são parseados via regex; campos que exigiriam parser
+// complexo (avatares com múltiplas subseções) caem em strings
+// semi-estruturadas baseadas em seções.
+//
+// Quando uma seção/regex falha, em vez de silenciar (ex: string vazia,
+// `continue`), o mapper acumula `SeedWarning`s para que o caller possa
+// reportar problemas no markdown sem quebrar o seed inteiro.
 
 import {
   brandConfigSchema,
@@ -20,7 +21,7 @@ import {
   extractSections,
   findSection,
   extractBullets,
-  stripFrontmatter,
+  stripBlockquotes,
   cleanMarkdownInline,
   parseCssVariables,
   extractFirstParagraph,
@@ -42,42 +43,63 @@ export type ZoryonSourceFiles = {
   logoAltUrl?: string
 }
 
-export function buildZoryonConfig(files: ZoryonSourceFiles): BrandConfig {
+export type SeedWarning = { section: string; field: string; reason: string }
+
+export function buildZoryonConfig(files: ZoryonSourceFiles): {
+  config: BrandConfig
+  warnings: SeedWarning[]
+} {
+  const warnings: SeedWarning[] = []
   const config = {
-    identity: mapIdentity(files),
-    voice: mapVoice(files),
+    identity: mapIdentity(files, warnings),
+    voice: mapVoice(files, warnings),
     visual: mapVisual(files),
-    audience: mapAudience(files),
-    offer: mapOffer(files),
+    audience: mapAudience(files, warnings),
+    offer: mapOffer(files, warnings),
     journey: mapJourney(files),
-    content: mapContent(files),
+    content: mapContent(files, warnings),
     meta: {
       seedVersion: "1.0.0",
       seededAt: new Date().toISOString(),
       qaEnabled: true,
     },
   }
-  return brandConfigSchema.parse(config)
+  return { config: brandConfigSchema.parse(config), warnings }
 }
 
-// ============================================================================
-// IDENTITY
-// ============================================================================
-
-function mapIdentity(files: ZoryonSourceFiles) {
-  const bo = stripFrontmatter(files.businessOverview)
-  const pos = stripFrontmatter(files.posicionamento)
+function mapIdentity(files: ZoryonSourceFiles, warnings: SeedWarning[]) {
+  const bo = stripBlockquotes(files.businessOverview)
+  const pos = stripBlockquotes(files.posicionamento)
 
   const mission =
     findSection(bo, /^Missão$/i)?.content ??
     findSection(bo, /Proposta de Valor/i)?.content ??
     ""
+  if (!mission) {
+    warnings.push({
+      section: "identity",
+      field: "mission",
+      reason: "no section matched /^Missão$/i nor /Proposta de Valor/i in business-overview",
+    })
+  }
 
-  const vision =
-    findSection(bo, /^Visão/i)?.content ??
-    ""
+  const vision = findSection(bo, /^Visão/i)?.content ?? ""
+  if (!vision) {
+    warnings.push({
+      section: "identity",
+      field: "vision",
+      reason: "no section matched /^Visão/i in business-overview",
+    })
+  }
 
   const valuesSection = findSection(bo, /^Valores$/i)
+  if (!valuesSection) {
+    warnings.push({
+      section: "identity",
+      field: "values",
+      reason: "no section matched /^Valores$/i in business-overview",
+    })
+  }
   const values = valuesSection
     ? extractSections(valuesSection.content, 3).map((s) => ({
         name: cleanValueName(s.title),
@@ -89,6 +111,14 @@ function mapIdentity(files: ZoryonSourceFiles) {
     findSection(pos, /^Posicionamento em Uma Frase/i)?.content ??
     findSection(pos, /^Frase-Síntese/i)?.content ??
     ""
+  if (!positioning) {
+    warnings.push({
+      section: "identity",
+      field: "positioning",
+      reason:
+        "no section matched /Posicionamento em Uma Frase/i nor /Frase-Síntese/i in posicionamento",
+    })
+  }
 
   const antiPositioningSection = findSection(pos, /^Anti-Posicionamento/i)
   const antiPositioning = antiPositioningSection
@@ -116,26 +146,51 @@ function cleanValueName(raw: string): string {
   return raw.replace(/^\d+\.\s*/, "").trim()
 }
 
-// ============================================================================
-// VOICE
-// ============================================================================
+function mapVoice(files: ZoryonSourceFiles, warnings: SeedWarning[]) {
+  const vg = stripBlockquotes(files.voiceGuide)
 
-function mapVoice(files: ZoryonSourceFiles) {
-  const vg = stripFrontmatter(files.voiceGuide)
-
-  // Atributos: valores oficiais definidos no voice guide
+  // Valores oficiais definidos no voice guide (não estão estruturados de forma
+  // parseável no MD — hardcoded para evitar regex frágil).
   const atributos = { direto: 80, acessivel: 70, firme: 75, humano: 75, tecnico: 30 }
 
   const tomSection = findSection(vg, /Identidade de Voz|Tom de Voz/i)
   const tom = tomSection ? extractFirstParagraph(tomSection.content) : ""
+  if (!tom) {
+    warnings.push({
+      section: "voice",
+      field: "tom",
+      reason: "no section matched /Identidade de Voz|Tom de Voz/i in voice guide",
+    })
+  }
 
   const vocabSection = findSection(vg, /Vocabulário Oficial/i)
+  if (!vocabSection) {
+    warnings.push({
+      section: "voice",
+      field: "vocabulario",
+      reason: "no section matched /Vocabulário Oficial/i in voice guide",
+    })
+  }
   const useBullets = vocabSection
     ? extractBulletsFromSubsection(vocabSection.content, /Use sempre/i)
     : []
   const avoidBullets = vocabSection
     ? extractBulletsFromSubsection(vocabSection.content, /Nunca use/i)
     : []
+  if (vocabSection && useBullets.length === 0) {
+    warnings.push({
+      section: "voice",
+      field: "vocabulario.use",
+      reason: "subsection /Use sempre/i empty or missing in vocabulario",
+    })
+  }
+  if (vocabSection && avoidBullets.length === 0) {
+    warnings.push({
+      section: "voice",
+      field: "vocabulario.avoid",
+      reason: "subsection /Nunca use/i empty or missing in vocabulario",
+    })
+  }
 
   const beliefsSection = findSection(vg, /Crenças que Combatemos/i)
   const crencasCombatidas = beliefsSection
@@ -163,10 +218,6 @@ function extractBulletsFromSubsection(content: string, titlePattern: RegExp): st
   return extractBullets(section.content)
 }
 
-// ============================================================================
-// VISUAL
-// ============================================================================
-
 function mapVisual(files: ZoryonSourceFiles) {
   const vars = parseCssVariables(files.designTokens)
   const colors: Record<string, string> = {}
@@ -189,18 +240,22 @@ function mapVisual(files: ZoryonSourceFiles) {
   }
 }
 
-// ============================================================================
-// AUDIENCE
-// ============================================================================
-
-function mapAudience(files: ZoryonSourceFiles) {
-  const md = stripFrontmatter(files.avatares)
+function mapAudience(files: ZoryonSourceFiles, warnings: SeedWarning[]) {
+  const md = stripBlockquotes(files.avatares)
   const sections = extractSections(md, 2)
   const avatares: BrandAvatar[] = []
 
   for (const s of sections) {
+    if (!/^Avatar\s+\d+/i.test(s.title)) continue
     const m = s.title.match(/^Avatar\s+(\d+):\s*(.+)$/i)
-    if (!m) continue
+    if (!m) {
+      warnings.push({
+        section: "audience",
+        field: "avatar",
+        reason: `avatar section title did not match pattern: ${s.title}`,
+      })
+      continue
+    }
     const [, , nome] = m
     avatares.push(parseAvatar(nome, s.content))
   }
@@ -239,23 +294,46 @@ function parseAvatar(nome: string, content: string): BrandAvatar {
   }
 }
 
-// ============================================================================
-// OFFER (setores + pricing + cursos)
-// ============================================================================
-
-function mapOffer(files: ZoryonSourceFiles) {
-  const md = stripFrontmatter(files.catalogoServicos)
+function mapOffer(files: ZoryonSourceFiles, warnings: SeedWarning[]) {
+  const md = stripBlockquotes(files.catalogoServicos)
   const setorSection = findSection(md, /Os Setores que a Zoryon Cria/i)
   const setores: BrandSetor[] = []
 
-  if (setorSection) {
+  if (!setorSection) {
+    warnings.push({
+      section: "offer",
+      field: "setores",
+      reason: "no section matched /Os Setores que a Zoryon Cria/i in catalogo-servicos",
+    })
+  } else {
     const subs = extractSections(setorSection.content, 3)
     for (const s of subs) {
       const m = s.title.match(/^\d+\.\s*(.+)$/)
-      if (!m) continue
+      if (!m) {
+        warnings.push({
+          section: "offer",
+          field: "setor",
+          reason: `setor discarded: title did not match /^\\d+\\.\\s*(.+)$/: ${s.title}`,
+        })
+        continue
+      }
       const nome = m[1].trim()
       const incluiMatch = s.content.match(/\*\*O que inclui:\*\*([\s\S]*?)(?=\*\*|$)/i)
       const problemasMatch = s.content.match(/\*\*Problemas que resolve:\*\*\s*(.+?)(?=\n|$)/i)
+      if (!incluiMatch) {
+        warnings.push({
+          section: "offer",
+          field: `setor.${nome}.inclui`,
+          reason: "no **O que inclui:** block found",
+        })
+      }
+      if (!problemasMatch) {
+        warnings.push({
+          section: "offer",
+          field: `setor.${nome}.problemas`,
+          reason: "no **Problemas que resolve:** block found",
+        })
+      }
       setores.push({
         id: slugify(nome),
         nome,
@@ -270,16 +348,79 @@ function mapOffer(files: ZoryonSourceFiles) {
     }
   }
 
-  // Pricing (extraído do modelo-receita ou hardcoded conforme doc)
-  const pricing = { setupMin: 10000, setupMax: 20000, recMin: 2500, recMax: 7000 }
-
+  const pricing = parsePricing(files.modeloReceita, warnings)
   const cursos = mapCourses(files.estruturaCursos)
 
   return { setores, pricing, courses: cursos }
 }
 
+// Extrai ranges de pricing do 04-modelo-receita.md. Padrão esperado em tabela:
+//   | Setup (implementação)        | R$10.000 – R$20.000     | ... |
+//   | Recorrência (acompanhamento) | R$2.500 – R$7.000/mês   | ... |
+// Aceita "-" ou "–" como separador. Se a regex falhar, emite warning e cai
+// no fallback hardcoded (valores atuais conhecidos do brandkit).
+function parsePricing(md: string, warnings: SeedWarning[]) {
+  const stripped = stripBlockquotes(md)
+  const fallback = { setupMin: 10000, setupMax: 20000, recMin: 2500, recMax: 7000 }
+
+  const rangeRe = /R\$\s*([\d.,]+)\s*[-–]\s*R\$\s*([\d.,]+)/i
+  const lines = stripped.split("\n")
+  const setupLine = lines.find((l) => /setup/i.test(l) && /R\$/.test(l))
+  const recLine = lines.find((l) => /recorr/i.test(l) && /R\$/.test(l) && /mês/i.test(l))
+
+  let { setupMin, setupMax, recMin, recMax } = fallback
+
+  if (setupLine) {
+    const m = setupLine.match(rangeRe)
+    if (m) {
+      setupMin = parseBrl(m[1])
+      setupMax = parseBrl(m[2])
+    } else {
+      warnings.push({
+        section: "offer",
+        field: "pricing.setup",
+        reason: `setup line found but range regex failed: "${setupLine.trim()}"`,
+      })
+    }
+  } else {
+    warnings.push({
+      section: "offer",
+      field: "pricing.setup",
+      reason: "no line matching /setup/ + R$ found in modelo-receita; using fallback",
+    })
+  }
+
+  if (recLine) {
+    const m = recLine.match(rangeRe)
+    if (m) {
+      recMin = parseBrl(m[1])
+      recMax = parseBrl(m[2])
+    } else {
+      warnings.push({
+        section: "offer",
+        field: "pricing.recorrencia",
+        reason: `recorrência line found but range regex failed: "${recLine.trim()}"`,
+      })
+    }
+  } else {
+    warnings.push({
+      section: "offer",
+      field: "pricing.recorrencia",
+      reason: "no line matching /recorr/ + R$/mês found in modelo-receita; using fallback",
+    })
+  }
+
+  return { setupMin, setupMax, recMin, recMax }
+}
+
+// "10.000" → 10000, "2.500" → 2500. Brazilian thousand separator is dot.
+function parseBrl(raw: string): number {
+  const digits = raw.replace(/[^\d]/g, "")
+  return digits ? parseInt(digits, 10) : 0
+}
+
 function mapCourses(md: string): BrandCourse[] {
-  const content = stripFrontmatter(md)
+  const content = stripBlockquotes(md)
   const sections = extractSections(content, 2)
   const courses: BrandCourse[] = []
   for (const s of sections) {
@@ -300,12 +441,8 @@ function mapCourses(md: string): BrandCourse[] {
   return courses
 }
 
-// ============================================================================
-// JOURNEY
-// ============================================================================
-
 function mapJourney(files: ZoryonSourceFiles) {
-  const md = stripFrontmatter(files.jornadaCliente)
+  const md = stripBlockquotes(files.jornadaCliente)
   const sections = extractSections(md, 2)
 
   const motorServicos = sections
@@ -333,26 +470,50 @@ function mapJourney(files: ZoryonSourceFiles) {
   return { motorServicos, motorEducacao }
 }
 
-// ============================================================================
-// CONTENT (pilares + canais)
-// ============================================================================
-
-function mapContent(files: ZoryonSourceFiles) {
-  const md = stripFrontmatter(files.estrategiaConteudo)
+function mapContent(files: ZoryonSourceFiles, warnings: SeedWarning[]) {
+  const md = stripBlockquotes(files.estrategiaConteudo)
   const pilaresSection = findSection(md, /Os 4 Pilares|Pilares de Conteúdo/i)
   const pilares: BrandContentPilar[] = []
 
-  if (pilaresSection) {
+  if (!pilaresSection) {
+    warnings.push({
+      section: "content",
+      field: "pilares",
+      reason: "no section matched /Os 4 Pilares|Pilares de Conteúdo/i in estrategia-conteudo",
+    })
+  } else {
     const subs = extractSections(pilaresSection.content, 3)
     for (const s of subs) {
       const m = s.title.match(/^Pilar\s+\d+\s*[—-]\s*(.+)$/i)
-      if (!m) continue
+      if (!m) {
+        warnings.push({
+          section: "content",
+          field: "pilar",
+          reason: `pilar discarded: title did not match /^Pilar\\s+\\d+\\s*[—-]\\s*(.+)$/: ${s.title}`,
+        })
+        continue
+      }
       const nome = m[1].trim()
       const objMatch = s.content.match(/\*\*Objetivo:\*\*\s*(.+?)(?=\n|$)/i)
       const logicaMatch = s.content.match(/\*\*A lógica:\*\*\s*(.+?)(?=\n|$)/i)
       const exemplosMatch = s.content.match(/\*\*Exemplos de conteúdo:\*\*([\s\S]*?)(?=\*\*|$)/i)
       const ctaMatch = s.content.match(/\*\*CTA padrão:?\*\*([\s\S]*?)(?=\*\*|$)/i)
       const papelMatch = s.content.match(/\*\*Papel no funil:\*\*\s*(.+?)(?=\n|$)/i)
+
+      if (!objMatch) {
+        warnings.push({
+          section: "content",
+          field: `pilar.${nome}.objetivo`,
+          reason: "no **Objetivo:** block found",
+        })
+      }
+      if (!logicaMatch) {
+        warnings.push({
+          section: "content",
+          field: `pilar.${nome}.logica`,
+          reason: "no **A lógica:** block found",
+        })
+      }
 
       pilares.push({
         nome,
@@ -371,7 +532,7 @@ function mapContent(files: ZoryonSourceFiles) {
 }
 
 function mapCanais(md: string): BrandContentCanal[] {
-  const content = stripFrontmatter(md)
+  const content = stripBlockquotes(md)
   const sections = extractSections(content, 2)
   const canais: BrandContentCanal[] = []
   let prioridade = 1
@@ -393,10 +554,6 @@ function mapCanais(md: string): BrandContentCanal[] {
   }
   return canais
 }
-
-// ============================================================================
-// UTILS
-// ============================================================================
 
 function slugify(input: string): string {
   return input

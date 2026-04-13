@@ -1,15 +1,13 @@
-// ============================================================================
-// MARKDOWN PARSING HELPERS
-// ============================================================================
 // Heurísticas simples para extrair seções, bullets e tabelas dos MDs do
 // brandkit. Não é um parser MD completo — só cobre os padrões que usamos no
 // Zoryon. Caso um documento tenha estrutura diferente, o mapper resolve caso
 // a caso.
-// ============================================================================
 
 export type Section = { title: string; content: string; level: number }
 
-export function stripFrontmatter(md: string): string {
+// Remove linhas de blockquote (> ...) do markdown. Os MDs do brandkit usam
+// blockquotes para metadados/callouts que atrapalham a extração de seções.
+export function stripBlockquotes(md: string): string {
   return md.replace(/^>\s.*$/gm, "").trim()
 }
 
@@ -118,10 +116,6 @@ export function extractAllParagraphs(content: string): string[] {
     .map((p) => p.trim())
     .filter(Boolean)
 }
-
-// ============================================================================
-// CSS VARIABLE PARSER
-// ============================================================================
 
 export function parseCssVariables(css: string): Record<string, string> {
   const vars: Record<string, string> = {}

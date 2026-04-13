@@ -8,10 +8,12 @@ import {
   pgEnum,
   index,
   unique,
+  uniqueIndex,
   jsonb,
   primaryKey,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
+import type { BrandConfig } from "@/lib/brands/schema";
 
 // Enums
 export const contentStatusEnum = pgEnum("content_status", [
@@ -2036,7 +2038,7 @@ export const brands = pgTable(
     name: text("name").notNull(),
     isDefault: boolean("is_default").default(false).notNull(),
     ownerUserId: text("owner_user_id").references(() => users.id, { onDelete: "set null" }),
-    config: jsonb("config").notNull(),
+    config: jsonb("config").$type<BrandConfig>().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -2044,6 +2046,9 @@ export const brands = pgTable(
     index("brands_slug_idx").on(table.slug),
     index("brands_is_default_idx").on(table.isDefault),
     index("brands_owner_user_id_idx").on(table.ownerUserId),
+    uniqueIndex("brands_single_default_idx")
+      .on(table.isDefault)
+      .where(sql`is_default = true`),
   ]
 );
 
@@ -2054,7 +2059,7 @@ export const brandVersions = pgTable(
     brandId: integer("brand_id")
       .notNull()
       .references(() => brands.id, { onDelete: "cascade" }),
-    config: jsonb("config").notNull(),
+    config: jsonb("config").$type<BrandConfig>().notNull(),
     message: text("message"),
     createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "brands_single_default_idx" ON "brands" USING btree ("is_default") WHERE is_default = true;

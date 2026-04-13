@@ -336,6 +336,53 @@ Campos esparsos (setor.metricas, avatares.estagio vazio em alguns) são aceitáv
 
 ---
 
+## ✅ PR 1 Review Fixes (aplicados)
+
+Após review via `pr-review-toolkit`, aplicados em 4 agentes paralelos:
+
+### Core logic (queries/context/seed)
+- `updateBrandConfig` atômico via `db.batch([...])` — neon-http não suporta `db.transaction`
+- `getBrandConfig` lança `ConfigError` com `issues` do Zod (em vez de `null` silencioso)
+- `context.ts` usa `NotFoundError`/`ConfigError` de `src/lib/errors.ts`
+- `ACTIVE_BRAND_SLUG` inexistente agora lança em vez de fallback silencioso
+- Seed usa `createBrand`/`updateBrandConfig` (via queries layer) — preserva `seededAt` original
+- `readBrandkitFile` com erro contextualizado por campo
+
+### Parser/mapper
+- `buildZoryonConfig` retorna `{ config, warnings[] }` — acumula `SeedWarning` quando regex falha
+- `parsePricing` parseia ranges do `04-modelo-receita.md` (fallback hardcoded com warning)
+- `stripBlockquotes` renomeado (era `stripFrontmatter`, não removia frontmatter)
+- Banners ASCII decorativos removidos
+
+### Schema Zod/Drizzle
+- `brands.config` e `brand_versions.config` tipados como `jsonb().$type<BrandConfig>()`
+- Partial unique index `brands_single_default_idx` em `is_default WHERE is_default = true` (migration 0030)
+- `slugSchema` regex kebab-case lowercase exportado
+- `pricing` com `.refine()` para setupMin≤setupMax e recMin≤recMax
+- Journey stages separados em `servico` (com `saidas`) e `educacao` (sem)
+- `seededAt` como `z.string().datetime()`
+
+### Testes (novo precedente)
+- Vitest instalado, `vitest.config.ts` na raiz
+- `src/lib/brands/__tests__/` com 30 testes (parse-markdown, schema, queries) — todos passam
+- Scripts npm `test` e `test:watch`
+
+## ✅ PR 2 — Injeção do brand ativo no Tribal v4 (feito nesta mesma sessão)
+
+- `src/lib/brands/injection.ts`: `brandConfigToPromptVariables`, `getBrandPromptVariables`, builders por bloco
+- `llm.service.ts`: `loadAndFormatUserVariables` agora tem **3 camadas** de precedência: marca ativa (base) < user variables < inputs do wizard
+- `generate-titles/route.ts`: mesmo padrão de merge para rotas de vídeo
+- Helper `splitCsv` localizado na rota que precisa
+- Zero mudanças em `prompts.ts` — injeção via `variablesContext` string (arquitetura existente)
+
+## 📊 Estado do DB (produção `shy-voice-16533241`)
+
+- Migration 0029 aplicada ✅
+- Migration 0030 aplicada ✅ (partial unique index)
+- Zoryon re-seedada via queries layer ✅ (versions_count=1, seededAt preservado)
+
 ## 🔄 Changelog deste documento
 
 - **2026-04-13** — Documento criado, PR 1 iniciado
+- **2026-04-13** — PR 1 concluído (commit `12fcf53`)
+- **2026-04-13** — PR 1 review fixes + PR 2 (injeção Tribal v4) concluídos
