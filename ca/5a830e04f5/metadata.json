@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "ca5a830e04f5",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/app/(app)/settings/actions/brand.ts",
+    "src/app/(app)/settings/components/sections/brand-section.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/ca/5a830e04f5/0/metadata.json",
+      "transcript": "/ca/5a830e04f5/0/full.jsonl",
+      "content_hash": "/ca/5a830e04f5/0/content_hash.txt",
+      "prompt": "/ca/5a830e04f5/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2158,
+    "cache_creation_tokens": 850530,
+    "cache_read_tokens": 56090912,
+    "output_tokens": 230392,
+    "api_call_count": 205
+  }
+}
