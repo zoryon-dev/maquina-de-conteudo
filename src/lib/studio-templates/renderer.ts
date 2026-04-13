@@ -19,6 +19,11 @@ import { generateSuperHeadlineHtml } from "./super-headline";
 import { generateImageOverlayHtml } from "./image-overlay";
 import { generateImageSplitHtml } from "./image-split";
 import { generateImageMinimalHtml } from "./image-minimal";
+// BrandsDecoded templates
+import { generateBDCapaHtml } from "./brandsdecoded/bd-capa";
+import { generateBDDarkHtml } from "./brandsdecoded/bd-dark";
+import { generateBDLightHtml } from "./brandsdecoded/bd-light";
+import { generateBDCtaHtml } from "./brandsdecoded/bd-cta";
 
 // ============================================================================
 // RENDERER TYPES
@@ -105,6 +110,23 @@ export function renderSlideToHtml(input: RenderSlideInput): RenderSlideResult {
 
     case "IMAGE_MINIMAL":
       html = generateImageMinimalHtml({ slide, profile, header, isLastSlide });
+      break;
+
+    // === BRANDSDECODED V4 ===
+    case "BD_CAPA":
+      html = generateBDCapaHtml({ slide, profile, header, slideIndex, totalSlides });
+      break;
+
+    case "BD_DARK":
+      html = generateBDDarkHtml({ slide, profile, header, slideIndex, totalSlides });
+      break;
+
+    case "BD_LIGHT":
+      html = generateBDLightHtml({ slide, profile, header, slideIndex, totalSlides });
+      break;
+
+    case "BD_CTA":
+      html = generateBDCtaHtml({ slide, profile, header, slideIndex, totalSlides });
       break;
 
     default:

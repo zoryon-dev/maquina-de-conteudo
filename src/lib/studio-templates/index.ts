@@ -11,6 +11,7 @@
 
 export type {
   FigmaTemplate,
+  TemplateMotor,
   StudioContentType,
   AspectRatio,
   StudioProfile,
@@ -76,6 +77,19 @@ export type { TemplateImageSplitInput } from "./image-split";
 export { generateImageMinimalHtml } from "./image-minimal";
 export type { TemplateImageMinimalInput } from "./image-minimal";
 
+// BrandsDecoded v4 Templates
+export { generateBDCapaHtml } from "./brandsdecoded/bd-capa";
+export type { TemplateBDCapaInput } from "./brandsdecoded/bd-capa";
+
+export { generateBDDarkHtml } from "./brandsdecoded/bd-dark";
+export type { TemplateBDDarkInput } from "./brandsdecoded/bd-dark";
+
+export { generateBDLightHtml } from "./brandsdecoded/bd-light";
+export type { TemplateBDLightInput } from "./brandsdecoded/bd-light";
+
+export { generateBDCtaHtml } from "./brandsdecoded/bd-cta";
+export type { TemplateBDCtaInput } from "./brandsdecoded/bd-cta";
+
 // ============================================================================
 // RENDERER
 // ============================================================================
@@ -93,7 +107,7 @@ export type { RenderSlideInput, RenderSlideResult } from "./renderer";
 // HELPERS
 // ============================================================================
 
-import type { FigmaTemplate } from "./types";
+import type { FigmaTemplate, TemplateMotor } from "./types";
 import { TEMPLATE_METADATA } from "./types";
 
 /**
@@ -141,5 +155,25 @@ export function getRecommendedTemplatesForPosition(
 ): FigmaTemplate[] {
   return (Object.entries(TEMPLATE_METADATA) as [FigmaTemplate, typeof TEMPLATE_METADATA[FigmaTemplate]][])
     .filter(([, meta]) => meta.recommendedUse === position || meta.recommendedUse === "any")
+    .map(([id]) => id);
+}
+
+/**
+ * Retorna templates compatíveis com um motor específico.
+ *
+ * Retorna:
+ * - Templates com `motor` igual ao informado (ex: `brandsdecoded_v4`)
+ * - Templates genéricos (sem `motor` definido) — compatíveis com qualquer motor
+ *
+ * Se `motor` for `undefined`, retorna todos os templates.
+ */
+export function getTemplatesForMotor(
+  motor?: TemplateMotor
+): FigmaTemplate[] {
+  if (!motor) {
+    return Object.keys(TEMPLATE_METADATA) as FigmaTemplate[];
+  }
+  return (Object.entries(TEMPLATE_METADATA) as [FigmaTemplate, typeof TEMPLATE_METADATA[FigmaTemplate]][])
+    .filter(([, meta]) => !meta.motor || meta.motor === motor)
     .map(([id]) => id);
 }

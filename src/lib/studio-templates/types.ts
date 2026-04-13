@@ -37,7 +37,22 @@ export type FigmaTemplate =
   | "SUPER_HEADLINE"
   | "IMAGE_OVERLAY"
   | "IMAGE_SPLIT"
-  | "IMAGE_MINIMAL";
+  | "IMAGE_MINIMAL"
+  // BrandsDecoded v4 — alternado dark/light com tom editorial-jornalístico
+  | "BD_CAPA"
+  | "BD_DARK"
+  | "BD_LIGHT"
+  | "BD_CTA";
+
+/**
+ * Motor de criação de conteúdo que o template é projetado para servir.
+ *
+ * - `tribal_v4`: ângulos tribais (hook emocional, urgência, identidade)
+ * - `brandsdecoded_v4`: análise editorial (Folha de S.Paulo, 9 slides alternados)
+ *
+ * Templates sem motor são considerados genéricos/compatíveis com qualquer motor.
+ */
+export type TemplateMotor = "tribal_v4" | "brandsdecoded_v4";
 
 /**
  * Tipo de conteúdo que pode ser criado no Studio
@@ -191,6 +206,13 @@ export interface TemplateMetadata {
   supportsImage: boolean;
   /** Se exibe swipe indicator por padrão */
   defaultShowSwipe: boolean;
+  /**
+   * Motor de conteúdo ao qual o template pertence.
+   * Se omitido, o template é considerado genérico (compatível com todos os motores).
+   */
+  motor?: TemplateMotor;
+  /** Tags livres para filtragem/agrupamento na galeria */
+  tags?: string[];
 }
 
 /**
@@ -309,6 +331,55 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     supportsBackgroundImage: true,
     supportsImage: false,
     defaultShowSwipe: false,
+  },
+  // === BRANDSDECODED V4 (alternado claro/escuro, tom editorial) ===
+  "BD_CAPA": {
+    id: "BD_CAPA",
+    label: "BrandsDecoded — Capa",
+    description: "Capa editorial: foto full-bleed + headline condensada + badge do handle",
+    recommendedUse: "cover",
+    requiredFields: ["texto1"],
+    supportsBackgroundImage: true,
+    supportsImage: false,
+    defaultShowSwipe: false,
+    motor: "brandsdecoded_v4",
+    tags: ["bd", "capa", "editorial"],
+  },
+  "BD_DARK": {
+    id: "BD_DARK",
+    label: "BrandsDecoded — Dark",
+    description: "Slide escuro com headline forte + parágrafo (slides 2, 4, 6)",
+    recommendedUse: "content",
+    requiredFields: ["texto1", "texto2"],
+    supportsBackgroundImage: true,
+    supportsImage: false,
+    defaultShowSwipe: false,
+    motor: "brandsdecoded_v4",
+    tags: ["bd", "dark", "editorial"],
+  },
+  "BD_LIGHT": {
+    id: "BD_LIGHT",
+    label: "BrandsDecoded — Light",
+    description: "Slide claro com densidade de parágrafo (slides 3, 5, 7, 9)",
+    recommendedUse: "content",
+    requiredFields: ["texto1", "texto2"],
+    supportsBackgroundImage: true,
+    supportsImage: false,
+    defaultShowSwipe: false,
+    motor: "brandsdecoded_v4",
+    tags: ["bd", "light", "editorial"],
+  },
+  "BD_CTA": {
+    id: "BD_CTA",
+    label: "BrandsDecoded — CTA (Gradient)",
+    description: "Slide de direção/CTA com gradient + keyword box (slide 8)",
+    recommendedUse: "final",
+    requiredFields: ["texto1"],
+    supportsBackgroundImage: false,
+    supportsImage: false,
+    defaultShowSwipe: false,
+    motor: "brandsdecoded_v4",
+    tags: ["bd", "cta", "gradient"],
   },
 };
 

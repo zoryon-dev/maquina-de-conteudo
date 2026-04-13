@@ -25,6 +25,8 @@ import {
   Layers,
   SplitSquareHorizontal,
   ImageIcon,
+  Newspaper,
+  Megaphone,
   LucideIcon,
 } from "lucide-react";
 import { useStudioStore, useActiveSlide } from "@/stores/studio-store";
@@ -48,6 +50,11 @@ const TEMPLATE_ICONS: Record<FigmaTemplate, LucideIcon> = {
   "IMAGE_OVERLAY": Layers,
   "IMAGE_SPLIT": SplitSquareHorizontal,
   "IMAGE_MINIMAL": ImageIcon,
+  // BrandsDecoded v4
+  "BD_CAPA": Newspaper,
+  "BD_DARK": Moon,
+  "BD_LIGHT": Sun,
+  "BD_CTA": Megaphone,
 };
 
 // Cores de preview para cada template
@@ -69,6 +76,11 @@ const TEMPLATE_PREVIEW_COLORS: Record<
   "IMAGE_OVERLAY": { bg: "#1a1a2e", accent: "#ffffff" },
   "IMAGE_SPLIT": { bg: "#f5f5f5", accent: "#1a1a2e" },
   "IMAGE_MINIMAL": { bg: "#2a2a3e", accent: "#e0e0e0" },
+  // BrandsDecoded v4
+  "BD_CAPA": { bg: "#0F0D0C", accent: "#C8321E" },
+  "BD_DARK": { bg: "#0F0D0C", accent: "#C8321E" },
+  "BD_LIGHT": { bg: "#F5F2EF", accent: "#C8321E" },
+  "BD_CTA": { bg: "#8B2412", accent: "#ffffff" },
 };
 
 // Categorias de templates
@@ -87,6 +99,11 @@ const TEMPLATE_CATEGORIES = {
     label: "Com Imagem",
     description: "Templates com imagem de fundo",
     templates: ["IMAGE_OVERLAY", "IMAGE_SPLIT", "IMAGE_MINIMAL"] as FigmaTemplate[],
+  },
+  brandsdecoded: {
+    label: "BrandsDecoded",
+    description: "Alternado dark/light, tom editorial",
+    templates: ["BD_CAPA", "BD_DARK", "BD_LIGHT", "BD_CTA"] as FigmaTemplate[],
   },
 };
 
@@ -150,7 +167,9 @@ function TemplateCard({ template, isSelected, onClick }: TemplateCardProps) {
 export function TemplateGallery() {
   const activeSlide = useActiveSlide();
   const setSlideTemplate = useStudioStore((state) => state.setSlideTemplate);
-  const [activeCategory, setActiveCategory] = useState<"figma" | "generic" | "image">("figma");
+  const [activeCategory, setActiveCategory] = useState<
+    "figma" | "generic" | "image" | "brandsdecoded"
+  >("figma");
 
   if (!activeSlide) return null;
 
@@ -196,6 +215,17 @@ export function TemplateGallery() {
           )}
         >
           Com Imagem
+        </button>
+        <button
+          onClick={() => setActiveCategory("brandsdecoded")}
+          className={cn(
+            "flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors",
+            activeCategory === "brandsdecoded"
+              ? "bg-white/10 text-white"
+              : "text-white/50 hover:text-white/70"
+          )}
+        >
+          BrandsDecoded
         </button>
       </div>
 

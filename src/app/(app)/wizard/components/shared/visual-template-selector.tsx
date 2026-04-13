@@ -25,6 +25,9 @@ import {
   Palette,
   Image as ImageIcon,
   Wand2,
+  Newspaper,
+  Sparkles,
+  Megaphone,
   type LucideIcon,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -32,6 +35,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
   type FigmaTemplate,
+  type TemplateMotor,
   TEMPLATE_METADATA,
 } from "@/lib/studio-templates/types";
 
@@ -48,6 +52,10 @@ const TEMPLATE_ICONS: Record<FigmaTemplate, LucideIcon> = {
   "IMAGE_OVERLAY": Layers,
   "IMAGE_SPLIT": SplitSquareHorizontal,
   "IMAGE_MINIMAL": ImageIcon,
+  "BD_CAPA": Newspaper,
+  "BD_DARK": Moon,
+  "BD_LIGHT": Sun,
+  "BD_CTA": Megaphone,
 };
 
 // Cores de preview para cada template
@@ -66,10 +74,30 @@ const TEMPLATE_PREVIEW_COLORS: Record<
   "IMAGE_OVERLAY": { bg: "#1a1a2e", accent: "#ffffff", textPreview: "Texto sobre imagem" },
   "IMAGE_SPLIT": { bg: "#f5f5f5", accent: "#1a1a2e", textPreview: "Imagem + card" },
   "IMAGE_MINIMAL": { bg: "#2a2a3e", accent: "#e0e0e0", textPreview: "Imagem protagonista" },
+  "BD_CAPA": { bg: "#0F0D0C", accent: "#C8321E", textPreview: "Capa editorial" },
+  "BD_DARK": { bg: "#0F0D0C", accent: "#C8321E", textPreview: "Dark editorial" },
+  "BD_LIGHT": { bg: "#F5F2EF", accent: "#C8321E", textPreview: "Light editorial" },
+  "BD_CTA": { bg: "#8B2412", accent: "#ffffff", textPreview: "CTA gradient" },
 };
 
+type CategoryKey = "brandsdecoded" | "figma" | "generic" | "image";
+
 // Categorias de templates
-const TEMPLATE_CATEGORIES = {
+const TEMPLATE_CATEGORIES: Record<
+  CategoryKey,
+  {
+    label: string;
+    description: string;
+    templates: FigmaTemplate[];
+    motor?: TemplateMotor;
+  }
+> = {
+  brandsdecoded: {
+    label: "BrandsDecoded",
+    description: "Alternado dark/light, tom editorial (9 slides)",
+    templates: ["BD_CAPA", "BD_DARK", "BD_LIGHT", "BD_CTA"] as FigmaTemplate[],
+    motor: "brandsdecoded_v4",
+  },
   figma: {
     label: "Com Perfil",
     description: "Templates com avatar e @handle visíveis",
@@ -89,6 +117,7 @@ const TEMPLATE_CATEGORIES = {
 
 // Templates recomendados para carrossel
 const CAROUSEL_RECOMMENDED = ["202", "201", "203"] as FigmaTemplate[];
+const BD_RECOMMENDED = ["BD_CAPA", "BD_DARK", "BD_LIGHT", "BD_CTA"] as FigmaTemplate[];
 
 export interface VisualTemplateConfig {
   applyToAllSlides?: boolean;
@@ -103,6 +132,12 @@ interface VisualTemplateSelectorProps {
   onConfigChange: (config: VisualTemplateConfig) => void;
   contentType: "carousel" | "image" | "text";
   className?: string;
+  /**
+   * Se fornecido, filtra templates pelo motor compatível.
+   * Templates com `motor` igual ao filtro + templates genéricos (sem motor).
+   * Se omitido, mostra todos.
+   */
+  motorFilter?: TemplateMotor;
 }
 
 interface TemplateCardProps {
@@ -206,11 +241,33 @@ export function VisualTemplateSelector({
   onConfigChange,
   contentType,
   className,
+  motorFilter,
 }: VisualTemplateSelectorProps) {
-  const [activeCategory, setActiveCategory] = useState<"figma" | "generic" | "image">("figma");
+  // Categorias visíveis dado o filtro de motor:
+  // - Categoria com motor igual ao filtro: incluída
+  // - Categorias sem motor (genéricas): sempre incluídas
+  // - Categoria com outro motor: oculta
+  const visibleCategoryKeys = (
+    Object.entries(TEMPLATE_CATEGORIES) as [CategoryKey, typeof TEMPLATE_CATEGORIES[CategoryKey]][]
+  )
+    .filter(([, cat]) => !motorFilter || !cat.motor || cat.motor === motorFilter)
+    .map(([key]) => key);
+
+  // Default: se motorFilter=brandsdecoded_v4, começa na categoria BD; senão, figma.
+  const defaultCategory: CategoryKey =
+    motorFilter === "brandsdecoded_v4" ? "brandsdecoded" : "figma";
+  const initialCategory = visibleCategoryKeys.includes(defaultCategory)
+    ? defaultCategory
+    : visibleCategoryKeys[0] || "figma";
+
+  const [activeCategory, setActiveCategory] = useState<CategoryKey>(initialCategory);
   const [isExpanded, setIsExpanded] = useState(!!selectedTemplate);
 
-  const currentCategory = TEMPLATE_CATEGORIES[activeCategory];
+  // Se a categoria ativa ficou invisível por mudança de filtro, resetar para primeira visível
+  const safeCategory: CategoryKey = visibleCategoryKeys.includes(activeCategory)
+    ? activeCategory
+    : visibleCategoryKeys[0] || "figma";
+  const currentCategory = TEMPLATE_CATEGORIES[safeCategory];
 
   const handleTemplateSelect = (template: FigmaTemplate) => {
     if (selectedTemplate === template) {
@@ -266,42 +323,22 @@ export function VisualTemplateSelector({
 
       {/* Category Tabs */}
       <div className="flex gap-1 p-1 bg-white/5 rounded-lg">
-        <button
-          type="button"
-          onClick={() => setActiveCategory("figma")}
-          className={cn(
-            "flex-1 px-3 py-2 rounded-md text-xs font-medium transition-all",
-            activeCategory === "figma"
-              ? "bg-white/10 text-white shadow-sm"
-              : "text-white/50 hover:text-white/70"
-          )}
-        >
-          {TEMPLATE_CATEGORIES.figma.label}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveCategory("generic")}
-          className={cn(
-            "flex-1 px-3 py-2 rounded-md text-xs font-medium transition-all",
-            activeCategory === "generic"
-              ? "bg-white/10 text-white shadow-sm"
-              : "text-white/50 hover:text-white/70"
-          )}
-        >
-          {TEMPLATE_CATEGORIES.generic.label}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveCategory("image")}
-          className={cn(
-            "flex-1 px-3 py-2 rounded-md text-xs font-medium transition-all",
-            activeCategory === "image"
-              ? "bg-white/10 text-white shadow-sm"
-              : "text-white/50 hover:text-white/70"
-          )}
-        >
-          {TEMPLATE_CATEGORIES.image.label}
-        </button>
+        {visibleCategoryKeys.map((key) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setActiveCategory(key)}
+            className={cn(
+              "flex-1 px-3 py-2 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5",
+              safeCategory === key
+                ? "bg-white/10 text-white shadow-sm"
+                : "text-white/50 hover:text-white/70"
+            )}
+          >
+            {key === "brandsdecoded" && <Sparkles className="w-3 h-3" />}
+            {TEMPLATE_CATEGORIES[key].label}
+          </button>
+        ))}
       </div>
 
       {/* Category Description */}
@@ -311,17 +348,22 @@ export function VisualTemplateSelector({
 
       {/* Template Grid */}
       <div className="grid grid-cols-4 gap-2">
-        {currentCategory.templates.map((template) => (
-          <TemplateCard
-            key={template}
-            template={template}
-            isSelected={selectedTemplate === template}
-            isRecommended={
-              contentType === "carousel" && CAROUSEL_RECOMMENDED.includes(template)
-            }
-            onClick={() => handleTemplateSelect(template)}
-          />
-        ))}
+        {currentCategory.templates.map((template) => {
+          const isBDRecommended =
+            motorFilter === "brandsdecoded_v4" &&
+            BD_RECOMMENDED.includes(template);
+          const isCarouselRecommended =
+            contentType === "carousel" && CAROUSEL_RECOMMENDED.includes(template);
+          return (
+            <TemplateCard
+              key={template}
+              template={template}
+              isSelected={selectedTemplate === template}
+              isRecommended={isBDRecommended || isCarouselRecommended}
+              onClick={() => handleTemplateSelect(template)}
+            />
+          );
+        })}
       </div>
 
       {/* Options (when template selected) */}

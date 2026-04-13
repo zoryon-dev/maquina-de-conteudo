@@ -202,6 +202,30 @@ function mapSlideContent(
       texto2 = slide.corpo;
       break;
 
+    case "BD_CAPA":
+      // BD cover: título como headline, subtítulo/throughline como secundário
+      texto1 = slide.titulo;
+      texto1Bold = true;
+      texto2 = slide.corpo;
+      break;
+
+    case "BD_DARK":
+    case "BD_LIGHT":
+      // BD internos: titulo headline, corpo parágrafo editorial (20-34 palavras),
+      // conexao_proximo como card de destaque opcional
+      texto1 = slide.titulo;
+      texto2 = slide.corpo;
+      texto3 = slide.conexao_proximo || "";
+      break;
+
+    case "BD_CTA":
+      // BD CTA: título headline, corpo frase-ponte, conexao_proximo como keyword
+      texto1 = slide.titulo;
+      texto2 = slide.corpo;
+      texto3 = slide.conexao_proximo || "";
+      texto3Bold = true;
+      break;
+
     default:
       texto1 = slide.titulo;
       texto2 = slide.corpo;
