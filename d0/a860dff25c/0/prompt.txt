@@ -85,3 +85,39 @@ positivo
 **Verificação:** `tsc --noEmit --skipLibCheck` zero erros nos três arquivos; `npm run test` = 30/30 passando (3 test files).</result>
 <usage><total_tokens>55932</total_tokens><tool_uses>11</tool_uses><duration_ms>86965</duration_ms></usage>
 </task-notification>
+
+---
+
+<task-notification>
+<task-id>a96af71efa1b3aae8</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a96af71efa1b3aae8.output</output-file>
+<status>completed</status>
+<summary>Agent "PR2-FIX-C: injection.test.ts" completed</summary>
+<result>All 66 tests pass (36 new for injection + 30 existing).
+
+---
+
+## Relatório
+
+**Arquivo criado**: `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/brands/__tests__/injection.test.ts`
+
+**Tests**: 36 tests novos, **todos passam**. Total do suite agora: 66/66 passando (4 arquivos).
+
+**Cobertura por função** (`describe` blocks):
+- `brandConfigToPromptVariables` (2) — todas undefined quando marca não configurada + regressão dos defaults do schema
+- `buildTone` (7) — threshold 59/60/61, ordem estável, casos vazios, tom sem separator órfão
+- `buildTargetAudience` (4) — avatar parcial sem `—` trailing, múltiplos avatares, array vazio, todos preenchidos
+- `buildAudienceFears` (3) — separator `", "`, filtragem, undefined
+- `buildAudienceDesires` (3) — separator `", "`, filtragem de espaços, undefined
+- `buildPreferredCTAs` (3) — undefined para CTA vazia, concat `" | "`, sem pilares
+- `buildDifferentiators` (4) — sem `" ∥ "` órfão em estruturas parciais, combo completo
+- `buildBrandVoice`, `buildNiche`, `buildNegativeTerms`, `buildContentGoals` (2 each) — contratos básicos
+
+**Ajuste necessário (1 teste)**: A spec do prompt dizia que `createEmptyBrandConfig()` deveria produzir todas 10 chaves `undefined`. **Isso é falso**: o `brandVoiceAtributosSchema` no schema tem defaults oficiais (80/70/75/75/30) que disparam `buildTone`. Corrigi zerando `voice.atributos` explicitamente para representar uma marca realmente não-configurada, e adicionei um segundo teste de regressão documentando o comportamento dos defaults nativos.
+
+**Race condition**: não detectada — o arquivo `injection.ts` já estava no estado pós-refactor do Agent A (separator `", "`, `joinIfAny` exportado, `TOM_ATRIBUTO_THRESHOLD = 60` constante, `mergeBrandWithUserVars` inexistente). Todos os testes refletem essa realidade.
+
+**Mocks necessários**: `vi.mock("server-only", () =&gt; ({}))` e `vi.mock("../context", ...)` para evitar imports do `@/db` via `context.ts`.</result>
+<usage><total_tokens>55927</total_tokens><tool_uses>25</tool_uses><duration_ms>171279</duration_ms></usage>
+</task-notification>
