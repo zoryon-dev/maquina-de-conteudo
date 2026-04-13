@@ -1,0 +1,9 @@
+ative a memória dream do claude nos settings, assim como o team-agents por favor
+
+---
+
+Na verdade, quero que você analise toda a estrutura do sistema (diretorio) e organize SEM quebrar o sistema, acho que temos vários arquivos soltous sem necessidade
+
+---
+
+Façao que julgar melhor. mantendo em arquive e etc.

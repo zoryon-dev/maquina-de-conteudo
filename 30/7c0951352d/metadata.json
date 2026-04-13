@@ -1,0 +1,58 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "307c0951352d",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".context/docs/development-plan/initial-phases.md",
+    ".design-engineer/system.md",
+    ".gitignore",
+    "CHANGELOG.md",
+    "DEPLOY_FIX_SUMMARY.md",
+    "DEV_AUTH.md",
+    "SECURITY_PLAN.md",
+    "VERCEL_ENV_CHECKLIST.md",
+    "deploy-tutorial.md",
+    "docs/CHANGELOG.md",
+    "docs/DEPLOY_TUTORIAL.md",
+    "docs/DEV_AUTH.md",
+    "docs/VERCEL_ENV_CHECKLIST.md",
+    "docs/archive/DEPLOY_FIX_SUMMARY.md",
+    "docs/archive/SECURITY_PLAN.md",
+    "docs/archive/design-engineer-snapshot/system.md",
+    "docs/archive/features/creative-studio/plano-implementacao-creative-studio.md",
+    "docs/archive/features/creative-studio/prd-creative-studio.md",
+    "docs/archive/features/creative-studio/tasks-base.md",
+    "docs/archive/features/nova-feat/001_nova_feature.md",
+    "docs/archive/features/nova-feat/002_nova_feature.md",
+    "docs/archive/features/nova-feat/003_nova_feature.md",
+    "docs/archive/features/nova-feat/004_plano_implementacao.md",
+    "docs/archive/features/nova-feat/005_prompt_documentation.md",
+    "docs/archive/openmemory.md",
+    "openmemory.md",
+    "temp-feat-creative-studio/plano-implementacao-creative-studio.md",
+    "temp-feat-creative-studio/prd-creative-studio.md",
+    "temp-feat-creative-studio/tasks-base.md",
+    "temp_nova_feat/001_nova_feature.md",
+    "temp_nova_feat/002_nova_feature.md",
+    "temp_nova_feat/003_nova_feature.md",
+    "temp_nova_feat/004_plano_implementacao.md",
+    "temp_nova_feat/005_prompt_documentation.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/30/7c0951352d/0/metadata.json",
+      "transcript": "/30/7c0951352d/0/full.jsonl",
+      "content_hash": "/30/7c0951352d/0/content_hash.txt",
+      "prompt": "/30/7c0951352d/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 49,
+    "cache_creation_tokens": 45390,
+    "cache_read_tokens": 1440483,
+    "output_tokens": 9558,
+    "api_call_count": 29
+  }
+}
