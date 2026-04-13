@@ -190,7 +190,7 @@ src/
 
 ## 🗓️ Plano de PRs
 
-### PR 1 — Infra de marcas (sem tocar geração) ← **CÓDIGO PRONTO, AGUARDANDO SEED**
+### PR 1 — Infra de marcas (sem tocar geração) ← **✅ CONCLUÍDO (commit `12fcf53`)**
 
 **Objetivo:** schema + seed. Nada na geração ainda.
 
@@ -207,10 +207,10 @@ src/
 - [x] `src/lib/brands/seed/zoryon-mapper.ts` (mapper específico)
 - [x] `scripts/seed-zoryon-brand.ts` (validado via --dry)
 - [x] Scripts npm: `brand:seed:zoryon` e `brand:seed:zoryon:dry`
-- [ ] **Aplicar migration no DB (requer `.env.local` com DATABASE_URL)**
-- [ ] **Rodar seed real (`npm run brand:seed:zoryon`)**
-- [ ] Inspeção pós-seed e ajustes no mapper se necessário
-- [ ] Commit: `feat(brands): schema multi-brand + seed Zoryon`
+- [x] Migration 0029 aplicada em **produção** (`shy-voice-16533241`) via MCP Neon — 20 statements executados, sem conflito
+- [x] Seed executado — Zoryon criada com `id=1`, `is_default=true`
+- [x] JSONB validado via queries SQL: 8 chaves top-level, todas populadas
+- [x] Commit `12fcf53`: `feat(brands): schema multi-brand + seed Zoryon` (35 arquivos, +17.9k linhas)
 
 ### 🔧 Correção cirúrgica em `drizzle/meta/0028_snapshot.json`
 
