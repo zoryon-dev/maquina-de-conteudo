@@ -72,6 +72,7 @@ export {
 export {
   generateNarratives,
   generateContent,
+  generateContentBrandsDecoded,
   isLlmServiceAvailable,
   getAvailableWizardModels,
 } from "./llm.service";

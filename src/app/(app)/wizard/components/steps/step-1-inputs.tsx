@@ -44,7 +44,8 @@ import {
   CollapsibleSection,
 } from "@/components/ui/collapsible";
 import { DocumentConfigForm } from "../shared/document-config-form";
-import type { PostType } from "@/db/schema";
+import type { PostType, WizardMotor } from "@/db/schema";
+import { MotorSelector } from "../shared/motor-selector";
 import { TEXT_MODELS, DEFAULT_TEXT_MODEL, type ModelProvider } from "@/lib/models";
 import type { ImageGenerationConfig } from "@/lib/wizard-services/image-types";
 import type { RagConfig, VideoDuration } from "@/lib/wizard-services/types";
@@ -53,6 +54,7 @@ export interface WizardFormData {
   contentType?: PostType;
   numberOfSlides?: number;
   model?: string;
+  motor?: WizardMotor;
   referenceUrl?: string;
   referenceVideoUrl?: string;
   theme?: string;
@@ -295,6 +297,23 @@ export function Step1Inputs({
                 <Plus className="w-4 h-4" />
               </button>
             </div>
+          </div>
+        </motion.section>
+      )}
+
+      {/* Motor selector — só aparece para tipos textuais (carousel/text) */}
+      {(data.contentType === "carousel" || data.contentType === "text") && (
+        <motion.section
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className="mb-6"
+        >
+          <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+            <MotorSelector
+              value={data.motor ?? "tribal_v4"}
+              onChange={(motor) => onChange({ ...data, motor })}
+            />
           </div>
         </motion.section>
       )}

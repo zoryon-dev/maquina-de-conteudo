@@ -27,6 +27,7 @@ import type { WizardProcessingProgress } from "@/db/schema";
 import {
   generateNarratives,
   generateContent,
+  generateContentBrandsDecoded,
   generateWizardRagContext,
   formatRagForPrompt,
   formatRagSourcesForMetadata,
@@ -47,7 +48,67 @@ import {
 } from "@/lib/wizard-services";
 
 import type { SynthesizerInput, SynthesizedResearch, ResearchPlannerOutput, ResearchQuery } from "@/lib/wizard-services";
-import type { SearchResult } from "@/lib/wizard-services/types";
+import type { SearchResult, GeneratedContent, GeneratedSlide, ServiceResult, WizardGenerationInput } from "@/lib/wizard-services/types";
+
+/**
+ * Adapta o output do motor BrandsDecoded v4 (espinha + 18 blocos + legenda)
+ * para o shape `GeneratedContent` que o restante do pipeline (save, library,
+ * render) já consome. 18 blocos viram 9 slides — title = bloco "a", content
+ * = bloco "b" — preservando ordem do BLOCK_SPEC.
+ */
+async function generateContentBrandsDecodedAdapter(args: {
+  contentType: WizardGenerationInput["contentType"];
+  selectedNarrative: WizardGenerationInput["selectedNarrative"];
+  cta?: string;
+  theme?: string;
+  negativeTerms?: string[];
+  ragContext?: string;
+  model?: string;
+  userId: string;
+}): Promise<ServiceResult<GeneratedContent>> {
+  const result = await generateContentBrandsDecoded(
+    {
+      contentType: args.contentType,
+      selectedNarrative: args.selectedNarrative,
+      theme: args.theme,
+      cta: args.cta,
+      negativeTerms: args.negativeTerms,
+      ragContext: args.ragContext,
+    },
+    args.model,
+    args.userId
+  );
+
+  if (!result.success) return { success: false, error: result.error };
+
+  const bd = result.data;
+  const slides: GeneratedSlide[] = [];
+  for (let s = 1; s <= 9; s++) {
+    const a = bd.blocks.find((b) => b.slide === s && b.position === "a");
+    const b = bd.blocks.find((b) => b.slide === s && b.position === "b");
+    slides.push({
+      title: a?.text ?? "",
+      content: b?.text ?? "",
+      numero: s,
+    });
+  }
+
+  const adapted: GeneratedContent = {
+    type: "carousel",
+    slides,
+    caption: bd.legendaInstagram,
+    metadata: {
+      narrativeId: args.selectedNarrative?.id ?? "bd-auto",
+      narrativeTitle: bd.selectedHeadline.text,
+      narrativeAngle: (args.selectedNarrative?.angle ?? "tradutor") as GeneratedContent["metadata"]["narrativeAngle"],
+      model: args.model ?? "default",
+      generatedAt: new Date().toISOString(),
+      ragUsed: !!args.ragContext,
+    },
+  };
+
+  return { success: true, data: adapted };
+}
 
 // Article Wizard pipeline handlers
 import {
@@ -977,15 +1038,31 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       },
     });
 
-    const contentResult = await generateContent({
-      contentType: contentType as any,
-      selectedNarrative: selectedNarrative as any,
-      numberOfSlides,
-      cta: wizard.cta || undefined,
-      negativeTerms: wizard.negativeTerms as string[] | undefined,
-      ragContext: ragContextForPrompt,
-      selectedVideoTitle: selectedVideoTitle, // Pass selected video title for video content
-    }, model, userId); // Pass userId for user variables
+    // Dispatch baseado em wizard.motor (PR5.1).
+    // BrandsDecoded v4 retorna estrutura própria (espinha + 18 blocos) que
+    // adaptamos para o shape GeneratedContent esperado pelo restante do pipeline
+    // (save, library, render). Tribal v4 mantém o caminho original.
+    const contentResult =
+      wizard.motor === "brandsdecoded_v4" && contentType === "carousel"
+        ? await generateContentBrandsDecodedAdapter({
+            contentType,
+            selectedNarrative,
+            cta: wizard.cta || undefined,
+            theme: wizard.theme || undefined,
+            negativeTerms: wizard.negativeTerms as string[] | undefined,
+            ragContext: ragContextForPrompt,
+            model,
+            userId,
+          })
+        : await generateContent({
+            contentType: contentType as any,
+            selectedNarrative: selectedNarrative as any,
+            numberOfSlides,
+            cta: wizard.cta || undefined,
+            negativeTerms: wizard.negativeTerms as string[] | undefined,
+            ragContext: ragContextForPrompt,
+            selectedVideoTitle: selectedVideoTitle,
+          }, model, userId);
 
     if (!contentResult.success) {
       // Update wizard with error status

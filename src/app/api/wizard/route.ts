@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { contentWizards, type NewContentWizard } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
-import type { PostType, WizardStep } from "@/db/schema";
+import type { PostType, WizardStep, WizardMotor } from "@/db/schema";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
 
 /**
@@ -26,6 +26,7 @@ export async function POST(request: Request) {
       contentType,
       numberOfSlides,
       model,
+      motor,
       referenceUrl,
       referenceVideoUrl,
       videoDuration,
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
       contentType?: PostType;
       numberOfSlides?: number;
       model?: string;
+      motor?: WizardMotor;
       referenceUrl?: string;
       referenceVideoUrl?: string;
       videoDuration?: string;
@@ -72,6 +74,7 @@ export async function POST(request: Request) {
       contentType,
       numberOfSlides,
       model,
+      ...(motor ? { motor } : {}),
       referenceUrl,
       referenceVideoUrl,
       videoDuration,
