@@ -12,6 +12,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { dequeueJob, markAsProcessing, removeFromProcessing } from "@/lib/queue/client";
 import { getJob, incrementJobAttempts, reserveNextJob, updateJobStatus } from "@/lib/queue/jobs";
@@ -50,6 +51,23 @@ import {
 import type { SynthesizerInput, SynthesizedResearch, ResearchPlannerOutput, ResearchQuery } from "@/lib/wizard-services";
 import type { SearchResult, GeneratedContent, GeneratedSlide, ServiceResult, WizardGenerationInput, NarrativeAngle } from "@/lib/wizard-services/types";
 import { DEFAULT_TEXT_MODEL } from "@/lib/ai/config";
+import { TRIBAL_ANGLE_IDS, type TribalAngleId } from "@/lib/ai/shared/tribal-angles";
+
+/**
+ * Validação runtime de motorOptions dentro do worker.
+ *
+ * Defesa em profundidade: o boundary (POST/PATCH) já valida, mas dados
+ * podem ter sido persistidos antes de existir validação, ou corrompidos
+ * por escrita direta. `.catch(() => ({}))` degrada silenciosamente para
+ * objeto vazio quando shape é inválido, garantindo que o worker nunca
+ * crashe em job antigo. Falhas são logadas via `.safeParse` abaixo.
+ */
+const motorOptionsWorkerSchema = z
+  .object({
+    tribalAngle: z.enum(TRIBAL_ANGLE_IDS).optional(),
+    bdHeadlinePatterns: z.array(z.string()).optional(),
+  })
+  .catch(() => ({}));
 
 /**
  * Adapta o output do motor BrandsDecoded v4 (espinha + 18 blocos + legenda)
@@ -57,7 +75,7 @@ import { DEFAULT_TEXT_MODEL } from "@/lib/ai/config";
  * render) já consome. 18 blocos viram 9 slides — title = bloco "a", content
  * = bloco "b" — preservando ordem do BLOCK_SPEC.
  */
-async function generateContentBrandsDecodedAdapter(args: {
+export async function generateContentBrandsDecodedAdapter(args: {
   contentType: WizardGenerationInput["contentType"];
   selectedNarrative: WizardGenerationInput["selectedNarrative"];
   cta?: string;
@@ -66,7 +84,7 @@ async function generateContentBrandsDecodedAdapter(args: {
   ragContext?: string;
   model?: string;
   userId: string;
-  tribalAngle?: WizardGenerationInput["tribalAngle"];
+  tribalAngle?: TribalAngleId;
 }): Promise<ServiceResult<GeneratedContent>> {
   const result = await generateContentBrandsDecoded(
     {
@@ -1044,12 +1062,47 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       },
     });
 
+    // Validar motorOptions via Zod (defesa em profundidade — boundary já
+    // valida, mas jobs antigos podem ter shape inválida). `.safeParse` para
+    // logar corrupção; o `.catch` do schema garante default {} em falha.
+    const motorOptionsSafe = motorOptionsWorkerSchema.safeParse(wizard.motorOptions ?? {});
+    if (!motorOptionsSafe.success) {
+      console.error(
+        `[worker] wizard ${wizardId} motorOptions corrompido:`,
+        motorOptionsSafe.error.issues
+      );
+    }
+    const parsedMotorOptions = motorOptionsSafe.success ? motorOptionsSafe.data : {};
+    const tribalAngle = parsedMotorOptions.tribalAngle;
+
+    const isBdMotor = wizard.motor === "brandsdecoded_v4";
+    const isCarousel = contentType === "carousel";
+
+    // Guard: motor=BD exige contentType=carousel. Em vez de cair silenciosamente
+    // no Tribal, logar e avisar o usuário via jobError (pipeline continua — não
+    // queremos bloquear geração, mas o usuário precisa saber que o motor mudou).
+    if (isBdMotor && !isCarousel) {
+      console.warn(
+        `[worker] wizard ${wizardId}: motor=BD requer carrossel, contentType=${contentType} — caindo para Tribal v4`
+      );
+      await updateWizardProgress(wizardId, {
+        jobError: `Motor BrandsDecoded v4 suporta apenas carrossel. Tipo atual (${contentType}) usará Tribal v4.`,
+      });
+    }
+
+    // Warn se tribalAngle foi setado mas não será aplicado (motor ou tipo errado).
+    if (tribalAngle && (!isBdMotor || !isCarousel)) {
+      console.warn(
+        `[worker] wizard ${wizardId}: tribalAngle="${tribalAngle}" ignorado (motor=${wizard.motor}, contentType=${contentType})`
+      );
+    }
+
     // Dispatch baseado em wizard.motor (PR5.1).
     // BrandsDecoded v4 retorna estrutura própria (espinha + 18 blocos) que
     // adaptamos para o shape GeneratedContent esperado pelo restante do pipeline
     // (save, library, render). Tribal v4 mantém o caminho original.
     const contentResult =
-      wizard.motor === "brandsdecoded_v4" && contentType === "carousel"
+      isBdMotor && isCarousel
         ? await generateContentBrandsDecodedAdapter({
             contentType,
             selectedNarrative,
@@ -1059,7 +1112,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
             ragContext: ragContextForPrompt,
             model,
             userId,
-            tribalAngle: wizard.motorOptions?.tribalAngle,
+            tribalAngle,
           })
         : await generateContent({
             contentType: contentType as any,

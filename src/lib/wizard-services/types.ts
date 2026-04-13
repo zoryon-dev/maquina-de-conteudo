@@ -6,6 +6,20 @@
  */
 
 import type { TribalAngleId } from "@/lib/ai/shared/tribal-angles";
+import type { HeadlinePatternId } from "@/lib/ai/shared/headline-library";
+
+// ============================================================================
+// MOTOR OPTIONS
+// ============================================================================
+
+/**
+ * Opções específicas de motor (shape central, reusado em schema, API boundary,
+ * formulário e workers). Cada motor pode usar um subset — valide no boundary.
+ */
+export type MotorOptions = {
+  tribalAngle?: TribalAngleId;
+  bdHeadlinePatterns?: HeadlinePatternId[];
+};
 
 // ============================================================================
 // NARRATIVE TYPES

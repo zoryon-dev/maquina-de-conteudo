@@ -45,22 +45,19 @@ import {
 } from "@/components/ui/collapsible";
 import { DocumentConfigForm } from "../shared/document-config-form";
 import type { PostType, WizardMotor } from "@/db/schema";
-import type { TribalAngleId } from "@/lib/ai/shared/tribal-angles";
 import { MotorSelector } from "../shared/motor-selector";
 import { TribalAngleSelector } from "../shared/tribal-angle-selector";
+import { applyMotorChange } from "./apply-motor-change";
 import { TEXT_MODELS, DEFAULT_TEXT_MODEL, type ModelProvider } from "@/lib/models";
 import type { ImageGenerationConfig } from "@/lib/wizard-services/image-types";
-import type { RagConfig, VideoDuration } from "@/lib/wizard-services/types";
+import type { MotorOptions, RagConfig, VideoDuration } from "@/lib/wizard-services/types";
 
 export interface WizardFormData {
   contentType?: PostType;
   numberOfSlides?: number;
   model?: string;
   motor?: WizardMotor;
-  motorOptions?: {
-    tribalAngle?: TribalAngleId;
-    bdHeadlinePatterns?: string[];
-  };
+  motorOptions?: MotorOptions;
   referenceUrl?: string;
   referenceVideoUrl?: string;
   theme?: string;
@@ -325,15 +322,7 @@ export function Step1Inputs({
           <div className="space-y-4 p-4 rounded-xl border border-white/10 bg-white/[0.02]">
             <MotorSelector
               value={data.motor ?? "tribal_v4"}
-              onChange={(motor) => {
-                const next: WizardFormData = { ...data, motor };
-                // Ao sair de BD, limpa tribalAngle para não vazar opção de
-                // motor diferente no payload.
-                if (motor !== "brandsdecoded_v4" && next.motorOptions?.tribalAngle) {
-                  next.motorOptions = { ...next.motorOptions, tribalAngle: undefined };
-                }
-                onChange(next);
-              }}
+              onChange={(motor) => onChange(applyMotorChange(data, motor))}
               contentType={data.contentType}
             />
             {data.motor === "brandsdecoded_v4" && (

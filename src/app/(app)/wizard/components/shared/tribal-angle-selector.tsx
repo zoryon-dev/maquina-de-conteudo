@@ -3,41 +3,21 @@
 import * as React from "react"
 import { Zap, Compass, Languages, User } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { TribalAngleId } from "@/lib/ai/shared/tribal-angles"
+import { getAllTribalAngles, type TribalAngleId } from "@/lib/ai/shared/tribal-angles"
 
-type AngleOption = {
-  value: TribalAngleId
-  label: string
-  description: string
-  icon: React.ComponentType<{ className?: string }>
+const ANGLE_ICONS: Record<TribalAngleId, React.ComponentType<{ className?: string }>> = {
+  herege: Zap,
+  visionario: Compass,
+  tradutor: Languages,
+  testemunha: User,
 }
 
-const ANGLE_OPTIONS: AngleOption[] = [
-  {
-    value: "herege",
-    label: "Herege",
-    description: "Contradiz crença aceita do nicho",
-    icon: Zap,
-  },
-  {
-    value: "visionario",
-    label: "Visionário",
-    description: "Mostra futuro plausível ancorado em tendências",
-    icon: Compass,
-  },
-  {
-    value: "tradutor",
-    label: "Tradutor",
-    description: "Simplifica conceito técnico com analogias",
-    icon: Languages,
-  },
-  {
-    value: "testemunha",
-    label: "Testemunha",
-    description: "Relata transformação pessoal concreta",
-    icon: User,
-  },
-]
+const ANGLE_OPTIONS = getAllTribalAngles().map((a) => ({
+  value: a.id,
+  label: a.label,
+  description: a.description,
+  icon: ANGLE_ICONS[a.id],
+}))
 
 type Props = {
   value?: TribalAngleId
@@ -47,6 +27,17 @@ type Props = {
 }
 
 export function TribalAngleSelector({ value, onChange, disabled, className }: Props) {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (disabled) return
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return
+    event.preventDefault()
+    const allOptions = [undefined, ...ANGLE_OPTIONS.map((o) => o.value)] as Array<TribalAngleId | undefined>
+    const currentIndex = allOptions.indexOf(value)
+    const direction = event.key === "ArrowRight" ? 1 : -1
+    const nextIndex = (currentIndex + direction + allOptions.length) % allOptions.length
+    onChange(allOptions[nextIndex])
+  }
+
   return (
     <div className={cn("space-y-3", className)}>
       <div className="space-y-1">
@@ -69,6 +60,7 @@ export function TribalAngleSelector({ value, onChange, disabled, className }: Pr
           tabIndex={!value ? 0 : -1}
           disabled={disabled}
           onClick={() => onChange(undefined)}
+          onKeyDown={handleKeyDown}
           className={cn(
             "flex items-start gap-3 rounded-lg border p-3 text-left transition-all",
             !value
@@ -95,6 +87,7 @@ export function TribalAngleSelector({ value, onChange, disabled, className }: Pr
               tabIndex={active ? 0 : -1}
               disabled={disabled}
               onClick={() => onChange(opt.value)}
+              onKeyDown={handleKeyDown}
               className={cn(
                 "flex items-start gap-3 rounded-lg border p-3 text-left transition-all",
                 active

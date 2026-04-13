@@ -6,54 +6,12 @@
  */
 
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { db } from "@/db";
-import { contentWizards, wizardMotorEnum, type NewContentWizard } from "@/db/schema";
+import { contentWizards, type NewContentWizard } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import type { WizardStep } from "@/db/schema";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
-import { TRIBAL_ANGLE_IDS } from "@/lib/ai/shared/tribal-angles";
-
-/**
- * Schema de validação do corpo do POST /api/wizard.
- *
- * `passthrough()` permite campos extras (ex.: novos inputs experimentais)
- * sem precisar atualizar o schema; os campos listados são validados rigorosamente.
- */
-const createWizardSchema = z
-  .object({
-    contentType: z.enum(["text", "image", "carousel", "video"]).optional(),
-    numberOfSlides: z.number().int().min(1).max(20).optional(),
-    model: z.string().optional(),
-    motor: z.enum(wizardMotorEnum.enumValues).optional(),
-    motorOptions: z
-      .object({
-        tribalAngle: z.enum(TRIBAL_ANGLE_IDS).optional(),
-        bdHeadlinePatterns: z.array(z.string()).optional(),
-      })
-      .optional(),
-    referenceUrl: z.string().optional(),
-    referenceVideoUrl: z.string().optional(),
-    videoDuration: z.string().optional(),
-    videoIntention: z.string().optional(),
-    customVideoIntention: z.string().optional(),
-    theme: z.string().optional(),
-    context: z.string().optional(),
-    objective: z.string().optional(),
-    cta: z.string().optional(),
-    targetAudience: z.string().optional(),
-    ragConfig: z
-      .object({
-        mode: z.enum(["auto", "manual", "off"]).optional(),
-        threshold: z.number().optional(),
-        maxChunks: z.number().optional(),
-        documents: z.array(z.number()).optional(),
-        collections: z.array(z.number()).optional(),
-      })
-      .optional(),
-    negativeTerms: z.array(z.string()).optional(),
-  })
-  .passthrough();
+import { createWizardSchema } from "./schema";
 
 /**
  * POST /api/wizard

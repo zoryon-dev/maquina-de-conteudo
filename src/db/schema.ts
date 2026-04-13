@@ -14,6 +14,8 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import type { BrandConfig } from "@/lib/brands/schema";
+import type { TribalAngleId } from "@/lib/ai/shared/tribal-angles";
+import type { HeadlinePatternId } from "@/lib/ai/shared/headline-library";
 
 // Enums
 export const contentStatusEnum = pgEnum("content_status", [
@@ -562,11 +564,9 @@ export const contentWizards = pgTable(
     }),
     motor: wizardMotorEnum("motor").notNull().default("tribal_v4"),
     // Opções específicas do motor (serializadas para evitar colunas esparsas).
-    // Shape depende do motor — ex: brandsdecoded_v4 usa { tribalAngle?, bdHeadlinePatterns? }.
-    // Validado no boundary (POST /api/wizard) via Zod antes de persistir.
     motorOptions: jsonb("motor_options").$type<{
-      tribalAngle?: "herege" | "visionario" | "tradutor" | "testemunha"
-      bdHeadlinePatterns?: string[]
+      tribalAngle?: TribalAngleId
+      bdHeadlinePatterns?: HeadlinePatternId[]
     }>(),
     currentStep: wizardStepEnum("current_step").notNull().default("input"),
 

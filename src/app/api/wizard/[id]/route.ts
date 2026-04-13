@@ -7,12 +7,28 @@
  */
 
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { contentWizards, type NewContentWizard, type ContentWizard } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import type { WizardStep } from "@/db/schema";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
+import { TRIBAL_ANGLE_IDS } from "@/lib/ai/shared/tribal-angles";
+import { HEADLINE_PATTERN_IDS } from "@/lib/ai/shared/headline-library";
+
+/**
+ * Sub-schema local para motorOptions no PATCH.
+ * Mesma shape do POST (ver src/app/api/wizard/route.ts). Duplicado
+ * intencionalmente para manter o boundary isolado — se a shape mudar,
+ * atualizar ambos os pontos (POST e PATCH) + schema DB.
+ */
+const motorOptionsPatchSchema = z
+  .object({
+    tribalAngle: z.enum(TRIBAL_ANGLE_IDS).optional(),
+    bdHeadlinePatterns: z.array(z.enum(HEADLINE_PATTERN_IDS)).optional(),
+  })
+  .optional();
 
 /**
  * GET /api/wizard/[id]
@@ -103,6 +119,8 @@ export async function PATCH(
       contentType,
       numberOfSlides,
       model,
+      motor,
+      motorOptions,
       referenceUrl,
       referenceVideoUrl,
       videoDuration,
@@ -138,6 +156,30 @@ export async function PATCH(
     if (contentType !== undefined) updateData.contentType = contentType;
     if (numberOfSlides !== undefined) updateData.numberOfSlides = numberOfSlides;
     if (model !== undefined) updateData.model = model;
+
+    // Validar motorOptions via Zod antes de persistir (shape depende do motor).
+    if (motorOptions !== undefined) {
+      const parsed = motorOptionsPatchSchema.safeParse(motorOptions);
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: "motorOptions inválido", issues: parsed.error.issues },
+          { status: 400 }
+        );
+      }
+      if (parsed.data !== undefined) {
+        updateData.motorOptions = parsed.data;
+      }
+    }
+
+    // Motor updates: se mudar de motor e não for BD v4, limpar motorOptions
+    // para evitar estado ilegal (ex.: tribalAngle persistido quando motor é Tribal).
+    if (motor !== undefined) {
+      updateData.motor = motor;
+      if (motor !== "brandsdecoded_v4") {
+        updateData.motorOptions = null as any;
+      }
+    }
+
     if (referenceUrl !== undefined) updateData.referenceUrl = referenceUrl;
     if (referenceVideoUrl !== undefined) updateData.referenceVideoUrl = referenceVideoUrl;
     if (videoDuration !== undefined) updateData.videoDuration = videoDuration;

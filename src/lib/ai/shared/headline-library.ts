@@ -164,6 +164,8 @@ const HEADLINE_PATTERNS = [
 
 export type HeadlinePatternId = (typeof HEADLINE_PATTERNS)[number]["id"]
 
+export const HEADLINE_PATTERN_IDS = HEADLINE_PATTERNS.map((p) => p.id) as ReadonlyArray<HeadlinePatternId>
+
 export function getAllHeadlinePatterns(): readonly HeadlinePattern[] {
   return HEADLINE_PATTERNS
 }
