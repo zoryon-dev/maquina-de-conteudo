@@ -6,11 +6,47 @@
  */
 
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { db } from "@/db";
-import { contentWizards, type NewContentWizard } from "@/db/schema";
+import { contentWizards, wizardMotorEnum, type NewContentWizard } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
-import type { PostType, WizardStep, WizardMotor } from "@/db/schema";
+import type { WizardStep } from "@/db/schema";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
+
+/**
+ * Schema de validação do corpo do POST /api/wizard.
+ *
+ * `passthrough()` permite campos extras (ex.: novos inputs experimentais)
+ * sem precisar atualizar o schema; os campos listados são validados rigorosamente.
+ */
+const createWizardSchema = z
+  .object({
+    contentType: z.enum(["text", "image", "carousel", "video"]).optional(),
+    numberOfSlides: z.number().int().min(1).max(20).optional(),
+    model: z.string().optional(),
+    motor: z.enum(wizardMotorEnum.enumValues).optional(),
+    referenceUrl: z.string().optional(),
+    referenceVideoUrl: z.string().optional(),
+    videoDuration: z.string().optional(),
+    videoIntention: z.string().optional(),
+    customVideoIntention: z.string().optional(),
+    theme: z.string().optional(),
+    context: z.string().optional(),
+    objective: z.string().optional(),
+    cta: z.string().optional(),
+    targetAudience: z.string().optional(),
+    ragConfig: z
+      .object({
+        mode: z.enum(["auto", "manual", "off"]).optional(),
+        threshold: z.number().optional(),
+        maxChunks: z.number().optional(),
+        documents: z.array(z.number()).optional(),
+        collections: z.array(z.number()).optional(),
+      })
+      .optional(),
+    negativeTerms: z.array(z.string()).optional(),
+  })
+  .passthrough();
 
 /**
  * POST /api/wizard
@@ -22,6 +58,14 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
+    const parsed = createWizardSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Dados inválidos", issues: parsed.error.issues },
+        { status: 400 }
+      );
+    }
+
     const {
       contentType,
       numberOfSlides,
@@ -39,30 +83,7 @@ export async function POST(request: Request) {
       targetAudience,
       ragConfig,
       negativeTerms,
-    } = body as {
-      contentType?: PostType;
-      numberOfSlides?: number;
-      model?: string;
-      motor?: WizardMotor;
-      referenceUrl?: string;
-      referenceVideoUrl?: string;
-      videoDuration?: string;
-      videoIntention?: string;
-      customVideoIntention?: string;
-      theme?: string;
-      context?: string;
-      objective?: string;
-      cta?: string;
-      targetAudience?: string;
-      ragConfig?: {
-        mode?: "auto" | "manual" | "off";
-        threshold?: number;
-        maxChunks?: number;
-        documents?: number[];
-        collections?: number[];
-      };
-      negativeTerms?: string[];
-    };
+    } = parsed.data;
 
     // Create new wizard with initial step
     // Combine video intention with custom instructions for storage

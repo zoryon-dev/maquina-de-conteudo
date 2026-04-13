@@ -62,15 +62,39 @@ function mixHex(hex: string, target: "white" | "black", amount: number): string 
 }
 
 /**
+ * Valida se o valor é um hex de 3 ou 6 dígitos (com ou sem `#`).
+ * Rejeita "rgb(...)", names CSS ("red"), hex de 4/5/8 chars, etc.
+ */
+function isValidHex(value: string): boolean {
+  return /^#?[0-9a-fA-F]{6}$/.test(value) || /^#?[0-9a-fA-F]{3}$/.test(value);
+}
+
+/**
  * Gera paleta BD completa a partir da cor primária.
  * Tema warm (default) — backgrounds com temperatura quente.
+ *
+ * Validação: se `primaryColor` não for hex válido (ex.: "rgb(...)", "red",
+ * string vazia), loga warning e cai no default #C8321E. Sem esse guard,
+ * `mixHex` chamaria `parseInt` em pedaços inválidos e retornaria NaN, gerando
+ * CSS quebrado tipo `#NaNNaNNaN`.
  */
-export function buildBDPalette(primaryColor: string): BDPalette {
-  const primary = primaryColor || "#C8321E";
+export function buildBDPalette(primaryColor: string = "#C8321E"): BDPalette {
+  let primary = primaryColor;
+  if (!isValidHex(primary)) {
+    console.warn("[bd-palette] invalid hex, falling back to default:", primary);
+    primary = "#C8321E";
+  }
+
+  // Normaliza para forma #RRGGBB (expande 3 chars → 6).
+  const normalized = primary.startsWith("#") ? primary : `#${primary}`;
+  const full = normalized.length === 4
+    ? `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}`
+    : normalized;
+
   return {
-    primary,
-    primaryLight: mixHex(primary, "white", 0.2),
-    primaryDark: mixHex(primary, "black", 0.3),
+    primary: full,
+    primaryLight: mixHex(full, "white", 0.2),
+    primaryDark: mixHex(full, "black", 0.3),
     lightBg: "#F5F2EF",
     lightBorder: "#E8E3DE",
     darkBg: "#0F0D0C",

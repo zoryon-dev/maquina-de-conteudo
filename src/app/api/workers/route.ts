@@ -48,7 +48,8 @@ import {
 } from "@/lib/wizard-services";
 
 import type { SynthesizerInput, SynthesizedResearch, ResearchPlannerOutput, ResearchQuery } from "@/lib/wizard-services";
-import type { SearchResult, GeneratedContent, GeneratedSlide, ServiceResult, WizardGenerationInput } from "@/lib/wizard-services/types";
+import type { SearchResult, GeneratedContent, GeneratedSlide, ServiceResult, WizardGenerationInput, NarrativeAngle } from "@/lib/wizard-services/types";
+import { DEFAULT_TEXT_MODEL } from "@/lib/ai/config";
 
 /**
  * Adapta o output do motor BrandsDecoded v4 (espinha + 18 blocos + legenda)
@@ -82,16 +83,19 @@ async function generateContentBrandsDecodedAdapter(args: {
   if (!result.success) return { success: false, error: result.error };
 
   const bd = result.data;
-  const slides: GeneratedSlide[] = [];
-  for (let s = 1; s <= 9; s++) {
-    const a = bd.blocks.find((b) => b.slide === s && b.position === "a");
-    const b = bd.blocks.find((b) => b.slide === s && b.position === "b");
-    slides.push({
-      title: a?.text ?? "",
-      content: b?.text ?? "",
-      numero: s,
-    });
-  }
+  // Index 18 blocos por "slide-position" para O(1) lookup (evita O(9*18)).
+  const byKey = new Map(bd.blocks.map((b) => [`${b.slide}-${b.position}`, b.text]));
+  const slides: GeneratedSlide[] = Array.from({ length: 9 }, (_, i) => {
+    const slide = i + 1;
+    const a = byKey.get(`${slide}-a`);
+    const b = byKey.get(`${slide}-b`);
+    if (!a || !b) {
+      console.warn(`[bd-adapter] missing block at slide=${slide}`, { hasA: !!a, hasB: !!b });
+    }
+    return { title: a ?? "", content: b ?? "", numero: slide };
+  });
+
+  const angle: NarrativeAngle = args.selectedNarrative?.angle ?? "tradutor";
 
   const adapted: GeneratedContent = {
     type: "carousel",
@@ -100,8 +104,8 @@ async function generateContentBrandsDecodedAdapter(args: {
     metadata: {
       narrativeId: args.selectedNarrative?.id ?? "bd-auto",
       narrativeTitle: bd.selectedHeadline.text,
-      narrativeAngle: (args.selectedNarrative?.angle ?? "tradutor") as GeneratedContent["metadata"]["narrativeAngle"],
-      model: args.model ?? "default",
+      narrativeAngle: angle,
+      model: args.model ?? DEFAULT_TEXT_MODEL,
       generatedAt: new Date().toISOString(),
       ragUsed: !!args.ragContext,
     },

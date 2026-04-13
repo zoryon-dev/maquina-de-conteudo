@@ -206,11 +206,18 @@ export function Step1Inputs({
                     router.push("/wizard?type=video");
                     return;
                   }
+                  // Se motor BD estava selecionado e novo contentType não é
+                  // carousel, reseta para tribal_v4 (BD só suporta carrossel).
+                  const nextMotor: WizardMotor =
+                    data.motor === "brandsdecoded_v4" && type.value !== "carousel"
+                      ? "tribal_v4"
+                      : (data.motor ?? "tribal_v4");
                   onChange({
                     ...data,
                     contentType: type.value,
                     numberOfSlides:
                       data.numberOfSlides ?? type.defaultSlides ?? 10,
+                    motor: nextMotor,
                   });
                 }}
                 whileHover={{ scale: 1.02 }}
@@ -313,6 +320,7 @@ export function Step1Inputs({
             <MotorSelector
               value={data.motor ?? "tribal_v4"}
               onChange={(motor) => onChange({ ...data, motor })}
+              contentType={data.contentType}
             />
           </div>
         </motion.section>

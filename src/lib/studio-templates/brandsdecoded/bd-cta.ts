@@ -1,18 +1,5 @@
 /**
- * Template BD_CTA - Slide 8 (Direção/CTA com gradient) ou Slide final
- *
- * Referências:
- * - temporaria/brandformat/brandsdecoded-design-system.md §SLIDE INTERNO — GRADIENT
- * - temporaria/brandformat/brandsdecoded-design-system.md §SLIDE CTA
- *
- * Layout:
- * - Fundo com gradient derivado da paleta (--PD → --P → --PL)
- * - Número decorativo gigante
- * - Headline 80px uppercase, branca
- * - Body 38px com strong=branco
- * - Keyword box opcional (texto3) — caixa branca com palavra-chave gigante
- *
- * Usado como slide 8 (direção) e pode servir também como slide final CTA.
+ * Slide 8 do carrossel BD (CTA). Gradient + keyword box.
  */
 
 import type { StudioSlide, StudioProfile, StudioHeader } from "../types";
@@ -38,6 +25,10 @@ export function generateBDCtaHtml(input: TemplateBDCtaInput): string {
   void profile;
   const { content, style } = slide;
 
+  if (!content.texto1?.trim()) {
+    console.warn("[bd-cta] texto1 (required) ausente em slide");
+  }
+
   const palette = buildBDPalette(style.primaryColor);
   const shared = bdSharedCss(palette, "grad");
 
@@ -54,10 +45,8 @@ export function generateBDCtaHtml(input: TemplateBDCtaInput): string {
 
     .slide-grad { background: var(--G); }
 
-    /* Accent bar suave sobre gradient */
     .slide-grad .accent-bar { background: rgba(255,255,255,0.22); }
 
-    /* Número decorativo */
     .grad-bg-num {
       position: absolute;
       right: -16px; bottom: 50px;
@@ -69,7 +58,6 @@ export function generateBDCtaHtml(input: TemplateBDCtaInput): string {
       z-index: 1;
     }
 
-    /* Headline */
     .grad-h1 {
       font-family: var(--F-HEAD);
       font-size: 80px; font-weight: 900;
@@ -81,7 +69,6 @@ export function generateBDCtaHtml(input: TemplateBDCtaInput): string {
     }
     .grad-h1 em { color: rgba(255,255,255,0.85); font-style: normal; }
 
-    /* Body */
     .grad-body {
       font-family: var(--F-BODY);
       font-size: 36px;
@@ -92,7 +79,6 @@ export function generateBDCtaHtml(input: TemplateBDCtaInput): string {
     }
     .grad-body strong { color: #fff; font-weight: 800; }
 
-    /* Keyword box (texto3) — se preenchido vira CTA com palavra-chave */
     .cta-kbox {
       margin-top: 36px;
       background: #fff;

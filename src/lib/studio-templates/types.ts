@@ -7,6 +7,8 @@
  * Dimensões padrão: 1080x1440 (Instagram 3:4)
  */
 
+import type { WizardMotor } from "@/db/schema";
+
 // ============================================================================
 // TEMPLATE TYPES
 // ============================================================================
@@ -47,12 +49,15 @@ export type FigmaTemplate =
 /**
  * Motor de criação de conteúdo que o template é projetado para servir.
  *
+ * Alias de `WizardMotor` (single source of truth em `@/db/schema`) para manter
+ * os dois tipos sempre sincronizados. Hoje equivale a:
+ *
  * - `tribal_v4`: ângulos tribais (hook emocional, urgência, identidade)
  * - `brandsdecoded_v4`: análise editorial (Folha de S.Paulo, 9 slides alternados)
  *
  * Templates sem motor são considerados genéricos/compatíveis com qualquer motor.
  */
-export type TemplateMotor = "tribal_v4" | "brandsdecoded_v4";
+export type TemplateMotor = WizardMotor;
 
 /**
  * Tipo de conteúdo que pode ser criado no Studio
@@ -187,6 +192,18 @@ export interface StudioState {
 // ============================================================================
 
 /**
+ * Preview visual mínimo (bg + accent) usado na galeria de templates.
+ *
+ * Nota: `template-gallery.tsx` consome só `{ bg, accent }`, enquanto
+ * `visual-template-selector.tsx` enriquece com `textPreview` localmente —
+ * mantemos o shape canônico mínimo aqui e consumidores estendem como quiser.
+ */
+export interface TemplatePreview {
+  bg: string;
+  accent: string;
+}
+
+/**
  * Metadados de um template (para exibição na galeria)
  */
 export interface TemplateMetadata {
@@ -213,6 +230,14 @@ export interface TemplateMetadata {
   motor?: TemplateMotor;
   /** Tags livres para filtragem/agrupamento na galeria */
   tags?: string[];
+  /**
+   * Nome do ícone lucide-react (PascalCase) a ser usado no card do template.
+   * Ex.: `"LayoutTemplate"`, `"Newspaper"`. Consumidor (gallery/selector) faz
+   * `ICON_MAP[iconName]` para obter o componente.
+   */
+  icon: string;
+  /** Cores de preview (bg + accent) usadas no card de galeria. */
+  preview: TemplatePreview;
 }
 
 /**
@@ -229,6 +254,8 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     supportsBackgroundImage: true,
     supportsImage: false,
     defaultShowSwipe: true,
+    icon: "LayoutTemplate",
+    preview: { bg: "#1a1a2e", accent: "#FFD700" },
   },
   "201": {
     id: "201",
@@ -239,6 +266,8 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     supportsBackgroundImage: false,
     supportsImage: true,
     defaultShowSwipe: true,
+    icon: "Columns",
+    preview: { bg: "#ffffff", accent: "#000000" },
   },
   "202": {
     id: "202",
@@ -249,6 +278,8 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     supportsBackgroundImage: false,
     supportsImage: true,
     defaultShowSwipe: true,
+    icon: "Layout",
+    preview: { bg: "#ffffff", accent: "#000000" },
   },
   "203": {
     id: "203",
@@ -259,6 +290,8 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     supportsBackgroundImage: false,
     supportsImage: true,
     defaultShowSwipe: true,
+    icon: "ArrowRight",
+    preview: { bg: "#ffffff", accent: "#FFD700" },
   },
   // === GENERIC TEMPLATES (headline/descrição) ===
   "DARK_MODE": {
@@ -270,6 +303,8 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     supportsBackgroundImage: false,
     supportsImage: false,
     defaultShowSwipe: true,
+    icon: "Moon",
+    preview: { bg: "#0f0f0f", accent: "#2dd4bf" },
   },
   "WHITE_MODE": {
     id: "WHITE_MODE",
@@ -280,6 +315,8 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     supportsBackgroundImage: false,
     supportsImage: false,
     defaultShowSwipe: true,
+    icon: "Sun",
+    preview: { bg: "#fafafa", accent: "#f97316" },
   },
   "TWITTER": {
     id: "TWITTER",
@@ -290,6 +327,8 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     supportsBackgroundImage: false,
     supportsImage: false,
     defaultShowSwipe: true,
+    icon: "Twitter",
+    preview: { bg: "#ffffff", accent: "#1d9bf0" },
   },
   "SUPER_HEADLINE": {
     id: "SUPER_HEADLINE",
@@ -300,6 +339,8 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     supportsBackgroundImage: false,
     supportsImage: false,
     defaultShowSwipe: true,
+    icon: "Type",
+    preview: { bg: "#ffffff", accent: "#a3e635" },
   },
   // === IMAGE TEMPLATES (com imagem de fundo) ===
   "IMAGE_OVERLAY": {
@@ -311,6 +352,8 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     supportsBackgroundImage: true,
     supportsImage: false,
     defaultShowSwipe: false,
+    icon: "Layers",
+    preview: { bg: "#1a1a2e", accent: "#ffffff" },
   },
   "IMAGE_SPLIT": {
     id: "IMAGE_SPLIT",
@@ -321,6 +364,8 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     supportsBackgroundImage: true,
     supportsImage: false,
     defaultShowSwipe: false,
+    icon: "SplitSquareHorizontal",
+    preview: { bg: "#f5f5f5", accent: "#1a1a2e" },
   },
   "IMAGE_MINIMAL": {
     id: "IMAGE_MINIMAL",
@@ -331,6 +376,8 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     supportsBackgroundImage: true,
     supportsImage: false,
     defaultShowSwipe: false,
+    icon: "Image",
+    preview: { bg: "#2a2a3e", accent: "#e0e0e0" },
   },
   // === BRANDSDECODED V4 (alternado claro/escuro, tom editorial) ===
   "BD_CAPA": {
@@ -344,6 +391,8 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     defaultShowSwipe: false,
     motor: "brandsdecoded_v4",
     tags: ["bd", "capa", "editorial"],
+    icon: "Newspaper",
+    preview: { bg: "#0F0D0C", accent: "#C8321E" },
   },
   "BD_DARK": {
     id: "BD_DARK",
@@ -356,6 +405,8 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     defaultShowSwipe: false,
     motor: "brandsdecoded_v4",
     tags: ["bd", "dark", "editorial"],
+    icon: "Moon",
+    preview: { bg: "#0F0D0C", accent: "#C8321E" },
   },
   "BD_LIGHT": {
     id: "BD_LIGHT",
@@ -368,6 +419,8 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     defaultShowSwipe: false,
     motor: "brandsdecoded_v4",
     tags: ["bd", "light", "editorial"],
+    icon: "Sun",
+    preview: { bg: "#F5F2EF", accent: "#C8321E" },
   },
   "BD_CTA": {
     id: "BD_CTA",
@@ -380,6 +433,8 @@ export const TEMPLATE_METADATA: Record<FigmaTemplate, TemplateMetadata> = {
     defaultShowSwipe: false,
     motor: "brandsdecoded_v4",
     tags: ["bd", "cta", "gradient"],
+    icon: "Megaphone",
+    preview: { bg: "#8B2412", accent: "#ffffff" },
   },
 };
 

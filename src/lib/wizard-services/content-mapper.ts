@@ -21,6 +21,7 @@ import {
   TEMPLATE_METADATA,
   createDefaultSlide,
 } from "@/lib/studio-templates/types";
+import type { WizardMotor } from "@/db/schema";
 import type { ZoryonCarousel, GeneratedSlide, GeneratedContent } from "./types";
 
 // ============================================================================
@@ -400,13 +401,32 @@ export function mapCarouselToStudio(
 /**
  * Maps GeneratedContent (legacy format) to StudioSlides
  * Supports both carousel (multiple slides) and image (single slide) types
+ *
+ * `motor` seleciona o conjunto default de templates:
+ * - `brandsdecoded_v4`: capa BD_CAPA, internos alternando BD_DARK/BD_LIGHT, CTA BD_CTA
+ * - `tribal_v4` (default): capa 01_CAPA, internos 202, CTA 203
+ *
+ * Configs passadas via `config` (coverTemplate/contentTemplate/ctaTemplate)
+ * sobrepõem os defaults do motor.
  */
 export function mapGeneratedContentToStudio(
   content: GeneratedContent,
-  config: Partial<ContentMappingConfig> = {}
+  config: Partial<ContentMappingConfig> = {},
+  motor?: WizardMotor
 ): MappedContent | null {
+  // Defaults motor-aware. `config` do caller ainda vence.
+  const motorDefaults: Partial<ContentMappingConfig> =
+    motor === "brandsdecoded_v4"
+      ? {
+          coverTemplate: "BD_CAPA",
+          contentTemplate: "BD_DARK",
+          ctaTemplate: "BD_CTA",
+        }
+      : {};
+
   const finalConfig: ContentMappingConfig = {
     ...DEFAULT_MAPPING_CONFIG,
+    ...motorDefaults,
     ...config,
   };
 
@@ -473,6 +493,7 @@ export function mapGeneratedContentToStudio(
 
   const slides: StudioSlide[] = [];
   const totalSlides = content.slides.length;
+  const isBdMotor = motor === "brandsdecoded_v4";
 
   content.slides.forEach((slide, index) => {
     const isFirst = index === 0;
@@ -484,20 +505,72 @@ export function mapGeneratedContentToStudio(
       template = finalConfig.coverTemplate;
     } else if (isLast) {
       template = finalConfig.ctaTemplate;
+    } else if (isBdMotor) {
+      // BD: alterna DARK (slide 2, 4, 6...) / LIGHT (slide 3, 5, 7...)
+      // index é 0-based; slide 2 (posição humana) = index 1 → dark (ímpar quando 1-based = 2)
+      // Regra do spec: "slide 2 dark, 3 light, 4 dark, etc" → (index par = DARK, ímpar = LIGHT)
+      template = index % 2 === 0 ? "BD_LIGHT" : "BD_DARK";
     } else {
       template = finalConfig.contentTemplate;
     }
 
-    // Map content
-    const slideContent: SlideContent = {
-      texto1: slide.title,
-      texto1Bold: isFirst || template === "201",
-      texto2: slide.content,
-      texto3: "",
-      texto3Bold: false,
-      imageUrl: slide.imageUrl,
-      backgroundImageUrl: isFirst ? slide.imageUrl : undefined,
-    };
+    // Map content — colapsa BD_* e IMAGE_* em casos compartilhados.
+    // Para BD, texto3 usa conexao_proximo se disponível (vem de metadata extra
+    // do adapter; adapter atual não popula, então fica vazio — templates BD
+    // renderizam condicionalmente).
+    const slideAny = slide as GeneratedSlide & { conexao_proximo?: string };
+    const conexao = slideAny.conexao_proximo ?? "";
+
+    let slideContent: SlideContent;
+    switch (template) {
+      case "BD_CAPA":
+        slideContent = {
+          texto1: slide.title,
+          texto1Bold: true,
+          texto2: slide.content,
+          texto3: "",
+          texto3Bold: false,
+          imageUrl: slide.imageUrl,
+          backgroundImageUrl: isFirst ? slide.imageUrl : undefined,
+        };
+        break;
+
+      case "BD_DARK":
+      case "BD_LIGHT":
+        slideContent = {
+          texto1: slide.title,
+          texto1Bold: false,
+          texto2: slide.content,
+          texto3: conexao,
+          texto3Bold: false,
+          imageUrl: slide.imageUrl,
+          backgroundImageUrl: undefined,
+        };
+        break;
+
+      case "BD_CTA":
+        slideContent = {
+          texto1: slide.title,
+          texto1Bold: true,
+          texto2: slide.content,
+          texto3: conexao,
+          texto3Bold: true,
+          imageUrl: slide.imageUrl,
+          backgroundImageUrl: undefined,
+        };
+        break;
+
+      default:
+        slideContent = {
+          texto1: slide.title,
+          texto1Bold: isFirst || template === "201",
+          texto2: slide.content,
+          texto3: "",
+          texto3Bold: false,
+          imageUrl: slide.imageUrl,
+          backgroundImageUrl: isFirst ? slide.imageUrl : undefined,
+        };
+    }
 
     slides.push({
       id: crypto.randomUUID(),

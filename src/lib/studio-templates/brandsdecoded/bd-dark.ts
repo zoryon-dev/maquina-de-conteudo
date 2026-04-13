@@ -1,19 +1,5 @@
 /**
- * Template BD_DARK - Slides internos escuros (2, 4, 6, 8 sem gradient)
- *
- * Referências:
- * - temporaria/brandformat/brandsdecoded-design-system.md §SLIDE INTERNO — DARK
- * - temporaria/brandformat/brandsdecoded-principios-design.md §1, §4
- *
- * Layout:
- * - Fundo near-black warm (--DB)
- * - Tag em uppercase (cor accent claro --PL)
- * - Headline 80px Barlow Condensed uppercase
- * - Body 38px Plus Jakarta Sans com strong=branco e em=primaryLight
- * - Número decorativo gigante no canto inferior direito (opcional)
- * - Hierarquia: tag(metadata) → headline(âncora) → body(contexto)
- *
- * Densidade alvo: 20-34 palavras (slides BD têm ~80 palavras max em dark).
+ * Slides 2/4/6 do carrossel BD (dark). Body editorial denso (~36px).
  */
 
 import type { StudioSlide, StudioProfile, StudioHeader } from "../types";
@@ -39,6 +25,10 @@ export function generateBDDarkHtml(input: TemplateBDDarkInput): string {
   const { slide, profile, header, slideIndex = 1, totalSlides = 9 } = input;
   void profile;
   const { content, style } = slide;
+
+  if (!content.texto1?.trim()) {
+    console.warn("[bd-dark] texto1 (required) ausente em slide");
+  }
 
   const palette = buildBDPalette(style.primaryColor);
   const shared = bdSharedCss(palette, "dark");
@@ -79,7 +69,6 @@ export function generateBDDarkHtml(input: TemplateBDDarkInput): string {
       z-index: 1;
     }
 
-    /* Número decorativo de fundo */
     .dark-bg-num {
       position: absolute;
       right: -16px; bottom: 60px;
@@ -91,7 +80,6 @@ export function generateBDDarkHtml(input: TemplateBDDarkInput): string {
       z-index: 1;
     }
 
-    /* Headline */
     .dark-h1 {
       font-family: var(--F-HEAD);
       font-size: 80px; font-weight: 900;
@@ -104,7 +92,6 @@ export function generateBDDarkHtml(input: TemplateBDDarkInput): string {
     .dark-h1 em { color: var(--P); font-style: normal; }
     .dark-h1 strong { color: #fff; font-weight: 900; }
 
-    /* Body */
     .dark-body {
       font-family: var(--F-BODY);
       font-size: 36px;
@@ -116,7 +103,6 @@ export function generateBDDarkHtml(input: TemplateBDDarkInput): string {
     .dark-body strong { color: #fff; font-weight: 700; }
     .dark-body em     { color: var(--PL); font-style: normal; }
 
-    /* Optional card highlight (texto3 -> card destaque) */
     .dark-card {
       margin-top: 32px;
       background: rgba(255,255,255,0.04);

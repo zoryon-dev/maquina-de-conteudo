@@ -21,7 +21,11 @@ export type {
   StudioSlide,
   StudioState,
   TemplateMetadata,
+  TemplatePreview,
 } from "./types";
+
+// UI Meta helpers (icon + preview derivados de TEMPLATE_METADATA)
+export { getTemplateIcon, getTemplatePreview } from "./ui-meta";
 
 export {
   TEMPLATE_METADATA,
@@ -165,14 +169,12 @@ export function getRecommendedTemplatesForPosition(
  * - Templates com `motor` igual ao informado (ex: `brandsdecoded_v4`)
  * - Templates genéricos (sem `motor` definido) — compatíveis com qualquer motor
  *
- * Se `motor` for `undefined`, retorna todos os templates.
+ * Se você precisa de todos os templates (sem filtro por motor), use
+ * `getAvailableTemplates()` diretamente.
  */
-export function getTemplatesForMotor(
-  motor?: TemplateMotor
+export function getCompatibleTemplates(
+  motor: TemplateMotor
 ): FigmaTemplate[] {
-  if (!motor) {
-    return Object.keys(TEMPLATE_METADATA) as FigmaTemplate[];
-  }
   return (Object.entries(TEMPLATE_METADATA) as [FigmaTemplate, typeof TEMPLATE_METADATA[FigmaTemplate]][])
     .filter(([, meta]) => !meta.motor || meta.motor === motor)
     .map(([id]) => id);

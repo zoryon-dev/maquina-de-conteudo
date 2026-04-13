@@ -1,18 +1,5 @@
 /**
- * Template BD_CAPA - Slide 1 (Capa editorial)
- *
- * Referências:
- * - temporaria/brandformat/brandsdecoded-design-system.md §SLIDE DE CAPA
- * - temporaria/brandformat/brandsdecoded-principios-design.md §3, §7
- *
- * Layout:
- * - Imagem full-bleed com gradiente escuro pesado (contraste 4.5:1)
- * - Badge com handle/avatar alinhado à esquerda, acima da headline
- * - Headline condensada (Barlow Condensed) 108px, uppercase, em palavras-chave na cor primária
- * - Brand bar no topo + accent bar gradient
- * - Progress bar no rodapé (01/N)
- *
- * Tom: editorial-jornalístico (Folha de S.Paulo), tipografia séria.
+ * Slide 1 do carrossel BD (capa). Editorial-jornalístico, headline forte, paleta warm.
  */
 
 import type { StudioSlide, StudioProfile, StudioHeader } from "../types";
@@ -37,6 +24,10 @@ export interface TemplateBDCapaInput {
 export function generateBDCapaHtml(input: TemplateBDCapaInput): string {
   const { slide, profile, header, slideIndex = 0, totalSlides = 9 } = input;
   const { content, style } = slide;
+
+  if (!content.texto1?.trim()) {
+    console.warn("[bd-capa] texto1 (required) ausente em slide");
+  }
 
   const palette = buildBDPalette(style.primaryColor);
   const shared = bdSharedCss(palette, "dark");
@@ -80,14 +71,12 @@ export function generateBDCapaHtml(input: TemplateBDCapaInput): string {
       );
     }
 
-    /* Capa usa content customizado (não o padrão flex-end) */
     .capa-content {
       position: absolute;
       left: 52px; right: 52px; bottom: 110px;
       z-index: 10;
     }
 
-    /* Badge handle */
     .capa-badge {
       display: inline-flex; align-items: center; gap: 14px;
       background: rgba(0,0,0,0.42);
@@ -108,7 +97,6 @@ export function generateBDCapaHtml(input: TemplateBDCapaInput): string {
       font-size: 20px; font-weight: 700; color: #fff; letter-spacing: 0.3px;
     }
 
-    /* Tipo (categoria) badge — discreto */
     .capa-type {
       display: inline-block;
       font-family: var(--F-BODY);
@@ -122,7 +110,6 @@ export function generateBDCapaHtml(input: TemplateBDCapaInput): string {
       margin-bottom: 24px;
     }
 
-    /* Headline da capa */
     .capa-headline {
       font-family: var(--F-HEAD);
       font-size: 104px;
@@ -137,7 +124,6 @@ export function generateBDCapaHtml(input: TemplateBDCapaInput): string {
       font-style: normal;
     }
 
-    /* Subtítulo opcional (texto2) */
     .capa-sub {
       margin-top: 28px;
       font-family: var(--F-BODY);
@@ -147,7 +133,6 @@ export function generateBDCapaHtml(input: TemplateBDCapaInput): string {
       max-width: 94%;
     }
 
-    /* Progress bar customizado para capa (texto claro) */
     .capa-content + .prog .prog-num { color: rgba(255,255,255,0.55); }
     .slide-capa .brand-bar { color: rgba(255,255,255,0.55); }
     .slide-capa .prog-track { background: rgba(255,255,255,0.15); }

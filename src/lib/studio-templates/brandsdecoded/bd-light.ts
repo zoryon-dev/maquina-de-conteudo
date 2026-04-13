@@ -1,19 +1,5 @@
 /**
- * Template BD_LIGHT - Slides internos claros (3, 5, 7, 9)
- *
- * Referências:
- * - temporaria/brandformat/brandsdecoded-design-system.md §SLIDE INTERNO — LIGHT
- * - temporaria/brandformat/brandsdecoded-principios-design.md §1, §5
- *
- * Layout:
- * - Fundo off-white warm (--LB: #F5F2EF)
- * - Tag em uppercase (cor accent --P)
- * - Headline 68px Barlow Condensed uppercase
- * - Body 36px Plus Jakarta Sans com strong=darkBg
- * - Card branco opcional (border-left accent) para ênfase
- *
- * Densidade alvo: até ~100 palavras (slides light aguentam mais texto).
- * Tom editorial — ideal para blocos BD de 20-34 palavras de parágrafo.
+ * Slides 3/5/7/9 do carrossel BD (light). Card opcional para destaque.
  */
 
 import type { StudioSlide, StudioProfile, StudioHeader } from "../types";
@@ -40,6 +26,10 @@ export function generateBDLightHtml(input: TemplateBDLightInput): string {
   void profile;
   const { content, style } = slide;
 
+  if (!content.texto1?.trim()) {
+    console.warn("[bd-light] texto1 (required) ausente em slide");
+  }
+
   const palette = buildBDPalette(style.primaryColor);
   const shared = bdSharedCss(palette, "light");
 
@@ -58,7 +48,6 @@ export function generateBDLightHtml(input: TemplateBDLightInput): string {
 
     .slide-light { background: var(--LB); }
 
-    /* Img-box (topo) — usado quando há backgroundImageUrl */
     .img-box {
       width: 100%;
       height: 320px;
@@ -69,7 +58,6 @@ export function generateBDLightHtml(input: TemplateBDLightInput): string {
       box-shadow: 0 4px 24px rgba(0,0,0,0.06);
     }
 
-    /* Headline */
     .light-h1 {
       font-family: var(--F-HEAD);
       font-size: 68px; font-weight: 900;
@@ -81,7 +69,6 @@ export function generateBDLightHtml(input: TemplateBDLightInput): string {
     }
     .light-h1 em { color: var(--P); font-style: normal; }
 
-    /* Body */
     .light-body {
       font-family: var(--F-BODY);
       font-size: 36px;
@@ -93,7 +80,6 @@ export function generateBDLightHtml(input: TemplateBDLightInput): string {
     .light-body strong { color: var(--DB); font-weight: 800; }
     .light-body em     { color: var(--P); font-style: normal; }
 
-    /* Card branco opcional (texto3) */
     .light-card {
       margin-top: 32px;
       background: #fff;

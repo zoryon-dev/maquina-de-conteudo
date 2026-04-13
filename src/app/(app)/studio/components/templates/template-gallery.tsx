@@ -30,7 +30,7 @@ import {
   LucideIcon,
 } from "lucide-react";
 import { useStudioStore, useActiveSlide } from "@/stores/studio-store";
-import type { FigmaTemplate } from "@/lib/studio-templates/types";
+import type { FigmaTemplate, TemplateMotor } from "@/lib/studio-templates/types";
 import { TEMPLATE_METADATA } from "@/lib/studio-templates/types";
 import { cn } from "@/lib/utils";
 
@@ -83,8 +83,21 @@ const TEMPLATE_PREVIEW_COLORS: Record<
   "BD_CTA": { bg: "#8B2412", accent: "#ffffff" },
 };
 
+type CategoryKey = "figma" | "generic" | "image" | "brandsdecoded";
+
+interface TemplateCategory {
+  label: string;
+  description: string;
+  templates: FigmaTemplate[];
+  /**
+   * Se definido, esta categoria só aparece quando motorFilter casa.
+   * Categorias sem motor (Com Perfil/Genéricos/Com Imagem) sempre aparecem.
+   */
+  motor?: TemplateMotor;
+}
+
 // Categorias de templates
-const TEMPLATE_CATEGORIES = {
+const TEMPLATE_CATEGORIES: Record<CategoryKey, TemplateCategory> = {
   figma: {
     label: "Com Perfil",
     description: "Templates com avatar e handle",
@@ -104,6 +117,7 @@ const TEMPLATE_CATEGORIES = {
     label: "BrandsDecoded",
     description: "Alternado dark/light, tom editorial",
     templates: ["BD_CAPA", "BD_DARK", "BD_LIGHT", "BD_CTA"] as FigmaTemplate[],
+    motor: "brandsdecoded_v4",
   },
 };
 
@@ -164,12 +178,35 @@ function TemplateCard({ template, isSelected, onClick }: TemplateCardProps) {
   );
 }
 
-export function TemplateGallery() {
+interface TemplateGalleryProps {
+  /**
+   * Filtra categorias compatíveis com o motor.
+   * - Categoria com `motor` igual ao filtro: incluída
+   * - Categoria sem `motor` (genéricas): sempre incluída
+   * - Categoria com motor diferente: oculta
+   * Se omitido, mostra todas.
+   */
+  motorFilter?: TemplateMotor;
+}
+
+export function TemplateGallery({ motorFilter }: TemplateGalleryProps = {}) {
   const activeSlide = useActiveSlide();
   const setSlideTemplate = useStudioStore((state) => state.setSlideTemplate);
-  const [activeCategory, setActiveCategory] = useState<
-    "figma" | "generic" | "image" | "brandsdecoded"
-  >("figma");
+
+  const visibleCategoryKeys = (
+    Object.entries(TEMPLATE_CATEGORIES) as [CategoryKey, TemplateCategory][]
+  )
+    .filter(([, cat]) => !motorFilter || !cat.motor || cat.motor === motorFilter)
+    .map(([key]) => key);
+
+  // Default: BD se filtro=BD, senão figma
+  const defaultCategory: CategoryKey =
+    motorFilter === "brandsdecoded_v4" ? "brandsdecoded" : "figma";
+  const initialCategory: CategoryKey = visibleCategoryKeys.includes(defaultCategory)
+    ? defaultCategory
+    : (visibleCategoryKeys[0] ?? "figma");
+
+  const [activeCategory, setActiveCategory] = useState<CategoryKey>(initialCategory);
 
   if (!activeSlide) return null;
 
@@ -177,56 +214,30 @@ export function TemplateGallery() {
     setSlideTemplate(activeSlide.id, template);
   };
 
-  const currentCategory = TEMPLATE_CATEGORIES[activeCategory];
+  // Se motorFilter mudar e tornar categoria invisível, fallback para primeira visível
+  const safeCategory: CategoryKey = visibleCategoryKeys.includes(activeCategory)
+    ? activeCategory
+    : (visibleCategoryKeys[0] ?? "figma");
+  const currentCategory = TEMPLATE_CATEGORIES[safeCategory];
 
   return (
     <div className="space-y-3">
       {/* Category Tabs */}
       <div className="flex gap-1 p-1 bg-white/5 rounded-lg">
-        <button
-          onClick={() => setActiveCategory("figma")}
-          className={cn(
-            "flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors",
-            activeCategory === "figma"
-              ? "bg-white/10 text-white"
-              : "text-white/50 hover:text-white/70"
-          )}
-        >
-          Com Perfil
-        </button>
-        <button
-          onClick={() => setActiveCategory("generic")}
-          className={cn(
-            "flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors",
-            activeCategory === "generic"
-              ? "bg-white/10 text-white"
-              : "text-white/50 hover:text-white/70"
-          )}
-        >
-          Genéricos
-        </button>
-        <button
-          onClick={() => setActiveCategory("image")}
-          className={cn(
-            "flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors",
-            activeCategory === "image"
-              ? "bg-white/10 text-white"
-              : "text-white/50 hover:text-white/70"
-          )}
-        >
-          Com Imagem
-        </button>
-        <button
-          onClick={() => setActiveCategory("brandsdecoded")}
-          className={cn(
-            "flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors",
-            activeCategory === "brandsdecoded"
-              ? "bg-white/10 text-white"
-              : "text-white/50 hover:text-white/70"
-          )}
-        >
-          BrandsDecoded
-        </button>
+        {visibleCategoryKeys.map((key) => (
+          <button
+            key={key}
+            onClick={() => setActiveCategory(key)}
+            className={cn(
+              "flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors",
+              safeCategory === key
+                ? "bg-white/10 text-white"
+                : "text-white/50 hover:text-white/70"
+            )}
+          >
+            {TEMPLATE_CATEGORIES[key].label}
+          </button>
+        ))}
       </div>
 
       <p className="text-[10px] text-white/40">

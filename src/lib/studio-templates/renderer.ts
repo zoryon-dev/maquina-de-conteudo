@@ -129,9 +129,42 @@ export function renderSlideToHtml(input: RenderSlideInput): RenderSlideResult {
       html = generateBDCtaHtml({ slide, profile, header, slideIndex, totalSlides });
       break;
 
-    default:
-      // Fallback para template 202 (mais versátil)
-      html = generate202Html({ slide, profile, header, isLastSlide });
+    default: {
+      // Não silenciar: log + placeholder visível.
+      // Silenciar mascarava bugs de mapper (PR5.1+PR6 review).
+      const unknownTemplate = String((slide as { template?: unknown }).template ?? "(undefined)");
+      console.error(
+        "[renderer] template desconhecido:",
+        unknownTemplate,
+        "— renderizando placeholder visível. Verifique mapper/motor."
+      );
+      // Escapa para evitar HTML injection se template vier de fonte não confiável
+      const safeName = unknownTemplate
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        html, body { margin:0; padding:0; height:100%; }
+        body {
+          background: repeating-linear-gradient(45deg, #2a1a1a, #2a1a1a 12px, #3a2222 12px, #3a2222 24px);
+          color: #ff6b6b;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          padding: 32px; text-align: center;
+        }
+        .badge { font-size: 64px; line-height: 1; margin-bottom: 16px; }
+        .title { font-size: 24px; font-weight: 700; margin-bottom: 8px; color: #fff; }
+        .name { font-family: 'SF Mono', Menlo, monospace; font-size: 16px; background: rgba(255,107,107,0.15); padding: 6px 12px; border-radius: 6px; }
+        .hint { font-size: 12px; opacity: 0.7; margin-top: 16px; max-width: 400px; }
+      </style></head><body>
+        <div class="badge">⚠️</div>
+        <div class="title">Template inválido</div>
+        <div class="name">${safeName}</div>
+        <div class="hint">Este slide referencia um template não registrado no renderer. Verifique o motor de geração e o mapper.</div>
+      </body></html>`;
+      break;
+    }
   }
 
   return {

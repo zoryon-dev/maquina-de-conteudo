@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Sparkles, Newspaper } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { WizardMotor } from "@/db/schema"
+import type { WizardMotor, PostType } from "@/db/schema"
 
 export type { WizardMotor }
 
@@ -12,6 +12,11 @@ type MotorOption = {
   label: string
   description: string
   icon: React.ComponentType<{ className?: string }>
+  /**
+   * Content types onde este motor está disponível.
+   * Se omitido, disponível para qualquer contentType.
+   */
+  availableFor?: PostType[]
 }
 
 const MOTOR_OPTIONS: MotorOption[] = [
@@ -26,6 +31,7 @@ const MOTOR_OPTIONS: MotorOption[] = [
     label: "BrandsDecoded v4",
     description: "Pipeline jornalístico — 8 padrões de headline, espinha dorsal e 18 blocos por carrossel",
     icon: Newspaper,
+    availableFor: ["carousel"],
   },
 ]
 
@@ -34,19 +40,38 @@ type MotorSelectorProps = {
   onChange: (motor: WizardMotor) => void
   disabled?: boolean
   className?: string
+  /**
+   * Tipo de conteúdo do wizard. Filtra opções incompatíveis —
+   * BrandsDecoded só aparece para `carousel`.
+   */
+  contentType?: PostType
 }
 
-export function MotorSelector({ value, onChange, disabled, className }: MotorSelectorProps) {
+export function MotorSelector({
+  value,
+  onChange,
+  disabled,
+  className,
+  contentType,
+}: MotorSelectorProps) {
+  const visibleOptions = React.useMemo(
+    () =>
+      MOTOR_OPTIONS.filter(
+        (opt) => !opt.availableFor || !contentType || opt.availableFor.includes(contentType)
+      ),
+    [contentType]
+  )
+
   const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     if (disabled) return
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return
     event.preventDefault()
-    const currentIndex = MOTOR_OPTIONS.findIndex((opt) => opt.value === value)
+    const currentIndex = visibleOptions.findIndex((opt) => opt.value === value)
     if (currentIndex === -1) return
     const direction = event.key === "ArrowRight" ? 1 : -1
     const nextIndex =
-      (currentIndex + direction + MOTOR_OPTIONS.length) % MOTOR_OPTIONS.length
-    onChange(MOTOR_OPTIONS[nextIndex].value)
+      (currentIndex + direction + visibleOptions.length) % visibleOptions.length
+    onChange(visibleOptions[nextIndex].value)
   }
 
   return (
@@ -62,7 +87,7 @@ export function MotorSelector({ value, onChange, disabled, className }: MotorSel
         aria-label="Motor de geração textual"
         className="grid gap-2 md:grid-cols-2"
       >
-        {MOTOR_OPTIONS.map((opt) => {
+        {visibleOptions.map((opt) => {
           const Icon = opt.icon
           const active = value === opt.value
           return (
