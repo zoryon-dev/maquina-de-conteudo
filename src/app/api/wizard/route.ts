@@ -12,6 +12,7 @@ import { contentWizards, wizardMotorEnum, type NewContentWizard } from "@/db/sch
 import { eq, desc, and } from "drizzle-orm";
 import type { WizardStep } from "@/db/schema";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
+import { TRIBAL_ANGLE_IDS } from "@/lib/ai/shared/tribal-angles";
 
 /**
  * Schema de validação do corpo do POST /api/wizard.
@@ -25,6 +26,12 @@ const createWizardSchema = z
     numberOfSlides: z.number().int().min(1).max(20).optional(),
     model: z.string().optional(),
     motor: z.enum(wizardMotorEnum.enumValues).optional(),
+    motorOptions: z
+      .object({
+        tribalAngle: z.enum(TRIBAL_ANGLE_IDS).optional(),
+        bdHeadlinePatterns: z.array(z.string()).optional(),
+      })
+      .optional(),
     referenceUrl: z.string().optional(),
     referenceVideoUrl: z.string().optional(),
     videoDuration: z.string().optional(),
@@ -71,6 +78,7 @@ export async function POST(request: Request) {
       numberOfSlides,
       model,
       motor,
+      motorOptions,
       referenceUrl,
       referenceVideoUrl,
       videoDuration,
@@ -96,6 +104,7 @@ export async function POST(request: Request) {
       numberOfSlides,
       model,
       ...(motor ? { motor } : {}),
+      ...(motorOptions ? { motorOptions } : {}),
       referenceUrl,
       referenceVideoUrl,
       videoDuration,

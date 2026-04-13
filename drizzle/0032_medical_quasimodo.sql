@@ -1,0 +1,1 @@
+ALTER TABLE "content_wizards" ADD COLUMN "motor_options" jsonb;

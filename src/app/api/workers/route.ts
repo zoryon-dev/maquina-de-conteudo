@@ -66,6 +66,7 @@ async function generateContentBrandsDecodedAdapter(args: {
   ragContext?: string;
   model?: string;
   userId: string;
+  tribalAngle?: WizardGenerationInput["tribalAngle"];
 }): Promise<ServiceResult<GeneratedContent>> {
   const result = await generateContentBrandsDecoded(
     {
@@ -75,6 +76,7 @@ async function generateContentBrandsDecodedAdapter(args: {
       cta: args.cta,
       negativeTerms: args.negativeTerms,
       ragContext: args.ragContext,
+      tribalAngle: args.tribalAngle,
     },
     args.model,
     args.userId
@@ -1057,6 +1059,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
             ragContext: ragContextForPrompt,
             model,
             userId,
+            tribalAngle: wizard.motorOptions?.tribalAngle,
           })
         : await generateContent({
             contentType: contentType as any,

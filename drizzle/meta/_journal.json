@@ -225,6 +225,13 @@
       "when": 1776095431466,
       "tag": "0031_curvy_maria_hill",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1776108605498,
+      "tag": "0032_medical_quasimodo",
+      "breakpoints": true
     }
   ]
 }

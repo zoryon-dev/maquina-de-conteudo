@@ -561,6 +561,13 @@ export const contentWizards = pgTable(
       onDelete: "set null",
     }),
     motor: wizardMotorEnum("motor").notNull().default("tribal_v4"),
+    // Opções específicas do motor (serializadas para evitar colunas esparsas).
+    // Shape depende do motor — ex: brandsdecoded_v4 usa { tribalAngle?, bdHeadlinePatterns? }.
+    // Validado no boundary (POST /api/wizard) via Zod antes de persistir.
+    motorOptions: jsonb("motor_options").$type<{
+      tribalAngle?: "herege" | "visionario" | "tradutor" | "testemunha"
+      bdHeadlinePatterns?: string[]
+    }>(),
     currentStep: wizardStepEnum("current_step").notNull().default("input"),
 
     // Inputs do usuário
