@@ -3,6 +3,7 @@ import { openrouter, DEFAULT_TEXT_MODEL } from "@/lib/ai/config"
 import { buildReferenciasPromptBlock } from "./referencias"
 import { extractLooseJSON } from "./_shared/parse-json"
 import { buildBrandContextBlock } from "./_shared/brand-block"
+import { BD_TEMP_COPY } from "./_shared/temperatures"
 import type { EspinhaDorsal } from "./espinha"
 
 // BLOCK_SPEC é source of truth: slide/position/targetWords derivam deste índice
@@ -60,7 +61,8 @@ export async function generateCopyBlocks(
   const { text: raw } = await generateText({
     model: openrouter.chat(chosenModel),
     prompt,
-    temperature: 0.7,
+    // Default 0.7 (env BD_TEMP_COPY): redação jornalística com voz consistente.
+    temperature: BD_TEMP_COPY,
   })
 
   const blocks = parseCopyBlocksResponse(raw)

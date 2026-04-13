@@ -386,3 +386,43 @@ Após review via `pr-review-toolkit`, aplicados em 4 agentes paralelos:
 - **2026-04-13** — Documento criado, PR 1 iniciado
 - **2026-04-13** — PR 1 concluído (commit `12fcf53`)
 - **2026-04-13** — PR 1 review fixes + PR 2 (injeção Tribal v4) concluídos
+- **2026-04-13** — Cadeia completa: PR 3, 4, 5, 5.1, 6, 7, 7.1 + 7 ciclos de review
+- **2026-04-13** — Fase final: QA enforcing, UI bdHeadlinePatterns, i18n, admin guide
+
+## 📦 Estado final da iniciativa
+
+| PR | Escopo | Commit |
+|----|--------|--------|
+| 1 | Schema multi-brand + seed Zoryon | `12fcf53` |
+| 2 | Injeção Tribal v4 | `ef24fdc` (+ PR1 fixes) |
+| 3 | UI admin `/settings/brand` | `287e36c` + `97bf665` (fixes) |
+| 4 | QA editorial universal | `7190fc8` |
+| 5 | Motor BrandsDecoded v4 | `1df15f2` + `335026f` (fixes) |
+| 5.1 | Wire motor + dispatch | `a6a2855` |
+| 6 | Templates visuais BD | `36ee6ae` + `2e46295` (fixes conjuntos com 5.1) |
+| 7 | Combinação cross-motor | `5355af5` + `31a6b53` (fixes) |
+| 7.1 | UI TribalAngleSelector | `ad11423` + `e27ac90` (fixes) |
+| FINAL | QA enforcing, UI bdHeadlinePatterns, i18n, admin guide | pendente último commit |
+
+**Total**: ~20 commits, 196+ testes, 4 migrations em produção (0029-0032).
+
+## 🔧 Config obrigatória para uso
+
+1. **`.env.local`** / Vercel env:
+   - `DATABASE_URL` (Neon connection)
+   - `OPENROUTER_API_KEY` (motores)
+   - `ADMIN_USER_IDS` — ver `docs/admin-setup.md`
+2. **Seed Zoryon**: `npm run brand:seed:zoryon` (já feito em prod — 1x só)
+3. **Migrations 0029-0032**: aplicadas em prod via MCP Neon
+
+## 🎨 Env vars opcionais
+
+- `BD_TEMP_TRIAGEM` / `BD_TEMP_HEADLINES` / `BD_TEMP_ESPINHA` / `BD_TEMP_COPY` / `BD_TEMP_LEGENDA` — override temperatures do motor BD (defaults 0.3/0.8/0.5/0.7/0.7)
+- `QA_DRY_MODEL` — modelo barato para QA editorial (default `openai/gpt-4.1-mini`)
+- `ACTIVE_BRAND_SLUG` — override da marca default (default: Zoryon)
+
+## 📚 Docs relacionados
+
+- `docs/admin-setup.md` — como habilitar edição de marca
+- `temporaria/zoryon-brandkit/CLAUDE.md` — brandkit original (doc histórica)
+- `src/content/brands/zoryon/` — source of truth do seed

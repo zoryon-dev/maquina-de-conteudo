@@ -52,6 +52,11 @@ import type { SynthesizerInput, SynthesizedResearch, ResearchPlannerOutput, Rese
 import type { SearchResult, GeneratedContent, GeneratedSlide, ServiceResult, WizardGenerationInput, NarrativeAngle } from "@/lib/wizard-services/types";
 import { DEFAULT_TEXT_MODEL } from "@/lib/ai/config";
 import { TRIBAL_ANGLE_IDS, type TribalAngleId } from "@/lib/ai/shared/tribal-angles";
+import { generateBdHeadlines } from "@/lib/ai/shared/generate-bd-headlines";
+import {
+  HEADLINE_PATTERN_IDS,
+  type HeadlinePatternId,
+} from "@/lib/ai/shared/headline-library";
 
 /**
  * Validação runtime de motorOptions dentro do worker.
@@ -75,6 +80,8 @@ const motorOptionsWorkerSchema = z
  * render) já consome. 18 blocos viram 9 slides — title = bloco "a", content
  * = bloco "b" — preservando ordem do BLOCK_SPEC.
  */
+// test-skip-rationale: mapping puro coberto em src/lib/wizard-services/__tests__/bd-adapter.test.ts (7 testes).
+// O wire dispatch (worker → adapter) requer mock de ~60 imports pesados; coberto via E2E quando houver.
 export async function generateContentBrandsDecodedAdapter(args: {
   contentType: WizardGenerationInput["contentType"];
   selectedNarrative: WizardGenerationInput["selectedNarrative"];
@@ -1134,6 +1141,56 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     }
 
     const generatedContent = contentResult.data!;
+
+    // Geração opcional de headlines BD extras quando usuário selecionou padrões
+    // no Tribal v4 + carousel. Não roda no branch BD (que já produz headlines
+    // próprias) e degrada gracefully em qualquer falha — feature opcional não
+    // pode bloquear o job principal.
+    const rawHeadlinePatterns = parsedMotorOptions.bdHeadlinePatterns ?? [];
+    const validHeadlinePatterns = rawHeadlinePatterns.filter((id): id is HeadlinePatternId =>
+      (HEADLINE_PATTERN_IDS as readonly string[]).includes(id)
+    );
+    const shouldGenerateBdHeadlines =
+      !isBdMotor && isCarousel && validHeadlinePatterns.length > 0;
+
+    if (shouldGenerateBdHeadlines) {
+      const briefingParts: string[] = [];
+      if (wizard.theme) briefingParts.push(`Tema: ${wizard.theme}`);
+      if (selectedNarrative?.title) {
+        briefingParts.push(`Narrativa: ${selectedNarrative.title}`);
+      }
+      if (selectedNarrative?.description) {
+        briefingParts.push(`Descrição: ${selectedNarrative.description}`);
+      }
+      if (selectedNarrative?.hook) {
+        briefingParts.push(`Hook: ${selectedNarrative.hook}`);
+      }
+      if (wizard.objective) briefingParts.push(`Objetivo: ${wizard.objective}`);
+
+      const briefing = briefingParts.join("\n").trim() || (wizard.theme ?? "");
+
+      const bdResult = await generateBdHeadlines({
+        briefing,
+        patternIds: validHeadlinePatterns,
+        model,
+      }).catch((err) => {
+        console.warn(
+          `[worker] wizard ${wizardId} generateBdHeadlines falhou:`,
+          err instanceof Error ? err.message : err
+        );
+        return null;
+      });
+
+      if (bdResult && bdResult.headlines.length > 0) {
+        generatedContent.metadata = {
+          ...generatedContent.metadata,
+          bdHeadlineSuggestions: bdResult.headlines.map((h) => ({
+            text: h.text,
+            patternId: h.patternId,
+          })),
+        };
+      }
+    }
 
     // 4. Update wizard with generated content and mark as completed
     await db

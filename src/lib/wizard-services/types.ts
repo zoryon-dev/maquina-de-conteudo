@@ -246,6 +246,10 @@ export interface GeneratedContent {
     // v4.0 video metadata
     duration?: VideoDuration;
     intention?: string;
+    // BD headline suggestions geradas opcionalmente quando o usuário seleciona
+    // padrões `bdHeadlinePatterns` no Tribal v4 + carousel. Não bloqueia o job
+    // se a geração falhar — campo simplesmente fica ausente.
+    bdHeadlineSuggestions?: Array<{ text: string; patternId?: string }>;
   };
 }
 

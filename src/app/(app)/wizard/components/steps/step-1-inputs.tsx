@@ -47,10 +47,12 @@ import { DocumentConfigForm } from "../shared/document-config-form";
 import type { PostType, WizardMotor } from "@/db/schema";
 import { MotorSelector } from "../shared/motor-selector";
 import { TribalAngleSelector } from "../shared/tribal-angle-selector";
+import { BdHeadlinePatternsSelector } from "../shared/bd-headline-patterns-selector";
 import { applyMotorChange } from "./apply-motor-change";
 import { TEXT_MODELS, DEFAULT_TEXT_MODEL, type ModelProvider } from "@/lib/models";
 import type { ImageGenerationConfig } from "@/lib/wizard-services/image-types";
 import type { MotorOptions, RagConfig, VideoDuration } from "@/lib/wizard-services/types";
+import type { HeadlinePatternId } from "@/lib/ai/shared/headline-library";
 
 export interface WizardFormData {
   contentType?: PostType;
@@ -333,6 +335,27 @@ export function Step1Inputs({
                     onChange({
                       ...data,
                       motorOptions: { ...data.motorOptions, tribalAngle },
+                    })
+                  }
+                />
+              </div>
+            )}
+            {data.motor === "tribal_v4" && data.contentType === "carousel" && (
+              <div className="pt-2 border-t border-white/[0.05]">
+                <BdHeadlinePatternsSelector
+                  value={
+                    data.motorOptions?.bdHeadlinePatterns as
+                      | HeadlinePatternId[]
+                      | undefined
+                  }
+                  onChange={(patterns) =>
+                    onChange({
+                      ...data,
+                      motorOptions: {
+                        ...data.motorOptions,
+                        bdHeadlinePatterns:
+                          patterns.length > 0 ? patterns : undefined,
+                      },
                     })
                   }
                 />

@@ -3,6 +3,7 @@ import { openrouter, DEFAULT_TEXT_MODEL } from "@/lib/ai/config"
 import { buildHeadlineLibraryPromptBlock } from "@/lib/ai/shared/headline-library"
 import { extractLooseJSON } from "./_shared/parse-json"
 import { buildBrandContextBlock } from "./_shared/brand-block"
+import { BD_TEMP_HEADLINES } from "./_shared/temperatures"
 import type { TriagemResult } from "./espinha"
 
 export type GeneratedHeadline = {
@@ -105,10 +106,10 @@ O campo "patternId" é OPCIONAL e só deve aparecer se a headline claramente anc
 /**
  * Gera 10 headlines (5 IC + 5 NM) para o motor BrandsDecoded v4.
  *
- * Temperature 0.8 — precisamos de variação criativa genuína entre as 10
- * opções, sem sair do formato rígido. Os formatos IC/NM são guardrails
- * estruturais, então a criatividade fica nos reenquadramentos, não no
- * shape da saída.
+ * Temperature default 0.8 (env BD_TEMP_HEADLINES) — precisamos de variação
+ * criativa genuína entre as 10 opções, sem sair do formato rígido. Os
+ * formatos IC/NM são guardrails estruturais, então a criatividade fica nos
+ * reenquadramentos, não no shape da saída.
  *
  * Validação shape: rejeita se retornar menos de 10, se IDs 1-5 não forem IC
  * ou 6-10 não forem NM. Deixa re-tentativas para o orquestrador (outro
@@ -162,7 +163,7 @@ Responda APENAS com o JSON no formato especificado.`
     model: openrouter.chat(model),
     system: SYSTEM_PROMPT,
     prompt,
-    temperature: 0.8,
+    temperature: BD_TEMP_HEADLINES,
   })
 
   const parsed = extractLooseJSON<{ headlines?: unknown }>(text, "brandsdecoded-v4/headlines")

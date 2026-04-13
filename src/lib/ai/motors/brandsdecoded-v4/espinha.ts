@@ -2,6 +2,7 @@ import { generateText } from "ai"
 import { openrouter, DEFAULT_TEXT_MODEL } from "@/lib/ai/config"
 import { extractLooseJSON } from "./_shared/parse-json"
 import { buildBrandContextBlock } from "./_shared/brand-block"
+import { BD_TEMP_TRIAGEM, BD_TEMP_ESPINHA } from "./_shared/temperatures"
 
 export type TriagemResult = {
   transformacao: string
@@ -54,8 +55,8 @@ FORMATO DE SAÍDA: JSON estrito, sem markdown wrap, sem texto antes/depois.
 /**
  * Executa Etapa 1 — Triagem do BD v4.
  *
- * 1 call ao LLM, output JSON estrito. Temperature baixa (0.3) porque é
- * extração/compressão, não criação.
+ * 1 call ao LLM, output JSON estrito. Temperature baixa (default 0.3, env
+ * BD_TEMP_TRIAGEM) porque é extração/compressão, não criação.
  */
 export async function runTriagem(input: TriagemInput): Promise<TriagemResult> {
   if (!openrouter) {
@@ -79,7 +80,7 @@ Agora execute a Triagem seguindo o formato JSON especificado no system prompt. R
     model: openrouter.chat(model),
     system: TRIAGEM_SYSTEM,
     prompt,
-    temperature: 0.3,
+    temperature: BD_TEMP_TRIAGEM,
   })
 
   const parsed = extractLooseJSON<Partial<TriagemResult>>(text, "brandsdecoded-v4/triagem")
@@ -135,8 +136,8 @@ FORMATO DE SAÍDA: JSON estrito, sem markdown wrap.
 /**
  * Executa Etapa 3 — Espinha Dorsal do BD v4.
  *
- * 1 call ao LLM. Temperature média (0.5) — precisa de densidade editorial
- * sem virar experimental.
+ * 1 call ao LLM. Temperature média (default 0.5, env BD_TEMP_ESPINHA) —
+ * precisa de densidade editorial sem virar experimental.
  */
 export async function buildEspinhaDorsal(input: EspinhaInput): Promise<EspinhaDorsal> {
   if (!openrouter) {
@@ -174,7 +175,7 @@ Agora monte a Espinha Dorsal seguindo o formato JSON especificado no system prom
     model: openrouter.chat(model),
     system: ESPINHA_SYSTEM,
     prompt,
-    temperature: 0.5,
+    temperature: BD_TEMP_ESPINHA,
   })
 
   const parsed = extractLooseJSON<Partial<EspinhaDorsal>>(text, "brandsdecoded-v4/espinha")

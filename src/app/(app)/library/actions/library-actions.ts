@@ -1779,6 +1779,9 @@ export async function getTrashItemsAction(
       .select({
         id: libraryItems.id,
         userId: libraryItems.userId,
+        // brandId é necessário para satisfazer o shape de `DbLibraryItem`
+        // (e, por extensão, `LibraryItemWithRelations`) — adicionado pós-migration 0029.
+        brandId: libraryItems.brandId,
         type: libraryItems.type,
         status: libraryItems.status,
         title: libraryItems.title,

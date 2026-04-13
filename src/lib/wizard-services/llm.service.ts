@@ -54,27 +54,65 @@ import { validateCarouselResponse, logValidationError } from "./validation";
  */
 const WIZARD_DEFAULT_MODEL = process.env.WIZARD_DEFAULT_MODEL || DEFAULT_TEXT_MODEL;
 
-// QA editorial em dry-mode — não bloqueia, só loga. Roda com modelo barato
-// para minimizar custo até a calibração estar boa.
+// QA editorial em modo ENFORCING (PR8): roda runWithRewriteLoop após geração,
+// com até 2 tentativas de rewrite. Se falhar 2x, loga warning e retorna mesmo
+// assim (não trava o pipeline). Modelo barato para minimizar custo.
+// Controle por brand.config.meta.qaEnabled (default true).
 const QA_DRY_MODEL = process.env.QA_DRY_MODEL || "openai/gpt-4.1-mini";
 
-async function runEditorialQADryMode(parsed: unknown): Promise<void> {
+/**
+ * Enforce editorial QA via rewrite loop.
+ *
+ * @param parsed - Parsed LLM response (structured object)
+ * @param regenerate - Callback que regenera o parsed dado um feedback de QA.
+ *                     Recebe a string de feedback e deve retornar o novo
+ *                     parsed object (chamando o LLM com feedback no prompt).
+ * @returns parsed final (aprovado ou última versão se reprovou em todas tentativas)
+ *
+ * Limitação: o rewrite-loop opera em strings; para preservar o tipo do
+ * `parsed`, mantemos a versão atual via closure e usamos
+ * `extractPlainTextFromContent` apenas para o juízo do QA.
+ */
+async function runEditorialQAEnforcing(
+  parsed: unknown,
+  regenerate: (feedback: string) => Promise<unknown>
+): Promise<unknown> {
   const brandConfig = await getActiveBrandConfig().catch(() => null);
-  if (!brandConfig?.meta.qaEnabled) return;
+  if (!brandConfig?.meta.qaEnabled) return parsed;
 
-  const text = extractPlainTextFromContent(parsed);
-  if (!text || text.length < 50) return;
+  const initialText = extractPlainTextFromContent(parsed);
+  if (!initialText || initialText.length < 50) return parsed;
 
-  const result = await runEditorialQA(text, { model: QA_DRY_MODEL });
-  console.log(
-    "[qa-dry]",
-    JSON.stringify({
-      passed: result.passed,
-      blockingHits: result.blockingHits.length,
-      warnHits: result.warnHits.length,
-      failedParams: result.scores.filter((s) => s.score < 8).map((s) => `${s.param}:${s.score}`),
-    })
+  const { runWithRewriteLoop } = await import("@/lib/ai/quality");
+
+  let currentParsed: unknown = parsed;
+
+  const result = await runWithRewriteLoop(
+    initialText,
+    async (feedback) => {
+      // Regenera chamando o LLM de novo com feedback estruturado appendado
+      // no prompt. Atualiza closure pra não perder o objeto tipado.
+      const regenerated = await regenerate(feedback);
+      currentParsed = regenerated;
+      return extractPlainTextFromContent(regenerated);
+    },
+    { maxAttempts: 2, qaOptions: { model: QA_DRY_MODEL } }
   );
+
+  if (!result.approved) {
+    const lastEntry = result.history[result.history.length - 1];
+    console.warn(
+      "[llm.service] QA reprovou após max rewrites — retornando mesmo assim",
+      {
+        attempts: result.attempts,
+        lastIssues: lastEntry?.qa.feedback,
+      }
+    );
+  } else {
+    console.log("[qa-enforcing]", JSON.stringify({ approved: true, attempts: result.attempts }));
+  }
+
+  return currentParsed;
 }
 
 function extractPlainTextFromContent(parsed: unknown): string {
@@ -453,14 +491,34 @@ export async function generateContent(
     );
 
     // Parse JSON response
-    const parsed = extractJSONFromResponse(response);
+    let parsed = extractJSONFromResponse(response);
 
-    // QA editorial — dry-mode: roda anti-patterns + LLM judge e LOGA o
-    // resultado, mas não bloqueia. Permite calibrar threshold e regex
-    // antes de virar enforcing. Controlado por brand.config.meta.qaEnabled.
-    void runEditorialQADryMode(parsed).catch((err) => {
-      console.error("[llm.service] QA dry-mode failed silently:", err);
-    });
+    // QA editorial — modo ENFORCING: roda anti-patterns + LLM judge e tenta
+    // até 2 rewrites se reprovar. Se falhar todas, loga warning e retorna
+    // mesmo assim (não trava o pipeline). Controlado por
+    // brand.config.meta.qaEnabled (default true).
+    try {
+      const enforced = await runEditorialQAEnforcing(parsed, async (feedback) => {
+        // Regenera a chamada do LLM com feedback de QA appended ao prompt.
+        // Mantém o mesmo system prompt e contentType — só adiciona instruções
+        // estruturadas pra IA reescrever evitando os problemas detectados.
+        const rewritePrompt = `${prompt}\n\n## REWRITE — FEEDBACK DE QA EDITORIAL\n\nA versão anterior foi reprovada. Reescreva resolvendo:\n${feedback}\n\nMantenha o mesmo formato JSON de saída e a mesma estrutura.`;
+        const rewriteResponse = await llmCallWithRetry(
+          model,
+          rewritePrompt,
+          userMessage,
+          MAX_RETRIES
+        );
+        return extractJSONFromResponse(rewriteResponse);
+      });
+      // QA enforcing pode devolver o parsed original se desabilitado ou texto curto.
+      if (enforced && typeof enforced === "object") {
+        parsed = enforced as object;
+      }
+    } catch (err) {
+      // QA enforcing nunca deve travar a geração — só loga e usa parsed original.
+      console.error("[llm.service] QA enforcing falhou silently:", err);
+    }
 
     // Validate and structure response based on content type
     const generatedContent = structureGeneratedContent(

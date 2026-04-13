@@ -1,6 +1,7 @@
 import { generateText } from "ai"
 import { openrouter, DEFAULT_TEXT_MODEL } from "@/lib/ai/config"
 import { buildBrandContextBlock } from "./_shared/brand-block"
+import { BD_TEMP_LEGENDA } from "./_shared/temperatures"
 
 import {
   generateHeadlinesForBD,
@@ -237,7 +238,8 @@ export async function generateLegendaInstagram(input: {
   const { text: raw } = await generateText({
     model: openrouter.chat(chosenModel),
     prompt,
-    temperature: 0.7,
+    // Default 0.7 (env BD_TEMP_LEGENDA): texto corrido editorial.
+    temperature: BD_TEMP_LEGENDA,
   })
 
   const legenda = raw.trim()
