@@ -218,6 +218,13 @@
       "when": 1776091626194,
       "tag": "0030_kind_the_fury",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1776095431466,
+      "tag": "0031_curvy_maria_hill",
+      "breakpoints": true
     }
   ]
 }

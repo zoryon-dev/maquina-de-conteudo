@@ -29,6 +29,10 @@ import {
 import { getBrandPromptVariables } from "@/lib/brands/injection";
 import { runEditorialQA } from "@/lib/ai/quality";
 import { getActiveBrandConfig } from "@/lib/brands/context";
+import {
+  generateWithBrandsDecoded,
+  type BrandsDecodedResult,
+} from "@/lib/ai/motors/brandsdecoded-v4";
 import { isAppError } from "@/lib/errors";
 import type {
   NarrativeOption,
@@ -469,6 +473,88 @@ export async function generateContent(
       success: false,
       error: `Failed to generate content: ${message}`,
     };
+  }
+}
+
+// ============================================================================
+// BRANDSDECODED MOTOR (PR5)
+// ============================================================================
+
+/**
+ * Roda o motor BrandsDecoded v4 (pipeline jornalístico: triagem → headlines →
+ * espinha → 18 blocos → legenda IG). Adapta o `WizardGenerationInput` para o
+ * formato `BrandsDecodedInput` consolidando tema/contexto/narrativa em um
+ * único `briefing`.
+ *
+ * Worker (`api/workers/route.ts`) decide qual motor chamar baseado em
+ * `wizard.motor` da tabela content_wizards.
+ */
+export async function generateContentBrandsDecoded(
+  input: WizardGenerationInput,
+  model: string = WIZARD_DEFAULT_MODEL,
+  userId?: string
+): Promise<ServiceResult<BrandsDecodedResult>> {
+  if (!openrouter) {
+    return { success: false, error: "OpenRouter API key not configured." };
+  }
+
+  try {
+    const [brandVariables, savedVariables] = await Promise.all([
+      getBrandPromptVariables().catch((err) => {
+        if (
+          err &&
+          typeof err === "object" &&
+          "code" in err &&
+          (err.code === "CONFIG_ERROR" || err.code === "NOT_FOUND")
+        ) {
+          throw err;
+        }
+        console.error("[bd-motor] failed to load brand variables:", err);
+        return {} as Partial<UserVariables>;
+      }),
+      getUserVariables(userId),
+    ]);
+
+    const brandPromptVariables: Record<string, string | undefined> = {
+      tone: savedVariables.tone || brandVariables.tone,
+      brandVoice: savedVariables.brandVoice || brandVariables.brandVoice,
+      niche: savedVariables.niche || brandVariables.niche,
+      targetAudience: input.targetAudience || savedVariables.targetAudience || brandVariables.targetAudience,
+      audienceFears: savedVariables.audienceFears || brandVariables.audienceFears,
+      audienceDesires: savedVariables.audienceDesires || brandVariables.audienceDesires,
+      differentiators: savedVariables.differentiators || brandVariables.differentiators,
+      contentGoals: savedVariables.contentGoals || brandVariables.contentGoals,
+      preferredCTAs: savedVariables.preferredCTAs || brandVariables.preferredCTAs,
+      negativeTerms: savedVariables.negativeTerms || brandVariables.negativeTerms,
+    };
+
+    const briefingParts: string[] = [];
+    if (input.theme) briefingParts.push(`Tema: ${input.theme}`);
+    if (input.selectedNarrative?.title) {
+      briefingParts.push(`Narrativa selecionada: ${input.selectedNarrative.title}`);
+    }
+    if (input.selectedNarrative?.description) {
+      briefingParts.push(`Descrição: ${input.selectedNarrative.description}`);
+    }
+    if (input.selectedNarrative?.hook) {
+      briefingParts.push(`Hook sugerido: ${input.selectedNarrative.hook}`);
+    }
+    if (input.cta) briefingParts.push(`CTA: ${input.cta}`);
+    if (input.ragContext) briefingParts.push(`Contexto adicional:\n${input.ragContext}`);
+    const briefing = briefingParts.join("\n\n");
+
+    const result = await generateWithBrandsDecoded({
+      briefing,
+      brandPromptVariables,
+      model,
+      autoSelectHeadline: true,
+    });
+
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("[bd-motor] generateContentBrandsDecoded failed:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return { success: false, error: `BrandsDecoded motor failed: ${message}` };
   }
 }
 

@@ -80,6 +80,14 @@ export const wizardStepEnum = pgEnum("wizard_step", [
   "abandoned",
 ]);
 
+// Motor de geração textual usado pelo wizard. tribal_v4 é o motor original
+// (4 ângulos tribais à la Seth Godin). brandsdecoded_v4 é o motor jornalístico
+// importado em PR5 (8 padrões de headline + espinha + 18 blocos / 9 slides).
+export const wizardMotorEnum = pgEnum("wizard_motor", [
+  "tribal_v4",
+  "brandsdecoded_v4",
+]);
+
 // ========================================
 // SOCIAL MEDIA INTEGRATION ENUMS
 // ========================================
@@ -551,6 +559,7 @@ export const contentWizards = pgTable(
     brandId: integer("brand_id").references(() => brands.id, {
       onDelete: "set null",
     }),
+    motor: wizardMotorEnum("motor").notNull().default("tribal_v4"),
     currentStep: wizardStepEnum("current_step").notNull().default("input"),
 
     // Inputs do usuário
