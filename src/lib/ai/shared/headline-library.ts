@@ -168,6 +168,35 @@ export function getHeadlinePattern(id: string): HeadlinePattern | undefined {
   return HEADLINE_PATTERNS.find((p) => p.id === id)
 }
 
+export type HeadlinePatternId = (typeof HEADLINE_PATTERNS)[number]["id"]
+
+// Bloco focado em padrões específicos. Usado quando o caller já escolheu
+// um subset (ex: Tribal v4 com bdHeadlinePatterns=["morte_de_x", "investigando_x"]).
+// Se nenhum id for passado, cai em buildHeadlineLibraryPromptBlock (todos).
+export function buildHeadlinePatternsBlock(ids?: HeadlinePatternId[]): string {
+  const selected = ids && ids.length > 0
+    ? HEADLINE_PATTERNS.filter((p) => ids.includes(p.id as HeadlinePatternId))
+    : HEADLINE_PATTERNS
+
+  if (selected.length === 0) return ""
+
+  const lines: string[] = [
+    `# PADRÕES DE HEADLINE SELECIONADOS (${selected.length})`,
+    "",
+    "Use os padrões abaixo como referência estrutural. Não copie literal — adapte ao tema do conteúdo gerado.",
+    "",
+  ]
+  for (const pattern of selected) {
+    lines.push(`## ${pattern.name}`)
+    lines.push(`Estrutura: ${pattern.structure}`)
+    lines.push(`Como gerar: ${pattern.generatorInstruction}`)
+    lines.push("Exemplos:")
+    for (const ex of pattern.examples.slice(0, 2)) lines.push(`  - ${ex}`)
+    lines.push("")
+  }
+  return lines.join("\n")
+}
+
 export function buildHeadlineLibraryPromptBlock(): string {
   const lines: string[] = [
     "# BANCO DE PADRÕES DE HEADLINE (BrandsDecoded — 56 hooks +10k likes)",

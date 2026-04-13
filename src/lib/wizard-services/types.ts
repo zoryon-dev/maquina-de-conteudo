@@ -363,6 +363,9 @@ export interface WizardGenerationInput extends WizardInputData {
   ragContext?: string;
   ragSources?: Array<{ id: number; title: string }>;
   customInstructions?: string;
+  // PR7: ângulo tribal opcional para combinação cross-motor (BrandsDecoded
+  // com postura tribal). Quando setado, modula o tom da geração BD.
+  tribalAngle?: import("@/lib/ai/shared/tribal-angles").TribalAngleId;
   // v4.0 video-specific fields
   videoDuration?: VideoDuration;
   videoIntention?: string;

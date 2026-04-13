@@ -14,6 +14,10 @@ import {
 } from "./espinha"
 
 import { generateCopyBlocks, type CopyBlock } from "./copy-blocks"
+import {
+  buildTribalAngleInjection,
+  type TribalAngleId,
+} from "@/lib/ai/shared/tribal-angles"
 
 export type BrandsDecodedInput = {
   briefing: string
@@ -22,6 +26,10 @@ export type BrandsDecodedInput = {
   // auto-select default = primeira IC (id=1); senão exige forcedHeadlineId.
   autoSelectHeadline?: boolean
   forcedHeadlineId?: number
+  // PR7: ângulo tribal opcional. Quando setado, modula o tom da geração
+  // (concatenado ao briefing antes de cada step do pipeline). Permite
+  // combinação cross-motor: BD usa estrutura jornalística + postura tribal.
+  tribalAngle?: TribalAngleId
 }
 
 export type BrandsDecodedResult = {
@@ -41,11 +49,12 @@ export async function generateWithBrandsDecoded(
   input: BrandsDecodedInput
 ): Promise<BrandsDecodedResult> {
   const {
-    briefing,
+    briefing: rawBriefing,
     brandPromptVariables,
     model,
     autoSelectHeadline = true,
     forcedHeadlineId,
+    tribalAngle,
   } = input
 
   if (
@@ -56,6 +65,12 @@ export async function generateWithBrandsDecoded(
       "[bd/orchestrator] brandPromptVariables ausente — pipeline rodará sem contexto de marca"
     )
   }
+
+  // PR7: prefixar bloco do ângulo tribal ao briefing quando solicitado.
+  // Cada step do pipeline (triagem, headlines, espinha, copy) recebe o
+  // briefing aumentado e absorve a postura via system prompt natural.
+  const tribalBlock = tribalAngle ? buildTribalAngleInjection(tribalAngle) : ""
+  const briefing = tribalBlock ? `${tribalBlock}\n\n${rawBriefing}` : rawBriefing
 
   // Etapa 1 — Triagem (extrai transformação, fricção, ângulo, evidências).
   const triagem = await runTriagem({

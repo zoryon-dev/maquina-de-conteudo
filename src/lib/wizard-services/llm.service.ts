@@ -535,6 +535,7 @@ export async function generateContentBrandsDecoded(
       brandPromptVariables,
       model,
       autoSelectHeadline: true,
+      tribalAngle: input.tribalAngle,
     });
 
     return { success: true, data: result };
