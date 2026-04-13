@@ -27,6 +27,8 @@ import {
   type UserVariables,
 } from "./user-variables.service";
 import { getBrandPromptVariables } from "@/lib/brands/injection";
+import { runEditorialQA } from "@/lib/ai/quality";
+import { getActiveBrandConfig } from "@/lib/brands/context";
 import { isAppError } from "@/lib/errors";
 import type {
   NarrativeOption,
@@ -46,6 +48,49 @@ import { validateCarouselResponse, logValidationError } from "./validation";
  * Can be overridden via environment variable or user selection.
  */
 const WIZARD_DEFAULT_MODEL = process.env.WIZARD_DEFAULT_MODEL || DEFAULT_TEXT_MODEL;
+
+// QA editorial em dry-mode — não bloqueia, só loga. Roda com modelo barato
+// para minimizar custo até a calibração estar boa.
+const QA_DRY_MODEL = process.env.QA_DRY_MODEL || "openai/gpt-4.1-mini";
+
+async function runEditorialQADryMode(parsed: unknown): Promise<void> {
+  const brandConfig = await getActiveBrandConfig().catch(() => null);
+  if (!brandConfig?.meta.qaEnabled) return;
+
+  const text = extractPlainTextFromContent(parsed);
+  if (!text || text.length < 50) return;
+
+  const result = await runEditorialQA(text, { model: QA_DRY_MODEL });
+  console.log(
+    "[qa-dry]",
+    JSON.stringify({
+      passed: result.passed,
+      blockingHits: result.blockingHits.length,
+      warnHits: result.warnHits.length,
+      failedParams: result.scores.filter((s) => s.score < 8).map((s) => `${s.param}:${s.score}`),
+    })
+  );
+}
+
+function extractPlainTextFromContent(parsed: unknown): string {
+  if (!parsed || typeof parsed !== "object") return "";
+  const text: string[] = [];
+  const visit = (node: unknown): void => {
+    if (typeof node === "string") {
+      text.push(node);
+      return;
+    }
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item);
+      return;
+    }
+    if (node && typeof node === "object") {
+      for (const v of Object.values(node)) visit(v);
+    }
+  };
+  visit(parsed);
+  return text.join("\n").trim();
+}
 
 /**
  * Maximum retries for LLM calls
@@ -394,6 +439,13 @@ export async function generateContent(
 
     // Parse JSON response
     const parsed = extractJSONFromResponse(response);
+
+    // QA editorial — dry-mode: roda anti-patterns + LLM judge e LOGA o
+    // resultado, mas não bloqueia. Permite calibrar threshold e regex
+    // antes de virar enforcing. Controlado por brand.config.meta.qaEnabled.
+    void runEditorialQADryMode(parsed).catch((err) => {
+      console.error("[llm.service] QA dry-mode failed silently:", err);
+    });
 
     // Validate and structure response based on content type
     const generatedContent = structureGeneratedContent(
