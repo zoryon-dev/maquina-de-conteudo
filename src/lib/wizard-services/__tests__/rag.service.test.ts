@@ -182,6 +182,66 @@ describe("generateWizardRagContextWithBrand", () => {
     expect(result.data!.context).not.toContain("BRAND")
     expect(result.data!.context).toContain("USER_ONLY")
   })
+
+  it("ambos lados rejeitam — retorna data:null sem unhandled rejection", async () => {
+    getBrandAutoRagContextMock.mockRejectedValue(new Error("brand RAG down"))
+    assembleRagContextMock.mockRejectedValue(new Error("user RAG down"))
+
+    const result = await generateWizardRagContextWithBrand(
+      "user_123",
+      "q",
+      { mode: "auto" },
+      1
+    )
+
+    expect(result.success).toBe(true)
+    if (!result.success) throw new Error("expected success")
+    expect(result.data).toBeNull()
+  })
+
+  it("brand rejeita, user OK — retorna apenas user", async () => {
+    getBrandAutoRagContextMock.mockRejectedValue(new Error("brand down"))
+    setUserRag({
+      context: "USER_SURVIVES",
+      sources: [{ id: 9, title: "Surviving doc" }],
+      tokensUsed: 100,
+      chunksIncluded: 1,
+    })
+
+    const result = await generateWizardRagContextWithBrand("user_123", "q", { mode: "auto" }, 1)
+    if (!result.success) throw new Error("expected success")
+    expect(result.data).not.toBeNull()
+    expect(result.data!.context).toContain("USER_SURVIVES")
+    expect(result.data!.context).not.toContain(BRAND_SECTION_HEADER)
+  })
+
+  it("user mode 'off' ainda permite brand auto-inject (independente)", async () => {
+    getBrandAutoRagContextMock.mockResolvedValue({
+      context: "BRAND_STILL_INJECTS",
+      sources: [
+        { id: 30, title: "Brand doc", category: "brand", score: 0.9, chunkCount: 1 },
+      ],
+      tokensUsed: 150,
+      chunksIncluded: 1,
+      truncated: false,
+    })
+    // user mode "off" → generateWizardRagContext retorna {success:true,data:null}
+    // sem nem chamar assembleRagContext
+
+    const result = await generateWizardRagContextWithBrand(
+      "user_123",
+      "q",
+      { mode: "off" },
+      1
+    )
+
+    expect(getBrandAutoRagContextMock).toHaveBeenCalled()
+    if (!result.success) throw new Error("expected success")
+    expect(result.data).not.toBeNull()
+    expect(result.data!.context).toContain("BRAND_STILL_INJECTS")
+    expect(result.data!.context).toContain(BRAND_SECTION_HEADER)
+    expect(result.data!.context).not.toContain(USER_SECTION_HEADER)
+  })
 })
 
 describe("generateWizardRagContext (catch path)", () => {
