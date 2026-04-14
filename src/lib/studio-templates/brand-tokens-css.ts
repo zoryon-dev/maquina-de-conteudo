@@ -10,16 +10,21 @@
 
 import type { BrandConfig } from "@/lib/brands/schema"
 
-// Permite: hex (#), letras/números, espaços, vírgulas, pontos, traços,
-// porcentagem, parênteses, barra (p/ rgb(255 0 0 / .5)).
-// Bloqueia explicitamente chars que fariam escape do contexto CSS:
-// `{`, `}`, `;`, `<`, `>`, `"`, `'`, `@`, `:` fora de parênteses, etc.
-const SAFE_CSS_VALUE = /^[#\w\s,.\-%()/]+$/
+// Allowlist — rejects values that could escape `:root { --x: VALUE; }`.
+// ScreenshotOne renders real HTML; an injected `}` + selector or `</style>`
+// would execute. Blocks `;{}<>@:` — the core escape vectors. Allows quotes
+// because they're valid inside font-family values (e.g. `"Plus Jakarta Sans"`).
+const SAFE_CSS_VALUE = /^[#\w\s,.\-%()/'"]+$/
 
-function sanitize(value: string): string | null {
+function sanitize(value: string, context: string): string | null {
   const trimmed = value.trim()
   if (!trimmed) return null
-  if (!SAFE_CSS_VALUE.test(trimmed)) return null
+  if (!SAFE_CSS_VALUE.test(trimmed)) {
+    console.warn(
+      `[brand-tokens] rejected unsafe value at ${context}: "${trimmed}"`
+    )
+    return null
+  }
   return trimmed
 }
 
@@ -45,7 +50,7 @@ export function buildBrandTokenCss(brand: BrandConfig | undefined | null): strin
     if (!obj) return
     for (const [key, value] of Object.entries(obj)) {
       if (typeof value !== "string") continue
-      const safe = sanitize(value)
+      const safe = sanitize(value, `${prefix}s.${key}`)
       if (!safe) continue
       lines.push(`  --brand-${prefix}-${toKebab(key)}: ${safe};`)
     }
