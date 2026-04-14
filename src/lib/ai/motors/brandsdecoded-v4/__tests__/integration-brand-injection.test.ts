@@ -97,3 +97,75 @@ describe("integration: brand injection por stage (BD v4)", () => {
     }
   })
 })
+
+/**
+ * T3 — Partial vars per stage. Zoryon `brandConfigToPromptVariables()` pode
+ * retornar undefined para qualquer field. Testes anteriores usam FULL_VARS
+ * (todos os 10 keys setados), que esconde bugs de renderização quando só um
+ * subset do stage tem dado.
+ */
+describe("partial vars por stage (T3)", () => {
+  it("triagem com apenas targetAudience renderiza só AUDIÊNCIA", () => {
+    const out = buildBrandContextBlock(
+      { targetAudience: "PMEs" },
+      { stage: "triagem" }
+    )
+    expect(out).toContain("## AUDIÊNCIA")
+    expect(out).toContain("PMEs")
+    expect(out).not.toContain("## POSICIONAMENTO")
+    expect(out).not.toContain("## VOZ")
+    expect(out).not.toContain("## OBJETIVOS E CTAs")
+  })
+
+  it("stage=legenda com apenas audienceFears (field fora do stage) retorna fallback", () => {
+    // audienceFears NÃO está em BD_STAGE_FIELDS.legenda. Todas as seções do
+    // stage ficariam vazias — a implementação deve retornar fallback em vez
+    // de deixar heading órfão no prompt. (Testa o fix C2.)
+    const out = buildBrandContextBlock(
+      { audienceFears: "irrelevant for legenda" },
+      { stage: "legenda", fallback: "EMPTY_CTX" }
+    )
+    expect(out).toBe("EMPTY_CTX")
+  })
+
+  it("stage=legenda com apenas preferredCTAs renderiza OBJETIVOS sem VOZ", () => {
+    const out = buildBrandContextBlock(
+      { preferredCTAs: "Link na bio" },
+      { stage: "legenda" }
+    )
+    expect(out).toContain("## OBJETIVOS E CTAs")
+    expect(out).toContain("Link na bio")
+    expect(out).not.toContain("## VOZ")
+    expect(out).not.toContain("## AUDIÊNCIA")
+  })
+
+  it("stage=espinha com apenas contentGoals renderiza só OBJETIVOS", () => {
+    const out = buildBrandContextBlock(
+      { contentGoals: "educar + gerar leads" },
+      { stage: "espinha" }
+    )
+    expect(out).toContain("## OBJETIVOS E CTAs")
+    expect(out).toContain("educar + gerar leads")
+    expect(out).not.toContain("## AUDIÊNCIA")
+    expect(out).not.toContain("## POSICIONAMENTO")
+  })
+
+  it("stage=copy-blocks com apenas tone renderiza só VOZ", () => {
+    const out = buildBrandContextBlock(
+      { tone: "editorial" },
+      { stage: "copy-blocks" }
+    )
+    expect(out).toContain("## VOZ")
+    expect(out).toContain("editorial")
+    expect(out).not.toContain("## OBJETIVOS E CTAs")
+  })
+
+  it("stage=headlines com apenas field irrelevante (targetAudience fora de headlines) retorna fallback", () => {
+    // targetAudience não está em headlines — todas seções colapsam.
+    const out = buildBrandContextBlock(
+      { targetAudience: "PMEs" },
+      { stage: "headlines", fallback: "## MARCA — contexto não aplicável" }
+    )
+    expect(out).toBe("## MARCA — contexto não aplicável")
+  })
+})
