@@ -10,14 +10,8 @@ const BRAND_AUTO_INJECT_OPTIONS = {
 } as const
 
 /**
- * Busca auto-inject de contexto da marca (category='brand') pra injeção em
- * toda geração de conteúdo. Budget menor que user RAG pra não dominar contexto.
- *
- * Graceful degradation: retorna null em qualquer erro ou quando não há chunks.
- *
- * @param userId - ID do usuário (Clerk)
- * @param query - Query semântica pra buscar chunks relevantes
- * @param _brandId - Reservado pra futuro multi-brand filtering (hoje não usado)
+ * Brand auto-inject RAG. Budget menor (1500 tok) pra não dominar o contexto;
+ * retorna null em qualquer falha ou zero chunks (graceful degradation).
  */
 export async function getBrandAutoRagContext(
   userId: string,
