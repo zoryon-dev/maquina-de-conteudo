@@ -15,6 +15,7 @@ import { Monitor, ZoomIn, ZoomOut, Maximize2, X, ChevronLeft, ChevronRight } fro
 import { useStudioStore, useActiveSlide, useProfile, useHeader } from "@/stores/studio-store";
 import { renderSlideToHtml } from "@/lib/studio-templates/renderer";
 import { DIMENSIONS } from "@/lib/studio-templates/types";
+import { useBrand } from "../../hooks/use-brand";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,6 +32,13 @@ export function CanvasPanel() {
   const activeSlideIndex = useStudioStore((state) => state.activeSlideIndex);
   const aspectRatio = useStudioStore((state) => state.aspectRatio);
   const setActiveSlide = useStudioStore((state) => state.setActiveSlide);
+
+  // Fase 3: brand ativa + feature flag para injetar tokens no preview.
+  // `process.env.NEXT_PUBLIC_*` é inlined pelo Next em build-time → checagem
+  // client-side segura sem chamar `isFeatureEnabled()` (que é server-only).
+  const brand = useBrand();
+  const visualTokensV2 =
+    process.env.NEXT_PUBLIC_FEATURE_VISUAL_TOKENS_V2 === "true";
 
   // Estado para zoom dinâmico
   const [scale, setScale] = useState(0.35);
@@ -49,10 +57,12 @@ export function CanvasPanel() {
       header,
       slideIndex: activeSlideIndex,
       totalSlides: slides.length,
+      brand,
+      featureFlags: { visualTokensV2 },
     });
 
     return result.html;
-  }, [activeSlide, profile, header, activeSlideIndex, slides.length]);
+  }, [activeSlide, profile, header, activeSlideIndex, slides.length, brand, visualTokensV2]);
 
   const dimensions = DIMENSIONS[aspectRatio];
 
