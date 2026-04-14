@@ -59,6 +59,7 @@ import {
   HEADLINE_PATTERN_IDS,
   type HeadlinePatternId,
 } from "@/lib/ai/shared/headline-library";
+import { consolidateSeeds } from "@/lib/wizard-services/content-extractor.service";
 
 /**
  * Validação runtime de motorOptions dentro do worker.
@@ -1162,6 +1163,28 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       );
     }
 
+    // Consolidação de seeds[] em briefing único para BD (Fase 4).
+    // Seeds extraídas explicitamente via UI (link/YT/texto) têm prioridade
+    // sobre `wizard.theme` — quando presentes, substituem o briefing que vai
+    // pro motor. Ausência de seeds mantém comportamento original.
+    const bdSeeds = Array.isArray(wizard.seeds) ? wizard.seeds : [];
+    const bdBriefing =
+      bdSeeds.length > 0
+        ? consolidateSeeds(bdSeeds)
+        : wizard.theme || undefined;
+
+    if (isBdMotor && isCarousel) {
+      console.log(
+        "[worker/bd] briefing source",
+        JSON.stringify({
+          wizardId,
+          seedsCount: bdSeeds.length,
+          briefingLen: bdBriefing?.length ?? 0,
+          source: bdSeeds.length > 0 ? "seeds" : "theme",
+        })
+      );
+    }
+
     // Dispatch baseado em wizard.motor (PR5.1).
     // BrandsDecoded v4 retorna estrutura própria (espinha + 18 blocos) que
     // adaptamos para o shape GeneratedContent esperado pelo restante do pipeline
@@ -1172,7 +1195,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
             contentType,
             selectedNarrative,
             cta: wizard.cta || undefined,
-            theme: wizard.theme || undefined,
+            theme: bdBriefing,
             negativeTerms: wizard.negativeTerms as string[] | undefined,
             ragContext: ragContextForPrompt,
             model,
