@@ -13,7 +13,7 @@ import { libraryItems } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import type { StudioState } from "@/lib/studio-templates/types";
 import { MAX_SLIDES } from "@/lib/studio-templates/types";
-import { toAppError, getErrorMessage, ValidationError, NotFoundError, ForbiddenError } from "@/lib/errors";
+import { toAppError, getErrorMessage, ValidationError, NotFoundError, ForbiddenError, ConfigError } from "@/lib/errors";
 import { isScreenshotOneAvailable, renderSlideToImage } from "@/lib/studio-templates/render-to-image";
 import { getStorageProvider } from "@/lib/storage";
 import { getBrandConfig, resolveBrandIdForUser } from "@/lib/brands/queries";
@@ -107,7 +107,23 @@ export async function POST(request: Request) {
     }
 
     const brandId = await resolveBrandIdForUser(userId);
-    const brandForRender = brandId != null ? await getBrandConfig(brandId) : null;
+
+    let brandForRender: BrandConfig | null = null;
+    if (brandId != null) {
+      try {
+        brandForRender = await getBrandConfig(brandId);
+      } catch (err) {
+        if (err instanceof ConfigError) {
+          console.error(
+            `[StudioSave] brand ${brandId} config invalid, degrading to no-brand render:`,
+            err
+          );
+        } else {
+          throw err;
+        }
+      }
+    }
+
     const featureFlags = {
       visualTokensV2: isFeatureEnabled("NEXT_PUBLIC_FEATURE_VISUAL_TOKENS_V2"),
     };

@@ -16,10 +16,11 @@ import { eq, and } from "drizzle-orm";
 import type { StudioSlide, StudioProfile, StudioHeader } from "@/lib/studio-templates/types";
 import type { PostType, ContentStatus } from "@/db/schema";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
-import { toAppError, getErrorMessage, ValidationError } from "@/lib/errors";
+import { toAppError, getErrorMessage, ValidationError, ConfigError } from "@/lib/errors";
 import { isScreenshotOneAvailable, renderAndUploadAllSlides } from "@/lib/studio-templates/render-to-image";
 import { getBrandConfig, resolveBrandIdForUser } from "@/lib/brands/queries";
 import { isFeatureEnabled } from "@/lib/features";
+import type { BrandConfig } from "@/lib/brands/schema";
 
 interface SaveCarouselRequest {
   slides: StudioSlide[];
@@ -98,7 +99,23 @@ export async function POST(
       : "Carrossel sem titulo";
 
     const brandId = await resolveBrandIdForUser(userId);
-    const brandForRender = brandId != null ? await getBrandConfig(brandId) : null;
+
+    let brandForRender: BrandConfig | null = null;
+    if (brandId != null) {
+      try {
+        brandForRender = await getBrandConfig(brandId);
+      } catch (err) {
+        if (err instanceof ConfigError) {
+          console.error(
+            `[SaveCarousel] brand ${brandId} config invalid, degrading to no-brand render:`,
+            err
+          );
+        } else {
+          throw err;
+        }
+      }
+    }
+
     const featureFlags = {
       visualTokensV2: isFeatureEnabled("NEXT_PUBLIC_FEATURE_VISUAL_TOKENS_V2"),
     };

@@ -15,6 +15,7 @@ import { toAppError, getErrorMessage, ValidationError, NotFoundError, ForbiddenE
 import { isScreenshotOneAvailable, renderAndUploadAllSlides } from "@/lib/studio-templates/render-to-image";
 import { getBrandConfig, resolveBrandIdForUser } from "@/lib/brands/queries";
 import { isFeatureEnabled } from "@/lib/features";
+import type { BrandConfig } from "@/lib/brands/schema";
 
 // ============================================================================
 // TYPES
@@ -55,7 +56,23 @@ export async function POST(request: Request) {
     console.log(`[StudioPublish] Starting publish for ${state.slides.length} slides`);
 
     const brandId = await resolveBrandIdForUser(userId);
-    const brandForRender = brandId != null ? await getBrandConfig(brandId) : null;
+
+    let brandForRender: BrandConfig | null = null;
+    if (brandId != null) {
+      try {
+        brandForRender = await getBrandConfig(brandId);
+      } catch (err) {
+        if (err instanceof ConfigError) {
+          console.error(
+            `[StudioPublish] brand ${brandId} config invalid, degrading to no-brand render:`,
+            err
+          );
+        } else {
+          throw err;
+        }
+      }
+    }
+
     const featureFlags = {
       visualTokensV2: isFeatureEnabled("NEXT_PUBLIC_FEATURE_VISUAL_TOKENS_V2"),
     };
