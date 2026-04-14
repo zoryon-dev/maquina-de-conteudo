@@ -14,7 +14,9 @@
  */
 
 import { assembleRagContext } from "@/lib/rag/assembler";
+import { getBrandAutoRagContext } from "@/lib/rag/brand-auto-inject";
 import type { RagCategory } from "@/lib/rag/types";
+import { isFeatureEnabled } from "@/lib/features";
 import type { RagConfig, RagResult, ServiceResult } from "./types";
 
 // ============================================================================
@@ -276,4 +278,87 @@ export function formatRagSourcesForMetadata(ragResult: RagResult | null): Array<
     id: s.id,
     title: s.title,
   }));
+}
+
+// ============================================================================
+// BRAND AUTO-INJECT MERGE
+// ============================================================================
+
+/**
+ * Chama user RAG + brand auto-inject em paralelo e mescla os contextos
+ * com separadores claros pro LLM distinguir as fontes.
+ *
+ * Brand auto-inject vem PRIMEIRO no contexto (diretriz forte de marca),
+ * user RAG vem DEPOIS (informação adicional).
+ *
+ * Kill-switch: `RAG_BRAND_AUTO_INJECT=false` desativa a busca de marca,
+ * caindo apenas no user RAG configurado.
+ *
+ * @param userId - User ID for authorization
+ * @param query - Search query for semantic search
+ * @param userConfig - User-controlled RAG config (mode, documents, etc.)
+ * @param brandId - Brand ID resolvido pelo caller (reservado pra multi-brand)
+ * @returns Service result com contexto mesclado, ou data:null se ambos vazios
+ */
+export async function generateWizardRagContextWithBrand(
+  userId: string,
+  query: string,
+  userConfig: RagConfig,
+  brandId?: number | null
+): Promise<ServiceResult<RagResult | null>> {
+  const autoInjectEnabled = isFeatureEnabled("RAG_BRAND_AUTO_INJECT", true);
+
+  const [brandResult, userResult] = await Promise.all([
+    autoInjectEnabled
+      ? getBrandAutoRagContext(userId, query, brandId ?? undefined)
+      : Promise.resolve(null),
+    generateWizardRagContext(userId, query, userConfig),
+  ]);
+
+  const userData = userResult.success ? userResult.data : null;
+
+  if (!brandResult && !userData) {
+    return { success: true, data: null };
+  }
+
+  const parts: string[] = [];
+  const sources: Array<{ id: number; title: string }> = [];
+  let tokensUsed = 0;
+  let chunksIncluded = 0;
+
+  if (brandResult && brandResult.context) {
+    parts.push("═══ CONTEXTO DA MARCA (auto) ═══");
+    parts.push("");
+    parts.push(brandResult.context);
+    sources.push(
+      ...brandResult.sources.map((s) => ({ id: s.id, title: s.title }))
+    );
+    tokensUsed += brandResult.tokensUsed;
+    chunksIncluded += brandResult.chunksIncluded;
+  }
+
+  if (userData && userData.context) {
+    if (parts.length > 0) {
+      parts.push("");
+      parts.push("");
+    }
+    parts.push("═══ CONTEXTO ADICIONAL (user) ═══");
+    parts.push("");
+    parts.push(userData.context);
+    sources.push(
+      ...userData.sources.map((s) => ({ id: s.id, title: s.title }))
+    );
+    tokensUsed += userData.tokensUsed;
+    chunksIncluded += userData.chunksIncluded;
+  }
+
+  return {
+    success: true,
+    data: {
+      context: parts.join("\n"),
+      sources,
+      tokensUsed,
+      chunksIncluded,
+    },
+  };
 }
