@@ -106,8 +106,6 @@ export async function POST(request: Request) {
       throw new ValidationError(`Máximo de ${MAX_SLIDES} slides permitido`);
     }
 
-    // Resolve brand ativa (Fase 3). Usado para persistir library_items.brand_id
-    // e (quando visualTokensV2=on) injetar brand tokens no preview.
     const brandId = await resolveBrandIdForUser(userId);
     const brandForRender = brandId != null ? await getBrandConfig(brandId) : null;
     const featureFlags = {

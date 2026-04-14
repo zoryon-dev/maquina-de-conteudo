@@ -33,9 +33,8 @@ export function CanvasPanel() {
   const aspectRatio = useStudioStore((state) => state.aspectRatio);
   const setActiveSlide = useStudioStore((state) => state.setActiveSlide);
 
-  // Fase 3: brand ativa + feature flag para injetar tokens no preview.
-  // `process.env.NEXT_PUBLIC_*` é inlined pelo Next em build-time → checagem
-  // client-side segura sem chamar `isFeatureEnabled()` (que é server-only).
+  // NEXT_PUBLIC_* é inlined em build — seguro no client, diferente de
+  // isFeatureEnabled() que é server-only.
   const brand = useBrand();
   const visualTokensV2 =
     process.env.NEXT_PUBLIC_FEATURE_VISUAL_TOKENS_V2 === "true";

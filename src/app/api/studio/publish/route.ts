@@ -54,8 +54,6 @@ export async function POST(request: Request) {
 
     console.log(`[StudioPublish] Starting publish for ${state.slides.length} slides`);
 
-    // Resolve brand ativa (Fase 3) — persistimos library_items.brand_id e,
-    // sob flag visualTokensV2, injetamos os tokens antes do screenshot final.
     const brandId = await resolveBrandIdForUser(userId);
     const brandForRender = brandId != null ? await getBrandConfig(brandId) : null;
     const featureFlags = {

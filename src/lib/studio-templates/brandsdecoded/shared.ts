@@ -132,10 +132,11 @@ export function bdSharedCss(palette: BDPalette, bg: "light" | "dark" | "grad"): 
       : "rgba(255,255,255,0.55)";
   const accentBg = bg === "grad" ? "rgba(255,255,255,0.18)" : gradient;
 
-  // Fase 3: cada token expõe chain de fallback — brand token override
-  // primeiro, literal original como segundo fallback. Quando a flag off,
-  // brand-tokens-css não injeta :root override, então `var(--brand-*)`
-  // resolve para o fallback literal e o output visual fica idêntico.
+  // Apenas `--P`, `--DB` e fontes rotam via brand tokens — PL/PD/LB/LR/G
+  // são derivados matematicamente de `--P` (mixHex) e do tema warm/cool,
+  // então expô-los como brand tokens independentes permitiria brands
+  // inconsistentes (ex.: PD mais claro que PL). Quando a flag off, as vars
+  // `--brand-*` ficam indefinidas e o fallback literal mantém output igual.
   return `
     :root {
       --P: var(--brand-color-primary, ${palette.primary});

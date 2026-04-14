@@ -43,15 +43,14 @@ export interface RenderSlideInput {
   /** Total de slides no carrossel */
   totalSlides: number;
   /**
-   * Brand ativa (Fase 3). Quando presente + `featureFlags.visualTokensV2`,
-   * o renderer injeta `<style>:root { --brand-*: ... }</style>` no HTML
-   * antes do `<body>` (ou no topo se não houver `<head>`).
+   * Brand ativa. Quando presente + `featureFlags.visualTokensV2`, o renderer
+   * injeta `<style>:root { --brand-*: ... }</style>` logo após `<head>` (ou
+   * no topo do doc se não houver head).
    */
   brand?: BrandConfig | null;
   /**
-   * Feature flags por request. `visualTokensV2=true` ativa injeção de
-   * brand tokens. Default (flag off / ausente): comportamento pré-Fase 3
-   * intacto.
+   * Feature flags por request. `visualTokensV2=true` ativa injeção de brand
+   * tokens. Default (flag off / ausente): HTML gerado idêntico ao anterior.
    */
   featureFlags?: { visualTokensV2?: boolean };
 }
@@ -196,7 +195,7 @@ export function renderSlideToHtml(input: RenderSlideInput): RenderSlideResult {
     }
   }
 
-  // Fase 3: injeta brand tokens apenas quando flag on + brand presente.
+  // Injeta brand tokens apenas quando flag on + brand presente.
   // Backcompat estrita: sem flag ou sem brand, HTML idêntico ao original.
   const brandCss =
     featureFlags?.visualTokensV2 && brand ? buildBrandTokenCss(brand) : "";

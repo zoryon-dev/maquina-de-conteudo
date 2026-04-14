@@ -111,9 +111,7 @@ interface RenderAndUploadOptions {
   storagePrefix: string;
   /** Pixel density (default: 2) */
   deviceScaleFactor?: number;
-  /** Brand ativa para injetar tokens no HTML antes do screenshot (Fase 3) */
   brand?: BrandConfig | null;
-  /** Flags de feature — `visualTokensV2=true` habilita injeção de brand tokens */
   featureFlags?: { visualTokensV2?: boolean };
 }
 

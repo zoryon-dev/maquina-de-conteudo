@@ -97,10 +97,6 @@ export async function POST(
       ? `Carrossel: ${wizard.objective.substring(0, 80)}${wizard.objective.length > 80 ? "..." : ""}`
       : "Carrossel sem titulo";
 
-    // Resolve brand ativa para este user (Fase 3). Se houver, persistir em
-    // library_items.brand_id e, quando a flag visualTokensV2 estiver on,
-    // passar o BrandConfig para o renderer — os PNGs saem do ScreenshotOne
-    // já com os tokens aplicados.
     const brandId = await resolveBrandIdForUser(userId);
     const brandForRender = brandId != null ? await getBrandConfig(brandId) : null;
     const featureFlags = {
