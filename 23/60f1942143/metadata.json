@@ -1,0 +1,25 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "2360f1942143",
+  "strategy": "manual-commit",
+  "branch": "feat/fase-1-rag-brand-auto-inject",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/lib/ai/motors/brandsdecoded-v4/_shared/__tests__/brand-block-sections.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/23/60f1942143/0/metadata.json",
+      "transcript": "/23/60f1942143/0/full.jsonl",
+      "content_hash": "/23/60f1942143/0/content_hash.txt",
+      "prompt": "/23/60f1942143/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 27432,
+    "cache_creation_tokens": 7484985,
+    "cache_read_tokens": 224103629,
+    "output_tokens": 661956,
+    "api_call_count": 529
+  }
+}
