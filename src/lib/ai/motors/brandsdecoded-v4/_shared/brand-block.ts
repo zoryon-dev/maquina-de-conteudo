@@ -7,10 +7,10 @@ import {
 } from "./brand-block-sections"
 
 export type BrandBlockOptions = {
-  stage?: BdStage    // quando presente, usa renderização semântica por seções
-  heading?: string   // default "# CONTEXTO DE MARCA"
-  note?: string      // linha extra abaixo do heading
-  fallback?: string  // string se vars vazias; default: ""
+  stage?: BdStage
+  heading?: string
+  note?: string
+  fallback?: string
 }
 
 export function buildBrandContextBlock(

@@ -1,11 +1,8 @@
-// Mapeamento semântico stage → seções de contexto de marca.
-//
-// WHY: cada etapa do pipeline BD v4 precisa de um subset diferente das
-// variáveis de marca. Triagem não precisa de CTAs; legenda não precisa de
-// fears; etc. Renderizar tudo em bullet flat polui o prompt e confunde o
-// modelo. Aqui declaramos explicitamente quais campos cada stage consome e
-// agrupamos esses campos em seções nomeadas (VOZ, AUDIÊNCIA, ...).
+// Etapas distintas do pipeline consomem subsets da marca. Bullet-list
+// flat com todos os campos polui o prompt; agrupar em seções nomeadas
+// (VOZ/AUDIÊNCIA/...) melhora a aderência do modelo.
 
+// Tipo canônico — mantém este arquivo em sync com brandConfigToPromptVariables.
 import type { BrandPromptVariables } from "@/lib/brands/injection"
 
 export type BdStage = "triagem" | "headlines" | "espinha" | "copy-blocks" | "legenda"
@@ -20,6 +17,7 @@ export const BD_STAGE_FIELDS: Record<BdStage, ReadonlyArray<keyof BrandPromptVar
   legenda: ["preferredCTAs", "tone", "brandVoice"],
 } as const
 
+// Labels PT-BR são load-bearing: entram no prompt e afetam aderência do modelo.
 export type SectionName = "VOZ" | "AUDIÊNCIA" | "POSICIONAMENTO" | "OBJETIVOS E CTAs"
 
 type SectionDef = {
@@ -27,9 +25,6 @@ type SectionDef = {
   fields: ReadonlyArray<readonly [label: string, key: keyof BrandPromptVariables]>
 }
 
-// Catálogo de seções com labels humanos. Um mesmo key pode aparecer em
-// várias seções em teoria, mas aqui cada key pertence a exatamente uma
-// seção — se precisarmos repetir no futuro, basta duplicar.
 const SECTION_CATALOG: readonly SectionDef[] = [
   {
     name: "VOZ",
@@ -80,11 +75,7 @@ export function renderSection(
   return [`## ${name}`, ...lines].join("\n")
 }
 
-/**
- * Dado um stage, retorna as seções relevantes (em ordem de catálogo) já
- * filtradas pelos fields daquele stage. Uma seção só aparece se pelo menos
- * um field dela estiver na lista do stage.
- */
+// Ordem segue SECTION_CATALOG. Seções sem fields relevantes são omitidas.
 export function getSectionsForStage(stage: BdStage): Array<{
   name: SectionName
   fields: ReadonlyArray<readonly [string, keyof BrandPromptVariables]>
