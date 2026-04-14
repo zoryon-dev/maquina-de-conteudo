@@ -594,6 +594,22 @@ export const contentWizards = pgTable(
     }>(),
     negativeTerms: jsonb("negative_terms").$type<string[]>(),
 
+    // Seeds múltiplas (link / youtube / keyword / theme / insight) para BD.
+    // Cada seed carrega briefing extraído via Firecrawl/Apify (ou pass-through
+    // para texto livre), consolidado no worker antes do dispatch BD.
+    seeds: jsonb("seeds")
+      .$type<Array<{
+        // id é opcional no schema pra back-compat com rows pré-C3 que
+        // foram escritas sem uuid. Código novo sempre gera id.
+        id?: string
+        type: "link" | "youtube" | "keyword" | "theme" | "insight"
+        value: string
+        briefing?: string
+        metadata?: Record<string, unknown>
+        extractedAt?: string
+      }>>()
+      .default([]),
+
     // Processing results
     extractedContent: jsonb("extracted_content"), // Content from Firecrawl/Apify
     researchQueries: jsonb("research_queries").$type<string[]>(), // Queries Tavily

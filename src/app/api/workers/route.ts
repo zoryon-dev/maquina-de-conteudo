@@ -59,6 +59,7 @@ import {
   HEADLINE_PATTERN_IDS,
   type HeadlinePatternId,
 } from "@/lib/ai/shared/headline-library";
+import { resolveBdBriefing } from "./bd-briefing-resolver";
 
 /**
  * Validação runtime de motorOptions dentro do worker.
@@ -1162,6 +1163,43 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       );
     }
 
+    // Seeds extraídas via UI têm precedência sobre wizard.theme. Lógica pura
+    // em bd-briefing-resolver.ts (testada isoladamente).
+    const briefingResult = resolveBdBriefing({ seeds: wizard.seeds, theme: wizard.theme });
+    const bdBriefing = briefingResult.briefing;
+
+    if (isBdMotor && isCarousel) {
+      const trimmedLen = bdBriefing?.trim().length ?? 0;
+      console.log(
+        "[worker/bd] briefing source",
+        JSON.stringify({
+          wizardId,
+          source: briefingResult.source,
+          seedsCount: briefingResult.seedsCount,
+          briefingLen: trimmedLen,
+        })
+      );
+
+      // C5: guard contra briefing vazio/muito curto. BD v4 precisa de
+      // substrato mínimo — sem isso o motor gera slop ou alucina.
+      // 50 chars é conservador (permite "theme" curto de wizard legado)
+      // mas evita string vazia chegando no prompt. O wrapper do worker
+      // converte o throw em `updateJobStatus(..., "failed")`; aqui
+      // atualizamos `wizard.jobError` pra UI mostrar motivo específico.
+      if (trimmedLen < 50) {
+        console.error("[worker/bd] briefing muito curto — abortando", {
+          wizardId,
+          seedsCount: briefingResult.seedsCount,
+          briefingLen: trimmedLen,
+        });
+        await updateWizardProgress(wizardId, {
+          jobStatus: "failed",
+          jobError: "Briefing muito curto. Adicione seeds ou tema.",
+        });
+        throw new Error(`BD briefing too short (${trimmedLen} chars)`);
+      }
+    }
+
     // Dispatch baseado em wizard.motor (PR5.1).
     // BrandsDecoded v4 retorna estrutura própria (espinha + 18 blocos) que
     // adaptamos para o shape GeneratedContent esperado pelo restante do pipeline
@@ -1172,7 +1210,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
             contentType,
             selectedNarrative,
             cta: wizard.cta || undefined,
-            theme: wizard.theme || undefined,
+            theme: bdBriefing,
             negativeTerms: wizard.negativeTerms as string[] | undefined,
             ragContext: ragContextForPrompt,
             model,
