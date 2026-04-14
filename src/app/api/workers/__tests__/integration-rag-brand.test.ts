@@ -1,11 +1,16 @@
-// Smoke integration: valida que o flag default de RAG_BRAND_AUTO_INJECT
-// é true (auto-inject ativo) e que setá-lo "false" desativa o caminho
-// de brand. Este teste roda contra o helper isFeatureEnabled real — a
-// validação end-to-end via worker depende de logs em produção pós-deploy.
+// Integração RAG brand auto-inject — Fase 1 overhaul.
 //
-// Cobertura comportamental do merge brand+user vive em:
+// Este arquivo cobre 3 camadas do dispatch do worker:
+//   1. Flag RAG_BRAND_AUTO_INJECT (default on, toggleable via env)
+//   2. Contrato de imports (resolveBrandIdForUser, generateWizardRagContextWithBrand)
+//   3. Invariantes comportamentais — brand auto-inject é tentado mesmo quando
+//      ragConfig é undefined | {} ou quando não há default brand configurado.
+//
+// Cobertura comportamental profunda do merge brand+user vive em:
 //   - src/lib/rag/__tests__/brand-auto-inject.test.ts
 //   - src/lib/wizard-services/__tests__/rag.service.test.ts
+// Validação end-to-end vem via logs estruturados
+// (`errorId: RAG_*` / `[rag] brand auto-inject: hit|empty`) em produção.
 
 import { describe, it, expect, vi, beforeEach } from "vitest"
 
@@ -33,11 +38,31 @@ describe("Fase 1 — integração RAG brand auto-inject (flag)", () => {
   })
 })
 
-describe("Fase 1 — integração RAG brand auto-inject (invariante)", () => {
-  it("brand auto-inject é chamado mesmo com ragConfig undefined", async () => {
-    // Smoke focada na invariante chave: independente de ragConfig do user,
-    // brand auto-inject deve ser tentado quando flag on. Mockamos ambos
-    // os providers; verificamos que getBrandAutoRagContext foi invocado.
+describe("Fase 1 — contrato de imports usados pelo dispatch RAG do worker", () => {
+  it("expõe resolveBrandIdForUser de @/lib/brands/queries", async () => {
+    const mod = await import("@/lib/brands/queries")
+    expect(typeof mod.resolveBrandIdForUser).toBe("function")
+  })
+
+  it("expõe generateWizardRagContextWithBrand de rag.service", async () => {
+    // Mock o assembler pra evitar carregar @/lib/voyage (precisa ENCRYPTION_KEY).
+    vi.doMock("@/lib/rag/assembler", () => ({
+      assembleRagContext: vi.fn(),
+      isRagAvailable: vi.fn(),
+      getRagStats: vi.fn(),
+    }))
+    const mod = await import("@/lib/wizard-services/rag.service")
+    expect(typeof mod.generateWizardRagContextWithBrand).toBe("function")
+    expect(typeof mod.formatRagForPrompt).toBe("function")
+    vi.doUnmock("@/lib/rag/assembler")
+  })
+})
+
+describe("Fase 1 — invariantes do dispatch RAG do worker", () => {
+  it("brand auto-inject é chamado mesmo com ragConfig vazio ({})", async () => {
+    // Invariante chave: independente de ragConfig do user, brand auto-inject
+    // deve ser tentado quando flag on. Mockamos ambos os providers e verificamos
+    // que getBrandAutoRagContext foi invocado.
 
     const getBrandAutoRagContextMock = vi.fn().mockResolvedValue(null)
     const isFeatureEnabledMock = vi.fn().mockReturnValue(true)
@@ -66,7 +91,6 @@ describe("Fase 1 — integração RAG brand auto-inject (invariante)", () => {
       "@/lib/wizard-services/rag.service"
     )
 
-    // Caso real: wizard sem ragConfig nenhum, brandId resolvido pra null/1
     await generateWizardRagContextWithBrand(
       "user_test",
       "Context for carousel: tema X",
