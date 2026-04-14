@@ -1,8 +1,8 @@
 /**
  * Guardrail: isolamento entre wizard BD e wizard Tribal.
  *
- * Motivação: Fase 5 criou rota própria `/wizard/brandsdecoded/[id]` para
- * não regredir o Tribal v4. Imports cruzados (em qualquer direção)
+ * Motivação: a rota /wizard/brandsdecoded/[id] é isolada para não regredir o Tribal v4.
+ * Imports cruzados (em qualquer direção)
  * indicam acoplamento indevido — este teste detecta a violação antes do
  * merge.
  */
@@ -48,12 +48,10 @@ describe("isolamento BD <-> Tribal", () => {
     // resolvido fica DENTRO do tree BD. Imports absolutos (@/app/(app)/wizard/)
     // para componentes/actions Tribal são sempre proibidos.
     const forbiddenAbsolute = [
-      // Permite @/app/(app)/wizard/actions/extract-seed (utilitário Fase 4
-      // compartilhado), bloqueia o resto de /wizard/actions/ e /wizard/components/.
+      // Permite @/app/(app)/wizard/actions/extract-seed (utilitário compartilhado entre wizards), bloqueia o resto de /wizard/actions/ e /wizard/components/.
       /from\s+['"]@\/app\/\(app\)\/wizard\/components\//,
       /from\s+['"]@\/app\/\(app\)\/wizard\/actions\/(?!extract-seed)/,
     ]
-    // Import relativo: resolve alvo e verifica se sai do bdRoot.
     const importRelRegex = /from\s+['"](\.[^'"]+)['"]/g
     for (const f of bdFiles) {
       const content = fs.readFileSync(f, "utf-8")
