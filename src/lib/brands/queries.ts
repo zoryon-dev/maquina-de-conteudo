@@ -39,13 +39,8 @@ export async function getDefaultBrand(): Promise<Brand | null> {
 }
 
 /**
- * Resolve o brandId default para um usuário.
- *
- * Hoje: ignora userId e retorna a brand marcada como `isDefault=true` (Zoryon).
- * Futuro multi-brand: pode levar em conta ownership/permissions do user.
- *
- * Retorna `null` quando não há brand default configurada — caller decide
- * se prossegue sem brand ou falha.
+ * Ignora `_userId` por design: hoje só existe a brand `isDefault=true` (Zoryon).
+ * Retorna `null` se não houver default configurada — caller decide o fallback.
  */
 export async function resolveBrandIdForUser(_userId: string): Promise<number | null> {
   const [row] = await db
