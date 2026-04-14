@@ -56,6 +56,9 @@ export async function POST(request: Request) {
     console.log(`[StudioPublish] Starting publish for ${state.slides.length} slides`);
 
     const brandId = await resolveBrandIdForUser(userId);
+    if (brandId == null) {
+      console.warn("[StudioPublish] no default brand configured — persisting brand_id=null");
+    }
 
     let brandForRender: BrandConfig | null = null;
     if (brandId != null) {
@@ -76,6 +79,13 @@ export async function POST(request: Request) {
     const featureFlags = {
       visualTokensV2: isFeatureEnabled("NEXT_PUBLIC_FEATURE_VISUAL_TOKENS_V2"),
     };
+
+    console.log("[StudioPublish] brand resolved", {
+      userId,
+      brandId,
+      visualTokensV2: featureFlags.visualTokensV2,
+      hasBrandConfig: brandForRender !== null,
+    });
 
     // Renderizar todos os slides via shared utility
     const timestamp = Date.now();

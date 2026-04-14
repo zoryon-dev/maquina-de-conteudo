@@ -99,6 +99,9 @@ export async function POST(
       : "Carrossel sem titulo";
 
     const brandId = await resolveBrandIdForUser(userId);
+    if (brandId == null) {
+      console.warn("[SaveCarousel] no default brand configured — persisting brand_id=null");
+    }
 
     let brandForRender: BrandConfig | null = null;
     if (brandId != null) {
@@ -119,6 +122,13 @@ export async function POST(
     const featureFlags = {
       visualTokensV2: isFeatureEnabled("NEXT_PUBLIC_FEATURE_VISUAL_TOKENS_V2"),
     };
+
+    console.log("[SaveCarousel] brand resolved", {
+      userId,
+      brandId,
+      visualTokensV2: featureFlags.visualTokensV2,
+      hasBrandConfig: brandForRender !== null,
+    });
 
     // Render slides as PNG images via ScreenshotOne
     let imageUrls: string[] = [];

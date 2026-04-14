@@ -107,6 +107,9 @@ export async function POST(request: Request) {
     }
 
     const brandId = await resolveBrandIdForUser(userId);
+    if (brandId == null) {
+      console.warn("[StudioSave] no default brand configured — persisting brand_id=null");
+    }
 
     let brandForRender: BrandConfig | null = null;
     if (brandId != null) {
@@ -127,6 +130,13 @@ export async function POST(request: Request) {
     const featureFlags = {
       visualTokensV2: isFeatureEnabled("NEXT_PUBLIC_FEATURE_VISUAL_TOKENS_V2"),
     };
+
+    console.log("[StudioSave] brand resolved", {
+      userId,
+      brandId,
+      visualTokensV2: featureFlags.visualTokensV2,
+      hasBrandConfig: brandForRender !== null,
+    });
 
     // Gerar preview image do primeiro slide (não bloqueia se falhar)
     console.log("[StudioSave] Generating preview image...");
