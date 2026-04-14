@@ -1037,8 +1037,34 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
 
     // 2. RAG injection: brand auto-inject sempre on (controlado por flag
     // RAG_BRAND_AUTO_INJECT internamente), user RAG controlado por ragConfig.
+    // Envelopamos em try/catch: RAG é opcional e não pode bloquear a geração.
+    // Falhas de Neon (cold start, pool saturation) ou do pipeline de embeddings
+    // degradam para "sem contexto" em vez de fazer o job inteiro falhar.
     let ragContextForPrompt: string | undefined;
-    const brandId = await resolveBrandIdForUser(userId);
+    let brandId: number | null = null;
+
+    try {
+      brandId = await resolveBrandIdForUser(userId);
+    } catch (err) {
+      console.error(
+        JSON.stringify({
+          errorId: "RAG_RESOLVE_BRAND_FAILED",
+          wizardId,
+          userId,
+          message: err instanceof Error ? err.message : String(err),
+        })
+      );
+    }
+
+    if (brandId === null) {
+      console.warn(
+        JSON.stringify({
+          errorId: "RAG_NO_DEFAULT_BRAND",
+          wizardId,
+          userId,
+        })
+      );
+    }
 
     await updateWizardProgress(wizardId, {
       processingProgress: {
@@ -1049,23 +1075,45 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     });
 
     const ragQuery = `Context for ${contentType} generation: ${wizard.theme || wizard.objective || "general content"}`;
-    const ragResult = await generateWizardRagContextWithBrand(
-      userId,
-      ragQuery,
-      ragConfig ?? {},
-      brandId
-    );
 
-    if (ragResult.success && ragResult.data) {
-      ragContextForPrompt = formatRagForPrompt(ragResult.data);
-      console.log(
-        "[rag] brand auto-inject:",
+    try {
+      const ragResult = await generateWizardRagContextWithBrand(
+        userId,
+        ragQuery,
+        ragConfig ?? {},
+        brandId ?? undefined
+      );
+
+      if (ragResult.success && ragResult.data) {
+        ragContextForPrompt = formatRagForPrompt(ragResult.data);
+        console.log(
+          "[rag] brand auto-inject: hit",
+          JSON.stringify({
+            wizardId,
+            brandId,
+            chunksIncluded: ragResult.data.chunksIncluded,
+            tokensUsed: ragResult.data.tokensUsed,
+            sources: ragResult.data.sources.map((s) => s.title).slice(0, 5),
+          })
+        );
+      } else {
+        console.log(
+          "[rag] brand auto-inject: empty",
+          JSON.stringify({
+            wizardId,
+            brandId,
+            hasBrandId: brandId !== null,
+          })
+        );
+      }
+    } catch (err) {
+      console.error(
         JSON.stringify({
+          errorId: "RAG_PIPELINE_FAILED",
           wizardId,
+          userId,
           brandId,
-          chunksIncluded: ragResult.data.chunksIncluded,
-          tokensUsed: ragResult.data.tokensUsed,
-          sources: ragResult.data.sources.map((s) => s.title).slice(0, 5),
+          message: err instanceof Error ? err.message : String(err),
         })
       );
     }
