@@ -162,6 +162,18 @@ export async function POST(
           `[SaveCarousel] ${renderResult.errors.length}/${slides.length} slides failed. Indices: [${failedIndices}]`,
           { errors: renderResult.errors }
         );
+
+        // Falha total: todos os slides falharam — não silenciar.
+        if (renderResult.errors.length === slides.length) {
+          return NextResponse.json(
+            {
+              error: "Todos os slides falharam ao renderizar. Nenhuma imagem foi gerada.",
+              code: "RENDER_TOTAL_FAILURE",
+              failedSlides: renderResult.failedSlides,
+            },
+            { status: 500 }
+          );
+        }
       }
     }
 

@@ -44,7 +44,7 @@ const MAX_RENDER_ATTEMPTS = 3;
 const RETRY_DELAYS_MS = [0, 2000, 8000] as const;
 
 /**
- * Renderiza um slide com retry exponencial.
+ * Renderiza um slide com retry backoff crescente.
  *
  * Tenta até MAX_RENDER_ATTEMPTS vezes com delays crescentes (0ms, 2s, 8s).
  * Em caso de falha definitiva, retorna { error, slide } ao invés de lançar.
@@ -253,10 +253,26 @@ export async function renderAndUploadAllSlides(
       }
     });
 
-    await Promise.allSettled(batchPromises);
+    const settledResults = await Promise.allSettled(batchPromises);
+    // Log unexpected rejections — batchPromises já tratam erros internamente
+    // (renderWithRetry nunca lança, uploadError é capturado). Uma rejeição aqui
+    // indica falha estrutural não prevista no pipeline.
+    for (let i = 0; i < settledResults.length; i++) {
+      const settled = settledResults[i];
+      if (settled.status === "rejected") {
+        console.error("[render-to-image] rejeição inesperada no batch", {
+          batchIndex: i,
+          globalSlideIndex: batchStart + i,
+          reason: settled.reason,
+        });
+      }
+    }
   }
 
-  // Filter out empty strings (failed renders)
+  // Preserva o 1-to-1 com os slides: imageUrls é array de string|null onde
+  // null indica falha. O consumidor pode verificar `imageUrls[i] !== null`.
+  // Filtramos aqui apenas para montar o resultado final — mas failedSlides
+  // já é derivado de `errors`, não do array filtrado, mantendo o mapping.
   const successfulUrls = imageUrls.filter((url) => url !== "");
   const failedSlides = errors.map((e) => e.slideIndex + 1); // 1-based for consumer
 

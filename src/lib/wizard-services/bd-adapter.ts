@@ -5,7 +5,7 @@
  * legenda) para o shape `GeneratedContent` que o restante do pipeline
  * (save, library, render) já consome.
  *
- * Mapping: 18 blocos (2 por slide, positions "a"/"b") → 9 slides
+ * Mapping: n*2 blocos (2 por slide, positions "a"/"b") → n slides (6-10, default 9)
  *   - title   = bloco da posição "a" do slide N
  *   - content = bloco da posição "b" do slide N
  *
@@ -34,7 +34,8 @@ export type AdapterOptions = {
 };
 
 /**
- * Número padrão de slides BD v4 (convenção: 9 slides, 18 blocos 2x9).
+ * Número padrão de slides BD v4 (convenção: 9 slides, n*2 blocos por carrossel).
+ * O count real de blocos é dinâmico: 2 × numberOfSlides (6-10 slides).
  * Exportado para que testes e consumidores possam referenciar.
  */
 export const BD_TOTAL_SLIDES = 9;

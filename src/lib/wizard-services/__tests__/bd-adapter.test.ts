@@ -150,4 +150,34 @@ describe("bdResultToGeneratedContent", () => {
       expect(content.slides![i].numero).toBe(i + 1)
     }
   })
+
+  it("numberOfSlides: 6 — gera no máximo 6 slides", () => {
+    // Passa blocos para 9 slides mas solicita apenas 6
+    const bd = mkResult(mkCompleteBlocks())
+    const content = bdResultToGeneratedContent(bd, {
+      model: "gpt-5-mini",
+      numberOfSlides: 6,
+    })
+
+    expect(content.slides!.length).toBeLessThanOrEqual(6)
+    expect(content.slides).toHaveLength(6)
+    // Verifica que os 6 slides têm conteúdo correto
+    for (let i = 0; i < 6; i++) {
+      expect(content.slides![i].numero).toBe(i + 1)
+      expect(content.slides![i].title).toBe(`Título S${i + 1}`)
+    }
+  })
+
+  it("numberOfSlides: 9 — gera exatamente 9 slides", () => {
+    const bd = mkResult(mkCompleteBlocks())
+    const content = bdResultToGeneratedContent(bd, {
+      model: "gpt-5-mini",
+      numberOfSlides: 9,
+    })
+
+    expect(content.slides).toHaveLength(9)
+    for (let i = 0; i < 9; i++) {
+      expect(content.slides![i].numero).toBe(i + 1)
+    }
+  })
 })

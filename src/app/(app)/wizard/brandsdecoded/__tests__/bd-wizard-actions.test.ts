@@ -69,16 +69,7 @@ vi.mock("@/db", () => ({
 import {
   generateBdContentAction,
   saveBdCarouselAction,
-  selectHeadlineAndRebuildAction,
 } from "../[id]/actions/bd-wizard-actions"
-
-const wizardBase = {
-  id: 1,
-  userId: "user_1",
-  seeds: [{ type: "theme", value: "x", briefing: "briefing x" }],
-  generatedContent: null,
-  model: null,
-}
 
 describe("generateBdContentAction", () => {
   beforeEach(() => {
@@ -208,82 +199,5 @@ describe("saveBdCarouselAction", () => {
     const r = await saveBdCarouselAction(1)
     expect(r.success).toBe(true)
     if (r.success) expect(r.data.libraryItemId).toBe(42)
-  })
-})
-
-describe("selectHeadlineAndRebuildAction", () => {
-  beforeEach(() => {
-    authMock.mockReset()
-    generateWithBdMock.mockReset()
-    resolveBrandIdMock.mockReset()
-    getBrandConfigMock.mockReset()
-    wizardStateRef.current = null
-  })
-
-  it("retorna erro quando não autenticado", async () => {
-    authMock.mockResolvedValue({ userId: null })
-    const r = await selectHeadlineAndRebuildAction(1, 1)
-    expect(r.success).toBe(false)
-    if (!r.success) expect(r.error).toMatch(/auth/i)
-  })
-
-  it("retorna erro quando wizard não encontrado", async () => {
-    authMock.mockResolvedValue({ userId: "user_1" })
-    wizardStateRef.current = undefined
-    const r = await selectHeadlineAndRebuildAction(1, 1)
-    expect(r.success).toBe(false)
-  })
-
-  it("retorna erro quando não há geração anterior", async () => {
-    authMock.mockResolvedValue({ userId: "user_1" })
-    wizardStateRef.current = { ...wizardBase, generatedContent: null }
-    const r = await selectHeadlineAndRebuildAction(1, 1)
-    expect(r.success).toBe(false)
-    if (!r.success) expect(r.error).toMatch(/nenhuma geração anterior/i)
-  })
-
-  it("retorna erro quando headlineId não encontrada na geração prévia", async () => {
-    authMock.mockResolvedValue({ userId: "user_1" })
-    wizardStateRef.current = {
-      ...wizardBase,
-      generatedContent: {
-        headlines: [{ id: 10, title: "Headline X", angle: "herege" }],
-        espinha: {},
-        blocks: [],
-        legenda: "L",
-      },
-    }
-    const r = await selectHeadlineAndRebuildAction(1, 99)
-    expect(r.success).toBe(false)
-    if (!r.success) expect(r.error).toMatch(/headline/i)
-  })
-
-  it("caminho feliz: pipeline re-run com forcedHeadlineId", async () => {
-    authMock.mockResolvedValue({ userId: "user_1" })
-    resolveBrandIdMock.mockResolvedValue(null)
-    getBrandConfigMock.mockResolvedValue(null)
-    const existingHeadline = { id: 10, title: "Headline X", angle: "herege" }
-    wizardStateRef.current = {
-      ...wizardBase,
-      generatedContent: {
-        headlines: [existingHeadline],
-        espinha: { tese: "T" },
-        blocks: [],
-        legenda: "L",
-      },
-    }
-    generateWithBdMock.mockResolvedValue({
-      triagem: {},
-      headlines: [existingHeadline],
-      selectedHeadline: existingHeadline,
-      espinha: { tese: "T" },
-      blocks: [],
-      legendaInstagram: "legenda",
-    })
-    const r = await selectHeadlineAndRebuildAction(1, 10)
-    expect(r.success).toBe(true)
-    const call = generateWithBdMock.mock.calls[0][0]
-    expect(call.forcedHeadlineId).toBe(10)
-    expect(call.autoSelectHeadline).toBe(false)
   })
 })

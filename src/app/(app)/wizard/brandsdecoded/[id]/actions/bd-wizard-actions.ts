@@ -152,6 +152,10 @@ export async function selectHeadlineAndRebuildAction(
     const seeds = toStoredSeeds(wiz.seeds)
     const briefing = consolidateSeeds(seeds)
 
+    // Deriva numberOfSlides do estado anterior: 2 blocos por slide.
+    const numberOfSlides =
+      prev.blocks.length > 0 ? Math.round(prev.blocks.length / 2) : undefined
+
     const brandId = await resolveBrandIdForUser(userId)
     const brand = brandId ? await getBrandConfig(brandId) : null
     const brandPromptVariables = brand
@@ -163,7 +167,13 @@ export async function selectHeadlineAndRebuildAction(
       brandPromptVariables,
       autoSelectHeadline: false,
       forcedHeadlineId: headlineId,
+      numberOfSlides,
     })
+
+    // Null-guard: motor pode retornar sem headline selecionada em edge-cases.
+    if (!result.selectedHeadline) {
+      return { success: false, error: "motor não retornou headline selecionada" }
+    }
 
     await db
       .update(contentWizards)

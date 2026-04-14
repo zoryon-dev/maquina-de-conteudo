@@ -226,9 +226,9 @@ export function parseCopyBlocksResponse(raw: string, n: number = 9): CopyBlock[]
     const idx = Number(obj.index)
     const text = typeof obj.text === "string" ? obj.text.trim() : ""
     if (!Number.isFinite(idx) || idx < 1 || idx > totalBlocks) {
-      console.warn(
-        "[bd/copy-blocks] bloco descartado: index inválido",
-        { got: obj.index, maxExpected: totalBlocks }
+      console.error(
+        "[bd/copy-blocks] bloco descartado: index inválido (possível n=10 latente ou resposta LLM fora do range)",
+        { got: obj.index, maxExpected: totalBlocks, n: clampedN }
       )
       continue
     }

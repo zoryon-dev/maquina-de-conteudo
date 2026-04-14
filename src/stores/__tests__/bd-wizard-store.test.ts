@@ -63,4 +63,24 @@ describe("bd-wizard-store", () => {
     expect(st.seeds).toEqual([])
     expect(st.consolidatedBriefing).toBe("")
   })
+
+  it("setNumberOfSlides(5) clampa para 6 (mínimo)", () => {
+    const s = useBdWizardStore.getState()
+    s.setNumberOfSlides(5)
+    expect(useBdWizardStore.getState().numberOfSlides).toBe(6)
+  })
+
+  it("setNumberOfSlides(11) clampa para 10 (máximo)", () => {
+    const s = useBdWizardStore.getState()
+    s.setNumberOfSlides(11)
+    expect(useBdWizardStore.getState().numberOfSlides).toBe(10)
+  })
+
+  it("reset() restaura numberOfSlides para 9 (default)", () => {
+    const s = useBdWizardStore.getState()
+    s.setNumberOfSlides(7)
+    expect(useBdWizardStore.getState().numberOfSlides).toBe(7)
+    s.reset()
+    expect(useBdWizardStore.getState().numberOfSlides).toBe(9)
+  })
 })
