@@ -270,6 +270,11 @@ function buildLegendaPrompt(
     heading: "## MARCA — variáveis do briefing",
     fallback: "## MARCA — contexto não fornecido",
   })
+  console.log("[bd/legenda] brand-block", {
+    stage: "legenda",
+    varsKeys: Object.keys(brandVars ?? {}),
+    blockChars: brandInjection.length,
+  })
   const ctaHint =
     brandVars?.cta ||
     brandVars?.CTA ||
