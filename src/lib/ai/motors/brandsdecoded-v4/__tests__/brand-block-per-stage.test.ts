@@ -3,9 +3,14 @@ import { buildBrandContextBlock } from "../_shared/brand-block"
 import type { BdStage } from "../_shared/brand-block-sections"
 
 /**
- * Integration test: simula as 5 stages do pipeline BD v4 com um conjunto
- * completo de brand prompt variables (shape Zoryon) e verifica invariantes
- * de segmentação — cada stage só recebe os campos relevantes.
+ * brand-block-per-stage: cobre o comportamento de buildBrandContextBlock
+ * por stage do pipeline BD v4 com um conjunto completo de brand prompt
+ * variables (shape Zoryon) e verifica invariantes de segmentação — cada
+ * stage só recebe os campos relevantes.
+ *
+ * NOTA: nome anterior era "integration-brand-injection.test.ts" — confundia
+ * com integração com call sites. A wiring real dos call sites está em
+ * `call-sites-stage-wiring.test.ts`. Este arquivo testa o builder isolado.
  *
  * Motivação: quando trocarmos a renderização em produção, queremos um
  * contrato explícito que bloqueia regressão (ex: CTAs vazarem na triagem).
@@ -31,7 +36,7 @@ function renderStage(stage: BdStage): string {
   })
 }
 
-describe("integration: brand injection por stage (BD v4)", () => {
+describe("brand-block per stage (BD v4)", () => {
   it("triagem: inclui AUDIÊNCIA e POSICIONAMENTO, exclui CTAs", () => {
     const out = renderStage("triagem")
     expect(out).toContain("AUDIÊNCIA")
