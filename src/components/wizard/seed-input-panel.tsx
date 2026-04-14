@@ -245,7 +245,14 @@ export function SeedInputPanel({
     <div className="space-y-4">
       <Tabs
         value={tab}
-        onValueChange={(v) => setTab(v as SeedInput["type"])}
+        onValueChange={(v) => {
+          setTab(v as SeedInput["type"])
+          // Limpa input + erro pra evitar vazamento de conteúdo entre
+          // tipos diferentes de seed (um URL em "link" não faz sentido
+          // como "keyword", por exemplo).
+          setValue("")
+          setError(null)
+        }}
       >
         <TabsList>
           <TabsTrigger value="link">Link</TabsTrigger>
