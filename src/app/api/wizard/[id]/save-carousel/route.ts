@@ -16,8 +16,11 @@ import { eq, and } from "drizzle-orm";
 import type { StudioSlide, StudioProfile, StudioHeader } from "@/lib/studio-templates/types";
 import type { PostType, ContentStatus } from "@/db/schema";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
-import { toAppError, getErrorMessage, ValidationError } from "@/lib/errors";
+import { toAppError, getErrorMessage, ValidationError, ConfigError } from "@/lib/errors";
 import { isScreenshotOneAvailable, renderAndUploadAllSlides } from "@/lib/studio-templates/render-to-image";
+import { getBrandConfig, resolveBrandIdForUser } from "@/lib/brands/queries";
+import { isFeatureEnabled } from "@/lib/features";
+import type { BrandConfig } from "@/lib/brands/schema";
 
 interface SaveCarouselRequest {
   slides: StudioSlide[];
@@ -95,6 +98,38 @@ export async function POST(
       ? `Carrossel: ${wizard.objective.substring(0, 80)}${wizard.objective.length > 80 ? "..." : ""}`
       : "Carrossel sem titulo";
 
+    const brandId = await resolveBrandIdForUser(userId);
+    if (brandId == null) {
+      console.warn("[SaveCarousel] no default brand configured — persisting brand_id=null");
+    }
+
+    let brandForRender: BrandConfig | null = null;
+    if (brandId != null) {
+      try {
+        brandForRender = await getBrandConfig(brandId);
+      } catch (err) {
+        if (err instanceof ConfigError) {
+          console.error(
+            `[SaveCarousel] brand ${brandId} config invalid, degrading to no-brand render:`,
+            err
+          );
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    const featureFlags = {
+      visualTokensV2: isFeatureEnabled("NEXT_PUBLIC_FEATURE_VISUAL_TOKENS_V2"),
+    };
+
+    console.log("[SaveCarousel] brand resolved", {
+      userId,
+      brandId,
+      visualTokensV2: featureFlags.visualTokensV2,
+      hasBrandConfig: brandForRender !== null,
+    });
+
     // Render slides as PNG images via ScreenshotOne
     let imageUrls: string[] = [];
 
@@ -108,13 +143,23 @@ export async function POST(
         header,
         userId,
         storagePrefix: `studio/${userId}/carousel/${timestamp}`,
+        brand: brandForRender,
+        featureFlags,
       });
 
       imageUrls = renderResult.imageUrls;
 
       if (renderResult.errors.length > 0) {
-        console.warn(
-          `[SaveCarousel] ${renderResult.errors.length}/${slides.length} slides failed to render`
+        // `renderAndUploadAllSlides` filtra empty strings antes de retornar,
+        // então `imageUrls` perde o 1-to-1 com os slides originais. Logamos
+        // explicitamente os índices que falharam pra que debug não dependa
+        // de adivinhar quais slides sumiram do carousel salvo.
+        const failedIndices = renderResult.errors
+          .map((e) => e.slideIndex ?? "?")
+          .join(",");
+        console.error(
+          `[SaveCarousel] ${renderResult.errors.length}/${slides.length} slides failed. Indices: [${failedIndices}]`,
+          { errors: renderResult.errors }
         );
       }
     }
@@ -183,6 +228,7 @@ export async function POST(
       .insert(libraryItems)
       .values({
         userId,
+        brandId: brandId ?? null,
         type: contentType,
         status: "draft" as ContentStatus,
         title,

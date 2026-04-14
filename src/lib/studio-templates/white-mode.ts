@@ -7,6 +7,7 @@
 
 import type { StudioSlide, StudioProfile, StudioHeader } from "./types";
 import { escapeHtml, INSTAGRAM_DIMENSIONS } from "./types";
+import { tokenVar } from "./brand-tokens-css";
 
 export interface TemplateWhiteModeInput {
   slide: StudioSlide;
@@ -55,7 +56,7 @@ export function generateWhiteModeHtml(input: TemplateWhiteModeInput): string {
       width: ${INSTAGRAM_DIMENSIONS.width}px;
       height: ${INSTAGRAM_DIMENSIONS.height}px;
       overflow: hidden;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: ${tokenVar("font", "body", "'Inter', -apple-system, BlinkMacSystemFont, sans-serif")};
       background: ${style.backgroundColor};
       color: ${style.textColor};
     }

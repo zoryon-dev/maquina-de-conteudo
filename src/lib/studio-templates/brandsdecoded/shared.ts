@@ -132,17 +132,22 @@ export function bdSharedCss(palette: BDPalette, bg: "light" | "dark" | "grad"): 
       : "rgba(255,255,255,0.55)";
   const accentBg = bg === "grad" ? "rgba(255,255,255,0.18)" : gradient;
 
+  // Apenas `--P`, `--DB` e fontes rotam via brand tokens — PL/PD/LB/LR/G
+  // são derivados matematicamente de `--P` (mixHex) e do tema warm/cool,
+  // então expô-los como brand tokens independentes permitiria brands
+  // inconsistentes (ex.: PD mais claro que PL). Quando a flag off, as vars
+  // `--brand-*` ficam indefinidas e o fallback literal mantém output igual.
   return `
     :root {
-      --P: ${palette.primary};
+      --P: var(--brand-color-primary, ${palette.primary});
       --PL: ${palette.primaryLight};
       --PD: ${palette.primaryDark};
       --LB: ${palette.lightBg};
       --LR: ${palette.lightBorder};
-      --DB: ${palette.darkBg};
+      --DB: var(--brand-color-background, ${palette.darkBg});
       --G: ${gradient};
-      --F-HEAD: 'Barlow Condensed', 'Oswald', 'Inter', sans-serif;
-      --F-BODY: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+      --F-HEAD: var(--brand-font-heading, 'Barlow Condensed', 'Oswald', 'Inter', sans-serif);
+      --F-BODY: var(--brand-font-body, 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; word-break: break-word; overflow-wrap: break-word; }

@@ -13,6 +13,9 @@ import { and, eq } from "drizzle-orm";
 import type { StudioState } from "@/lib/studio-templates/types";
 import { toAppError, getErrorMessage, ValidationError, NotFoundError, ForbiddenError, ConfigError } from "@/lib/errors";
 import { isScreenshotOneAvailable, renderAndUploadAllSlides } from "@/lib/studio-templates/render-to-image";
+import { getBrandConfig, resolveBrandIdForUser } from "@/lib/brands/queries";
+import { isFeatureEnabled } from "@/lib/features";
+import type { BrandConfig } from "@/lib/brands/schema";
 
 // ============================================================================
 // TYPES
@@ -52,6 +55,38 @@ export async function POST(request: Request) {
 
     console.log(`[StudioPublish] Starting publish for ${state.slides.length} slides`);
 
+    const brandId = await resolveBrandIdForUser(userId);
+    if (brandId == null) {
+      console.warn("[StudioPublish] no default brand configured — persisting brand_id=null");
+    }
+
+    let brandForRender: BrandConfig | null = null;
+    if (brandId != null) {
+      try {
+        brandForRender = await getBrandConfig(brandId);
+      } catch (err) {
+        if (err instanceof ConfigError) {
+          console.error(
+            `[StudioPublish] brand ${brandId} config invalid, degrading to no-brand render:`,
+            err
+          );
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    const featureFlags = {
+      visualTokensV2: isFeatureEnabled("NEXT_PUBLIC_FEATURE_VISUAL_TOKENS_V2"),
+    };
+
+    console.log("[StudioPublish] brand resolved", {
+      userId,
+      brandId,
+      visualTokensV2: featureFlags.visualTokensV2,
+      hasBrandConfig: brandForRender !== null,
+    });
+
     // Renderizar todos os slides via shared utility
     const timestamp = Date.now();
     const renderResult = await renderAndUploadAllSlides({
@@ -60,6 +95,8 @@ export async function POST(request: Request) {
       header: state.header,
       userId,
       storagePrefix: `studio/${userId}/published/${timestamp}`,
+      brand: brandForRender,
+      featureFlags,
     });
 
     // Publish requires ALL slides to render successfully
@@ -138,6 +175,7 @@ export async function POST(request: Request) {
         .insert(libraryItems)
         .values({
           userId,
+          brandId: brandId ?? null,
           type,
           status: "draft",
           title: state.projectTitle,

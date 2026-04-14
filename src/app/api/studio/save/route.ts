@@ -13,9 +13,12 @@ import { libraryItems } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import type { StudioState } from "@/lib/studio-templates/types";
 import { MAX_SLIDES } from "@/lib/studio-templates/types";
-import { toAppError, getErrorMessage, ValidationError, NotFoundError, ForbiddenError } from "@/lib/errors";
+import { toAppError, getErrorMessage, ValidationError, NotFoundError, ForbiddenError, ConfigError } from "@/lib/errors";
 import { isScreenshotOneAvailable, renderSlideToImage } from "@/lib/studio-templates/render-to-image";
 import { getStorageProvider } from "@/lib/storage";
+import { getBrandConfig, resolveBrandIdForUser } from "@/lib/brands/queries";
+import { isFeatureEnabled } from "@/lib/features";
+import type { BrandConfig } from "@/lib/brands/schema";
 
 // ============================================================================
 // TYPES
@@ -36,7 +39,9 @@ interface SaveRequest {
  */
 async function generatePreviewImage(
   state: StudioState,
-  userId: string
+  userId: string,
+  brand: BrandConfig | null,
+  featureFlags: { visualTokensV2?: boolean }
 ): Promise<string | null> {
   if (!isScreenshotOneAvailable()) {
     console.log("[StudioSave] ScreenshotOne not configured, skipping preview");
@@ -53,7 +58,8 @@ async function generatePreviewImage(
       state.header,
       0,
       state.slides.length,
-      1 // Lower scale for preview
+      1, // Lower scale for preview
+      { brand, featureFlags }
     );
 
     // Upload to storage
@@ -100,9 +106,41 @@ export async function POST(request: Request) {
       throw new ValidationError(`Máximo de ${MAX_SLIDES} slides permitido`);
     }
 
+    const brandId = await resolveBrandIdForUser(userId);
+    if (brandId == null) {
+      console.warn("[StudioSave] no default brand configured — persisting brand_id=null");
+    }
+
+    let brandForRender: BrandConfig | null = null;
+    if (brandId != null) {
+      try {
+        brandForRender = await getBrandConfig(brandId);
+      } catch (err) {
+        if (err instanceof ConfigError) {
+          console.error(
+            `[StudioSave] brand ${brandId} config invalid, degrading to no-brand render:`,
+            err
+          );
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    const featureFlags = {
+      visualTokensV2: isFeatureEnabled("NEXT_PUBLIC_FEATURE_VISUAL_TOKENS_V2"),
+    };
+
+    console.log("[StudioSave] brand resolved", {
+      userId,
+      brandId,
+      visualTokensV2: featureFlags.visualTokensV2,
+      hasBrandConfig: brandForRender !== null,
+    });
+
     // Gerar preview image do primeiro slide (não bloqueia se falhar)
     console.log("[StudioSave] Generating preview image...");
-    const previewUrl = await generatePreviewImage(state, userId);
+    const previewUrl = await generatePreviewImage(state, userId, brandForRender, featureFlags);
 
     // Determinar tipo baseado no contentType
     const type = state.contentType === "single"
@@ -174,6 +212,7 @@ export async function POST(request: Request) {
         .insert(libraryItems)
         .values({
           userId,
+          brandId: brandId ?? null,
           type,
           status: "draft",
           title: state.projectTitle,
