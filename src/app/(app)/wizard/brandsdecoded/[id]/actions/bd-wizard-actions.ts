@@ -87,6 +87,10 @@ export async function generateBdContentAction(
       brandId ?? undefined
     )
 
+    if (!rag.success) {
+      console.warn("[bd-wizard] RAG falhou, gerando sem contexto:", { wizardId, error: rag.error })
+    }
+
     const ragContext =
       rag.success && rag.data?.context ? rag.data.context : ""
     const briefingWithContext = ragContext
@@ -178,10 +182,9 @@ export async function selectHeadlineAndRebuildAction(
 
     return { success: true, data: result }
   } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : String(err),
-    }
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error("[bd-wizard] selectHeadlineAndRebuild falhou:", { wizardId, headlineId, err: msg })
+    return { success: false, error: msg }
   }
 }
 
@@ -225,17 +228,19 @@ export async function saveBdCarouselAction(
       return { success: false, error: "falha ao persistir library item" }
     }
 
-    // Vincula wizard ao library_item pra rastreabilidade.
-    await db
-      .update(contentWizards)
-      .set({ libraryItemId: item.id, updatedAt: new Date() })
-      .where(eq(contentWizards.id, wizardId))
+    try {
+      await db
+        .update(contentWizards)
+        .set({ libraryItemId: item.id, updatedAt: new Date() })
+        .where(eq(contentWizards.id, wizardId))
+    } catch (linkErr) {
+      console.error("[bd-wizard] linkback wizard falhou (não-bloqueante):", { wizardId, libraryItemId: item.id })
+    }
 
     return { success: true, data: { libraryItemId: item.id } }
   } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : String(err),
-    }
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error("[bd-wizard] saveBdCarousel falhou:", { wizardId, userId, err: msg })
+    return { success: false, error: "Falha ao salvar o carrossel. Tente novamente." }
   }
 }

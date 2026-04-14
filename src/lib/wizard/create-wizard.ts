@@ -13,7 +13,8 @@
 
 import { db } from "@/db"
 import { themes, contentWizards } from "@/db/schema"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
+import { NotFoundError } from "@/lib/errors"
 
 // ============================================================================
 // TYPES
@@ -40,15 +41,15 @@ export async function createWizardFromTheme(
   motor: Motor,
   userId: string
 ): Promise<{ wizardId: number; redirectPath: string }> {
-  // Fetch theme
+  // Fetch theme (userId filter prevents IDOR)
   const [theme] = await db
     .select()
     .from(themes)
-    .where(eq(themes.id, themeId))
+    .where(and(eq(themes.id, themeId), eq(themes.userId, userId)))
     .limit(1)
 
   if (!theme) {
-    throw new Error(`Theme ${themeId} not found`)
+    throw new NotFoundError(`theme ${themeId} not found`)
   }
 
   const title = theme.title
@@ -67,6 +68,8 @@ export async function createWizardFromTheme(
         themeId,
       })
       .returning({ id: contentWizards.id })
+
+    if (!row?.id) throw new Error("Falha ao criar wizard — insert não retornou ID")
 
     return { wizardId: row.id, redirectPath: `/wizard/${row.id}` }
   }
@@ -112,6 +115,8 @@ export async function createWizardFromTheme(
       themeId,
     })
     .returning({ id: contentWizards.id })
+
+  if (!row?.id) throw new Error("Falha ao criar wizard — insert não retornou ID")
 
   return { wizardId: row.id, redirectPath: `/wizard/brandsdecoded/${row.id}` }
 }

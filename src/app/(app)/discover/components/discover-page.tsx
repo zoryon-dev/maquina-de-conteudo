@@ -33,9 +33,10 @@ interface TopicCardProps {
   onSave: (topic: TrendingTopicWithBriefing) => void
   onCreateWizard: (topic: TrendingTopicWithBriefing, motor: "tribal_v4" | "brandsdecoded_v4") => void
   bdEnabled: boolean
+  isCreating?: boolean
 }
 
-function TopicCard({ topic, rank, onSave, onCreateWizard, bdEnabled }: TopicCardProps) {
+function TopicCard({ topic, rank, onSave, onCreateWizard, bdEnabled, isCreating = false }: TopicCardProps) {
   const platformIcon =
     topic.source.type === "youtube" ? (
       <Youtube className="size-4 text-red-500" />
@@ -94,7 +95,7 @@ function TopicCard({ topic, rank, onSave, onCreateWizard, bdEnabled }: TopicCard
               <Save className="size-4" />
             </Button>
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+              <DropdownMenuTrigger asChild disabled={isCreating}>
                 <Button
                   size="sm"
                   className="h-8 gap-1 bg-primary text-black hover:bg-primary/90 px-3"
@@ -134,18 +135,22 @@ function TopicCard({ topic, rank, onSave, onCreateWizard, bdEnabled }: TopicCard
               Fontes
             </p>
             <div className="flex flex-wrap gap-2">
-              {topic.source.rawData.allCitations.slice(0, 5).map((url: string, i: number) => (
-                <a
-                  key={i}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs text-primary hover:underline"
-                >
-                  <ExternalLink className="size-3" />
-                  {new URL(url).hostname.replace('www.', '')}
-                </a>
-              ))}
+              {topic.source.rawData.allCitations.slice(0, 5).map((url: string, i: number) => {
+                let hostname = url
+                try { hostname = new URL(url).hostname.replace('www.', '') } catch { /* keep raw url */ }
+                return (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    <ExternalLink className="size-3" />
+                    {hostname}
+                  </a>
+                )
+              })}
             </div>
           </div>
         )}
@@ -189,9 +194,10 @@ interface PlatformResultsProps {
   onSave: (topic: TrendingTopicWithBriefing) => void
   onCreateWizard: (topic: TrendingTopicWithBriefing, motor: "tribal_v4" | "brandsdecoded_v4") => void
   bdEnabled: boolean
+  isCreating?: boolean
 }
 
-function PlatformResults({ topics, platformName, platformIcon, onSave, onCreateWizard, bdEnabled }: PlatformResultsProps) {
+function PlatformResults({ topics, platformName, platformIcon, onSave, onCreateWizard, bdEnabled, isCreating = false }: PlatformResultsProps) {
   if (topics.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -227,6 +233,7 @@ function PlatformResults({ topics, platformName, platformIcon, onSave, onCreateW
           onSave={onSave}
           onCreateWizard={onCreateWizard}
           bdEnabled={bdEnabled}
+          isCreating={isCreating}
         />
       ))}
     </div>
@@ -280,6 +287,7 @@ export function DiscoverPage() {
 
   const [keyword, setKeyword] = useState("")
   const [isSearching, setIsSearching] = useState(false)
+  const [creatingWizardForTopic, setCreatingWizardForTopic] = useState<string | null>(null)
   const [results, setResults] = useState<TrendingTopicWithBriefing[]>([])
   const [hasSearched, setHasSearched] = useState(false)
   const [activeTab, setActiveTab] = useState<string>("all")
@@ -346,6 +354,7 @@ export function DiscoverPage() {
         toast.success(`Encontrados ${data.topics.length} temas! (YouTube: ${platformCounts.youtube}, Instagram: ${platformCounts.instagram}, Perplexity: ${platformCounts.perplexity})`)
       }
     } catch (error) {
+      console.error("[DiscoverPage] Search failed:", { keyword, error })
       toast.error("Erro ao buscar temas")
     } finally {
       setIsSearching(false)
@@ -377,6 +386,7 @@ export function DiscoverPage() {
 
       toast.success("Tema salvo na biblioteca!")
     } catch (error) {
+      console.error("[DiscoverPage] Save topic failed:", { topic: topic?.title, error })
       toast.error("Erro ao salvar tema")
     }
   }
@@ -386,6 +396,9 @@ export function DiscoverPage() {
     topic: TrendingTopicWithBriefing,
     motor: "tribal_v4" | "brandsdecoded_v4"
   ) => {
+    const key = `${topic.id}-${motor}`
+    if (creatingWizardForTopic) return  // prevent double-click
+    setCreatingWizardForTopic(key)
     try {
       // Step 1: Save theme
       const saveResponse = await fetch("/api/themes", {
@@ -433,7 +446,10 @@ export function DiscoverPage() {
         router.push(redirectPath)
       }, 500)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao criar Wizard")
+      console.error("[DiscoverPage] Create wizard failed:", error)
+      toast.error("Erro ao criar Wizard. Tente novamente.")
+    } finally {
+      setCreatingWizardForTopic(null)
     }
   }
 
@@ -589,6 +605,7 @@ export function DiscoverPage() {
                     onSave={handleSave}
                     onCreateWizard={handleCreateWizard}
                     bdEnabled={bdEnabled}
+                    isCreating={creatingWizardForTopic !== null}
                   />
                 )}
                 {perplexityResults.length > 0 && (
@@ -599,6 +616,7 @@ export function DiscoverPage() {
                     onSave={handleSave}
                     onCreateWizard={handleCreateWizard}
                     bdEnabled={bdEnabled}
+                    isCreating={creatingWizardForTopic !== null}
                   />
                 )}
                 {instagramResults.length > 0 && (
@@ -609,6 +627,7 @@ export function DiscoverPage() {
                     onSave={handleSave}
                     onCreateWizard={handleCreateWizard}
                     bdEnabled={bdEnabled}
+                    isCreating={creatingWizardForTopic !== null}
                   />
                 )}
               </div>

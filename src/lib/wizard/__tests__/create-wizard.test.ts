@@ -54,7 +54,7 @@ function makeTheme(overrides: Partial<{
 
 describe("createWizardFromTheme", () => {
   it("tribal_v4 → redirect /wizard/{id}, motor=tribal_v4, theme=title, referenceUrl set", async () => {
-    themeFetchMock.mockResolvedValueOnce(
+    themeFetchMock.mockResolvedValue(
       makeTheme({ sourceUrl: "https://example.com/article" })
     )
     dbInsertMock.mockClear()
@@ -68,10 +68,11 @@ describe("createWizardFromTheme", () => {
     expect(inserted.motor).toBe("tribal_v4")
     expect(inserted.theme).toBe("Tema de Teste")
     expect(inserted.referenceUrl).toBe("https://example.com/article")
+    expect(inserted.userId).toBe("user_abc")
   })
 
   it("brandsdecoded_v4 + referenceUrl (non-youtube) → redirect /wizard/brandsdecoded/{id}, seed type=link", async () => {
-    themeFetchMock.mockResolvedValueOnce(
+    themeFetchMock.mockResolvedValue(
       makeTheme({ sourceUrl: "https://example.com/post", sourceType: "perplexity" })
     )
     dbInsertMock.mockClear()
@@ -86,10 +87,11 @@ describe("createWizardFromTheme", () => {
     expect(inserted.seeds[0].value).toBe("https://example.com/post")
     expect(inserted.seeds[0].id).toBeTruthy()
     expect(inserted.seeds[0].extractedAt).toBeTruthy()
+    expect(inserted.userId).toBe("user_abc")
   })
 
   it("brandsdecoded_v4 + source=youtube → seed type=youtube", async () => {
-    themeFetchMock.mockResolvedValueOnce(
+    themeFetchMock.mockResolvedValue(
       makeTheme({
         sourceType: "youtube",
         sourceUrl: "https://www.youtube.com/watch?v=abc123",
@@ -104,10 +106,11 @@ describe("createWizardFromTheme", () => {
     const inserted = dbInsertMock.mock.calls[0][0]
     expect(inserted.seeds[0].type).toBe("youtube")
     expect(inserted.seeds[0].value).toBe("https://www.youtube.com/watch?v=abc123")
+    expect(inserted.userId).toBe("user_abc")
   })
 
   it("brandsdecoded_v4 + no URL → seed type=theme, value=title", async () => {
-    themeFetchMock.mockResolvedValueOnce(
+    themeFetchMock.mockResolvedValue(
       makeTheme({ sourceUrl: null, sourceType: "manual" })
     )
     dbInsertMock.mockClear()
@@ -119,5 +122,6 @@ describe("createWizardFromTheme", () => {
     const inserted = dbInsertMock.mock.calls[0][0]
     expect(inserted.seeds[0].type).toBe("theme")
     expect(inserted.seeds[0].value).toBe("Tema de Teste")
+    expect(inserted.userId).toBe("user_abc")
   })
 })
