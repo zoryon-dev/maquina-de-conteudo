@@ -154,3 +154,83 @@ describe("getSectionsForStage", () => {
     expect(vozFields).not.toContain("brandVoice")
   })
 })
+
+/**
+ * T5 — Section ordering lock. A ordem das seções segue o catálogo interno
+ * (VOZ → AUDIÊNCIA → POSICIONAMENTO → OBJETIVOS E CTAs). Locking essa ordem
+ * bloqueia refactors que podem embaralhar silenciosamente a apresentação no
+ * prompt — o modelo é sensível a ordem.
+ */
+describe("section ordering invariants (T5)", () => {
+  it("getSectionsForStage('headlines') retorna seções em ordem do catálogo", () => {
+    const names = getSectionsForStage("headlines").map((s) => s.name)
+    // Catálogo: VOZ, AUDIÊNCIA, POSICIONAMENTO, OBJETIVOS E CTAs
+    // headlines fields: tone, niche, audienceDesires, differentiators
+    // → VOZ (tone), AUDIÊNCIA (audienceDesires), POSICIONAMENTO (niche+differentiators)
+    expect(names).toEqual(["VOZ", "AUDIÊNCIA", "POSICIONAMENTO"])
+  })
+
+  it("getSectionsForStage('triagem') exclui OBJETIVOS e VOZ, na ordem", () => {
+    const names = getSectionsForStage("triagem").map((s) => s.name)
+    // triagem fields: targetAudience, audienceFears, differentiators, niche
+    // → AUDIÊNCIA, POSICIONAMENTO
+    expect(names).toEqual(["AUDIÊNCIA", "POSICIONAMENTO"])
+    expect(names).not.toContain("OBJETIVOS E CTAs")
+    expect(names).not.toContain("VOZ")
+  })
+
+  it("getSectionsForStage('legenda') inclui OBJETIVOS (CTAs) e VOZ, na ordem", () => {
+    const names = getSectionsForStage("legenda").map((s) => s.name)
+    // legenda fields: preferredCTAs, tone, brandVoice
+    // → VOZ (tone+brandVoice), OBJETIVOS E CTAs (preferredCTAs)
+    expect(names).toEqual(["VOZ", "OBJETIVOS E CTAs"])
+  })
+
+  it("getSectionsForStage('espinha') retorna AUDIÊNCIA + POSICIONAMENTO + OBJETIVOS", () => {
+    const names = getSectionsForStage("espinha").map((s) => s.name)
+    // espinha fields: targetAudience, audienceFears, differentiators, contentGoals
+    expect(names).toEqual(["AUDIÊNCIA", "POSICIONAMENTO", "OBJETIVOS E CTAs"])
+  })
+
+  it("getSectionsForStage('copy-blocks') retorna VOZ + OBJETIVOS (sem AUDIÊNCIA/POSICIONAMENTO)", () => {
+    const names = getSectionsForStage("copy-blocks").map((s) => s.name)
+    // copy-blocks fields: tone, brandVoice, negativeTerms, contentGoals
+    expect(names).toEqual(["VOZ", "OBJETIVOS E CTAs"])
+  })
+})
+
+/**
+ * T4 — Empty-section-collapse. Quando um stage tem fields que se mapeiam
+ * para uma seção, mas nenhum deles é fornecido nas vars, a seção inteira
+ * NÃO deve aparecer no output. Header órfão polui o prompt e confunde o LLM.
+ */
+describe("empty-section-collapse (T4)", () => {
+  it("stage=headlines com apenas audienceDesires não renderiza header VOZ vazio", async () => {
+    const { buildBrandContextBlock } = await import("../brand-block")
+    const out = buildBrandContextBlock(
+      { audienceDesires: "autoridade" },
+      { stage: "headlines" }
+    )
+    expect(out).toContain("autoridade")
+    // VOZ apareceria se tone/brandVoice estivessem setados — não estão.
+    expect(out).not.toContain("## VOZ")
+    // POSICIONAMENTO também não tem fields presentes.
+    expect(out).not.toContain("## POSICIONAMENTO")
+    // Apenas AUDIÊNCIA renderiza.
+    expect(out).toContain("## AUDIÊNCIA")
+  })
+
+  it("renderSection retorna string vazia quando nenhum field está presente → omitido do join", async () => {
+    const { buildBrandContextBlock } = await import("../brand-block")
+    // espinha fields: targetAudience, audienceFears, differentiators, contentGoals
+    // Passamos só differentiators: POSICIONAMENTO deve aparecer; AUDIÊNCIA e OBJETIVOS não.
+    const out = buildBrandContextBlock(
+      { differentiators: "metodologia única" },
+      { stage: "espinha" }
+    )
+    expect(out).toContain("## POSICIONAMENTO")
+    expect(out).toContain("metodologia única")
+    expect(out).not.toContain("## AUDIÊNCIA")
+    expect(out).not.toContain("## OBJETIVOS E CTAs")
+  })
+})
