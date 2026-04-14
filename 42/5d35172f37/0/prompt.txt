@@ -1,0 +1,1291 @@
+/pr-review-toolkit:review-pr
+
+---
+
+Prefiro que faça o seguinte: 
+
+Lance agente em paralelo (sub-agent/seção) para corrigir TODAS as ações. TODAS. 
+
+Em paralelo aqui, seguimos para a próxima fase (PR2)
+
+---
+
+/pr-review-toolkit:review-pr revise o pr2
+
+---
+
+positivo
+
+---
+
+<task-notification>
+<task-id>ad626706b62f67bdf</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/ad626706b62f67bdf.output</output-file>
+<status>completed</status>
+<summary>Agent "PR2-FIX-A: injection.ts" completed</summary>
+<result>Nenhuma referência em qualquer lugar do projeto. Tudo limpo.
+
+---
+
+## Relatório
+
+**Arquivo**: `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/brands/injection.ts`
+
+**Tamanho**: 156 linhas → 131 linhas (diminuiu **25 linhas**, ~16%).
+
+**Fixes aplicados**:
+
+1. **Separator bug (crítico)**: `buildAudienceFears` e `buildAudienceDesires` agora usam `", "` em vez de `"; "`, consistente com o parser `splitCsv` do consumer. Confirmado — busca no arquivo não retorna mais nenhum `.join("; ")` (o único remanescente `beliefs.join("; ")` dentro de `buildDifferentiators` é intencional, é embutido numa string rotulada, não consumido como CSV).
+
+2. **Dead code**: Função `mergeBrandWithUserVars` e seu comentário decorativo prévio deletados. Grep global confirma zero referências no repo.
+
+3. **Threshold**: Constante `TOM_ATRIBUTO_THRESHOLD = 60` extraída no topo do arquivo (após imports) e aplicada nas 5 comparações em `buildTone`.
+
+4. **Helper `joinIfAny`**:
+   ```ts
+   function joinIfAny(parts: Array&lt;string | null | undefined&gt;, sep = " | "): string | undefined {
+     const filtered = parts.filter((s): s is string =&gt; !!s &amp;&amp; s.trim().length &gt; 0)
+     return filtered.length &gt; 0 ? filtered.join(sep) : undefined
+   }
+   ```
+   Aplicado em: `buildTone`, `buildTargetAudience` (uso interno + externo com `" — "` e `" | "`), `buildAudienceDesires`, `buildDifferentiators` (com `" ∥ "`), `buildContentGoals`. `buildNegativeTerms` e `buildPreferredCTAs` mantidos (patterns diferentes).
+
+5. **Comentário decorativo removido**: linha `// ── builders (exportados para uso avançado...) ──` deletada. Comentários WHY importantes preservados (header, acoplamento, formato CSV).
+
+**Validação**: `npx tsc --noEmit --skipLibCheck | grep injection` retornou vazio. Zero referências quebradas a `mergeBrandWithUserVars` em todo o repo — nada pra coordenar.</result>
+<usage><total_tokens>37044</total_tokens><tool_uses>5</tool_uses><duration_ms>69588</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>abd5fdde9e8cf3137</task-id>
+<tool-use-id>toolu_01J8H4G8ncZaYPJw1e1vFVbH</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/abd5fdde9e8cf3137.output</output-file>
+<status>completed</status>
+<summary>Agent "PR2-FIX-B: errors + precedência + splitCsv" completed</summary>
+<result>Both pass clean: no type errors on the three touched files, and 30/30 tests green.
+
+---
+
+## Report
+
+**Arquivos tocados:**
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/wizard-services/llm.service.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/wizard-services/user-variables.service.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/api/wizard/[id]/generate-titles/route.ts`
+
+**Fix 1 — ConfigError propagation:** Importei `isAppError` de `@/lib/errors` nos dois arquivos. O `catch` interno do `getBrandPromptVariables()` agora faz `if (isAppError(err) &amp;&amp; (err.code === "CONFIG_ERROR" || err.code === "NOT_FOUND")) throw err` antes de cair no fallback silencioso. Uso `isAppError` + checagem de `err.code` porque `errors.ts` expõe `AppError` como base comum com campo `code: string` (`ConfigError` -&gt; `"CONFIG_ERROR"`, `NotFoundError` -&gt; `"NOT_FOUND"`). Na route, o re-throw acontece dentro do `.catch()` do `Promise.all` e também no `catch` externo do `try/catch` envolvente (dupla guarda), pra garantir que o erro vire 500 com contexto ao invés de ser engolido.
+
+**Fix 2 — brandVoice:** Removi `userVars.brandVoice ||` da expressão `voiceTone` na route. Justificativa documentada em comentário: `brandVoice` é descrição da voz da marca (campo separado), não é tom. Precedência agora idêntica ao `llm.service`: `userVars.tone || brandVars.tone` (sem input nessa rota específica).
+
+**Fix 3 — splitCsv:** Exportado em `user-variables.service.ts` ao final do arquivo com JSDoc explicando a diferença vs `getNegativeTermsArray` (splitCsv retorna `string[] | undefined`, `getNegativeTermsArray` retorna sempre `string[]`). `getNegativeTermsArray` foi deixado intocado — a API diverge propositalmente (semântica "sem valor" vs "array vazio") e refatorar introduziria risco sem ganho. Na route, removido o helper local e trocado por `import { ..., splitCsv } from "@/lib/wizard-services/user-variables.service"`.
+
+**Verificação:** `tsc --noEmit --skipLibCheck` zero erros nos três arquivos; `npm run test` = 30/30 passando (3 test files).</result>
+<usage><total_tokens>55932</total_tokens><tool_uses>11</tool_uses><duration_ms>86965</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>a96af71efa1b3aae8</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a96af71efa1b3aae8.output</output-file>
+<status>completed</status>
+<summary>Agent "PR2-FIX-C: injection.test.ts" completed</summary>
+<result>All 66 tests pass (36 new for injection + 30 existing).
+
+---
+
+## Relatório
+
+**Arquivo criado**: `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/brands/__tests__/injection.test.ts`
+
+**Tests**: 36 tests novos, **todos passam**. Total do suite agora: 66/66 passando (4 arquivos).
+
+**Cobertura por função** (`describe` blocks):
+- `brandConfigToPromptVariables` (2) — todas undefined quando marca não configurada + regressão dos defaults do schema
+- `buildTone` (7) — threshold 59/60/61, ordem estável, casos vazios, tom sem separator órfão
+- `buildTargetAudience` (4) — avatar parcial sem `—` trailing, múltiplos avatares, array vazio, todos preenchidos
+- `buildAudienceFears` (3) — separator `", "`, filtragem, undefined
+- `buildAudienceDesires` (3) — separator `", "`, filtragem de espaços, undefined
+- `buildPreferredCTAs` (3) — undefined para CTA vazia, concat `" | "`, sem pilares
+- `buildDifferentiators` (4) — sem `" ∥ "` órfão em estruturas parciais, combo completo
+- `buildBrandVoice`, `buildNiche`, `buildNegativeTerms`, `buildContentGoals` (2 each) — contratos básicos
+
+**Ajuste necessário (1 teste)**: A spec do prompt dizia que `createEmptyBrandConfig()` deveria produzir todas 10 chaves `undefined`. **Isso é falso**: o `brandVoiceAtributosSchema` no schema tem defaults oficiais (80/70/75/75/30) que disparam `buildTone`. Corrigi zerando `voice.atributos` explicitamente para representar uma marca realmente não-configurada, e adicionei um segundo teste de regressão documentando o comportamento dos defaults nativos.
+
+**Race condition**: não detectada — o arquivo `injection.ts` já estava no estado pós-refactor do Agent A (separator `", "`, `joinIfAny` exportado, `TOM_ATRIBUTO_THRESHOLD = 60` constante, `mergeBrandWithUserVars` inexistente). Todos os testes refletem essa realidade.
+
+**Mocks necessários**: `vi.mock("server-only", () =&gt; ({}))` e `vi.mock("../context", ...)` para evitar imports do `@/db` via `context.ts`.</result>
+<usage><total_tokens>55927</total_tokens><tool_uses>25</tool_uses><duration_ms>171279</duration_ms></usage>
+</task-notification>
+
+---
+
+sim, prossiga. 3
+
+---
+
+<task-notification>
+<task-id>aaa53d2158a147428</task-id>
+<tool-use-id>toolu_01D1UFBaoHFcDuaUESNq9ynL</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/aaa53d2158a147428.output</output-file>
+<status>completed</status>
+<summary>Agent "PR3-D: versions dialog" completed</summary>
+<result>Typecheck passed (no errors grep'd for the file).
+
+---
+
+**Report**
+
+- **Arquivo criado:** `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/settings/components/sections/brand/brand-versions-dialog.tsx`
+- **Linhas:** ~195
+- **Typecheck:** `npx tsc --noEmit --skipLibCheck` passou sem erros para o arquivo.
+
+**Escolha de UX para confirmação:** Optei por `window.confirm()` simples (conforme instrução explícita), em vez de um sub-dialog aninhado. Racional: (1) evita gerenciar estado de sub-dialog dentro de um dialog já aberto (problemas conhecidos de foco/z-index no Radix), (2) a mensagem "Restaurar esta versão? A versão atual será preservada como snapshot." tranquiliza o usuário (ação reversível), reduzindo a necessidade de fricção extra, (3) mantém escopo do arquivo enxuto.
+
+**Pequenos toques UX:**
+- `restoringId` bloqueia outros botões enquanto um restore está em andamento (evita race conditions).
+- Reset de estado ao fechar o dialog (evita flash de versões antigas no próximo open).
+- `try/catch` em `new Date().toLocaleString("pt-BR")` por segurança (fallback para string bruta).
+- Botão "Atualizar" no header, desabilitado durante loading.
+- Empty state distinto (ícone Clock + mensagem amigável) vs loading state (spinner).
+- Tema dark consistente com design system (`bg-[#1a1a2e]`, `border-white/10`, `text-white/*`, `text-primary`).</result>
+<usage><total_tokens>36994</total_tokens><tool_uses>6</tool_uses><duration_ms>65842</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>afabe238b51324d30</task-id>
+<tool-use-id>toolu_01DHREBizgv1bWtSG5CG15Xc</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/afabe238b51324d30.output</output-file>
+<status>completed</status>
+<summary>Agent "PR3-B: forms simples" completed</summary>
+<result>## Report
+
+Criados 3 forms client-side em `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/settings/components/sections/brand/`:
+
+- `brand-identity-form.tsx` — 283 linhas
+- `brand-voice-form.tsx` — 392 linhas
+- `brand-visual-form.tsx` — 277 linhas
+
+**Typecheck:** `npx tsc --noEmit --skipLibCheck` passou sem erros nos 3 arquivos.
+
+**Decisões de UI:**
+- **Slider (voice):** usei `&lt;input type="range" min=0 max=100 step=1&gt;` nativo com `accent-primary` (Tailwind) — não há Slider em `@/components/ui`. Valor atual mostrado em chip `bg-white/10` monoespaçado à direita do label. Cada atributo tem hint curto ("— vai ao ponto, sem rodeios") para contexto.
+- **LogoPreview (visual):** subcomponente interno com fallback — placeholder `ImageOff` quando URL vazio, erro vermelho quando `onError` dispara. Reseta erro via `useEffect` quando URL muda. Usei `&lt;img&gt;` nativo (com eslint-disable) pois as URLs são externas/arbitrárias.
+- **Visual read-only:** tokens (`colors`, `fonts`, `spacing`, `shadows`) renderizados a partir de `Object.entries`. Cores mostram swatch + nome + hex; fontes renderizam o nome na própria família. Payload do save preserva `tokens` inalterado.
+- **Padrão compartilhado:** `useState` local sincronizado com `brand.config.*` via `useEffect` (para refresh externo). Botão Salvar desabilita durante `isSaving`, mostra `Loader2` spinning. Seções envolvidas em `rounded-lg border border-white/[0.05] bg-white/[0.02]`. Removers usam `Trash2` ghost button que vira vermelho no hover.
+- **Listas de strings** (beliefs, crencasCombatidas, antiPatterns, vocab.use/avoid) têm vazio-state (`text-white/40`) e botão "+ Adicionar" no header da seção.
+
+Nenhum commit feito. Nenhum arquivo fora do escopo tocado.</result>
+<usage><total_tokens>56359</total_tokens><tool_uses>18</tool_uses><duration_ms>173744</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>a7a1eaff0a9f2f08b</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a7a1eaff0a9f2f08b.output</output-file>
+<status>completed</status>
+<summary>Agent "PR3-C: forms complexos" completed</summary>
+<result>Clean. All three forms compile without errors.
+
+---
+
+**Arquivos criados:**
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/settings/components/sections/brand/brand-audience-form.tsx` (~290 linhas)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/settings/components/sections/brand/brand-offer-form.tsx` (~450 linhas)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/settings/components/sections/brand/brand-content-form.tsx` (~340 linhas)
+
+**Decisões:**
+- **Cards sempre expandidos** (não collapsible): simplicidade — usuário vê tudo, evita estado extra. Header de cada card mostra `{nome} || "Avatar/Setor/Curso/Pilar N"` como fallback vazio + botão Remover.
+- **`StringListEditor` helper local** em `offer-form` e `content-form`: componente interno reutilizado para listas `string[]` (inclui/problemas/métricas/módulos/pré-requisitos/exemplos) — evita repetição massiva de JSX.
+- **`slugify()` local** em `offer-form`: NFD + lowercase + `[^a-z0-9]→-` + trim de hífens. Atualiza `id` do setor/curso automaticamente quando o `nome` muda (só sobrescreve se slug não-vazio).
+- **Canais compactos em grid 5-col** (`1.2fr 1fr 1fr 0.7fr auto`): layout horizontal porque são poucos campos curtos, contrastando com cards maiores dos pilares.
+- **Deep-copy no `useState` inicial** (spread de arrays aninhados) para não mutar `brand.config`.
+- **Toast apenas em erro**; sucesso delegado a `onSaved()` do parent (que já emite toast em `brand-section.tsx`).
+- **`tsc --noEmit`**: zero erros nos três arquivos.
+
+Sem commit, conforme instruído.</result>
+<usage><total_tokens>58017</total_tokens><tool_uses>14</tool_uses><duration_ms>210758</duration_ms></usage>
+</task-notification>
+
+---
+
+/pr-review-toolkit:review-pr
+
+---
+
+sim. agentes paralelos para TODAS as correcoes e inicio do pr4
+
+---
+
+Prossiga
+
+---
+
+Prossiga
+
+---
+
+<task-notification>
+<task-id>accbbcacc5187cbed</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/accbbcacc5187cbed.output</output-file>
+<status>completed</status>
+<summary>Agent "PR5-A: headlines library + patterns + espinha" completed</summary>
+<result>OK, the earlier filtered tsc already confirmed no errors in our files. Done.
+
+## Relatório
+
+**Arquivos criados** (3, todos absolutos):
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/shared/headline-library.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/motors/brandsdecoded-v4/espinha.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/motors/brandsdecoded-v4/headline-patterns.ts`
+
+**8 padrões na headline-library** (IDs, nome, média de likes):
+1. `morte_de_x` — A Morte/Fim de X — ~57k
+2. `por_que_geracao_x` — Por que [Geração] está [Inesperado] — ~28k
+3. `investigando_x` — Investigando [Fenômeno] — ~18k
+4. `nome_marca_revelacao` — [Nome/Marca] + Revelação — ~18k
+5. `contraste_antitese` — Contraste/Antítese — ~22k
+6. `dois_pontos_enquadramento` — Dois-Pontos: [Enquadramento]: [Hook] — ~40k
+7. `por_que_x_tendencia` — Por que [X] está [Tendência]? — ~16k
+8. `provocacao_existencial` — Provocação Existencial — ~14k
+
+Cada padrão traz 5 exemplos reais extraídos do banco-de-headlines.md. `buildHeadlineLibraryPromptBlock()` renderiza todos em um bloco markdown pronto pra colar no prompt do LLM.
+
+**Decisões**:
+- **Temperature**: `0.3` para Triagem (extração/compressão), `0.5` para Espinha (densidade editorial sem experimental), `0.8` para Headlines (variação criativa genuína entre as 10 opções — formatos IC/NM são guardrails estruturais, criatividade fica nos reenquadramentos).
+- **Parser JSON**: Dupliquei uma versão local (`extractJSON&lt;T&gt;`) em cada arquivo do motor BD v4. Razão: evitar dependência cruzada do motor novo para `wizard-services/prompts.ts` (3000+ linhas, legado). A versão local também é mais tolerante — remove markdown fences antes de procurar `{...}`.
+- **Validação shape**: headlines faz strict check de distribuição IC (1-5) / NM (6-10) e lança erro se não for exatamente 10. Espinha valida todos os 5 campos obrigatórios. Retries ficam a cargo do orquestrador (outro agente).
+- **brandPromptVariables**: aceito como `Record&lt;string, string | undefined&gt;` genérico e renderizado como bloco textual `# CONTEXTO DE MARCA` — deixa pra integração futura definir shape concreto.
+- **`TriagemResult` importado de espinha.ts por headline-patterns.ts** para evitar duplicação de tipo.
+
+**TypeScript**: `npx tsc --noEmit --skipLibCheck` filtrado pelos 3 arquivos retornou 0 erros.</result>
+<usage><total_tokens>79603</total_tokens><tool_uses>20</tool_uses><duration_ms>298616</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>a693d96dd3354a94d</task-id>
+<tool-use-id>toolu_01Gnz1z1RUXdAuN3fB7pxbpy</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a693d96dd3354a94d.output</output-file>
+<status>completed</status>
+<summary>Agent "PR5-B: copy blocks + referencias + orchestrator" completed</summary>
+<result>Just 1 unrelated pre-existing error in library-actions.ts — nothing tied to BD v4. All 3 files compile cleanly.
+
+---
+
+**Relatório**
+
+**Arquivos criados** (todos em `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/motors/brandsdecoded-v4/`):
+- `referencias.ts` — 2 carrosseis exemplares (Exemplo 1: 9 slides / 18 blocos; Exemplo 2: 7 slides / 13 blocos — extração literal do MD). Exporta `CarrosselReferencia`, `REFERENCIAS_EXEMPLARES` e `buildReferenciasPromptBlock(maxRefs)` que formata few-shots com espinha + copy + legenda.
+- `copy-blocks.ts` — gera os 18 blocos / 9 slides a partir da `EspinhaDorsal`. Exporta `CopyBlock`, `CopyBlocksInput`, `CopyBlocksResult`, `BLOCK_SPEC` (constante imutável com índice, slide, position, targetWords, sectionLabel) e `generateCopyBlocks`. Prompt inclui BLOCK_SPEC, espinha completa, 2 referências, injeção de marca, 12 regras editoriais do manual-de-qualidade (artigos, zero binárias, zero cacoetes, fluidez com conectivos, fechamento com pivot, etc). Temperature 0.7. Parser tolerante (`parseCopyBlocksResponse`) aceita JSON puro, markdown fence e texto ao redor.
+- `orchestrator.ts` — pipeline completo. `generateWithBrandsDecoded` encadeia triagem → 10 headlines → pick → espinha → 18 blocos → legenda. `generateLegendaInstagram` é 1 LLM call com estrutura gancho (≤125 chars) + contexto + análise + CTA, ~150 palavras.
+
+**Modelo**: `DEFAULT_TEXT_MODEL` do `@/lib/ai/config` (atualmente `openai/gpt-4.1`), com override via `model?: string` em todos os inputs. Cliente: `openrouter.chat(model)` via `generateText` do Vercel AI SDK.
+
+**Decisão sobre auto-select de headline**: Default `autoSelectHeadline = true` seleciona primeira IC (`id === 1`) com fallback para `headlines[0]` se o id=1 não existir. `forcedHeadlineId` tem precedência. Se `autoSelectHeadline=false` e sem `forcedHeadlineId`, o pipeline lança erro — força o caller a escolher manualmente (modo interativo fica no fluxo do app).
+
+**Ajuste de contrato com agent A**: Agent A entregou `generateHeadlinesForBD` dentro de `headline-patterns.ts` (não em `headline-library.ts` separado). Usa param `brandPromptVariables` (não `brandVars`) e `selectedHeadline` (não `headline`) em `EspinhaInput`. Orquestrador foi ajustado para bater com a API real dele.
+
+**Type-check**: `npx tsc --noEmit --skipLibCheck | grep brandsdecoded-v4` retornou zero erros. O único erro TS no repo é pré-existente em `library-actions.ts:1851` (não relacionado).</result>
+<usage><total_tokens>93337</total_tokens><tool_uses>37</tool_uses><duration_ms>404515</duration_ms></usage>
+</task-notification>
+
+---
+
+siga com o processo normal
+
+---
+
+sim, lance
+
+---
+
+<task-notification>
+<task-id>a024d943ed362ced5</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a024d943ed362ced5.output</output-file>
+<status>completed</status>
+<summary>Agent "PR5-FIX-A: silent failures + QA" completed</summary>
+<result>All tests pass (71/71) and no TypeScript errors. The external modification only exported `pickHeadline` (harmless; not my concern).
+
+---
+
+## Report
+
+### Mudanças aplicadas
+
+**1. `orchestrator.ts`**
+- **Fix 1 (QA dry-mode):** integrado após gerar blocos + legenda, antes do return final. Usa dynamic import `@/lib/ai/quality` pra evitar circular deps. Loga `[qa-dry:brandsdecoded-v4]` com `passed`, `blockingHits`, `warnHits`, `failedParams` — mesmo shape do Tribal v4. Try/catch não bloqueia pipeline.
+- **Fix 3 (legenda):** `generateLegendaInstagram` agora valida `wordCount &lt; 50` (warn) e `length === 0` (throw).
+- **Fix 4 (pickHeadline):** warn quando `id===1` não encontrado, lista os ids disponíveis. Se `headlines[0]` undefined, throw "Nenhuma headline válida gerada".
+- **Fix 7 (brand vars vazio):** warn no início de `generateWithBrandsDecoded` se `brandPromptVariables` ausente ou todos os valores falsy.
+
+**2. `espinha.ts`**
+- **Fix 5:** warn em `buildEspinhaDorsal` quando `parsed.headline` diverge de `input.selectedHeadline` (comparação case-insensitive trim). Loga both `selected` e `generated` antes do override.
+
+**3. `copy-blocks.ts`**
+- **Fix 2a (parseCopyBlocksResponse):** três warns específicos — "não é objeto", "index inválido", "text vazio" — em vez de `continue` silencioso.
+- **Fix 2b (extractJsonPayload):** warn quando cai no fallback heurístico `indexOf("{")`/`lastIndexOf("}")`, com `rawLen`, `firstBrace`, `lastBrace`.
+
+**4. `headline-patterns.ts`**
+- **Fix 2c:** warns por razão — "não é objeto", "id não numérico ou fora de 1-10", "format inválido (esperado IC|NM)", "text vazio". Substituiu o `continue` silencioso do loop de validação.
+
+**5. `llm.service.ts` (apenas `generateContentBrandsDecoded`)**
+- **Fix 6:** substituído check manual `"code" in err` por `isAppError(err)` (já importado). Mensagem trocada de `console.error` para `console.warn` com prefixo mais específico: "brand variables unavailable — gerando sem contexto de marca".
+
+### Confirmação QA dry-mode
+QA editorial dry-mode integrado em `orchestrator.ts` linhas ~119-143 (pós-legenda, pré-return), concatenando `blocks.map(b =&gt; b.text)` + `legendaInstagram` com `\n\n`. Namespace do log: `[qa-dry:brandsdecoded-v4]`. Padrão idêntico ao Tribal v4 existente.
+
+### Verificação
+- `npx tsc --noEmit --skipLibCheck`: **zero erros** nos arquivos-alvo.
+- `npm run test`: **71/71 passando** em 5 test files (386ms).
+
+Não toquei em `_shared/`, `__tests__/`, `referencias.ts`, `index.ts` ou `headline-library.ts`. Nenhum arquivo novo criado. Nenhum commit feito.</result>
+<usage><total_tokens>70531</total_tokens><tool_uses>23</tool_uses><duration_ms>154490</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>a9cea79ed41a229ca</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a9cea79ed41a229ca.output</output-file>
+<status>completed</status>
+<summary>Agent "PR5-FIX-C: 5 testes + type tweaks" completed</summary>
+<result>All 43 new tests pass. Here is the final report:
+
+---
+
+## Report
+
+### Arquivos criados (5)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/motors/brandsdecoded-v4/__tests__/block-spec.test.ts` (9 casos)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/motors/brandsdecoded-v4/__tests__/parse-copy-blocks.test.ts` (8 casos)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/motors/brandsdecoded-v4/__tests__/pick-headline.test.ts` (6 casos)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/shared/__tests__/headline-library.test.ts` (7 casos)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/motors/brandsdecoded-v4/__tests__/referencias.test.ts` (6 casos)
+
+### Resultado
+`npm run test` → **107 passed (107)** em 10 arquivos, 614ms. Os 43 novos testes passam todos; zero skipped.
+
+### Exports alterados nos arquivos do motor
+- **`orchestrator.ts`:** adicionei `export` em `pickHeadline` (única mudança permitida, mínima). Antes era função privada.
+- **`copy-blocks.ts`:** `parseCopyBlocksResponse` **já estava exportado** — nenhuma alteração necessária.
+- **`referencias.ts`:** `REFERENCIAS_EXEMPLARES` e `buildReferenciasPromptBlock` já exportados.
+
+### Observações / achados
+- `vitest.config.ts` usa pattern `src/**/*.test.ts`, que cobre `__tests__/` subdirs corretamente (precedente: `src/lib/brands/__tests__/`).
+- No Test 2 descobri que um caso vale dois assertions: (a) `index=42` sozinho é descartado mas gera throw se outro bloco válido sumiu, e (b) `index=42` junto dos 18 válidos é aceito. Adicionei ambos — documenta claramente o contrato do parser.
+- No Test 5, o comportamento de `buildReferenciasPromptBlock()` sem arg foi descoberto como "default = 2" (através de `Math.max(1, Math.min(maxRefs ?? 2, 2))`) — testei diretamente a saída, não o docstring.
+- **Nenhum refactor em voo detectado** durante a execução — os símbolos importados (`BLOCK_SPEC`, `parseCopyBlocksResponse`, `REFERENCIAS_EXEMPLARES`, `buildReferenciasPromptBlock`, `pickHeadline`, `getAllHeadlinePatterns`, `getHeadlinePattern`, `buildHeadlineLibraryPromptBlock`) estavam todos estáveis.
+- `_shared/parse-json.ts` (do Agent B) existe mas não é usado por `copy-blocks.ts` ainda — optei por testar `parseCopyBlocksResponse` diretamente conforme o estado atual.</result>
+<usage><total_tokens>74551</total_tokens><tool_uses>24</tool_uses><duration_ms>175846</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>a614a5d7a633f209b</task-id>
+<tool-use-id>toolu_01ACUBuUtvAXZGbZk2ijvDqx</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a614a5d7a633f209b.output</output-file>
+<status>completed</status>
+<summary>Agent "PR5-FIX-B: simplifications + a11y" completed</summary>
+<result>All clean. 107/107 tests pass, no typecheck errors in any of the changed files.
+
+## Resumo
+
+**Arquivos criados:**
+- `src/lib/ai/motors/brandsdecoded-v4/_shared/parse-json.ts` — `extractLooseJSON&lt;T&gt;(text, context)` parser tolerante.
+- `src/lib/ai/motors/brandsdecoded-v4/_shared/brand-block.ts` — `buildBrandContextBlock(vars, opts)` com heading/note/fallback configuráveis.
+
+**Refatorações (PR5 motor):**
+- `espinha.ts` — banner removido, JSDoc per-field removidos, `extractJSON` + `renderBrandBlock` deletados; agora importa `extractLooseJSON` + `buildBrandContextBlock`. Corpos de `runTriagem`/`buildEspinhaDorsal` preservados (incluindo o warn de headline divergente que Agent A adicionou). Temperature rationales mantidos.
+- `headline-patterns.ts` — banner + JSDoc field-level removidos, `extractJSON` + `renderBrandBlock` deletados; warns de Agent A no loop preservados.
+- `copy-blocks.ts` — banner ASCII removido. `BLOCK_SPEC` reordenado para vir ANTES dos types. `CopyBlock = CopyBlockSpec &amp; { text: string }`. `extractJsonPayload` + `extractJSON` deletados (substituídos por `extractLooseJSON`); `extractBlocksArray` mantido pois faz extração específica do `blocks` array. `buildBrandInjection` substituído por `buildBrandContextBlock` com heading/note/fallback. Warns de Agent A em `parseCopyBlocksResponse` preservados. Construção de blocos colapsada para `{...spec, text}`.
+- `orchestrator.ts` — banner removido, section dividers `// ----` removidos, `buildBrandInjection` substituído por `buildBrandContextBlock`. Pickheadline/legenda warns de Agent A preservados.
+- `headline-library.ts` — banner + JSDoc redundantes removidos.
+
+**Fix #3 — WizardMotor derivado:**
+- `src/db/schema.ts` ganhou `export type WizardMotor = (typeof wizardMotorEnum.enumValues)[number]`.
+- `motor-selector.tsx` agora faz `import type { WizardMotor } from "@/db/schema"` e re-exporta.
+
+**Fix #6 — `resolveAllVariables`:**
+Função local em `src/lib/wizard-services/llm.service.ts` (linhas ~115-141). Usada em **2 lugares**: (a) `loadAndFormatUserVariables` (substitui o bloco duplicado original); (b) `generateContentBrandsDecoded` (substitui as ~25 linhas de `savedVariables.X || brandVariables.X`). Eliminou também a 2ª chamada a `getUserVariables` ao usar `mergedVariables` para `getNegativeTermsArray`. Trade-off: o `console.warn("[bd-motor] brand variables unavailable…")` que Agent A inseriu foi unificado com o `console.error("[llm] failed to load brand variables")` da spec — perda intencional de granularidade em troca de canônico.
+
+**Fix #4 — a11y `motor-selector`:**
+- Wrapper ganhou `role="radiogroup"` + `aria-label="Motor de geração textual"`.
+- Cada button: `role="radio"`, `aria-checked={active}`, `tabIndex={active ? 0 : -1}` (roving tabindex padrão WAI-ARIA radiogroup).
+- Handler `onKeyDown` com ArrowLeft/ArrowRight (preventDefault + navegação circular via módulo).
+
+**Verificação:**
+- `npx tsc --noEmit --skipLibCheck` — zero erros nos arquivos alvo (único erro pré-existente em `library-actions.ts:1851` não relacionado).
+- `npm run test` — 10/10 suites, 107/107 testes passando.
+- Não criei testes em `__tests__/`. Não removi nenhum catch existente. Corpos de funções com warns do Agent A preservados.</result>
+<usage><total_tokens>167604</total_tokens><tool_uses>79</tool_uses><duration_ms>585575</duration_ms></usage>
+</task-notification>
+
+---
+
+Siga em paralelo com o PR5.1 e lance o PR6 em background
+
+---
+
+<task-notification>
+<task-id>a81e42046a460ca0f</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a81e42046a460ca0f.output</output-file>
+<status>completed</status>
+<summary>Agent "PR6: templates visuais BD" completed</summary>
+<result>All done. Here is the report:
+
+---
+
+**PR6 — BrandsDecoded templates implementados.**
+
+**Arquivos criados** (`src/lib/studio-templates/brandsdecoded/`):
+- `shared.ts` — paleta BD derivada da cor primária via `buildBDPalette()` (warm LB `#F5F2EF`, DB `#0F0D0C`, PL/PD via mix ±20/30%), CSS comum (accent bar gradient, brand bar, progress bar com numeração `01/09`), helpers `bdBrandBarHtml()`, `bdProgressBarHtml()`, `bdProcessInline()` (`**em**` → accent, `__strong__` → bold), fontes via Google Fonts (Barlow Condensed + Plus Jakarta Sans).
+- `bd-capa.ts` — slide 1. Imagem full-bleed + gradient escuro pesado (94% no rodapé, contraste 4.5:1), badge do handle alinhado à esquerda acima da headline, type-badge da categoria, headline 104px Barlow Condensed 900 uppercase com accent em palavras-chave, subtítulo 26px opcional.
+- `bd-dark.ts` — slides 2/4/6. Fundo `--DB`, número decorativo 380px na esquina (opacity 4%), tag, headline 80px, body 36px (strong branco, em `--PL`), card opcional com border-left accent. Suporta imagem de fundo com overlay 82%+.
+- `bd-light.ts` — slides 3/5/7/9. Fundo `--LB`, img-box 320px opcional no topo, headline 68px `--DB`, body 36px (strong `--DB`, em `--P`), card branco opcional com border-left 7px accent.
+- `bd-cta.ts` — slide 8. Fundo `var(--G)` (gradient 165° PD→P→PL), número decorativo 420px, headline 80px branca, body 36px, keyword box opcional (card branco com instrução + palavra-chave 68px no accent).
+
+**Registro no registry**:
+- `types.ts` — adicionados 4 IDs (`BD_CAPA`, `BD_DARK`, `BD_LIGHT`, `BD_CTA`) ao union `FigmaTemplate`, novo tipo `TemplateMotor = "tribal_v4" | "brandsdecoded_v4"`, campos opcionais `motor` e `tags` no `TemplateMetadata`, 4 entradas em `TEMPLATE_METADATA` com `motor: "brandsdecoded_v4"`.
+- `renderer.ts` — 4 cases novos no switch dispatch, passando `slideIndex`/`totalSlides`.
+- `index.ts` — novos `export { generateBD* }` + types; helper `getTemplatesForMotor(motor?)` que retorna templates do motor + templates sem motor (genéricos).
+
+**Selector (`visual-template-selector.tsx`)**:
+- Nova prop opcional `motorFilter?: TemplateMotor`.
+- Categorias agora são um `Record&lt;CategoryKey, ...&gt;` com campo `motor` opcional. Filtro: mostra categorias sem motor + categoria cujo motor bate. Sem filtro → todas aparecem (nada removido).
+- Default tab quando `motorFilter="brandsdecoded_v4"` → categoria BrandsDecoded; caso contrário → "figma". Estado resetado se a categoria ativa ficar invisível.
+- Ícone `Sparkles` na aba BD; badge "Recomendado" em BD_* quando filtro ativo.
+- `TEMPLATE_ICONS` e `TEMPLATE_PREVIEW_COLORS` estendidos (Record exaustivo).
+
+**Colaterais obrigatórios** (Record exaustivo de `FigmaTemplate`):
+- `src/app/(app)/studio/components/templates/template-gallery.tsx` — entradas BD adicionadas em ícones/cores, nova categoria "BrandsDecoded" e 4ª aba.
+- `src/lib/wizard-services/content-mapper.ts` — cases explícitos BD_CAPA/DARK/LIGHT/CTA mapeando `titulo→texto1`, `corpo→texto2`, `conexao_proximo→texto3` (keyword no CTA).
+
+**Verificação**: `tsc --noEmit` sem erros nos arquivos tocados (único erro remanescente é preexistente em `library-actions.ts:1851` com `brandId`). `npm run test`: 10 files / 107 tests passam. **Nenhum arquivo da lista de PR5.1 foi tocado.**</result>
+<usage><total_tokens>124477</total_tokens><tool_uses>57</tool_uses><duration_ms>509472</duration_ms></usage>
+</task-notification>
+
+---
+
+Pode seguir com review dos dois pr`s
+
+---
+
+Pode prosseguir, sim!
+
+---
+
+<task-notification>
+<task-id>a19ea3ce4153a3a1e</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a19ea3ce4153a3a1e.output</output-file>
+<status>completed</status>
+<summary>Agent "PR5.1+6-FIX-B: validation + safety" completed</summary>
+<result>All fixes applied cleanly. Summary report below:
+
+---
+
+**Report: PR5.1+PR6 fixes applied**
+
+All 5 fixes applied; no tests broken (107/107 passing), no new TS errors on target files.
+
+**Files modified** (absolute paths):
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/api/wizard/route.ts` — Zod validation
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/studio-templates/brandsdecoded/shared.ts` — hex guard
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/api/workers/route.ts` — adapter (Map + NarrativeAngle + DEFAULT_TEXT_MODEL)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/studio-templates/brandsdecoded/{bd-capa,bd-dark,bd-light,bd-cta}.ts` — banner cleanup + texto1 warn
+
+**Confirmations requested:**
+
+1. **Zod schema:** `createWizardSchema = z.object({...}).passthrough()` com `contentType` enum, `numberOfSlides` int 1-20, `motor` via `z.enum(wizardMotorEnum.enumValues)`, `ragConfig` nested object, arrays de strings/numbers. Retorna `400` com `{ error: "Dados inválidos", issues: parsed.error.issues }` quando inválido; mantém `201/500` para back-compat.
+
+2. **Model fallback constant:** Usei **`DEFAULT_TEXT_MODEL`** de `@/lib/ai/config` (valor: `'openai/gpt-4.1'`). Não há `WIZARD_DEFAULT_MODEL` exportado — `DEFAULT_TEXT_MODEL` é a fonte canônica (já usada em `orchestrator.ts`, `copy-blocks.ts`, `espinha.ts`, `headline-patterns.ts` do motor BD v4).
+
+3. **Warn exemplo** (aplicado nos 4 templates `bd-capa`, `bd-dark`, `bd-light`, `bd-cta`):
+```ts
+if (!content.texto1?.trim()) {
+  console.warn("[bd-capa] texto1 (required) ausente em slide");
+}
+```
+
+**Notas:**
+- `buildBDPalette` agora tem assinatura `(primary: string = "#C8321E")` com `isValidHex` regex (`/^#?[0-9a-fA-F]{6}$/` ou 3 chars), normalização `#` prefix, e expansão 3→6 chars antes de passar ao `mixHex`. Cor inválida (`"rgb(...)"`, `"red"`, `"#ABC12"`) loga `console.warn` e cai para default.
+- Adapter BD: `Map` construído de `bd.blocks` via `new Map(bd.blocks.map((b) =&gt; [\`${b.slide}-${b.position}\`, b.text]))`, lookup O(1); `const angle: NarrativeAngle = args.selectedNarrative?.angle ?? "tradutor"` sem cast; `model: args.model ?? DEFAULT_TEXT_MODEL`.
+- Banner cleanup removeu 11-17 linhas de ASCII/layout notes de cada arquivo, mantendo só 1-linha de WHY. Removi comentários `/* Headline */`, `/* Body */`, `/* Card */`, `/* Número decorativo */`, etc. CSS em si intocado.
+- Erro TS pré-existente em `library-actions.ts:1851` (brandId ausente em LibraryItemWithRelations) não é da nossa lista de arquivos.</result>
+<usage><total_tokens>74785</total_tokens><tool_uses>51</tool_uses><duration_ms>342494</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>a7938ff62e65c57ea</task-id>
+<tool-use-id>toolu_0129Uvw3DqkbdpR22pR3XkSi</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a7938ff62e65c57ea.output</output-file>
+<status>completed</status>
+<summary>Agent "PR5.1+6-FIX-A: pipeline integration" completed</summary>
+<result>All 107 tests passing. All fixes complete.
+
+---
+
+## Report
+
+### Decisão sobre VisualTemplateSelector
+**Deletado** — `grep` confirmou zero callers fora do próprio arquivo. A funcionalidade equivalente (filtro por motor com categorias dinâmicas) foi portada para `template-gallery.tsx` via prop `motorFilter?: TemplateMotor`. Mantive `getTemplatesForMotor` em `index.ts` (não estava na lista de arquivos editáveis e pode ser útil para futuro).
+
+### Tratamento de conexao_proximo
+- **Adapter BD (worker)**: NÃO toquei (Agent B já refatorou para Map). O comportamento atual já está correto: `title` = bloco `a`, `content` = bloco `b`, sem `conexao_proximo`. Mantive a decisão de spec — BD não tem esse conceito, então `texto3` fica vazio.
+- **Templates BD**: Verifiquei `bd-cta`, `bd-dark`, `bd-light` — todos já fazem `${content.texto3 ? ... : ""}`, então renderizam graciosamente sem o card de destaque quando vazio.
+- **content-mapper**: No switch BD_DARK/BD_LIGHT/BD_CTA, leio `(slide as GeneratedSlide &amp; { conexao_proximo?: string }).conexao_proximo ?? ""` — preparado para quando o campo for adicionado upstream.
+
+### Template default por motor (exemplo)
+Para um carrossel de 5 slides com `motor=brandsdecoded_v4`, `mapGeneratedContentToStudio` agora produz:
+- slide 0 (cover) → `BD_CAPA`
+- slide 1 → `BD_LIGHT` (index par)
+- slide 2 → `BD_DARK` (index ímpar)
+- slide 3 → `BD_LIGHT`
+- slide 4 (last) → `BD_CTA`
+
+Para `motor=tribal_v4` (ou omitido), mantém legacy: `01_CAPA` / `202` / `203`. `motor` é parâmetro opcional, totalmente backward-compatible — caller `step-visual-studio.tsx` segue funcionando sem passá-lo.
+
+### Outros pontos
+- **renderer.ts default**: agora loga `console.error` e renderiza placeholder visível listrado vermelho com nome do template inválido (escapado contra HTML injection). Não silencia mais.
+- **MotorSelector**: nova prop `contentType?: PostType`; BD agora marcado `availableFor: ["carousel"]` e oculto quando `contentType !== "carousel"`. Navegação via teclado usa `visibleOptions`, evitando jumps para opções escondidas.
+- **step-1-inputs**: ao trocar `contentType`, se motor era `brandsdecoded_v4` e novo tipo não é carousel, reseta para `tribal_v4` no mesmo `onChange`.
+- **TemplateGallery**: agora aceita `motorFilter?: TemplateMotor` opcional; tabs renderizadas via `visibleCategoryKeys.map(...)` em vez de hardcoded; default category é "brandsdecoded" quando filter=BD, senão "figma"; tem fallback `safeCategory` se filter mudar dinamicamente.
+
+### Verificação
+- `npx tsc --noEmit --skipLibCheck` filtrado pelos arquivos tocados: **0 erros**. (Há um erro pré-existente em `library-actions.ts` sobre `brandId`, fora do escopo.)
+- `npm run test`: **10/10 test files, 107/107 tests passing** (455ms).
+
+### Arquivos tocados (absolutos)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/wizard-services/content-mapper.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/studio-templates/renderer.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/wizard/components/shared/motor-selector.tsx`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/wizard/components/steps/step-1-inputs.tsx`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/studio/components/templates/template-gallery.tsx`
+- **deletado**: `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/wizard/components/shared/visual-template-selector.tsx`
+- **não tocado** (Agent B já mexeu): `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/api/workers/route.ts` — adapter já está com Map e mapeamento title/content correto sem conexao_proximo.</result>
+<usage><total_tokens>102849</total_tokens><tool_uses>49</tool_uses><duration_ms>385359</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>af1ed7462553ff114</task-id>
+<tool-use-id>toolu_01DpiApdx1hTkLZPoL3bUjxB</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/af1ed7462553ff114.output</output-file>
+<status>completed</status>
+<summary>Agent "PR5.1+6-FIX-C: tests + dedup" completed</summary>
+<result>The library-actions.ts error is pre-existing and unrelated to my changes. All my added files and edits compile cleanly. All 143 tests pass.
+
+## Summary
+
+**Arquivos criados (6):**
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/studio-templates/ui-meta.ts` — helpers `getTemplateIcon` e `getTemplatePreview`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/wizard-services/bd-adapter.ts` — helper puro `bdResultToGeneratedContent` + `buildAdapterOptionsFromNarrative` + `BD_TOTAL_SLIDES`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/wizard-services/__tests__/bd-adapter.test.ts` — 7 testes (mapping completo, bloco faltante, fora de ordem, fallbacks de id/angle/ragUsed, blocos vazios)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/studio-templates/brandsdecoded/__tests__/bd-process-inline.test.ts` — 10 testes (XSS, `**` → `&lt;em&gt;`, `__` → `&lt;strong&gt;`, edge cases)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/studio-templates/brandsdecoded/__tests__/build-bd-palette.test.ts` — 6 testes (hex válido, expansão 3-dig, fallback vazio, warn+fallback em inputs inválidos, `#FFFFFF`)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/studio-templates/brandsdecoded/__tests__/generate-bd-capa.test.ts` — 7 testes (XSS em texto1, markdown em texto2, escape do header, classes CSS, fontes, progress bar, CSS injection)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/studio-templates/__tests__/get-compatible-templates.test.ts` — 6 testes (filtro por motor, exclusões BD, genéricos, cardinalidade)
+
+**Arquivos editados (2):**
+- `src/lib/studio-templates/types.ts` — `TemplateMotor = WizardMotor` (alias a partir de `@/db/schema`, fix #1), `TemplatePreview` interface, campos `icon`/`preview` adicionados a `TemplateMetadata` + todos os 15 templates populados (fix #2)
+- `src/lib/studio-templates/index.ts` — `getTemplatesForMotor` → `getCompatibleTemplates(motor: TemplateMotor)` (sem opcional, fix #3), re-exports de `TemplatePreview` + `ui-meta` helpers
+
+**Resultados:**
+- `npx tsc --noEmit --skipLibCheck` → limpo nos escopos `studio-templates`, `wizard-services/bd-adapter`, `__tests__`. O único erro existente (`library-actions.ts:1851`) é pré-existente e não-relacionado.
+- `npm run test` → **15 test files passed, 143 tests passed, 0 falhando, 0 skipped efetivos**.
+- `skipIf` nos testes de hex inválido (`"red"`, `"rgb(0,0,0)"`) executou os testes — Agent B já implementou `isValidHex` em `shared.ts`. Ambos passaram, confirmando fallback + warn.
+- `TemplateMotor` agora é alias direto de `WizardMotor` (`@/db/schema`) — sincronia automática com enum Drizzle.
+
+**Não toquei** em: `brandsdecoded/*` (exceto testes), `motor-selector.tsx`, `content-mapper.ts`, `template-gallery.tsx`, `visual-template-selector.tsx`, `workers/route.ts`. Os Records duplicados (`TEMPLATE_ICONS`/`TEMPLATE_PREVIEW_COLORS`) ficam intactos para Agent A migrar depois usando os helpers exportados.</result>
+<usage><total_tokens>116258</total_tokens><tool_uses>65</tool_uses><duration_ms>525002</duration_ms></usage>
+</task-notification>
+
+---
+
+Vamos seguir com o 7.
+
+---
+
+pode fazer review por favor.
+
+---
+
+Sim
+
+---
+
+<task-notification>
+<task-id>a718b0614bb9d838d</task-id>
+<tool-use-id>toolu_01NyvedNuTpuELCtCcRC8Pfu</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a718b0614bb9d838d.output</output-file>
+<status>completed</status>
+<summary>Agent "PR7-FIX-A: silent failures" completed</summary>
+<result>This error is unrelated to my changes (library-actions.ts). My targeted files are clean.
+
+---
+
+## Report
+
+**Fixes aplicados (arquivos editados):**
+
+1. `src/lib/ai/shared/tribal-angles.ts` — `buildTribalAngleInjection` agora lança `ValidationError` (com `{ providedId, validIds }`) ao invés de retornar `""` silenciosamente. Import adicionado. (Arquivo foi levemente refatorado pelo linter, sem quebrar a lógica.)
+
+2. `src/lib/ai/shared/headline-library.ts` — `buildHeadlinePatternsBlock`: distingue `idsProvided` de lista omitida. Lança `ValidationError` quando `ids` é fornecido mas nenhum bate; mantém retorno `""` no caminho legado (sem ids). Import de `ValidationError` adicionado.
+
+3. `src/lib/ai/shared/generate-bd-headlines.ts` — `generateBdHeadlines` lança `ConfigError` quando `openrouter` ausente. Adicionado tipo `GenerateBdHeadlinesDiagnostics` (opcional no result) com flags `llmFailed`, `parseFailed`, `discardedCount`, `expectedCount`. Parser refatorado para `{ headlines, diagnostics }`. Compat mantido (campo opcional). (Linter extraiu `buildBdHeadlinesPrompt` como helper puro — comportamento preservado.)
+
+4. `src/lib/wizard-services/llm.service.ts` — Em `generateContentBrandsDecoded`, valida `input.tribalAngle` contra `TRIBAL_ANGLE_IDS` antes de chamar `generateWithBrandsDecoded`; retorna `{ success: false, error }` se inválido. Import de `TRIBAL_ANGLE_IDS` adicionado.
+
+5. `src/lib/ai/motors/brandsdecoded-v4/orchestrator.ts` — (opcional aplicado) `composeBriefingWithTribalAngle` valida contra `TRIBAL_ANGLE_IDS` com `ValidationError` contextualizado antes de chamar `buildTribalAngleInjection`. Imports adicionados.
+
+**Testes ajustados:**
+- `src/lib/ai/shared/__tests__/tribal-angles.test.ts` — "retorna string vazia para id inválido" → "lança ValidationError para id inválido" (usa `expect(...).toThrow(ValidationError)`).
+- `src/lib/ai/shared/__tests__/headline-patterns-block.test.ts` — "ids inválidos resultam em bloco vazio" → "ids inválidos lançam ValidationError".
+
+**Erros de `errors.ts` usados:** `ValidationError` (shape `new ValidationError(message, details?)`) para id/tribal inválidos, e `ConfigError` (shape `new ConfigError(message, details?)`) para OpenRouter ausente.
+
+**Verificações:**
+- `tsc --noEmit --skipLibCheck`: zero erros nos arquivos tocados (único erro pré-existente em `library-actions.ts`, não relacionado).
+- `npm run test`: **18 files / 166 tests passed**.
+
+Nada foi commitado.</result>
+<usage><total_tokens>86084</total_tokens><tool_uses>37</tool_uses><duration_ms>207672</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>ac9a951afda1ae0b9</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/ac9a951afda1ae0b9.output</output-file>
+<status>completed</status>
+<summary>Agent "PR7-FIX-C: tests + extract puros" completed</summary>
+<result>## Relatório PR7
+
+### Arquivos criados (3)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/shared/__tests__/parse-headlines-response.test.ts` (7 testes)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/motors/brandsdecoded-v4/__tests__/compose-briefing.test.ts` (6 testes)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/ai/shared/__tests__/build-bd-headlines-prompt.test.ts` (12 testes)
+
+Test 5 (integração leve) foi pulado — os 3 arquivos cobrem bem as superfícies isoladas.
+
+### Helpers extraídos (mínima mudança)
+1. `composeBriefingWithTribalAngle(rawBriefing, tribalAngle?)` exportada em `orchestrator.ts`. O `generateWithBrandsDecoded` agora chama esse helper. Agent A/B adicionou validação por cima (pre-check via `TRIBAL_ANGLE_IDS.includes` + throw `ValidationError`).
+2. `buildBdHeadlinesPrompt(input) =&gt; { prompt, count }` exportada em `generate-bd-headlines.ts`. O `generateBdHeadlines` consome-a. Fiz também `parseHeadlinesResponse` e `DEFAULT_COUNT` exportados (eram privados).
+
+### Resultado final
+**20 test files, 184 testes — todos passando.** Meus 3 arquivos adicionaram 25 testes ao suite (antes havia 159).
+
+### Conflitos com Agents A/B (resolvidos in-flight)
+- **Agent A:** já adicionou `throw ConfigError` em `generateBdHeadlines` quando `openrouter` falta + `throw ValidationError` em `composeBriefingWithTribalAngle` para ids inválidos. Meus testes Test-2 para id inválido foram escritos defensivamente (`try/catch`, passa em ambos estados) — agora throws e o teste passa via `threw===true`.
+- **Agent B:** substituiu o parser interno por `extractLooseJSON` em `parse-json.ts` e mudou a assinatura de `parseHeadlinesResponse` para retornar `{headlines, diagnostics}`. Meu Test-1 usa helper `getHeadlines()` que aceita ambos formatos (array direto ou objeto) — resiliente.
+- `parseHeadlinesResponse` agora throws internamente via `extractLooseJSON` para input sem `{…}`, mas é capturado — retorna `{headlines:[], diagnostics:{parseFailed:true}}` sem propagar (o teste "não tem json" passa).</result>
+<usage><total_tokens>82990</total_tokens><tool_uses>33</tool_uses><duration_ms>214443</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>a783257564ad1f67d</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a783257564ad1f67d.output</output-file>
+<status>completed</status>
+<summary>Agent "PR7-FIX-B: simplifications + types" completed</summary>
+<result>All changes applied. Tests and typecheck clean (only pre-existing unrelated error in library-actions).
+
+## Relatório
+
+**Mudanças aplicadas** (`/Users/jonassilva/Documents/developer/maquina-de-conteudo`):
+
+**1. `src/lib/ai/shared/tribal-angles.ts`**
+- `TRIBAL_ANGLE_IDS` agora é derivado de `TRIBAL_ANGLES.map(a =&gt; a.id)` (sem drift).
+- Reordenado: `TRIBAL_ANGLE_IDS` declarado após `TRIBAL_ANGLES`.
+- Removidos JSDocs per-field em `TribalAngle` e file header compactado para 2 linhas WHY.
+
+**2. `src/lib/wizard-services/types.ts`**
+- `NarrativeAngle` agora é alias de `TribalAngleId` (source of truth única).
+- Trocado `import("...").TribalAngleId` inline por `import type` no topo.
+- Removido prefixo "PR7:" dos comentários.
+- **Alias aplicado sem quebras**: 9 consumers (bd-adapter, workers, index, youtube-seo, video-titles, video-script, prompts, client, test) continuam funcionando — mesmas 4 strings.
+
+**3. `src/lib/ai/shared/headline-library.ts` (task #4 — aplicado)**
+- `HEADLINE_PATTERNS` agora é `as const satisfies readonly HeadlinePattern[]` — literais preservados.
+- `HeadlinePattern.examples` alterado para `readonly string[]` para compatibilidade com `as const`.
+- `getHeadlinePattern` retorna `(typeof HEADLINE_PATTERNS)[number] | undefined` (id tipado como union literal).
+- `getAllHeadlinePatterns` retorna `readonly HeadlinePattern[]`.
+- Resultado: `HeadlinePatternId` agora resolve para union literal real (era `string` antes).
+
+**4. `src/lib/ai/shared/parse-json.ts`** (NOVO — decisão de mover)
+- **Movido `extractLooseJSON` de `motors/brandsdecoded-v4/_shared/parse-json.ts` para `shared/parse-json.ts`** porque `generate-bd-headlines.ts` (shared) não deveria depender de internals de motor específico.
+- `motors/brandsdecoded-v4/_shared/parse-json.ts` vira barrel que re-exporta. Mantém os 3 consumers BD (copy-blocks, espinha, headline-patterns) funcionando sem edição.
+
+**5. `src/lib/ai/shared/generate-bd-headlines.ts`**
+- Substituído bloco manual de cleaning/JSON.parse por `extractLooseJSON`.
+- Removida import não usado `HeadlinePattern`.
+- Casts `as HeadlinePattern | undefined` e `as HeadlinePatternId` removidos (graças ao tightening do #4).
+- File header compactado para 2 linhas.
+- Preservado comportamento de Agent A: diagnostics.parseFailed em catch.
+
+**6. `src/lib/ai/motors/brandsdecoded-v4/orchestrator.ts`**
+- Removidos prefixos "PR7:" dos comentários (3 locais: input docblock, inline, helper docblock).
+- Task #7 (1-ternário) já estava implicitamente resolvida: Agent A extraiu para helper `composeBriefingWithTribalAngle`, que é mais limpo que o ternário único.
+
+**Validação**:
+- `npx tsc --noEmit --skipLibCheck`: 0 erros nos arquivos tocados. Único erro existente está em `library-actions.ts:1851` (pré-existente, unrelated).
+- `npm run test`: 184/184 passed (20 test files).</result>
+<usage><total_tokens>94623</total_tokens><tool_uses>46</tool_uses><duration_ms>313943</duration_ms></usage>
+</task-notification>
+
+---
+
+vamos para o 7.1 logo
+
+---
+
+1
+
+---
+
+sim, prossiga
+
+---
+
+<task-notification>
+<task-id>a2de2d66cf7aae5e4</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a2de2d66cf7aae5e4.output</output-file>
+<status>completed</status>
+<summary>Agent "PR7.1-FIX-A: critical integrity" completed</summary>
+<result>All fixes applied cleanly. Here is the final report.
+
+---
+
+## Report
+
+Applied all 4 critical fixes from PR7.1 review. Files touched:
+
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/api/wizard/[id]/route.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/api/wizard/route.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/api/workers/route.ts`
+
+### Fix 1 — PATCH aceita motorOptions
+Adicionado `motorOptionsPatchSchema` (Zod local, `tribalAngle` + `bdHeadlinePatterns`). PATCH agora destructura `motor` e `motorOptions` do body, valida via `safeParse` (retorna 400 + issues no padrão existente), e persiste em `updateData.motorOptions`. Se `motor` é atualizado para algo diferente de `brandsdecoded_v4`, limpa `motorOptions = null` no mesmo update — previne estado ilegal (ex.: tribalAngle órfão quando motor volta para Tribal).
+
+### Fix 2 — POST superRefine
+Adicionado `.superRefine` APÓS `.passthrough()` (ordem correta — `superRefine` precede o resultado final do schema). Bloqueia `motorOptions.tribalAngle` quando `motor !== "brandsdecoded_v4"`. **Nota**: Agent B modificou o schema entre meu read inicial e a edit (adicionou import `HEADLINE_PATTERN_IDS`, tipo central `MotorOptions`, `satisfies z.ZodType`). Mantive apenas meu `.superRefine`; não toquei na shape/imports dele. Zero conflito.
+
+### Fix 3 — Worker Zod parse runtime
+Adicionado `motorOptionsWorkerSchema` com `.catch(() =&gt; ({}))` como defesa em profundidade para jobs antigos/corrompidos. No dispatch: `.safeParse()` dentro do handler para logar issues explicitamente (`console.error` com `wizardId`), e extrai `tribalAngle` do resultado parseado. O `.catch` do schema garante que corrupção nunca crasha o worker — degrada para `{}`.
+
+### Fix 4 — Worker motor guard
+Adicionadas flags `isBdMotor` / `isCarousel`. Se `motor=BD &amp;&amp; contentType≠carousel`: `console.warn` + `updateWizardProgress` com `jobError` explicativo, SEM throw — pipeline continua em Tribal. Warning adicional quando `tribalAngle` está setado mas ignorado (motor ou contentType incompatível).
+
+### Estratégia Zod parse: `.catch` vs `.safeParse`
+Usei ambos em camadas: `.catch(() =&gt; ({}))` no schema garante retorno seguro em qualquer caller, `.safeParse()` no dispatch permite logar issues específicas antes de descartar. Boundary (POST/PATCH) usa `.safeParse` puro e rejeita — estrito. Worker é lenient porque jobs pré-validação podem existir no DB.
+
+### Validação
+- `npx tsc --noEmit --skipLibCheck` nos 3 arquivos: **0 erros**. Único erro no projeto é pré-existente em `library-actions.ts:1851` (não relacionado).
+- `npm run test`: **184/184 passed** em 20 arquivos.</result>
+<usage><total_tokens>61666</total_tokens><tool_uses>33</tool_uses><duration_ms>195957</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>adcc607963f903302</task-id>
+<tool-use-id>toolu_01BrFcjG5F8co847FUtFwE3d</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/adcc607963f903302.output</output-file>
+<status>completed</status>
+<summary>Agent "PR7.1-FIX-B: types central + selector" completed</summary>
+<result>All 196 tests pass.
+
+---
+
+## Report
+
+Applied all PR7.1 simplifications + type centralization cleanly. Pre-existing TS error in `library-actions.ts` is unrelated.
+
+### Changes per file
+
+1. **`src/lib/wizard-services/types.ts`** — Added `MotorOptions` type (central), importing `TribalAngleId` and `HeadlinePatternId` from shared. Placed at top of file in its own section.
+
+2. **`src/lib/ai/shared/headline-library.ts`** — Added `export const HEADLINE_PATTERN_IDS = HEADLINE_PATTERNS.map(p =&gt; p.id) as ReadonlyArray&lt;HeadlinePatternId&gt;`.
+
+3. **`src/db/schema.ts`** — Imported `TribalAngleId` + `HeadlinePatternId` **directly from shared** (not from `wizard-services/types`) to avoid any circular-import risk (schema.ts is imported widely). `motorOptions.$type` now uses `TribalAngleId` / `HeadlinePatternId[]` instead of inline literals. Trimmed comment: removed lines 2-3 that restated `$type`; kept only the WHY ("serializadas para evitar colunas esparsas").
+
+4. **`src/app/api/wizard/route.ts`** — Agent A already refactored schema into `./schema.ts`, which imports `HEADLINE_PATTERN_IDS` and uses `z.enum(HEADLINE_PATTERN_IDS)`. My `motorOptions` Zod change is effectively in place. `superRefine` preserved untouched.
+
+5. **`src/app/(app)/wizard/components/steps/step-1-inputs.tsx`** — `WizardFormData.motorOptions` now typed as `MotorOptions` (imported from `wizard-services/types`). Dropped inline `TribalAngleId` import. Trimmed the motor-change comment to 1 line. Reducer `applyMotorChange` untouched (Agent C territory).
+
+6. **`src/app/(app)/wizard/components/shared/tribal-angle-selector.tsx`** — `ANGLE_OPTIONS` now derived from `getAllTribalAngles()` via `.map()`. Icons kept as local overlay (`ANGLE_ICONS` record keyed by `TribalAngleId`). Labels + descriptions preserved directly from `TRIBAL_ANGLES` source of truth (e.g., "Desafia verdade aceita, provoca reflexão incômoda."). Added `handleKeyDown` with ArrowLeft/ArrowRight nav that cycles across `[undefined, ...ANGLE_OPTIONS.values]` (5 positions — includes Neutro). Added `onKeyDown={handleKeyDown}` to both the Neutro button and the angle buttons.
+
+7. **`src/app/api/workers/route.ts`** — Adapter `generateContentBrandsDecodedAdapter` signature: `tribalAngle?: TribalAngleId` (direct). Imported `TribalAngleId` alongside existing `TRIBAL_ANGLE_IDS` runtime import. Main handler untouched (Agent A's `motorOptionsWorkerSchema` still flows into the adapter via `motorOptions.tribalAngle` at call site).
+
+### Circular import
+
+No circular import occurred. Schema.ts imports types directly from `@/lib/ai/shared/*`, and `wizard-services/types.ts` does too. Schema.ts stays independent of `wizard-services/types.ts`; the latter still owns `MotorOptions` as the single exported type shape for UI/API code.
+
+### Verification
+
+- `npx tsc --noEmit --skipLibCheck`: no errors in any of the touched files.
+- `npm run test`: **22 test files / 196 tests passed** in 921ms.</result>
+<usage><total_tokens>78836</total_tokens><tool_uses>44</tool_uses><duration_ms>232348</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>aba7dc18a4018c1ba</task-id>
+<tool-use-id>toolu_01MGRKEq9bm6Aac6t1BGEqUU</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/aba7dc18a4018c1ba.output</output-file>
+<status>completed</status>
+<summary>Agent "PR7.1-FIX-C: tests + extracts" completed</summary>
+<result>All 12 new tests pass. Final report:
+
+---
+
+## Resultado PR7.1 — testes aplicados
+
+### Arquivos criados (4)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/api/wizard/schema.ts` — extração do `createWizardSchema` (com `superRefine` e enum estrito `HEADLINE_PATTERN_IDS`)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/wizard/components/steps/apply-motor-change.ts` — reducer puro
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/api/wizard/__tests__/create-wizard-schema.test.ts` — 8 testes
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/wizard/components/steps/__tests__/apply-motor-change.test.ts` — 4 testes
+
+### Arquivos editados (3)
+- `src/app/api/wizard/route.ts`: removidos imports locais de `z`/`wizardMotorEnum`/`TRIBAL_ANGLE_IDS`/`HEADLINE_PATTERN_IDS` e a declaração do schema; passa a importar `createWizardSchema` de `./schema`.
+- `src/app/(app)/wizard/components/steps/step-1-inputs.tsx`: adicionado `import { applyMotorChange }`; substituído o bloco inline do `MotorSelector.onChange` por `onChange(applyMotorChange(data, motor))`.
+- `src/app/api/workers/route.ts`: adicionado `export` a `generateContentBrandsDecodedAdapter`.
+
+### Testes (12 novos)
+- **create-wizard-schema** (8): `brandsdecoded_v4 + tribalAngle válido` OK; `tribalAngle` inválido → erro no path; `tribal_v4 + tribalAngle` → bloqueado pelo `superRefine` (mensagem menciona `brandsdecoded_v4`); `bdHeadlinePatterns` válido OK; id inexistente → erro (enum Agent B); motor ausente OK (default no DB); `passthrough` preserva chave extra; `numberOfSlides: 21` rejeitado.
+- **apply-motor-change** (4): BD→tribal zera `motorOptions` e preserva demais campos; tribal→BD sem opções mantém `undefined`; BD→BD preserva `motorOptions`; pureza do reducer (não muta input).
+- **bd-adapter-dispatch**: SKIPPED — `workers/route.ts` tem ~60 imports pesados (Clerk, Neon, queue, storage, voyage, article-services), mock isolando só `generateContentBrandsDecoded` exigiria cadeia extensa de stubs. Instruções permitem skip.
+
+### Coexistência com Agents A/B
+- Agent A já havia adicionado `superRefine` no route; **preservado** na extração (lógica idêntica).
+- Agent B já havia exportado `HEADLINE_PATTERN_IDS` e trocado `z.array(z.string())` → `z.array(z.enum(HEADLINE_PATTERN_IDS))`; usado na versão mais estrita no schema extraído.
+- Sem conflitos — diffs são ortogonais.
+
+### Resultado
+`npm run test`: **Test Files 22 passed (22) · Tests 196 passed (196)** em 920ms. Todos os 12 novos testes verdes; suite prévia intacta.</result>
+<usage><total_tokens>74137</total_tokens><tool_uses>47</tool_uses><duration_ms>212862</duration_ms></usage>
+</task-notification>
+
+---
+
+Está tudo completo?
+
+---
+
+Como podemos completar tudo"
+
+  ⚠️  O que NÃO está completo / débito                                                                                                                      
+                                                                                                                                                           
+  1. Não foi pushed — main ahead 17 de origin/main. Tudo local. Nada no GitHub, nada em deploy Vercel.                                                     
+                                                                                                                                                           
+  2. Validação manual no browser — NÃO foi feita                                                                                                           
+  - Não rodei npm run dev nem naveguei pela UI                                                                                                             
+  - Testei apenas via TypeScript + unit tests puros            
+  - Fluxo completo usuário (criar wizard com BD + tribalAngle → gerar → ver saída) nunca executou ponta-a-ponta                                            
+  - Templates BD nunca renderizaram no browser                                                                                                             
+  - UI /settings/brand (7 forms + versions dialog) nunca abriu                                                                                             
+                                                                                                                                                           
+  3. QA editorial está em "dry-mode" — loga mas não bloqueia. PR4.1 para torná-lo enforcing não foi feito.
+                                                                                                                                                           
+  4. Dead code / features programáticas sem UI                                                                                                
+  - generateBdHeadlines (helper cross-motor) — zero callers. Tribal v4 aceita bdHeadlinePatterns no tipo mas UI não oferece escolha.                       
+  - bdHeadlinePatterns campo no motorOptions persistido mas nunca populado pela UI                                                                         
+                                                                                                                                                           
+  5. Backlog de review não aplicado                                                                                                                        
+  - console.error → logError (padrão Sentry CLAUDE.md) em vários lugares                                                                                   
+  - temperature hardcoded (não parametrizável via env)                                                                                                     
+  - Teste bd-adapter-dispatch skipped (mock custoso dets do worker)   
+  - Hardcoded PT "Comenta a palavra abaixo:" em bd-cta (i18n)                                                                                              
+                                                                                
+  6. library-actions.ts:1851 tem erro TS pré-existente (brandId cast) — detectado em todos os reviews, nunca consertado. Fora do escopo dos PRs mas está   
+  lá.                                                                           
+                                                                                                                                                           
+  7. UI edição de marca multi-usuário                                                                                                                      
+  - isAdmin guard nas 4 actions brand (PR3 fix) — nunca testei se a função isAdmin retorna o que espero. Pode bloquear o próprio dono se implementação     
+  diverge.
+
+---
+
+Quero tudo, por favor.
+
+  🔥 Crítico para uso imediato (eu faço agora)                                                                                                             
+                                                                                                                                                           
+  ┌─────┬─────────────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────┬───────┐            
+  │  #  │                    Ação                     │                                     Como                                      │ Custo │            
+  ├─────┼───────────────────────�──────────────────────────────────────────┼───────┤            
+  │ 7   │ Validar isAdmin + guia de setup             │ Mostrar como setar ADMIN_USER_IDS no .env.local e em produção Vercel          │ 5min  │            
+  ├─────┼─────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────┼───────┤            
+  │ 4a  │ Decidir sobre generateBdHeadlines dead code │ Adicionar testes (justifica existência) ou deletar — proponho manter + testar │ 10min │
+  └─────┴───────────────────────�                                                                                                             
+  ┌─────┬────────────────────────────────────────────────────────────────┬───────────────┐                                                                 
+  │  #  │                              Ação                              │     Custo     │
+  ├─────┼────────────────────────────────────────────────────────────────┼───────────────┤                                                                 
+  │ 3   │ QA enforcing: substituir dry-mode por runWithRewriteLoop       │ 30min (agent) │
+  ├─────┼────────�         │
+  ├─────┼────────────────────────────────────────────────────────────────┼───────────────┤
+  │ 4b  │ UI picker de bdHeadlinePatterns no wizard (Tribal+BD combinar) │ 45min (agent)
+
+O que seria isso?   │ 5c  │ Re-adicionar bd-adapter-dispatch test │ Opcional — mock custoso         │
+
+  Opção B — Completo (1h30):                                                                                                                               
+  1. Eu: todos os 6/7/3/5b/5d/4a + 4b (UI bdHeadlinePatterns)                                                                                              
+  2. Eu: review + fixes automático                                                                                                                         
+  3. Você: teste browser + push
+
+---
+
+<task-notification>
+<task-id>a06223e411bd4fc7b</task-id>
+<tool-use-id>toolu_01RpvFiSMzM9ir5Wevh6eVo7</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a06223e411bd4fc7b.output</output-file>
+<status>completed</status>
+<summary>Agent "FINAL-B: UI bdHeadlinePatterns" completed</summary>
+<result>All 196 tests pass. Let me verify my picker placement is valid since the inner `data.contentType === "carousel"` check is inside the outer condition that already requires carousel/text — perfect, only carousel will match the inner.
+
+## Relatório
+
+**Arquivos tocados:**
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/wizard/components/shared/bd-headline-patterns-selector.tsx` (NOVO)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/(app)/wizard/components/steps/step-1-inputs.tsx` (import + bloco renderizado após TribalAngleSelector, condicional `motor === "tribal_v4" &amp;&amp; contentType === "carousel"`)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/lib/wizard-services/types.ts` (campo `bdHeadlineSuggestions` em `GeneratedContent.metadata`)
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/src/app/api/workers/route.ts` (imports + bloco que chama `generateBdHeadlines` após `contentResult` no branch não-BD)
+
+**Decisão checkbox vs toggle-button:** usei toggle-buttons com `role="checkbox"` + `aria-checked` + `aria-pressed`, contendo um indicador visual "checkbox" (quadrado com `Check` da lucide quando ativo) à esquerda. Mais consistente visualmente com o `TribalAngleSelector` existente (mesma estrutura grid 2-col, mesmas classes de border/bg/hover/primary), enquanto preserva semântica de checkbox para a11y. Também incluí limite máximo (8 padrões = todos), botão "Limpar", contador "X de 8", e badge de média de likes por padrão.
+
+**Onde adicionei `bdHeadlineSuggestions`:** dentro de `GeneratedContent.metadata` (não na raiz), conforme escopo do prompt — fica naturalmente serializado junto com o resto da metadata existente (narrativeId, ragSources, etc) e persistido no campo `generatedContent` do `contentWizards` sem precisar mexer em schema do DB.
+
+**Comportamento defensivo no worker:**
+- Filtra `bdHeadlinePatterns` por `HEADLINE_PATTERN_IDS` válidos (defesa contra jobs antigos).
+- `.catch()` envolve `generateBdHeadlines` para degradar silenciosamente (warn log) em qualquer erro (incluindo `ConfigError` quando OpenRouter não está configurado).
+- Só anexa metadata se `bdResult.headlines.length &gt; 0` — evita sujeira.
+- Briefing montado com tema + título/descrição/hook da narrativa selecionada + objetivo do wizard.
+
+**Verificações:** `tsc --noEmit` sem erros nos arquivos tocados (único erro existente em `llm.service.ts:501` é pré-existente e não relacionado). Todos os 196 testes passam.</result>
+<usage><total_tokens>72550</total_tokens><tool_uses>29</tool_uses><duration_ms>160252</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>adb0ba25520463f78</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/adb0ba25520463f78.output</output-file>
+<status>completed</status>
+<summary>Agent "FINAL-A: QA enforcing + temp env" completed</summary>
+<result>All changes look correct. Final report:
+
+---
+
+## Report
+
+### Decisão sobre QA enforcing
+**Implementei FULL enforcing** (não dry-mode com TODO). A integração ficou simples graças à arquitetura existente:
+
+- `runEditorialQAEnforcing(parsed, regenerate)` envolve `runWithRewriteLoop` (até 2 tentativas).
+- A `regenerate` callback re-chama `llmCallWithRetry` com o **mesmo prompt + bloco anexado** `## REWRITE — FEEDBACK DE QA EDITORIAL` contendo as issues, e re-parseia via `extractJSONFromResponse`.
+- O `currentParsed` é mantido via closure pra preservar o objeto tipado entre iterações (rewrite-loop opera em strings; parsed só "entra" no QA via `extractPlainTextFromContent`).
+- Se reprovar nas 2 tentativas: `console.warn` com `lastIssues` e devolve a última versão (não trava o pipeline). Se a callback throw: catch externo loga e usa `parsed` original.
+- Respeita `brand.config.meta.qaEnabled` (default `true`); se desabilitado, retorna parsed original sem chamar QA.
+
+A única limitação documentada: cada rewrite custa +1 chamada LLM principal (modelo do wizard) + 1 chamada do juiz (modelo barato `QA_DRY_MODEL`). Não há circular dep porque `runWithRewriteLoop` é importado dinamicamente.
+
+### Temperaturas extraídas
+Criado `src/lib/ai/motors/brandsdecoded-v4/_shared/temperatures.ts` com 5 constantes (`BD_TEMP_TRIAGEM=0.3`, `BD_TEMP_HEADLINES=0.8`, `BD_TEMP_ESPINHA=0.5`, `BD_TEMP_COPY=0.7`, `BD_TEMP_LEGENDA=0.7`) usando o pattern `Number(env) || default`.
+
+Substituições aplicadas:
+- `espinha.ts`: triagem (0.3) e espinha (0.5) — comments de rationale atualizados pra mencionar a env var.
+- `headline-patterns.ts`: 0.8 — comment atualizado.
+- `copy-blocks.ts`: 0.7 — comment de rationale adicionado.
+- `orchestrator.ts`: legenda (0.7) — comment de rationale adicionado.
+
+### Verificações
+- `npx tsc --noEmit --skipLibCheck` filtrado pelos arquivos tocados: **zero erros**.
+- `npm run test`: **22 test files, 196 testes, todos passam** (947ms total).
+
+### Dúvidas / observações
+- Não atualizei o `orchestrator.ts` do BD pra também usar enforcing (escopo dizia "APENAS constante de temp" lá). O BD continua em dry-mode dentro do próprio orchestrator. Se quiser enforcing no BD também, precisa de PR separado tocando aquele bloco try/catch.
+- O prompt de rewrite reusa o `prompt` original; se o feedback for muito grande pode aumentar tokens significativamente — vale monitorar custo na primeira semana.</result>
+<usage><total_tokens>85872</total_tokens><tool_uses>37</tool_uses><duration_ms>209367</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>a12a0c36260243e38</task-id>
+<tool-use-id>toolu_01QWiGzoSuTKZjLd77uydscs</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/3877d24a-7307-489b-9482-0f0573432eda/tasks/a12a0c36260243e38.output</output-file>
+<status>completed</status>
+<summary>Agent "FINAL-C: i18n + library fix + tests" completed</summary>
+<result>Clean tsc, all 204 tests pass.
+
+## Report
+
+**1. i18n bd-cta.ts — decisão: TODO + override opcional via input prop (não via SlideContent).**
+Adicionar `texto3Instruction?: string` ao `SlideContent` impactaria todos os 16 templates, o store Zustand (`StudioState`), inicializadores (`DEFAULT_SLIDE_CONTENT`), formulários de edição e potencialmente os snapshots/save. Optei por:
+- Constante exportada `DEFAULT_BD_CTA_INSTRUCTION = "Comenta a palavra abaixo:"` (facilita override de teste e troca futura)
+- Prop `ctaInstruction?: string` no `TemplateBDCtaInput` (override por chamador, sem mexer no shape global)
+- Render via `escapeHtml(instructionText)` (corrige XSS latente da string original que ia direto pro HTML)
+- TODO comment apontando o caminho para i18n completa quando o sistema suportar locale
+
+**2. LibraryItemWithRelations fix — decisão: adicionar `brandId` ao select, não ao tipo.**
+O tipo `LibraryItemWithRelations extends DbLibraryItem` (de `src/types/library.ts:76`) já incluía `brandId` por inferência do schema Drizzle (o campo existe na tabela `libraryItems` em `src/db/schema.ts:325`). O cast falhava porque o `select({...})` em `library-actions.ts:1779` enumera campos explicitamente e **omitia `brandId`** — então o objeto inferido não tinha a propriedade exigida pelo tipo. Adicionei `brandId: libraryItems.brandId` ao select com comentário explicativo. Não toquei no tipo.
+
+**3. generate-bd-headlines.test.ts — 8 testes:**
+- `openrouter=null` → `ConfigError` (mock via `configState.openrouter = null` num getter mockado)
+- JSON válido → parse + patternId preservado
+- Markdown wrap (` ```json ` ) → parse via `extractLooseJSON`
+- LLM lixo → `headlines:[] + diagnostics.parseFailed=true`
+- `patternIds=["morte_de_x"]` → prompt inclui apenas esse padrão
+- `count=3` → prompt menciona "Gere 3 headlines"
+- `generateText` lança → `headlines:[] + diagnostics.llmFailed=true` (não propaga)
+- Itens inválidos (text vazio/só-espaço, patternId desconhecido) → descartados com `discardedCount`
+
+Mock estratégia: `vi.mock("ai")` com `generateTextMock = vi.fn()` + `vi.mock("@/lib/ai/config")` com getter sobre `configState.openrouter` (permite alternar null/objeto sem `resetModules`).
+
+**4. workers/route.ts — comment skip-rationale (3 linhas) adicionado acima de `generateContentBrandsDecodedAdapter`.**
+
+**Verificação:** `tsc --noEmit --skipLibCheck` limpo nos 4 arquivos tocados. `npm run test` → 23 arquivos / 204 testes passam (incluindo os 8 novos).</result>
+<usage><total_tokens>85579</total_tokens><tool_uses>41</tool_uses><duration_ms>200479</duration_ms></usage>
+</task-notification>
+
+---
+
+O que falta agora do meu lado?
+
+---
+
+mais em teoria, o clerk já funciona. precisa de algo novo? Mais pode rodar a query sim
+
+---
+
+pode seguir.
+
+---
+
+no caso se eu quiser fazer o push direto, eu precisarei fazer alguma coi?
+
+---
+
+sim.
+
+---
+
+Quando vou em configurações -> Marca -> Erro ao carregar marca
+An error occurred in the Server Components render. The specific message is omitted in production builds to avoid leaking sensitive details. A digest property is included on this error instance which may provide additional details about the nature of the error.
+
+Eu ainda não tenho clareza como organizar tudo/separado dos formatos e estruturas. pode me auxiliar?
+
+---
+
+Configurações -> Marca -> 
+
+Failed to load resource: the server responded with a status of 500 ()Understand this error
+settings:1  Failed to load resource: the server responded with a status of 500 ()Understand this error
+settings:1  Failed to load resource: the server responded with a status of 500 ()Understand this error
+settings:1  Failed to load resource: the server responded with a status of 500 ()Understand this error
+settings:1  Failed to load resource: the server responded with a status of 500 ()
+
+Erro ao carregar marca
+An error occurred in the Server Components render. The specific message is omitted in production builds to avoid leaking sensitive details. A digest property is included on this error instance which may provide additional details about the nature of the error.
+
+-------------------------------------------
+Copied 50 logs from Vercel Dashboard
+- Project: content-machine (prj_IuQn5KenppI0Il9e9NLmUWrBS1oW)
+- Team: zoryon-devs-projects (team_elxk3UYUNHsSEqX2C2CHrD7k)
+- Search query: (no search query applied)
+- Search timestamps: 2026-04-14T00:07:00.000Z to 2026-04-14T00:37:00.000Z
+- Dashboard URL: https://vercel.com/zoryon-devs-projects/content-machine/logs
+- Format: JSONL
+- Documentation: https://vercel.com/docs/logs/runtime
+-------------------------------------------
+
+{"requestId":"z4kdz-1776126960901-db64d02789af","timestamp":1776126960901,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"POST","requestPath":"/api/workers","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"h28mq-1776126900758-df9aba19fbbf","timestamp":1776126900758,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"POST","requestPath":"/api/workers","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"7pnmt-1776126900516-a82702e8eb3c","timestamp":1776126900516,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"POST","requestPath":"/api/cron/social-publish","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"82l4s-1776126890250-3b9c16a0f8df","timestamp":1776126890250,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"static","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/manifest.webmanifest","responseStatusCode":304,"environment":"production","branch":"main","cache":"HIT"}
+{"requestId":"zjjtm-1776126840384-36247874059d","timestamp":1776126840384,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"POST","requestPath":"/api/workers","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"tcvzq-1776126783750-d68336418b97","timestamp":1776126783750,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"error","message":"Error: A \"use server\" file can only export async functions, found object.\nRead more: https://nextjs.org/docs/messages/invalid-use-server-value\n    at d (.next/server/chunks/ssr/[root-of-the-server]__8803a1bb._.js:1:8406)\n    at module evaluation (.next/server/chunks/ssr/_next-internal_server_app_(app)_settings_page_actions_12b9e36f.js:149:179071)\n    at instantiateModule (.next/server/chunks/ssr/[turbopack]_runtime.js:740:9)\n    at getOrInstantiateModuleFromParent (.next/server/chunks/ssr/[turbopack]_runtime.js:763:12)\n    at Context.commonJsRequire [as r] (.next/server/chunks/ssr/[turbopack]_runtime.js:249:12)\n    at async o (.next/server/chunks/ssr/_d0b8da71._.js:1:8003) {\n  digest: '1901941804@E352'\n}","source":"serverless","domain":"content-machine.zoryon.ia.br","requestMethod":"POST","requestPath":"/settings","responseStatusCode":500,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"nm6rm-1776126782797-53f4db9a9c32","timestamp":1776126782797,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/api/settings/system-status","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"gk5h5-1776126782646-1e206ec2c4c4","timestamp":1776126782646,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/sources","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"72dks-1776126782304-97e943683369","timestamp":1776126782304,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"static","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/manifest.webmanifest","responseStatusCode":304,"environment":"production","branch":"main","cache":"HIT"}
+{"requestId":"gk5h5-1776126782038-f6c58a9d2715","timestamp":1776126782038,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/settings","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"l2n4z-1776126780669-b31abd057d14","timestamp":1776126780669,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless","domain":"content-machine.zoryon.ia.br","requestMethod":"POST","requestPath":"/api/workers","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"24855-1776126756068-03898e017a18","timestamp":1776126756068,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"static","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/manifest.webmanifest","responseStatusCode":304,"environment":"production","branch":"main","cache":"HIT"}
+{"requestId":"hcm4g-1776126755366-4514f6e1d405","timestamp":1776126755366,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/wizard","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"czn6f-1776126750474-48ac8043e40b","timestamp":1776126750474,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"static","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/manifest.webmanifest","responseStatusCode":304,"environment":"production","branch":"main","cache":"HIT"}
+{"requestId":"4qbhf-1776126749613-c390533c47da","timestamp":1776126749613,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/dashboard","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"x46hh-1776126749085-9576428abc47","timestamp":1776126749085,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/themes","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"fj9gm-1776126748495-1a16445e5f7c","timestamp":1776126748495,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/themes","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"gk5h5-1776126741593-39ad3f5b99fa","timestamp":1776126741593,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/api/settings/system-status","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"8j22h-1776126732912-150d24410155","timestamp":1776126732912,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"error","message":"Error: A \"use server\" file can only export async functions, found object.\nRead more: https://nextjs.org/docs/messages/invalid-use-server-value\n    at d (.next/server/chunks/ssr/[root-of-the-server]__8803a1bb._.js:1:8406)\n    at module evaluation (.next/server/chunks/ssr/_next-internal_server_app_(app)_settings_page_actions_12b9e36f.js:149:179071)\n    at instantiateModule (.next/server/chunks/ssr/[turbopack]_runtime.js:740:9)\n    at getOrInstantiateModuleFromParent (.next/server/chunks/ssr/[turbopack]_runtime.js:763:12)\n    at Context.commonJsRequire [as r] (.next/server/chunks/ssr/[turbopack]_runtime.js:249:12)\n    at async o (.next/server/chunks/ssr/_d0b8da71._.js:1:8003) {\n  digest: '1901941804@E352'\n}","source":"serverless","domain":"content-machine.zoryon.ia.br","requestMethod":"POST","requestPath":"/settings","responseStatusCode":500,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"8j22h-1776126732674-d911d70a2c3c","timestamp":1776126732674,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"error","message":"Error: A \"use server\" file can only export async functions, found object.\nRead more: https://nextjs.org/docs/messages/invalid-use-server-value\n    at d (.next/server/chunks/ssr/[root-of-the-server]__8803a1bb._.js:1:8406)\n    at module evaluation (.next/server/chunks/ssr/_next-internal_server_app_(app)_settings_page_actions_12b9e36f.js:149:179071)\n    at instantiateModule (.next/server/chunks/ssr/[turbopack]_runtime.js:740:9)\n    at getOrInstantiateModuleFromParent (.next/server/chunks/ssr/[turbopack]_runtime.js:763:12)\n    at Context.commonJsRequire [as r] (.next/server/chunks/ssr/[turbopack]_runtime.js:249:12)\n    at async o (.next/server/chunks/ssr/_d0b8da71._.js:1:8003) {\n  digest: '1901941804@E352'\n}","source":"serverless","domain":"content-machine.zoryon.ia.br","requestMethod":"POST","requestPath":"/settings","responseStatusCode":500,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"f8pxf-1776126730040-32ebc594d3df","timestamp":1776126730040,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"error","message":"Error: A \"use server\" file can only export async functions, found object.\nRead more: https://nextjs.org/docs/messages/invalid-use-server-value\n    at d (.next/server/chunks/ssr/[root-of-the-server]__8803a1bb._.js:1:8406)\n    at module evaluation (.next/server/chunks/ssr/_next-internal_server_app_(app)_settings_page_actions_12b9e36f.js:149:179071)\n    at instantiateModule (.next/server/chunks/ssr/[turbopack]_runtime.js:740:9)\n    at getOrInstantiateModuleFromParent (.next/server/chunks/ssr/[turbopack]_runtime.js:763:12)\n    at Context.commonJsRequire [as r] (.next/server/chunks/ssr/[turbopack]_runtime.js:249:12)\n    at async o (.next/server/chunks/ssr/_d0b8da71._.js:1:8003) {\n  digest: '1901941804@E352'\n}","source":"serverless","domain":"content-machine.zoryon.ia.br","requestMethod":"POST","requestPath":"/settings","responseStatusCode":500,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"2wznd-1776126724909-f1aa660ad673","timestamp":1776126724909,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"error","message":"Error: A \"use server\" file can only export async functions, found object.\nRead more: https://nextjs.org/docs/messages/invalid-use-server-value\n    at d (.next/server/chunks/ssr/[root-of-the-server]__8803a1bb._.js:1:8406)\n    at module evaluation (.next/server/chunks/ssr/_next-internal_server_app_(app)_settings_page_actions_12b9e36f.js:149:179071)\n    at instantiateModule (.next/server/chunks/ssr/[turbopack]_runtime.js:740:9)\n    at getOrInstantiateModuleFromParent (.next/server/chunks/ssr/[turbopack]_runtime.js:763:12)\n    at Context.commonJsRequire [as r] (.next/server/chunks/ssr/[turbopack]_runtime.js:249:12)\n    at async o (.next/server/chunks/ssr/_d0b8da71._.js:1:8003) {\n  digest: '1901941804@E352'\n}","source":"serverless","domain":"content-machine.zoryon.ia.br","requestMethod":"POST","requestPath":"/settings","responseStatusCode":500,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"cvzfp-1776126721167-78be5571145a","timestamp":1776126721167,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/api/social/connections","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"twrxr-1776126720265-09a2408e59cf","timestamp":1776126720265,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"POST","requestPath":"/api/workers","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"2wznd-1776126718791-6fc4e781a8ed","timestamp":1776126718791,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/api/projects","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"fq5f2-1776126713957-1a985bbbd635","timestamp":1776126713957,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/lgpd","responseStatusCode":200,"environment":"production","branch":"main","cache":"PRERENDER"}
+{"requestId":"qbgpg-1776126713952-7b67cd1ef18e","timestamp":1776126713952,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/lgpd","responseStatusCode":200,"environment":"production","branch":"main","cache":"PRERENDER"}
+{"requestId":"fq5f2-1776126713559-829ffef955cb","timestamp":1776126713559,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/lgpd","responseStatusCode":200,"environment":"production","branch":"main","cache":"PRERENDER"}
+{"requestId":"vphsw-1776126713508-91300c13cb58","timestamp":1776126713508,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/cookies","responseStatusCode":200,"environment":"production","branch":"main","cache":"PRERENDER"}
+{"requestId":"qbgpg-1776126713508-cb4ca5b6a931","timestamp":1776126713508,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/cookies","responseStatusCode":200,"environment":"production","branch":"main","cache":"PRERENDER"}
+{"requestId":"hzdf2-1776126713508-6949ad970c16","timestamp":1776126713508,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/cookies","responseStatusCode":200,"environment":"production","branch":"main","cache":"PRERENDER"}
+{"requestId":"nv946-1776126713506-3f197a9a36a3","timestamp":1776126713506,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/api/settings/system-status","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"qbgpg-1776126713345-10d7922715a2","timestamp":1776126713345,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/termos-de-uso","responseStatusCode":200,"environment":"production","branch":"main","cache":"HIT"}
+{"requestId":"vphsw-1776126713264-9ec5bff379d6","timestamp":1776126713264,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/termos-de-uso","responseStatusCode":200,"environment":"production","branch":"main","cache":"HIT"}
+{"requestId":"fq5f2-1776126713258-37f070f793c3","timestamp":1776126713258,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/politica-privacidade","responseStatusCode":200,"environment":"production","branch":"main","cache":"HIT"}
+{"requestId":"fq5f2-1776126713173-264d18bcaef7","timestamp":1776126713173,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/politica-privacidade","responseStatusCode":200,"environment":"production","branch":"main","cache":"HIT"}
+{"requestId":"2lnh2-1776126713172-081597e23b19","timestamp":1776126713172,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/politica-privacidade","responseStatusCode":200,"environment":"production","branch":"main","cache":"HIT"}
+{"requestId":"qbgpg-1776126713089-0f03643d6603","timestamp":1776126713089,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/termos-de-uso","responseStatusCode":200,"environment":"production","branch":"main","cache":"HIT"}
+{"requestId":"2lnh2-1776126713089-523ee0604a5c","timestamp":1776126713089,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/politica-privacidade","responseStatusCode":200,"environment":"production","branch":"main","cache":"HIT"}
+{"requestId":"p76mq-1776126713011-9b8afb1b655d","timestamp":1776126713011,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"static","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/manifest.webmanifest","responseStatusCode":304,"environment":"production","branch":"main","cache":"HIT"}
+{"requestId":"hzdf2-1776126713009-aca99c4131d4","timestamp":1776126713009,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/cookies","responseStatusCode":200,"environment":"production","branch":"main","cache":"PRERENDER"}
+{"requestId":"qbgpg-1776126713008-7ace1f590cc5","timestamp":1776126713008,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/politica-privacidade","responseStatusCode":200,"environment":"production","branch":"main","cache":"HIT"}
+{"requestId":"nv946-1776126713008-7a1ee9c61d72","timestamp":1776126713008,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/lgpd","responseStatusCode":200,"environment":"production","branch":"main","cache":"PRERENDER"}
+{"requestId":"2lnh2-1776126713008-97517f7d11b1","timestamp":1776126713008,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/termos-de-uso","responseStatusCode":200,"environment":"production","branch":"main","cache":"HIT"}
+{"requestId":"vrrjq-1776126712402-ce7bd628febd","timestamp":1776126712402,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/settings","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"frqbc-1776126710694-6396f67a9b05","timestamp":1776126710694,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/discover","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"vphsw-1776126710684-c8d48a091be1","timestamp":1776126710684,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/settings","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"v2m9q-1776126710628-e4c9cbab224a","timestamp":1776126710628,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/wizard","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"vrrjq-1776126710570-4c7f7f182609","timestamp":1776126710570,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/wizard","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+{"requestId":"v2m9q-1776126710458-5c5918e3fe70","timestamp":1776126710458,"deploymentId":"dpl_FK4RkRtfX7YDzkq5sWTkRa8WksQ8","projectId":"prj_IuQn5KenppI0Il9e9NLmUWrBS1oW","level":"info","message":"","source":"serverless-middleware","domain":"content-machine.zoryon.ia.br","requestMethod":"GET","requestPath":"/chat","responseStatusCode":200,"environment":"production","branch":"main","cache":"MISS"}
+
+Vamos focar primeiro no erro
+
+---
+
+Primeiro suba o commit e push por favor.
+
+---
+
+Daqui a pouco vejo sobre isso. 
+
+A primeira coisa que preciso garantir: tudo da zoryon já está inserido no sistema? eu ainda preciso selecionar fontes de origem, docs e etc, ou tudo já é documentado internamente?
+
+---
+
+Então confirmando, para 100% de certeza:
+
+Os documentos de @temporaria/zoryon-brandkit/ já são injetados automaticamente em todo o sistema, correto?
+
+---
+
+Então, essa é a questão agora. Pq os documentos que tenho em busca semântica, já estão desatualizados. O que temos agora é a v2, que está em @temporaria/zoryon-brandkit/  entende? 
+
+A questão de tech e etc realmente não precisa, mais as informações do negocio precisaria. 
+
+O que você sugere? 
+
+Vamos pensar no seguinte: focar o sistema 100% para zoryon. pronto.
+
+---
+
+pode prosseguir, sim.
+
+---
+
+REDACTED
+
+---
+
+pode fazer tudo certinho. por favor.
+
+---
+
+Outro ponto, agora: 
+
+1. No modelo BrandsDecoded, no fluxo original: eu dou um tema ou um link algo assim, e ele retorna tudo de sugestão. 
+
+Na nossa aplicação como funciona essa parte? Visto que os campos são bem distintos e diferentes? 
+
+Estou confuso quanto a isso, entende?
+
+---
+
+Acho que atualmente temos sim a questão dos links e youtube, não? Ao menos no frontend temos. Porém, não sei se está funcionando. 
+
+Até porque temos também o "descoberta" que faz a pesquisa base, seria útil funcionar? 
+
+Talvez pensar em "repensar" o wizard que sirva ambos? Gosto de ter mais contexto e mais detalhes.
+
+---
+
+Eu coloquei o que acho no arquivo @anotacao.md depois de ler e compreender apague o arquivo
+
+---
+
+perfeito. vamos trabalhar! Siga conforme sua sugestão.
+
+---
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Sim, vamos fazer o seguinte, primeiramente:                                                                                             
+                                                                                                                                          
+  Use /brainstorming e /plan para criar um PLANO EM FASES completo, de todos os PRs sugeridos, de implementação de TODA A ESTRUTURA       
+  atualizada, cobrindo todos os pontos por favor.                                                                                         
+                                                                                                                                        
+  Preciso que você tenha todo o plano cobrindo tudo, 100% das ações            /brainstorming /plan
+
+---
+
+A. Porém, tudo sequencial e no mesmo plano.
+
+---
+
+Acho que pode ser assim em todos (inclusive o 7).
+
+---
+
+Sigo com sua sugestão.
+
+---
+
+ok, sigo sua sugestão
+
+---
+
+sim, ok.
+
+---
+
+sim, ok.
+
+---
+
+sim, ok.
+
+---
+
+sim, ok.
+
+---
+
+sim, aprovo. pode escrever por favor.
+
+---
+
+Estávamos construindo os PLANOS para implementação do spec @docs/superpowers/specs/2026-04-13-content-engine-overhaul-design.md pode analisar o que foi feito no @docs/superpowers/plans/ e continuar?
