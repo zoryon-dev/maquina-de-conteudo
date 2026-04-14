@@ -89,7 +89,16 @@ export function getSectionsForStage(stage: BdStage): Array<{
   name: SectionName
   fields: ReadonlyArray<readonly [string, keyof BrandPromptVariables]>
 }> {
-  const stageFieldSet = new Set<keyof BrandPromptVariables>(BD_STAGE_FIELDS[stage])
+  const stageFields = BD_STAGE_FIELDS[stage]
+  if (!stageFields) {
+    console.error(
+      "[bd/brand-block-sections] stage desconhecido: %s — esperado um de %o",
+      stage,
+      Object.keys(BD_STAGE_FIELDS)
+    )
+    return []
+  }
+  const stageFieldSet = new Set<keyof BrandPromptVariables>(stageFields)
   const result: Array<{
     name: SectionName
     fields: ReadonlyArray<readonly [string, keyof BrandPromptVariables]>
