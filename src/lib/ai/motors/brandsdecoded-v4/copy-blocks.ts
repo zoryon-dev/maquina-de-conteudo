@@ -79,6 +79,7 @@ function buildCopyBlocksPrompt(
   ).join("\n")
 
   const brandInjection = buildBrandContextBlock(brandVars, {
+    stage: "copy-blocks",
     heading: "## MARCA — variáveis do briefing",
     note: "Use estes dados apenas para ajustar vocabulário, referências e tom — nunca para forçar segunda pessoa nem metalinguagem comercial.",
     fallback: "## MARCA — contexto não fornecido",
