@@ -29,10 +29,12 @@ export type AdapterOptions = {
   model: string;
   /** Se o contexto RAG foi consumido (para metadata). Default: false. */
   ragUsed?: boolean;
+  /** Número de slides a mapear (6-10). Default: 9. */
+  numberOfSlides?: number;
 };
 
 /**
- * Número total de slides BD v4 (convenção: 9 slides, 18 blocos 2x9).
+ * Número padrão de slides BD v4 (convenção: 9 slides, 18 blocos 2x9).
  * Exportado para que testes e consumidores possam referenciar.
  */
 export const BD_TOTAL_SLIDES = 9;
@@ -47,6 +49,8 @@ export function bdResultToGeneratedContent(
   bd: BrandsDecodedResult,
   opts: AdapterOptions
 ): GeneratedContent {
+  const n = Math.min(10, Math.max(6, opts.numberOfSlides ?? BD_TOTAL_SLIDES));
+
   // Indexa blocos por "slide:position" para tolerar ordem arbitrária
   // (o motor sempre retorna ordenado, mas o adapter não depende disso).
   const blockIndex = new Map<string, string>();
@@ -55,7 +59,7 @@ export function bdResultToGeneratedContent(
   }
 
   const slides: GeneratedSlide[] = [];
-  for (let s = 1; s <= BD_TOTAL_SLIDES; s++) {
+  for (let s = 1; s <= n; s++) {
     slides.push({
       title: blockIndex.get(`${s}:a`) ?? "",
       content: blockIndex.get(`${s}:b`) ?? "",

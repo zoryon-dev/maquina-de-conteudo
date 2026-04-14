@@ -36,6 +36,72 @@ export function isScreenshotOneAvailable(): boolean {
   return !!SCREENSHOT_ONE_ACCESS_KEY;
 }
 
+// ============================================================================
+// RETRY LOGIC
+// ============================================================================
+
+const MAX_RENDER_ATTEMPTS = 3;
+const RETRY_DELAYS_MS = [0, 2000, 8000] as const;
+
+/**
+ * Renderiza um slide com retry exponencial.
+ *
+ * Tenta até MAX_RENDER_ATTEMPTS vezes com delays crescentes (0ms, 2s, 8s).
+ * Em caso de falha definitiva, retorna { error, slide } ao invés de lançar.
+ */
+async function renderWithRetry(
+  slide: StudioSlide,
+  profile: StudioProfile,
+  header: StudioHeader,
+  slideIndex: number,
+  totalSlides: number,
+  deviceScaleFactor: number,
+  brandingOptions: {
+    brand?: BrandConfig | null;
+    featureFlags?: { visualTokensV2?: boolean };
+  },
+  attempt: number = 1
+): Promise<{ buffer: Buffer; slideIndex: number } | { error: string; slideIndex: number }> {
+  try {
+    const buffer = await renderSlideToImage(
+      slide,
+      profile,
+      header,
+      slideIndex,
+      totalSlides,
+      deviceScaleFactor,
+      brandingOptions
+    );
+    return { buffer, slideIndex };
+  } catch (err) {
+    if (attempt >= MAX_RENDER_ATTEMPTS) {
+      console.error("[render-to-image] max retries reached", {
+        slide: slideIndex + 1,
+        attempt,
+        err: err instanceof Error ? err.message : String(err),
+      });
+      return { error: String(err), slideIndex };
+    }
+    const delay = RETRY_DELAYS_MS[attempt] ?? 8000;
+    console.warn("[render-to-image] retry", {
+      slide: slideIndex + 1,
+      attempt,
+      delayMs: delay,
+    });
+    await new Promise((r) => setTimeout(r, delay));
+    return renderWithRetry(
+      slide,
+      profile,
+      header,
+      slideIndex,
+      totalSlides,
+      deviceScaleFactor,
+      brandingOptions,
+      attempt + 1
+    );
+  }
+}
+
 /**
  * Render a single slide to PNG via ScreenshotOne API.
  *
@@ -118,6 +184,8 @@ interface RenderAndUploadOptions {
 interface RenderAndUploadResult {
   imageUrls: string[];
   errors: Array<{ slideIndex: number; error: string }>;
+  /** Números de slide (1-based) que falharam após todos os retries. */
+  failedSlides: number[];
 }
 
 /**
@@ -152,29 +220,35 @@ export async function renderAndUploadAllSlides(
     const batchPromises = batch.map(async (slide, batchIndex) => {
       const slideIndex = batchStart + batchIndex;
 
+      console.log(`[RenderToImage] Rendering slide ${slideIndex + 1}/${slides.length}`);
+
+      const result = await renderWithRetry(
+        slide,
+        profile,
+        header,
+        slideIndex,
+        slides.length,
+        deviceScaleFactor,
+        { brand, featureFlags }
+      );
+
+      if ("error" in result) {
+        const errorMsg = result.error;
+        console.error(`[RenderToImage] Slide ${slideIndex + 1} failed after retries:`, errorMsg);
+        errors.push({ slideIndex, error: errorMsg });
+        return;
+      }
+
       try {
-        console.log(`[RenderToImage] Rendering slide ${slideIndex + 1}/${slides.length}`);
-
-        const imageBuffer = await renderSlideToImage(
-          slide,
-          profile,
-          header,
-          slideIndex,
-          slides.length,
-          deviceScaleFactor,
-          { brand, featureFlags }
-        );
-
         const key = `${storagePrefix}/slide-${slideIndex + 1}.png`;
-        const uploadResult = await storage.uploadFile(imageBuffer, key, {
+        const uploadResult = await storage.uploadFile(result.buffer, key, {
           contentType: "image/png",
         });
-
         imageUrls[slideIndex] = uploadResult.url;
         console.log(`[RenderToImage] Slide ${slideIndex + 1} uploaded: ${uploadResult.url}`);
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        console.error(`[RenderToImage] Slide ${slideIndex + 1} failed:`, errorMsg);
+      } catch (uploadError) {
+        const errorMsg = uploadError instanceof Error ? uploadError.message : String(uploadError);
+        console.error(`[RenderToImage] Slide ${slideIndex + 1} upload failed:`, errorMsg);
         errors.push({ slideIndex, error: errorMsg });
       }
     });
@@ -184,9 +258,11 @@ export async function renderAndUploadAllSlides(
 
   // Filter out empty strings (failed renders)
   const successfulUrls = imageUrls.filter((url) => url !== "");
+  const failedSlides = errors.map((e) => e.slideIndex + 1); // 1-based for consumer
 
   return {
     imageUrls: successfulUrls,
     errors,
+    failedSlides,
   };
 }

@@ -154,7 +154,17 @@ export function renderSlideToHtml(input: RenderSlideInput): RenderSlideResult {
       break;
 
     case "BD_CTA":
-      html = generateBDCtaHtml({ slide, profile, header, slideIndex, totalSlides });
+      html = generateBDCtaHtml({
+        slide,
+        profile,
+        header,
+        slideIndex,
+        totalSlides,
+        ctaInstruction:
+          slide.content.texto3Instruction ??
+          brand?.content?.ctaInstructionTemplate ??
+          undefined,
+      });
       break;
 
     default: {

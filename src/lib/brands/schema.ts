@@ -153,6 +153,12 @@ export const brandContentCanalSchema = z.object({
 export const brandContentSchema = z.object({
   pilares: z.array(brandContentPilarSchema).default([]),
   canais: z.array(brandContentCanalSchema).default([]),
+  /**
+   * Template de instrução CTA para o slide BD_CTA.
+   * Quando definido, sobrescreve o default "Comenta a palavra abaixo:".
+   * Ex: "Comenta uma palavra-chave relacionada ao tema".
+   */
+  ctaInstructionTemplate: z.string().optional(),
 })
 
 export const brandMetaSchema = z.object({
