@@ -77,9 +77,9 @@ describe("useBrand", () => {
     expect(result.current).toBeUndefined()
   })
 
-  // ANTICIPATORY (C2): hoje o hook silencia 500 sem distinguir de 401.
-  // Após o fix, 500/erros servidor devem logar console.error (não warn).
-  it("retorna undefined em 500 e loga console.error (C2)", async () => {
+  // 500 é non-OK response (não thrown) → loga warn com status/code/error.
+  // Apenas exceções (network, parse) logam error.
+  it("retorna undefined em 500 e loga console.warn", async () => {
     fetchMock.mockResolvedValue({
       ok: false,
       status: 500,
@@ -91,7 +91,7 @@ describe("useBrand", () => {
     })
 
     const { result } = renderHook(() => useBrand())
-    await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+    await waitFor(() => expect(warnSpy).toHaveBeenCalled())
     expect(result.current).toBeUndefined()
   })
 
