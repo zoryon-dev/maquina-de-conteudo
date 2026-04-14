@@ -1163,7 +1163,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       );
     }
 
-    // Consolidação de seeds[] em briefing único para BD (Fase 4).
+    // Consolidação de seeds[] em briefing único para BD.
     // Seeds extraídas explicitamente via UI (link/YT/texto) têm prioridade
     // sobre `wizard.theme` — quando presentes, substituem o briefing que vai
     // pro motor. Ausência de seeds mantém comportamento original.
