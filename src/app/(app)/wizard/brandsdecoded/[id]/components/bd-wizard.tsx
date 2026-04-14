@@ -32,8 +32,10 @@ export function BdWizard({
   const setSeeds = useBdWizardStore((s) => s.setSeeds)
   const setGeneratedResult = useBdWizardStore((s) => s.setGeneratedResult)
   const goToStep = useBdWizardStore((s) => s.goToStep)
+  const reset = useBdWizardStore((s) => s.reset)
 
   useEffect(() => {
+    reset()
     setWizardId(wizardId)
     setSeeds(initialSeeds)
     if (initialGeneratedResult) {
