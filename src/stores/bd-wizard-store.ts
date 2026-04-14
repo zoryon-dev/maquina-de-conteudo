@@ -15,6 +15,7 @@ import type { TribalAngleId } from "@/lib/ai/shared/tribal-angles"
 import type { BrandsDecodedResult } from "@/lib/ai/motors/brandsdecoded-v4/orchestrator"
 
 export type Seed = {
+  id: string
   type: SeedType
   value: string
   briefing?: string
