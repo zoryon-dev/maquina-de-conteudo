@@ -9,6 +9,7 @@ import {
   Save,
   Layers,
   Radio,
+  Megaphone,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -55,6 +56,7 @@ export function BrandContentForm({ brand, onSaved }: Props) {
       exemplos: [...p.exemplos],
     })),
     canais: brand.config.content.canais.map((c) => ({ ...c })),
+    ctaInstructionTemplate: brand.config.content.ctaInstructionTemplate ?? "",
   }))
   const [isSaving, setIsSaving] = React.useState(false)
 
@@ -317,6 +319,33 @@ export function BrandContentForm({ brand, onSaved }: Props) {
             ))}
           </div>
         )}
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Megaphone className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold text-white">CTA BrandsDecoded</h3>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="cta-instruction-template" className="text-xs text-white/70">
+            Instrução do CTA (slide BD_CTA)
+          </Label>
+          <Input
+            id="cta-instruction-template"
+            value={state.ctaInstructionTemplate ?? ""}
+            onChange={(e) =>
+              setState((prev) => ({
+                ...prev,
+                ctaInstructionTemplate: e.target.value || undefined,
+              }))
+            }
+            placeholder='Ex: "Comenta uma palavra-chave relacionada ao tema"'
+          />
+          <p className="text-xs text-white/40">
+            Texto exibido acima da palavra-chave no slide CTA. Deixe vazio para
+            usar o padrão: &quot;Comenta a palavra abaixo:&quot;
+          </p>
+        </div>
       </section>
 
       <footer className="flex items-center justify-between border-t border-white/10 pt-4">
