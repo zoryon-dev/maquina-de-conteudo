@@ -1,11 +1,14 @@
 "use client"
 
 /**
- * BD Step 1 — Seed input + ângulo tribal opcional.
+ * BD Step 1 — Seed input + ângulo tribal opcional + numberOfSlides.
  *
  * Reusa `SeedInputPanel` (Fase 4). Adiciona select opcional de tribal angle
  * que modula o tom do pipeline (concatenado ao briefing antes de cada step
  * via composeBriefingWithTribalAngle no orchestrator).
+ *
+ * Slider de numberOfSlides (6-10, default 9) para controlar o tamanho do
+ * carrossel gerado.
  *
  * "Continuar" bloqueia quando seeds.length === 0 — BD exige ao menos 1 seed.
  */
@@ -25,6 +28,8 @@ export function BdStep1Seed() {
   const setSeeds = useBdWizardStore((s) => s.setSeeds)
   const tribalAngle = useBdWizardStore((s) => s.tribalAngle)
   const setTribalAngle = useBdWizardStore((s) => s.setTribalAngle)
+  const numberOfSlides = useBdWizardStore((s) => s.numberOfSlides)
+  const setNumberOfSlides = useBdWizardStore((s) => s.setNumberOfSlides)
   const goToStep = useBdWizardStore((s) => s.goToStep)
 
   if (!wizardId) return null
@@ -67,6 +72,33 @@ export function BdStep1Seed() {
         <p className="text-xs text-white/40">
           Quando definido, o motor BD modula o tom (herege/visionário/tradutor
           /testemunha) mantendo a estrutura jornalística.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="number-of-slides">Número de slides</Label>
+          <span className="text-sm font-semibold text-primary">
+            {numberOfSlides}
+          </span>
+        </div>
+        <input
+          id="number-of-slides"
+          type="range"
+          min={6}
+          max={10}
+          step={1}
+          value={numberOfSlides}
+          onChange={(e) => setNumberOfSlides(Number(e.target.value))}
+          className="w-full accent-primary"
+        />
+        <div className="flex justify-between text-xs text-white/40">
+          <span>6 (mínimo)</span>
+          <span>10 (máximo)</span>
+        </div>
+        <p className="text-xs text-white/40">
+          Define quantos slides o carrossel terá ({numberOfSlides * 2} blocos de copy).
+          Padrão: 9 slides (18 blocos).
         </p>
       </div>
 

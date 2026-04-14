@@ -29,6 +29,7 @@ const STAGES = [
 export function BdStep3Generate() {
   const wizardId = useBdWizardStore((s) => s.wizardId)
   const tribalAngle = useBdWizardStore((s) => s.tribalAngle)
+  const numberOfSlides = useBdWizardStore((s) => s.numberOfSlides)
   const setGeneratedResult = useBdWizardStore((s) => s.setGeneratedResult)
   const goToStep = useBdWizardStore((s) => s.goToStep)
   const [stage, setStage] = useState(0)
@@ -59,7 +60,7 @@ export function BdStep3Generate() {
 
       try {
         const r = await Promise.race([
-          generateBdContentAction(wizardId, tribalAngle),
+          generateBdContentAction(wizardId, tribalAngle, numberOfSlides),
           timeoutPromise,
         ])
         clearInterval(timer)
@@ -82,7 +83,7 @@ export function BdStep3Generate() {
       cancelled = true
       clearInterval(timer)
     }
-  }, [wizardId, tribalAngle, setGeneratedResult, goToStep])
+  }, [wizardId, tribalAngle, numberOfSlides, setGeneratedResult, goToStep])
 
   return (
     <div className="space-y-6 py-12 text-center">

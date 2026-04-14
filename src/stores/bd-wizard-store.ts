@@ -31,6 +31,8 @@ type BdWizardState = {
   seeds: Seed[]
   consolidatedBriefing: string
   tribalAngle?: TribalAngleId
+  /** Número de slides a gerar (6-10). Default: 9. */
+  numberOfSlides: number
   generatedResult?: BrandsDecodedResult
   selectedHeadlineId?: number
 
@@ -38,6 +40,7 @@ type BdWizardState = {
   goToStep: (step: BdStep) => void
   setSeeds: (seeds: Seed[]) => void
   setTribalAngle: (a?: TribalAngleId) => void
+  setNumberOfSlides: (n: number) => void
   setGeneratedResult: (r: BrandsDecodedResult) => void
   setSelectedHeadlineId: (id: number) => void
   reset: () => void
@@ -50,6 +53,7 @@ const initialState: Pick<
   | "seeds"
   | "consolidatedBriefing"
   | "tribalAngle"
+  | "numberOfSlides"
   | "generatedResult"
   | "selectedHeadlineId"
 > = {
@@ -58,6 +62,7 @@ const initialState: Pick<
   seeds: [],
   consolidatedBriefing: "",
   tribalAngle: undefined,
+  numberOfSlides: 9,
   generatedResult: undefined,
   selectedHeadlineId: undefined,
 }
@@ -69,6 +74,8 @@ export const useBdWizardStore = create<BdWizardState>((set) => ({
   setSeeds: (seeds) =>
     set({ seeds, consolidatedBriefing: consolidateSeeds(seeds) }),
   setTribalAngle: (tribalAngle) => set({ tribalAngle }),
+  setNumberOfSlides: (numberOfSlides) =>
+    set({ numberOfSlides: Math.min(10, Math.max(6, numberOfSlides)) }),
   setGeneratedResult: (generatedResult) => set({ generatedResult }),
   setSelectedHeadlineId: (selectedHeadlineId) => set({ selectedHeadlineId }),
   reset: () => set(initialState),
