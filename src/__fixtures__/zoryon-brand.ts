@@ -1,17 +1,6 @@
-/**
- * ZORYON_BRAND_FIXTURE
- *
- * Shape fiel ao `brandConfigSchema` (src/lib/brands/schema.ts). Usado em
- * testes de renderer, brand-tokens-css e e2e estrutural. Mantém os valores
- * de `visual.tokens` representativos dos tokens reais de produção (ver
- * `src/content/brands/zoryon/design-tokens.css`).
- *
- * Nota: `brandIdentitySchema.values` espera `{ name, description }` — não
- * strings soltas. Se o schema evoluir, atualizar aqui para garantir que
- * `brandConfigSchema.parse(ZORYON_BRAND_FIXTURE)` continua passando.
- */
 import type { BrandConfig } from "@/lib/brands/schema"
 
+// Values mirror src/content/brands/zoryon/design-tokens.css — update both together.
 export const ZORYON_BRAND_FIXTURE: BrandConfig = {
   identity: {
     mission: "Ajudar empreendedores digitais a construir autoridade editorial",
