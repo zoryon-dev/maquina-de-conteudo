@@ -24,6 +24,7 @@ vi.mock("@/lib/rag/assembler", () => ({
 import {
   BRAND_SECTION_HEADER,
   USER_SECTION_HEADER,
+  generateWizardRagContext,
   generateWizardRagContextWithBrand,
 } from "../rag.service"
 
@@ -180,5 +181,30 @@ describe("generateWizardRagContextWithBrand", () => {
     expect(result.data).not.toBeNull()
     expect(result.data!.context).not.toContain("BRAND")
     expect(result.data!.context).toContain("USER_ONLY")
+  })
+})
+
+describe("generateWizardRagContext (catch path)", () => {
+  beforeEach(() => {
+    assembleRagContextMock.mockReset()
+  })
+
+  it("retorna success:false com error quando assembler lança", async () => {
+    assembleRagContextMock.mockRejectedValue(new Error("voyage failed"))
+
+    const result = await generateWizardRagContext("user_123", "q", { mode: "auto" })
+
+    expect(result.success).toBe(false)
+    if (result.success) throw new Error("expected failure")
+    expect(result.error).toContain("voyage failed")
+  })
+
+  it("retorna success:true data:null quando mode é 'off'", async () => {
+    const result = await generateWizardRagContext("user_123", "q", { mode: "off" })
+
+    expect(result.success).toBe(true)
+    if (!result.success) throw new Error("expected success")
+    expect(result.data).toBeNull()
+    expect(assembleRagContextMock).not.toHaveBeenCalled()
   })
 })

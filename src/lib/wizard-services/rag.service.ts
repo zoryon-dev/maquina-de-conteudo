@@ -17,6 +17,7 @@ import { assembleRagContext } from "@/lib/rag/assembler";
 import { getBrandAutoRagContext } from "@/lib/rag/brand-auto-inject";
 import type { RagCategory } from "@/lib/rag/types";
 import { isFeatureEnabled } from "@/lib/features";
+import { getErrorMessage } from "@/lib/errors";
 import type { RagConfig, RagResult, ServiceResult } from "./types";
 
 export const BRAND_SECTION_HEADER = "═══ CONTEXTO DA MARCA (auto) ═══";
@@ -132,10 +133,10 @@ export async function generateWizardRagContext(
   } catch (error) {
     console.error("Error generating RAG context:", error);
 
-    // RAG failure should not block the job - return null with success
+    // RAG failure should not block the job - merge layer treats success:false as "no RAG"
     return {
-      success: true,
-      data: null,
+      success: false,
+      error: getErrorMessage(error),
     };
   }
 }
