@@ -21,7 +21,11 @@ vi.mock("@/lib/rag/assembler", () => ({
   getRagStats: vi.fn(),
 }))
 
-import { generateWizardRagContextWithBrand } from "../rag.service"
+import {
+  BRAND_SECTION_HEADER,
+  USER_SECTION_HEADER,
+  generateWizardRagContextWithBrand,
+} from "../rag.service"
 
 /**
  * Helper: drive the real generateWizardRagContext via the mocked assembleRagContext.
@@ -89,8 +93,10 @@ describe("generateWizardRagContextWithBrand", () => {
     expect(result.success).toBe(true)
     if (!result.success) throw new Error("expected success")
     expect(result.data).not.toBeNull()
-    expect(result.data!.context).toMatch(/CONTEXTO DA MARCA[\s\S]*BRAND_CONTENT/)
-    expect(result.data!.context).toMatch(/CONTEXTO ADICIONAL[\s\S]*USER_CONTENT/)
+    expect(result.data!.context).toContain(BRAND_SECTION_HEADER)
+    expect(result.data!.context).toContain(USER_SECTION_HEADER)
+    expect(result.data!.context).toContain("BRAND_CONTENT")
+    expect(result.data!.context).toContain("USER_CONTENT")
     expect(result.data!.context.indexOf("BRAND_CONTENT")).toBeLessThan(
       result.data!.context.indexOf("USER_CONTENT")
     )
@@ -120,7 +126,8 @@ describe("generateWizardRagContextWithBrand", () => {
     if (!result.success) throw new Error("expected success")
     expect(result.data).not.toBeNull()
     expect(result.data!.context).toContain("BRAND_ONLY")
-    expect(result.data!.context).not.toContain("CONTEXTO ADICIONAL")
+    expect(result.data!.context).toContain(BRAND_SECTION_HEADER)
+    expect(result.data!.context).not.toContain(USER_SECTION_HEADER)
   })
 
   it("retorna apenas user quando brand auto-inject retorna null", async () => {
@@ -136,7 +143,8 @@ describe("generateWizardRagContextWithBrand", () => {
     if (!result.success) throw new Error("expected success")
     expect(result.data).not.toBeNull()
     expect(result.data!.context).toContain("USER_ONLY")
-    expect(result.data!.context).not.toContain("CONTEXTO DA MARCA")
+    expect(result.data!.context).toContain(USER_SECTION_HEADER)
+    expect(result.data!.context).not.toContain(BRAND_SECTION_HEADER)
   })
 
   it("retorna data:null quando ambos brand e user são ausentes", async () => {

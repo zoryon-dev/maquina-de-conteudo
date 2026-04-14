@@ -19,6 +19,9 @@ import type { RagCategory } from "@/lib/rag/types";
 import { isFeatureEnabled } from "@/lib/features";
 import type { RagConfig, RagResult, ServiceResult } from "./types";
 
+export const BRAND_SECTION_HEADER = "═══ CONTEXTO DA MARCA (auto) ═══";
+export const USER_SECTION_HEADER = "═══ CONTEXTO ADICIONAL (user) ═══";
+
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
@@ -308,14 +311,34 @@ export async function generateWizardRagContextWithBrand(
 ): Promise<ServiceResult<RagResult | null>> {
   const autoInjectEnabled = isFeatureEnabled("RAG_BRAND_AUTO_INJECT", true);
 
-  const [brandResult, userResult] = await Promise.all([
+  const settled = await Promise.allSettled([
     autoInjectEnabled
       ? getBrandAutoRagContext(userId, query, brandId ?? undefined)
       : Promise.resolve(null),
     generateWizardRagContext(userId, query, userConfig),
   ]);
 
-  const userData = userResult.success ? userResult.data : null;
+  const [brandSettled, userSettled] = settled;
+
+  const brandResult =
+    brandSettled.status === "fulfilled" ? brandSettled.value : null;
+  if (brandSettled.status === "rejected") {
+    console.error("[rag/merge] RAG_MERGE_BRAND_REJECTED", {
+      errorId: "RAG_MERGE_BRAND_REJECTED",
+      reason: brandSettled.reason,
+    });
+  }
+
+  const userResult =
+    userSettled.status === "fulfilled" ? userSettled.value : null;
+  if (userSettled.status === "rejected") {
+    console.error("[rag/merge] RAG_MERGE_USER_REJECTED", {
+      errorId: "RAG_MERGE_USER_REJECTED",
+      reason: userSettled.reason,
+    });
+  }
+
+  const userData = userResult && userResult.success ? userResult.data : null;
 
   if (!brandResult && !userData) {
     return { success: true, data: null };
@@ -327,7 +350,7 @@ export async function generateWizardRagContextWithBrand(
   let chunksIncluded = 0;
 
   if (brandResult && brandResult.context) {
-    parts.push("═══ CONTEXTO DA MARCA (auto) ═══");
+    parts.push(BRAND_SECTION_HEADER);
     parts.push("");
     parts.push(brandResult.context);
     sources.push(
@@ -342,7 +365,7 @@ export async function generateWizardRagContextWithBrand(
       parts.push("");
       parts.push("");
     }
-    parts.push("═══ CONTEXTO ADICIONAL (user) ═══");
+    parts.push(USER_SECTION_HEADER);
     parts.push("");
     parts.push(userData.context);
     sources.push(
