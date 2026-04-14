@@ -59,7 +59,7 @@ import {
   HEADLINE_PATTERN_IDS,
   type HeadlinePatternId,
 } from "@/lib/ai/shared/headline-library";
-import { consolidateSeeds } from "@/lib/wizard-services/content-extractor.service";
+import { resolveBdBriefing } from "./bd-briefing-resolver";
 
 /**
  * Validação runtime de motorOptions dentro do worker.
@@ -1163,15 +1163,10 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       );
     }
 
-    // Consolidação de seeds[] em briefing único para BD.
-    // Seeds extraídas explicitamente via UI (link/YT/texto) têm prioridade
-    // sobre `wizard.theme` — quando presentes, substituem o briefing que vai
-    // pro motor. Ausência de seeds mantém comportamento original.
-    const bdSeeds = Array.isArray(wizard.seeds) ? wizard.seeds : [];
-    const bdBriefing =
-      bdSeeds.length > 0
-        ? consolidateSeeds(bdSeeds)
-        : wizard.theme || undefined;
+    // Seeds extraídas via UI têm precedência sobre wizard.theme. Lógica pura
+    // em bd-briefing-resolver.ts (testada isoladamente).
+    const briefingResult = resolveBdBriefing({ seeds: wizard.seeds, theme: wizard.theme });
+    const bdBriefing = briefingResult.briefing;
 
     if (isBdMotor && isCarousel) {
       const trimmedLen = bdBriefing?.trim().length ?? 0;
@@ -1179,9 +1174,9 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
         "[worker/bd] briefing source",
         JSON.stringify({
           wizardId,
-          seedsCount: bdSeeds.length,
+          source: briefingResult.source,
+          seedsCount: briefingResult.seedsCount,
           briefingLen: trimmedLen,
-          source: bdSeeds.length > 0 ? "seeds" : "theme",
         })
       );
 
