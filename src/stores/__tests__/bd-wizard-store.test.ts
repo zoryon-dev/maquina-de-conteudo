@@ -20,8 +20,8 @@ describe("bd-wizard-store", () => {
   it("consolida seeds em briefing com separadores", () => {
     const s = useBdWizardStore.getState()
     s.setSeeds([
-      { type: "theme", value: "x", briefing: "A" },
-      { type: "link", value: "https://y", briefing: "B" },
+      { id: "s1", type: "theme", value: "x", briefing: "A" },
+      { id: "s2", type: "link", value: "https://y", briefing: "B" },
     ])
     const briefing = useBdWizardStore.getState().consolidatedBriefing
     expect(briefing).toContain("A")
@@ -53,7 +53,7 @@ describe("bd-wizard-store", () => {
     s.setSelectedHeadlineId(5)
     s.setTribalAngle("tradutor")
     s.goToStep(3)
-    s.setSeeds([{ type: "theme", value: "x", briefing: "ZZZ" }])
+    s.setSeeds([{ id: "s1", type: "theme", value: "x", briefing: "ZZZ" }])
     s.reset()
     const st = useBdWizardStore.getState()
     expect(st.wizardId).toBeNull()
