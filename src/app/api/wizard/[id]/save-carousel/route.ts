@@ -18,6 +18,8 @@ import type { PostType, ContentStatus } from "@/db/schema";
 import { ensureAuthenticatedUser } from "@/lib/auth/ensure-user";
 import { toAppError, getErrorMessage, ValidationError } from "@/lib/errors";
 import { isScreenshotOneAvailable, renderAndUploadAllSlides } from "@/lib/studio-templates/render-to-image";
+import { getBrandConfig, resolveBrandIdForUser } from "@/lib/brands/queries";
+import { isFeatureEnabled } from "@/lib/features";
 
 interface SaveCarouselRequest {
   slides: StudioSlide[];
@@ -95,6 +97,16 @@ export async function POST(
       ? `Carrossel: ${wizard.objective.substring(0, 80)}${wizard.objective.length > 80 ? "..." : ""}`
       : "Carrossel sem titulo";
 
+    // Resolve brand ativa para este user (Fase 3). Se houver, persistir em
+    // library_items.brand_id e, quando a flag visualTokensV2 estiver on,
+    // passar o BrandConfig para o renderer — os PNGs saem do ScreenshotOne
+    // já com os tokens aplicados.
+    const brandId = await resolveBrandIdForUser(userId);
+    const brandForRender = brandId != null ? await getBrandConfig(brandId) : null;
+    const featureFlags = {
+      visualTokensV2: isFeatureEnabled("NEXT_PUBLIC_FEATURE_VISUAL_TOKENS_V2"),
+    };
+
     // Render slides as PNG images via ScreenshotOne
     let imageUrls: string[] = [];
 
@@ -108,6 +120,8 @@ export async function POST(
         header,
         userId,
         storagePrefix: `studio/${userId}/carousel/${timestamp}`,
+        brand: brandForRender,
+        featureFlags,
       });
 
       imageUrls = renderResult.imageUrls;
@@ -183,6 +197,7 @@ export async function POST(
       .insert(libraryItems)
       .values({
         userId,
+        brandId: brandId ?? null,
         type: contentType,
         status: "draft" as ContentStatus,
         title,

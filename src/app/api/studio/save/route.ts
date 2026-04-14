@@ -16,6 +16,9 @@ import { MAX_SLIDES } from "@/lib/studio-templates/types";
 import { toAppError, getErrorMessage, ValidationError, NotFoundError, ForbiddenError } from "@/lib/errors";
 import { isScreenshotOneAvailable, renderSlideToImage } from "@/lib/studio-templates/render-to-image";
 import { getStorageProvider } from "@/lib/storage";
+import { getBrandConfig, resolveBrandIdForUser } from "@/lib/brands/queries";
+import { isFeatureEnabled } from "@/lib/features";
+import type { BrandConfig } from "@/lib/brands/schema";
 
 // ============================================================================
 // TYPES
@@ -36,7 +39,9 @@ interface SaveRequest {
  */
 async function generatePreviewImage(
   state: StudioState,
-  userId: string
+  userId: string,
+  brand: BrandConfig | null,
+  featureFlags: { visualTokensV2?: boolean }
 ): Promise<string | null> {
   if (!isScreenshotOneAvailable()) {
     console.log("[StudioSave] ScreenshotOne not configured, skipping preview");
@@ -53,7 +58,8 @@ async function generatePreviewImage(
       state.header,
       0,
       state.slides.length,
-      1 // Lower scale for preview
+      1, // Lower scale for preview
+      { brand, featureFlags }
     );
 
     // Upload to storage
@@ -100,9 +106,17 @@ export async function POST(request: Request) {
       throw new ValidationError(`Máximo de ${MAX_SLIDES} slides permitido`);
     }
 
+    // Resolve brand ativa (Fase 3). Usado para persistir library_items.brand_id
+    // e (quando visualTokensV2=on) injetar brand tokens no preview.
+    const brandId = await resolveBrandIdForUser(userId);
+    const brandForRender = brandId != null ? await getBrandConfig(brandId) : null;
+    const featureFlags = {
+      visualTokensV2: isFeatureEnabled("NEXT_PUBLIC_FEATURE_VISUAL_TOKENS_V2"),
+    };
+
     // Gerar preview image do primeiro slide (não bloqueia se falhar)
     console.log("[StudioSave] Generating preview image...");
-    const previewUrl = await generatePreviewImage(state, userId);
+    const previewUrl = await generatePreviewImage(state, userId, brandForRender, featureFlags);
 
     // Determinar tipo baseado no contentType
     const type = state.contentType === "single"
@@ -174,6 +188,7 @@ export async function POST(request: Request) {
         .insert(libraryItems)
         .values({
           userId,
+          brandId: brandId ?? null,
           type,
           status: "draft",
           title: state.projectTitle,

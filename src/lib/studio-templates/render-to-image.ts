@@ -10,6 +10,7 @@
 import { renderSlideToHtml } from "@/lib/studio-templates/renderer";
 import { getStorageProvider } from "@/lib/storage";
 import type { StudioSlide, StudioProfile, StudioHeader } from "@/lib/studio-templates/types";
+import type { BrandConfig } from "@/lib/brands/schema";
 
 // ============================================================================
 // CONSTANTS
@@ -53,7 +54,11 @@ export async function renderSlideToImage(
   header: StudioHeader,
   slideIndex: number,
   totalSlides: number,
-  deviceScaleFactor: number = 2
+  deviceScaleFactor: number = 2,
+  brandingOptions: {
+    brand?: BrandConfig | null;
+    featureFlags?: { visualTokensV2?: boolean };
+  } = {}
 ): Promise<Buffer> {
   if (!SCREENSHOT_ONE_ACCESS_KEY) {
     throw new Error("ScreenshotOne não configurado");
@@ -65,6 +70,8 @@ export async function renderSlideToImage(
     header,
     slideIndex,
     totalSlides,
+    brand: brandingOptions.brand,
+    featureFlags: brandingOptions.featureFlags,
   });
 
   const response = await fetch(SCREENSHOT_ONE_API, {
@@ -104,6 +111,10 @@ interface RenderAndUploadOptions {
   storagePrefix: string;
   /** Pixel density (default: 2) */
   deviceScaleFactor?: number;
+  /** Brand ativa para injetar tokens no HTML antes do screenshot (Fase 3) */
+  brand?: BrandConfig | null;
+  /** Flags de feature — `visualTokensV2=true` habilita injeção de brand tokens */
+  featureFlags?: { visualTokensV2?: boolean };
 }
 
 interface RenderAndUploadResult {
@@ -120,7 +131,16 @@ interface RenderAndUploadResult {
 export async function renderAndUploadAllSlides(
   options: RenderAndUploadOptions
 ): Promise<RenderAndUploadResult> {
-  const { slides, profile, header, userId, storagePrefix, deviceScaleFactor = 2 } = options;
+  const {
+    slides,
+    profile,
+    header,
+    userId,
+    storagePrefix,
+    deviceScaleFactor = 2,
+    brand,
+    featureFlags,
+  } = options;
   const storage = getStorageProvider();
 
   const imageUrls: string[] = new Array(slides.length).fill("");
@@ -143,7 +163,8 @@ export async function renderAndUploadAllSlides(
           header,
           slideIndex,
           slides.length,
-          deviceScaleFactor
+          deviceScaleFactor,
+          { brand, featureFlags }
         );
 
         const key = `${storagePrefix}/slide-${slideIndex + 1}.png`;

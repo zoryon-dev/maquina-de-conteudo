@@ -13,6 +13,8 @@ import { and, eq } from "drizzle-orm";
 import type { StudioState } from "@/lib/studio-templates/types";
 import { toAppError, getErrorMessage, ValidationError, NotFoundError, ForbiddenError, ConfigError } from "@/lib/errors";
 import { isScreenshotOneAvailable, renderAndUploadAllSlides } from "@/lib/studio-templates/render-to-image";
+import { getBrandConfig, resolveBrandIdForUser } from "@/lib/brands/queries";
+import { isFeatureEnabled } from "@/lib/features";
 
 // ============================================================================
 // TYPES
@@ -52,6 +54,14 @@ export async function POST(request: Request) {
 
     console.log(`[StudioPublish] Starting publish for ${state.slides.length} slides`);
 
+    // Resolve brand ativa (Fase 3) — persistimos library_items.brand_id e,
+    // sob flag visualTokensV2, injetamos os tokens antes do screenshot final.
+    const brandId = await resolveBrandIdForUser(userId);
+    const brandForRender = brandId != null ? await getBrandConfig(brandId) : null;
+    const featureFlags = {
+      visualTokensV2: isFeatureEnabled("NEXT_PUBLIC_FEATURE_VISUAL_TOKENS_V2"),
+    };
+
     // Renderizar todos os slides via shared utility
     const timestamp = Date.now();
     const renderResult = await renderAndUploadAllSlides({
@@ -60,6 +70,8 @@ export async function POST(request: Request) {
       header: state.header,
       userId,
       storagePrefix: `studio/${userId}/published/${timestamp}`,
+      brand: brandForRender,
+      featureFlags,
     });
 
     // Publish requires ALL slides to render successfully
@@ -138,6 +150,7 @@ export async function POST(request: Request) {
         .insert(libraryItems)
         .values({
           userId,
+          brandId: brandId ?? null,
           type,
           status: "draft",
           title: state.projectTitle,
