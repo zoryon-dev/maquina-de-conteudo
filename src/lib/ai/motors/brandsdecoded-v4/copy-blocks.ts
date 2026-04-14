@@ -36,6 +36,8 @@ export type CopyBlocksInput = {
   espinha: EspinhaDorsal
   brandPromptVariables?: Record<string, string | undefined>
   model?: string
+  /** Número de slides a gerar. Clampeado entre 6 e 10. Default: 9. */
+  numberOfSlides?: number
 }
 
 export type CopyBlocksResult = {
@@ -46,9 +48,10 @@ export type CopyBlocksResult = {
 export async function generateCopyBlocks(
   input: CopyBlocksInput
 ): Promise<CopyBlocksResult> {
-  const { espinha, brandPromptVariables, model } = input
+  const { espinha, brandPromptVariables, model, numberOfSlides } = input
+  const n = Math.min(10, Math.max(6, numberOfSlides ?? 9))
 
-  const prompt = buildCopyBlocksPrompt(espinha, brandPromptVariables)
+  const prompt = buildCopyBlocksPrompt(espinha, brandPromptVariables, n)
 
   if (!openrouter) {
     throw new Error(
@@ -65,15 +68,20 @@ export async function generateCopyBlocks(
     temperature: BD_TEMP_COPY,
   })
 
-  const blocks = parseCopyBlocksResponse(raw)
+  const blocks = parseCopyBlocksResponse(raw, n)
   return { blocks, promptUsed: prompt }
 }
 
 function buildCopyBlocksPrompt(
   espinha: EspinhaDorsal,
-  brandVars?: Record<string, string | undefined>
+  brandVars?: Record<string, string | undefined>,
+  n: number = 9
 ): string {
-  const blockSpecTable = BLOCK_SPEC.map(
+  // Derive a dynamic block spec from BLOCK_SPEC limited to n slides (2n blocks).
+  const activeSpec = BLOCK_SPEC.filter((b) => b.slide <= n)
+  const totalBlocks = n * 2
+
+  const blockSpecTable = activeSpec.map(
     (b) =>
       `- texto ${b.index} · slide ${b.slide} · pos ${b.position.toUpperCase()} · ~${b.targetWords} palavras · ${b.sectionLabel}`
   ).join("\n")
@@ -91,15 +99,18 @@ function buildCopyBlocksPrompt(
   })
   const referencias = buildReferenciasPromptBlock(2)
 
+  // Build the JSON format example string dynamically
+  const jsonExample = `{"blocks":[${activeSpec.map(b => `{"index":${b.index},"text":"..."}`).join(",")}]}`
+
   return [
-    `# TAREFA — Gerar os 18 blocos de copy do carrossel BrandsDecoded v4`,
+    `# TAREFA — Gerar os ${totalBlocks} blocos de copy do carrossel BrandsDecoded v4`,
     ``,
     `Você é um jornalista brasileiro escrevendo para a BrandsDecoded. Não é`,
     `uma IA traduzindo texto americano. O padrão de comparação é "um repórter`,
     `da Folha de S.Paulo escreveria assim?". A primeira aceita muito lixo — a`,
     `segunda rejeita quase tudo que soa robótico, corporativo ou telegráfico.`,
     ``,
-    `## ANATOMIA OBRIGATÓRIA — 18 BLOCOS / 9 SLIDES`,
+    `## ANATOMIA OBRIGATÓRIA — ${totalBlocks} BLOCOS / ${n} SLIDES`,
     ``,
     blockSpecTable,
     ``,
@@ -180,13 +191,17 @@ function buildCopyBlocksPrompt(
     `Responda APENAS com um JSON válido no formato exato abaixo, sem texto`,
     `antes ou depois, sem markdown, sem comentários:`,
     ``,
-    `{"blocks":[{"index":1,"text":"..."},{"index":2,"text":"..."},{"index":3,"text":"..."},{"index":4,"text":"..."},{"index":5,"text":"..."},{"index":6,"text":"..."},{"index":7,"text":"..."},{"index":8,"text":"..."},{"index":9,"text":"..."},{"index":10,"text":"..."},{"index":11,"text":"..."},{"index":12,"text":"..."},{"index":13,"text":"..."},{"index":14,"text":"..."},{"index":15,"text":"..."},{"index":16,"text":"..."},{"index":17,"text":"..."},{"index":18,"text":"..."}]}`,
+    jsonExample,
     ``,
-    `Os 18 blocos devem estar presentes, na ordem, com os índices corretos.`,
+    `Os ${totalBlocks} blocos devem estar presentes, na ordem, com os índices corretos.`,
   ].join("\n")
 }
 
-export function parseCopyBlocksResponse(raw: string): CopyBlock[] {
+export function parseCopyBlocksResponse(raw: string, n: number = 9): CopyBlock[] {
+  const clampedN = Math.min(10, Math.max(6, n))
+  const totalBlocks = clampedN * 2
+  const activeSpec = BLOCK_SPEC.filter((b) => b.slide <= clampedN)
+
   const parsed = extractLooseJSON<unknown>(raw, "brandsdecoded-v4/copy-blocks")
   const rawBlocks = extractBlocksArray(parsed)
   if (!rawBlocks) {
@@ -210,10 +225,10 @@ export function parseCopyBlocksResponse(raw: string): CopyBlock[] {
     const obj = b as Record<string, unknown>
     const idx = Number(obj.index)
     const text = typeof obj.text === "string" ? obj.text.trim() : ""
-    if (!Number.isFinite(idx) || idx < 1 || idx > 18) {
+    if (!Number.isFinite(idx) || idx < 1 || idx > totalBlocks) {
       console.warn(
         "[bd/copy-blocks] bloco descartado: index inválido",
-        { got: obj.index }
+        { got: obj.index, maxExpected: totalBlocks }
       )
       continue
     }
@@ -227,7 +242,7 @@ export function parseCopyBlocksResponse(raw: string): CopyBlock[] {
     byIndex.set(idx, text)
   }
 
-  const blocks: CopyBlock[] = BLOCK_SPEC.map((spec) => {
+  const blocks: CopyBlock[] = activeSpec.map((spec) => {
     const text = byIndex.get(spec.index)
     if (!text) {
       throw new Error(

@@ -132,12 +132,13 @@ export async function POST(
 
     // Render slides as PNG images via ScreenshotOne
     let imageUrls: string[] = [];
+    let renderResult: Awaited<ReturnType<typeof renderAndUploadAllSlides>> | null = null;
 
     if (isScreenshotOneAvailable()) {
       console.log(`[SaveCarousel] Rendering ${slides.length} slides via ScreenshotOne...`);
       const timestamp = Date.now();
 
-      const renderResult = await renderAndUploadAllSlides({
+      renderResult = await renderAndUploadAllSlides({
         slides,
         profile,
         header,
@@ -257,13 +258,20 @@ export async function POST(
       console.log(`[SaveCarousel] Theme ${wizard.themeId} marked as produced`);
     }
 
-    const result = { libraryItemId: libraryItem.id };
+    const libraryItemId = libraryItem.id;
 
-    console.log(`[SaveCarousel] Wizard ${wizardId} saved to library item ${result.libraryItemId}`);
+    console.log(`[SaveCarousel] Wizard ${wizardId} saved to library item ${libraryItemId}`);
+
+    // Collect failed slides from the render result (if rendering was done)
+    const failedSlides = isScreenshotOneAvailable() && renderResult
+      ? renderResult.failedSlides
+      : [];
 
     return NextResponse.json({
       success: true,
-      libraryItemId: result.libraryItemId,
+      libraryItemId,
+      failedSlides,
+      hasPartialFailure: failedSlides.length > 0,
       message: "Carousel saved to library successfully",
     });
   } catch (error) {

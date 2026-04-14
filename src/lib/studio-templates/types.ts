@@ -119,6 +119,12 @@ export interface SlideContent {
   texto3?: string;
   /** Se texto3 deve ser exibido em bold */
   texto3Bold: boolean;
+  /**
+   * Instrução CTA exibida acima da keyword no template BD_CTA.
+   * Precedência: content.texto3Instruction → brand.content.ctaInstructionTemplate
+   * → DEFAULT_BD_CTA_INSTRUCTION ("Comenta a palavra abaixo:").
+   */
+  texto3Instruction?: string;
   /** URL da imagem central (usado em 201, 202, 203) */
   imageUrl?: string;
   /** URL da imagem de fundo (usado apenas em 01_CAPA) */
