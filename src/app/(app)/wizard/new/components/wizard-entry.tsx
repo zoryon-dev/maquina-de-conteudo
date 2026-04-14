@@ -20,7 +20,7 @@ import { useRouter } from "next/navigation"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { isFeatureEnabled } from "@/lib/features"
+import { FEATURE_BD_WIZARD_V1 } from "@/lib/features"
 import { createNewWizardAction } from "../actions/create-wizard"
 
 type Type = "text" | "image" | "carousel" | "schedule"
@@ -39,7 +39,7 @@ export function WizardEntry() {
   const [motor, setMotor] = useState<Motor | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-  const bdEnabled = isFeatureEnabled("NEXT_PUBLIC_FEATURE_BD_WIZARD_V1")
+  const bdEnabled = FEATURE_BD_WIZARD_V1
 
   const needsMotor = type === "carousel"
   const canSubmit = type !== null && (!needsMotor || motor !== null)
