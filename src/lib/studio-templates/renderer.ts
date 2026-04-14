@@ -161,7 +161,7 @@ export function renderSlideToHtml(input: RenderSlideInput): RenderSlideResult {
         slideIndex,
         totalSlides,
         ctaInstruction:
-          slide.content.texto3Instruction ??
+          slide.content?.texto3Instruction ??
           brand?.content?.ctaInstructionTemplate ??
           undefined,
       });

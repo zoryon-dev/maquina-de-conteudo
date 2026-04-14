@@ -121,6 +121,7 @@ export async function generateWithBrandsDecoded(
     blocks,
     brandPromptVariables,
     model,
+    numberOfSlides,
   })
 
   // QA editorial dry-mode — mesmo padrão do Tribal v4 em llm.service.ts.
@@ -227,8 +228,9 @@ export async function generateLegendaInstagram(input: {
   blocks: CopyBlock[]
   brandPromptVariables?: Record<string, string | undefined>
   model?: string
+  numberOfSlides?: number
 }): Promise<string> {
-  const { espinha, blocks, brandPromptVariables, model } = input
+  const { espinha, blocks, brandPromptVariables, model, numberOfSlides } = input
 
   if (!openrouter) {
     throw new Error(
@@ -237,7 +239,9 @@ export async function generateLegendaInstagram(input: {
   }
 
   const chosenModel = model ?? DEFAULT_TEXT_MODEL
-  const prompt = buildLegendaPrompt(espinha, blocks, brandPromptVariables)
+  const derivedN = blocks.length > 0 ? Math.round(blocks.length / 2) : 9
+  const n = Math.min(10, Math.max(6, numberOfSlides ?? derivedN))
+  const prompt = buildLegendaPrompt(espinha, blocks, brandPromptVariables, n)
 
   const { text: raw } = await generateText({
     model: openrouter.chat(chosenModel),
@@ -263,8 +267,10 @@ export async function generateLegendaInstagram(input: {
 function buildLegendaPrompt(
   espinha: EspinhaDorsal,
   blocks: CopyBlock[],
-  brandVars?: Record<string, string | undefined>
+  brandVars?: Record<string, string | undefined>,
+  n: number = 9
 ): string {
+  const totalBlocks = n * 2
   const blocksSummary = blocks
     .map((b) => `  texto ${b.index} (slide ${b.slide}) — ${b.text}`)
     .join("\n")
@@ -288,7 +294,7 @@ function buildLegendaPrompt(
     `# TAREFA — Escrever a legenda Instagram do carrossel BrandsDecoded v4`,
     ``,
     `Você é um jornalista brasileiro escrevendo a legenda que acompanha um`,
-    `carrossel de 9 slides. A legenda complementa o deck — NÃO repete os`,
+    `carrossel de ${n} slides. A legenda complementa o deck — NÃO repete os`,
     `slides — e guia o leitor até o CTA final.`,
     ``,
     `## ESTRUTURA OBRIGATÓRIA (~150 palavras no total)`,
@@ -309,7 +315,7 @@ function buildLegendaPrompt(
     `**Aplicação:** ${espinha.aplicacao}`,
     `**Direção:** ${espinha.direcao}`,
     ``,
-    `## COPY DOS 18 BLOCOS (para calibrar tom e dados)`,
+    `## COPY DOS ${totalBlocks} BLOCOS (para calibrar tom e dados)`,
     ``,
     blocksSummary,
     ``,

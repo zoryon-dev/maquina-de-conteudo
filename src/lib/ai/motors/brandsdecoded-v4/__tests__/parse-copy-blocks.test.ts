@@ -89,4 +89,37 @@ describe("parseCopyBlocksResponse", () => {
     const raw = "isto não é json — apenas texto aleatório sem chaves"
     expect(() => parseCopyBlocksResponse(raw)).toThrow()
   })
+
+  it("n=6 — aceita 12 blocos (slides 1-6) e descarta blocos de slides 7-9", () => {
+    // Envia 18 blocos mas pede n=6; parser deve usar apenas os 12 primeiros
+    const raw = buildFullJsonPayload()
+    const blocks = parseCopyBlocksResponse(raw, 6)
+    expect(blocks).toHaveLength(12)
+    // Todos os blocos retornados devem ter slide <= 6
+    for (const block of blocks) {
+      expect(block.slide).toBeLessThanOrEqual(6)
+    }
+  })
+
+  it("n=10 — clampa para 9 slides / 18 blocos porque BLOCK_SPEC só tem 18 entradas", () => {
+    // BLOCK_SPEC vai até slide 9 (18 blocos). n=10 pede 20 blocos mas só 18 existem no spec.
+    // parseCopyBlocksResponse usa BLOCK_SPEC.filter(b => b.slide <= clampedN=10),
+    // o que retorna os mesmos 18 blocos de n=9.
+    const raw = buildFullJsonPayload()
+    const blocks = parseCopyBlocksResponse(raw, 10)
+    // Deve retornar 18 blocos (todos os que existem no BLOCK_SPEC)
+    expect(blocks).toHaveLength(18)
+    // Nenhum slide além do 9 deve aparecer (BLOCK_SPEC não tem slide 10)
+    for (const block of blocks) {
+      expect(block.slide).toBeLessThanOrEqual(9)
+    }
+  })
+
+  it("n=9 (default) — retorna 18 blocos completos", () => {
+    const raw = buildFullJsonPayload()
+    const blocks = parseCopyBlocksResponse(raw, 9)
+    expect(blocks).toHaveLength(18)
+    expect(blocks[0].slide).toBe(1)
+    expect(blocks[17].slide).toBe(9)
+  })
 })
