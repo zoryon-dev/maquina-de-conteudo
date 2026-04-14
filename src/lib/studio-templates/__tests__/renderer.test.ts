@@ -40,26 +40,38 @@ const baseInput = {
   totalSlides: 1,
 }
 
+/**
+ * Nota: templates agora usam `var(--brand-color-primary, fallback)` mesmo
+ * com flag off. Isso significa que a string "--brand-color-primary" vai
+ * aparecer no HTML como *referência* dentro de `var(...)`. O que detecta
+ * injeção real é a *declaração* da custom property (`--brand-color-primary:`
+ * seguido de value) ou a tag `<style data-brand-tokens>`. Testes abaixo
+ * usam esses marcadores precisos.
+ */
+const DECL_PRIMARY = "--brand-color-primary: #a3e635"
+const DECL_FONT = "--brand-font-heading: Inter, sans-serif"
+const BRAND_STYLE_TAG = "<style data-brand-tokens>"
+
 describe("renderSlideToHtml — brand tokens (Fase 3)", () => {
-  it("flag on + brand presente → injeta <style data-brand-tokens> com CSS vars", () => {
+  it("flag on + brand presente → injeta <style data-brand-tokens> com declarações CSS", () => {
     const result = renderSlideToHtml({
       ...baseInput,
       brand: ZORYON_BRAND_FIXTURE,
       featureFlags: { visualTokensV2: true },
     })
-    expect(result.html).toContain("<style data-brand-tokens>")
-    expect(result.html).toContain("--brand-color-primary: #a3e635")
-    expect(result.html).toContain("--brand-font-heading: Inter, sans-serif")
+    expect(result.html).toContain(BRAND_STYLE_TAG)
+    expect(result.html).toContain(DECL_PRIMARY)
+    expect(result.html).toContain(DECL_FONT)
   })
 
-  it("flag off + brand presente → não injeta (backcompat)", () => {
+  it("flag off + brand presente → não injeta declarações (backcompat)", () => {
     const result = renderSlideToHtml({
       ...baseInput,
       brand: ZORYON_BRAND_FIXTURE,
       featureFlags: { visualTokensV2: false },
     })
-    expect(result.html).not.toContain("--brand-color-primary")
-    expect(result.html).not.toContain("data-brand-tokens")
+    expect(result.html).not.toContain(BRAND_STYLE_TAG)
+    expect(result.html).not.toContain(DECL_PRIMARY)
   })
 
   it("flag on + brand undefined → não injeta", () => {
@@ -67,14 +79,16 @@ describe("renderSlideToHtml — brand tokens (Fase 3)", () => {
       ...baseInput,
       featureFlags: { visualTokensV2: true },
     })
-    expect(result.html).not.toContain("--brand-color-primary")
+    expect(result.html).not.toContain(BRAND_STYLE_TAG)
+    expect(result.html).not.toContain(DECL_PRIMARY)
   })
 
-  it("sem flags e sem brand → HTML idêntico ao render legado", () => {
+  it("sem flags e sem brand → HTML idêntico entre undefined e null brand", () => {
     const legacy = renderSlideToHtml(baseInput)
     const withNullBrand = renderSlideToHtml({ ...baseInput, brand: null })
     expect(legacy.html).toBe(withNullBrand.html)
-    expect(legacy.html).not.toContain("--brand-color-primary")
+    expect(legacy.html).not.toContain(BRAND_STYLE_TAG)
+    expect(legacy.html).not.toContain(DECL_PRIMARY)
   })
 
   it("injeta style dentro de <head> quando presente (cascade correto)", () => {

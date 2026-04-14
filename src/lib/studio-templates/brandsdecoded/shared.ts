@@ -132,17 +132,21 @@ export function bdSharedCss(palette: BDPalette, bg: "light" | "dark" | "grad"): 
       : "rgba(255,255,255,0.55)";
   const accentBg = bg === "grad" ? "rgba(255,255,255,0.18)" : gradient;
 
+  // Fase 3: cada token expõe chain de fallback — brand token override
+  // primeiro, literal original como segundo fallback. Quando a flag off,
+  // brand-tokens-css não injeta :root override, então `var(--brand-*)`
+  // resolve para o fallback literal e o output visual fica idêntico.
   return `
     :root {
-      --P: ${palette.primary};
+      --P: var(--brand-color-primary, ${palette.primary});
       --PL: ${palette.primaryLight};
       --PD: ${palette.primaryDark};
       --LB: ${palette.lightBg};
       --LR: ${palette.lightBorder};
-      --DB: ${palette.darkBg};
+      --DB: var(--brand-color-background, ${palette.darkBg});
       --G: ${gradient};
-      --F-HEAD: 'Barlow Condensed', 'Oswald', 'Inter', sans-serif;
-      --F-BODY: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+      --F-HEAD: var(--brand-font-heading, 'Barlow Condensed', 'Oswald', 'Inter', sans-serif);
+      --F-BODY: var(--brand-font-body, 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; word-break: break-word; overflow-wrap: break-word; }

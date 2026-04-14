@@ -13,6 +13,7 @@
 
 import type { StudioSlide, StudioProfile, StudioHeader } from "./types";
 import { escapeHtml, INSTAGRAM_DIMENSIONS } from "./types";
+import { tokenVar } from "./brand-tokens-css";
 
 export interface TemplateDarkModeInput {
   slide: StudioSlide;
@@ -56,7 +57,7 @@ export function generateDarkModeHtml(input: TemplateDarkModeInput): string {
       width: ${INSTAGRAM_DIMENSIONS.width}px;
       height: ${INSTAGRAM_DIMENSIONS.height}px;
       overflow: hidden;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: ${tokenVar("font", "body", "'Inter', -apple-system, BlinkMacSystemFont, sans-serif")};
       background: ${style.backgroundColor};
       color: ${style.textColor};
     }
@@ -130,7 +131,7 @@ export function generateDarkModeHtml(input: TemplateDarkModeInput): string {
       align-items: center;
       justify-content: center;
       padding: 18px 48px;
-      background: ${style.primaryColor};
+      background: ${tokenVar("color", "primary", style.primaryColor)};
       border-radius: 50px;
       font-size: 18px;
       font-weight: 700;
@@ -145,7 +146,7 @@ export function generateDarkModeHtml(input: TemplateDarkModeInput): string {
       justify-content: center;
       width: 56px;
       height: 56px;
-      background: ${style.primaryColor};
+      background: ${tokenVar("color", "primary", style.primaryColor)};
       border-radius: 12px;
     }
 
