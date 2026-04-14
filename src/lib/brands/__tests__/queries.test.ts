@@ -301,3 +301,30 @@ describe("upsertBrandBySlug", () => {
     expect(result).toEqual(created)
   })
 })
+
+describe("resolveBrandIdForUser", () => {
+  beforeEach(() => {
+    resetDbState()
+    selectSpy.mockClear()
+  })
+
+  it("retorna id da brand default quando existe", async () => {
+    dbState.selectResult = [{ id: 42 }]
+    const id = await queries.resolveBrandIdForUser("user_123")
+    expect(id).toBe(42)
+    expect(selectSpy).toHaveBeenCalled()
+  })
+
+  it("retorna null quando não há brand default", async () => {
+    dbState.selectResult = []
+    const id = await queries.resolveBrandIdForUser("user_123")
+    expect(id).toBeNull()
+  })
+
+  it("ignora userId (hoje fallback pra default)", async () => {
+    dbState.selectResult = [{ id: 1 }]
+    const a = await queries.resolveBrandIdForUser("user_a")
+    const b = await queries.resolveBrandIdForUser("user_b")
+    expect(a).toBe(b)
+  })
+})
