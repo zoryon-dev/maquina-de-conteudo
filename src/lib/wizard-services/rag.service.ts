@@ -1,34 +1,13 @@
-/**
- * RAG Service for Wizard
- *
- * Wrapper around existing RAG implementation for Wizard integration.
- *
- * ═══════════════════════════════════════════════════════════════════════════════
- * ARCHITECTURE NOTES
- * ═══════════════════════════════════════════════════════════════════════════════
- *
- * - This service wraps the existing assembleRagContext() from @/lib/rag/assembler
- * - Provides Wizard-specific interface with graceful degradation
- * - Returns null if RAG is not available, allowing job to continue
- * - Maps document IDs and titles for source citation
- */
-
 import { assembleRagContext } from "@/lib/rag/assembler";
+import { getBrandAutoRagContext } from "@/lib/rag/brand-auto-inject";
 import type { RagCategory } from "@/lib/rag/types";
+import { isFeatureEnabled } from "@/lib/features";
+import { getErrorMessage } from "@/lib/errors";
 import type { RagConfig, RagResult, ServiceResult } from "./types";
 
-// ============================================================================
-// CONFIGURATION
-// ============================================================================
+export const BRAND_SECTION_HEADER = "═══ CONTEXTO DA MARCA (auto) ═══";
+export const USER_SECTION_HEADER = "═══ CONTEXTO ADICIONAL (user) ═══";
 
-/**
- * Default RAG options for Wizard.
- *
- * Optimized for social media content generation:
- * - Lower threshold for better recall (0.4)
- * - Moderate token budget (3000)
- * - Include sources for attribution
- */
 const WIZARD_DEFAULT_RAG_OPTIONS = {
   threshold: 0.4,
   maxChunks: 15,
@@ -36,34 +15,13 @@ const WIZARD_DEFAULT_RAG_OPTIONS = {
   includeSources: true,
 };
 
-// ============================================================================
-// RAG CONTEXT GENERATION
-// ============================================================================
-
 /**
  * Generate RAG context for Wizard content generation.
- *
- * This function retrieves relevant document chunks and formats them
- * for inclusion in LLM prompts. Returns null if RAG is not configured
- * or no relevant content is found (graceful degradation).
  *
  * @param userId - User ID for authorization
  * @param query - Search query for semantic search
  * @param config - RAG configuration
  * @returns Service result with RAG context or null
- *
- * @example
- * ```ts
- * const result = await generateWizardRagContext(userId, "Brand voice guidelines", {
- *   mode: "auto",
- *   threshold: 0.5
- * })
- *
- * if (result.success && result.data) {
- *   // result.data.context → string formatada
- *   // result.data.sources → documentos fonte
- * }
- * ```
  */
 export async function generateWizardRagContext(
   userId: string,
@@ -71,19 +29,15 @@ export async function generateWizardRagContext(
   config: RagConfig = {}
 ): Promise<ServiceResult<RagResult | null>> {
   try {
-    // Check if RAG should be disabled (only when mode is explicitly "off")
-    // Both "auto" and "manual" modes should use RAG
     const isRagDisabled = config.mode === "off";
 
     if (isRagDisabled) {
-      // RAG explicitly disabled - return empty result
       return {
         success: true,
         data: null,
       };
     }
 
-    // Map RagConfig to assembler options
     const categories: RagCategory[] | undefined = config.collections
       ? convertCollectionsToCategories(config.collections)
       : undefined;
@@ -97,10 +51,8 @@ export async function generateWizardRagContext(
       includeSources: WIZARD_DEFAULT_RAG_OPTIONS.includeSources,
     };
 
-    // Call the existing RAG assembler
     const ragResult = await assembleRagContext(userId, query, assemblerOptions);
 
-    // Check if any context was found
     if (!ragResult.context || ragResult.chunksIncluded === 0) {
       // No relevant content found - not an error, just no RAG data
       return {
@@ -109,7 +61,6 @@ export async function generateWizardRagContext(
       };
     }
 
-    // Transform to Wizard format
     const wizardRagResult: RagResult = {
       context: ragResult.context,
       sources: ragResult.sources.map((s) => ({
@@ -127,10 +78,10 @@ export async function generateWizardRagContext(
   } catch (error) {
     console.error("Error generating RAG context:", error);
 
-    // RAG failure should not block the job - return null with success
+    // RAG failure should not block the job - merge layer treats success:false as "no RAG"
     return {
-      success: true,
-      data: null,
+      success: false,
+      error: getErrorMessage(error),
     };
   }
 }
@@ -154,10 +105,6 @@ export async function generateWizardRagContextFromSelection(
   // Use the config as-is - document IDs are already in config.documents
   return generateWizardRagContext(userId, query, config);
 }
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
 
 /**
  * Convert collection IDs to RAG categories.
@@ -218,10 +165,6 @@ export async function getWizardRagStats(userId: string): Promise<{
   }
 }
 
-// ============================================================================
-// FORMATTING FUNCTIONS
-// ============================================================================
-
 /**
  * Format RAG result for inclusion in prompt.
  *
@@ -276,4 +219,103 @@ export function formatRagSourcesForMetadata(ragResult: RagResult | null): Array<
     id: s.id,
     title: s.title,
   }));
+}
+
+/**
+ * Chama user RAG + brand auto-inject em paralelo e mescla os contextos
+ * com separadores claros pro LLM distinguir as fontes.
+ *
+ * Brand auto-inject vem PRIMEIRO no contexto (diretriz forte de marca),
+ * user RAG vem DEPOIS (informação adicional).
+ *
+ * Kill-switch: `RAG_BRAND_AUTO_INJECT=false` desativa a busca de marca,
+ * caindo apenas no user RAG configurado.
+ *
+ * @param userId - User ID for authorization
+ * @param query - Search query for semantic search
+ * @param userConfig - User-controlled RAG config (mode, documents, etc.)
+ * @param brandId - Brand ID resolvido pelo caller (reservado pra multi-brand)
+ * @returns Service result com contexto mesclado, ou data:null se ambos vazios
+ */
+export async function generateWizardRagContextWithBrand(
+  userId: string,
+  query: string,
+  userConfig: RagConfig,
+  brandId?: number | null
+): Promise<ServiceResult<RagResult | null>> {
+  const autoInjectEnabled = isFeatureEnabled("RAG_BRAND_AUTO_INJECT", true);
+
+  const settled = await Promise.allSettled([
+    autoInjectEnabled
+      ? getBrandAutoRagContext(userId, query, brandId ?? undefined)
+      : Promise.resolve(null),
+    generateWizardRagContext(userId, query, userConfig),
+  ]);
+
+  const [brandSettled, userSettled] = settled;
+
+  const brandResult =
+    brandSettled.status === "fulfilled" ? brandSettled.value : null;
+  if (brandSettled.status === "rejected") {
+    console.error("[rag/merge] RAG_MERGE_BRAND_REJECTED", {
+      errorId: "RAG_MERGE_BRAND_REJECTED",
+      reason: brandSettled.reason,
+    });
+  }
+
+  const userResult =
+    userSettled.status === "fulfilled" ? userSettled.value : null;
+  if (userSettled.status === "rejected") {
+    console.error("[rag/merge] RAG_MERGE_USER_REJECTED", {
+      errorId: "RAG_MERGE_USER_REJECTED",
+      reason: userSettled.reason,
+    });
+  }
+
+  const userData = userResult && userResult.success ? userResult.data : null;
+
+  if (!brandResult && !userData) {
+    return { success: true, data: null };
+  }
+
+  const parts: string[] = [];
+  const sources: Array<{ id: number; title: string }> = [];
+  let tokensUsed = 0;
+  let chunksIncluded = 0;
+
+  if (brandResult && brandResult.context) {
+    parts.push(BRAND_SECTION_HEADER);
+    parts.push("");
+    parts.push(brandResult.context);
+    sources.push(
+      ...brandResult.sources.map((s) => ({ id: s.id, title: s.title }))
+    );
+    tokensUsed += brandResult.tokensUsed;
+    chunksIncluded += brandResult.chunksIncluded;
+  }
+
+  if (userData && userData.context) {
+    if (parts.length > 0) {
+      parts.push("");
+      parts.push("");
+    }
+    parts.push(USER_SECTION_HEADER);
+    parts.push("");
+    parts.push(userData.context);
+    sources.push(
+      ...userData.sources.map((s) => ({ id: s.id, title: s.title }))
+    );
+    tokensUsed += userData.tokensUsed;
+    chunksIncluded += userData.chunksIncluded;
+  }
+
+  return {
+    success: true,
+    data: {
+      context: parts.join("\n"),
+      sources,
+      tokensUsed,
+      chunksIncluded,
+    },
+  };
 }

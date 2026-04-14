@@ -38,6 +38,19 @@ export async function getDefaultBrand(): Promise<Brand | null> {
   return row ?? null
 }
 
+/**
+ * Ignora `_userId` por design: hoje só existe a brand `isDefault=true` (Zoryon).
+ * Retorna `null` se não houver default configurada — caller decide o fallback.
+ */
+export async function resolveBrandIdForUser(_userId: string): Promise<number | null> {
+  const [row] = await db
+    .select({ id: brands.id })
+    .from(brands)
+    .where(eq(brands.isDefault, true))
+    .limit(1)
+  return row?.id ?? null
+}
+
 export async function listBrands(): Promise<Brand[]> {
   return db.select().from(brands).orderBy(desc(brands.isDefault), brands.name)
 }
