@@ -599,6 +599,9 @@ export const contentWizards = pgTable(
     // para texto livre), consolidado no worker antes do dispatch BD.
     seeds: jsonb("seeds")
       .$type<Array<{
+        // id é opcional no schema pra back-compat com rows pré-C3 que
+        // foram escritas sem uuid. Código novo sempre gera id.
+        id?: string
         type: "link" | "youtube" | "keyword" | "theme" | "insight"
         value: string
         briefing?: string

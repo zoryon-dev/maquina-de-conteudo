@@ -47,14 +47,32 @@ export type ExtractedBriefing = {
  * Shape do registro persistido em `content_wizards.seeds` (JSONB).
  * `value` guarda a URL (para link/youtube) ou o texto (para keyword/theme/
  * insight), unificando o acesso ao briefing independente do tipo.
+ *
+ * `id` é gerado via `crypto.randomUUID()` no `extractSeedAction` e usado
+ * pelas operações de remove/update — índice no array não é estável sob
+ * concorrência nem reordenação.
  */
 export type StoredSeed = {
+  id: string;
   type: SeedType;
   value: string;
   briefing?: string;
   metadata?: Record<string, unknown>;
   extractedAt?: string;
 };
+
+/**
+ * Tamanho mínimo de briefing aceito após extração (link/youtube). Abaixo
+ * disso a extração provavelmente falhou silenciosamente (página vazia,
+ * paywall, transcrição ausente) e o usuário precisa ser avisado.
+ */
+export const MIN_EXTRACTED_LENGTH = 100;
+
+/**
+ * Tamanho mínimo aceito em pass-through (keyword/theme/insight). Texto
+ * muito curto não gera briefing útil — erro explícito > briefing vazio.
+ */
+export const MIN_TEXT_LENGTH = 5;
 
 // ============================================================================
 // EXTRACTION
@@ -85,11 +103,18 @@ export async function extractSeedAsBriefing(
           error: "Firecrawl indisponível ou não retornou conteúdo",
         };
       }
+      const briefing = r.data.content ?? "";
+      if (briefing.trim().length < MIN_EXTRACTED_LENGTH) {
+        return {
+          success: false,
+          error: `Conteúdo extraído muito curto (${briefing.length} chars). Verifique se a URL carrega corretamente.`,
+        };
+      }
       return {
         success: true,
         data: {
           seed: input,
-          briefing: r.data.content ?? "",
+          briefing,
           metadata: {
             title: r.data.metadata?.title,
             author: r.data.metadata?.author,
@@ -112,11 +137,18 @@ export async function extractSeedAsBriefing(
           error: "Apify indisponível ou não retornou transcrição",
         };
       }
+      const briefing = formatYouTubeForPrompt(r.data);
+      if (briefing.trim().length < MIN_EXTRACTED_LENGTH) {
+        return {
+          success: false,
+          error: `Conteúdo extraído muito curto (${briefing.length} chars). Verifique se a URL carrega corretamente.`,
+        };
+      }
       return {
         success: true,
         data: {
           seed: input,
-          briefing: formatYouTubeForPrompt(r.data),
+          briefing,
           metadata: {
             title: r.data.metadata?.title,
             author: r.data.metadata?.channelName,
@@ -129,6 +161,12 @@ export async function extractSeedAsBriefing(
     }
 
     // keyword | theme | insight → pass-through
+    if (input.value.trim().length < MIN_TEXT_LENGTH) {
+      return {
+        success: false,
+        error: `Texto muito curto (mínimo ${MIN_TEXT_LENGTH} caracteres).`,
+      };
+    }
     return {
       success: true,
       data: {
