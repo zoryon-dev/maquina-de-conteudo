@@ -50,16 +50,32 @@ export function BdStep3Generate() {
       setStage((s) => (s < STAGES.length - 1 ? s + 1 : s))
     }, 4000)
 
+    const TIMEOUT_MS = 120_000
+
     ;(async () => {
-      const r = await generateBdContentAction(wizardId, tribalAngle)
-      clearInterval(timer)
-      if (cancelled) return
-      if (!r.success) {
-        setError(r.error)
-        return
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Tempo limite excedido (2 min). Tente novamente.")), TIMEOUT_MS)
+      )
+
+      try {
+        const r = await Promise.race([
+          generateBdContentAction(wizardId, tribalAngle),
+          timeoutPromise,
+        ])
+        clearInterval(timer)
+        if (cancelled) return
+        if (!r.success) {
+          setError(r.error)
+          return
+        }
+        setGeneratedResult(r.data)
+        goToStep(4)
+      } catch (e) {
+        clearInterval(timer)
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : "Falha inesperada na geração.")
+        }
       }
-      setGeneratedResult(r.data)
-      goToStep(4)
     })()
 
     return () => {
