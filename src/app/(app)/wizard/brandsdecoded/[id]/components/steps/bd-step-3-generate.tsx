@@ -42,10 +42,10 @@ export function BdStep3Generate() {
     didDispatch.current = true
 
     let cancelled = false
-    setError(null)
-    setStage(0)
 
-    // Pseudo-progress (cada stage ~3-8s real, cycle 4s).
+    // Pseudo-progress (cada stage ~3-8s real, cycle 4s). setState é
+    // chamado DENTRO do interval callback (external system boundary),
+    // não direto no corpo do effect.
     const timer = setInterval(() => {
       setStage((s) => (s < STAGES.length - 1 ? s + 1 : s))
     }, 4000)
