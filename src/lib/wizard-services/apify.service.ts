@@ -122,13 +122,13 @@ export async function transcribeYouTube(
       },
     };
   } catch (error) {
-    console.error("Error transcribing video:", error);
-
-    // Don't fail the job - return null with success
-    return {
-      success: true,
-      data: null,
-    };
+    // Distinção: "não configurado" (early return acima) é degradação graceful
+    // e retorna `{ success: true, data: null }`. Aqui a key está presente
+    // mas a chamada falhou em runtime — propagar erro real para o caller
+    // mostrar feedback específico ao usuário, não mascarar como "indisponível".
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[apify] extract failed", { url: videoUrl, error: msg });
+    return { success: false, error: `Apify: ${msg}` };
   }
 }
 

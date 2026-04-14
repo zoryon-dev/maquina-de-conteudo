@@ -110,13 +110,13 @@ export async function extractFromUrl(
       },
     };
   } catch (error) {
-    console.error("Error extracting from URL:", error);
-
-    // Don't fail the job - return null with success
-    return {
-      success: true,
-      data: null,
-    };
+    // Distinção: "não configurado" (early return acima) é degradação graceful
+    // e retorna `{ success: true, data: null }`. Aqui a chave está presente
+    // mas a chamada falhou em runtime — propagar erro real para o caller
+    // mostrar feedback específico ao usuário, não mascarar como "indisponível".
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[firecrawl] extract failed", { url, error: msg });
+    return { success: false, error: `Firecrawl: ${msg}` };
   }
 }
 
