@@ -96,43 +96,62 @@ export function SeedInputPanel({
           : { type: tab, value: trimmed }
 
     startTransition(async () => {
-      const r = await extractSeedAction(wizardId, seed)
-      if (!r.success) {
-        setError(r.error)
-        return
+      try {
+        const r = await extractSeedAction(wizardId, seed)
+        if (!r.success) {
+          setError(r.error)
+          return
+        }
+        // Server retorna `id` no payload estendido; fallback pra UUID client
+        // se o server ainda não emitir a chave.
+        const returnedId =
+          "id" in r.data.seed && typeof r.data.seed.id === "string"
+            ? r.data.seed.id
+            : undefined
+        const newSeed: Seed = {
+          id: returnedId ?? genId(),
+          type: r.data.seed.type,
+          value:
+            "value" in r.data.seed ? r.data.seed.value : r.data.seed.url,
+          briefing: r.data.briefing,
+          metadata: r.data.metadata,
+          extractedAt: new Date().toISOString(),
+        }
+        const next = [...seeds, newSeed]
+        setSeeds(next)
+        onSeedsChange?.(next)
+        setValue("")
+      } catch (err) {
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "Falha inesperada ao extrair. Tente novamente."
+        setError(msg)
+        console.error("[seed-panel] extract failed:", err)
       }
-      // Server retorna `id` no payload estendido; fallback pra UUID client
-      // se o server ainda não emitir a chave.
-      const returnedId =
-        "id" in r.data.seed && typeof r.data.seed.id === "string"
-          ? r.data.seed.id
-          : undefined
-      const newSeed: Seed = {
-        id: returnedId ?? genId(),
-        type: r.data.seed.type,
-        value:
-          "value" in r.data.seed ? r.data.seed.value : r.data.seed.url,
-        briefing: r.data.briefing,
-        metadata: r.data.metadata,
-        extractedAt: new Date().toISOString(),
-      }
-      const next = [...seeds, newSeed]
-      setSeeds(next)
-      onSeedsChange?.(next)
-      setValue("")
     })
   }
 
   const handleRemove = (seedId: string) => {
+    setError(null)
     startTransition(async () => {
-      const r = await removeSeedAction(wizardId, seedId)
-      if (!r.success) {
-        setError(r.error)
-        return
+      try {
+        const r = await removeSeedAction(wizardId, seedId)
+        if (!r.success) {
+          setError(r.error)
+          return
+        }
+        const next = seeds.filter((s) => s.id !== seedId)
+        setSeeds(next)
+        onSeedsChange?.(next)
+      } catch (err) {
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "Falha ao remover seed. Tente novamente."
+        setError(msg)
+        console.error("[seed-panel] remove failed:", err)
       }
-      const next = seeds.filter((s) => s.id !== seedId)
-      setSeeds(next)
-      onSeedsChange?.(next)
     })
   }
 
