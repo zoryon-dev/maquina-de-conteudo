@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, vi } from "vitest"
 import {
   BD_STAGE_FIELDS,
   getSectionsForStage,
@@ -232,5 +232,24 @@ describe("empty-section-collapse (T4)", () => {
     expect(out).toContain("metodologia única")
     expect(out).not.toContain("## AUDIÊNCIA")
     expect(out).not.toContain("## OBJETIVOS E CTAs")
+  })
+})
+
+/**
+ * T6 — Runtime guard. Quando um caller passa um stage inválido (cast forçado
+ * via `as BdStage` em uso real), a função deve retornar [] e logar um erro
+ * explícito em vez de produzir output silenciosamente vazio. Assume o fix C3
+ * do agente de produção.
+ */
+describe("runtime guard em stage desconhecido (T6)", () => {
+  it("getSectionsForStage loga e retorna [] para stage desconhecido", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    try {
+      const result = getSectionsForStage("nonexistent" as BdStage)
+      expect(result).toEqual([])
+      expect(errorSpy).toHaveBeenCalled()
+    } finally {
+      errorSpy.mockRestore()
+    }
   })
 })
