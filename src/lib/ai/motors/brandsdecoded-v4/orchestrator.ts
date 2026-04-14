@@ -33,6 +33,8 @@ export type BrandsDecodedInput = {
   // (concatenado ao briefing antes de cada step do pipeline). Permite
   // combinação cross-motor: BD usa estrutura jornalística + postura tribal.
   tribalAngle?: TribalAngleId
+  /** Número de slides a gerar (6-10). Default: 9. */
+  numberOfSlides?: number
 }
 
 export type BrandsDecodedResult = {
@@ -58,6 +60,7 @@ export async function generateWithBrandsDecoded(
     autoSelectHeadline = true,
     forcedHeadlineId,
     tribalAngle,
+    numberOfSlides,
   } = input
 
   if (
@@ -104,11 +107,12 @@ export async function generateWithBrandsDecoded(
     model,
   })
 
-  // Etapa 3.6 — 18 blocos de copy.
+  // Etapa 3.6 — blocos de copy (2 × numberOfSlides, default 18).
   const { blocks } = await generateCopyBlocks({
     espinha,
     brandPromptVariables,
     model,
+    numberOfSlides,
   })
 
   // Etapa 6 — Legenda Instagram (~150 palavras).

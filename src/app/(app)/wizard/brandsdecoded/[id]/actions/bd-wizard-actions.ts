@@ -56,7 +56,8 @@ function toStoredSeeds(value: unknown): StoredSeed[] {
 
 export async function generateBdContentAction(
   wizardId: number,
-  tribalAngle?: TribalAngleId
+  tribalAngle?: TribalAngleId,
+  numberOfSlides?: number
 ): Promise<ActionResult<BrandsDecodedResult>> {
   const { userId } = await auth()
   if (!userId) return { success: false, error: "auth required" }
@@ -97,6 +98,7 @@ export async function generateBdContentAction(
       brandPromptVariables,
       tribalAngle,
       autoSelectHeadline: true,
+      numberOfSlides,
     })
 
     await db

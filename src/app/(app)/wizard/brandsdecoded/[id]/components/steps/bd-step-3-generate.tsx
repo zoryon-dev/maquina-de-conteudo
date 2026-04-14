@@ -29,6 +29,7 @@ const STAGES = [
 export function BdStep3Generate() {
   const wizardId = useBdWizardStore((s) => s.wizardId)
   const tribalAngle = useBdWizardStore((s) => s.tribalAngle)
+  const numberOfSlides = useBdWizardStore((s) => s.numberOfSlides)
   const setGeneratedResult = useBdWizardStore((s) => s.setGeneratedResult)
   const goToStep = useBdWizardStore((s) => s.goToStep)
   const [stage, setStage] = useState(0)
@@ -50,23 +51,39 @@ export function BdStep3Generate() {
       setStage((s) => (s < STAGES.length - 1 ? s + 1 : s))
     }, 4000)
 
+    const TIMEOUT_MS = 120_000
+
     ;(async () => {
-      const r = await generateBdContentAction(wizardId, tribalAngle)
-      clearInterval(timer)
-      if (cancelled) return
-      if (!r.success) {
-        setError(r.error)
-        return
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Tempo limite excedido (2 min). Tente novamente.")), TIMEOUT_MS)
+      )
+
+      try {
+        const r = await Promise.race([
+          generateBdContentAction(wizardId, tribalAngle, numberOfSlides),
+          timeoutPromise,
+        ])
+        clearInterval(timer)
+        if (cancelled) return
+        if (!r.success) {
+          setError(r.error)
+          return
+        }
+        setGeneratedResult(r.data)
+        goToStep(4)
+      } catch (e) {
+        clearInterval(timer)
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : "Falha inesperada na geração.")
+        }
       }
-      setGeneratedResult(r.data)
-      goToStep(4)
     })()
 
     return () => {
       cancelled = true
       clearInterval(timer)
     }
-  }, [wizardId, tribalAngle, setGeneratedResult, goToStep])
+  }, [wizardId, tribalAngle, numberOfSlides, setGeneratedResult, goToStep])
 
   return (
     <div className="space-y-6 py-12 text-center">
