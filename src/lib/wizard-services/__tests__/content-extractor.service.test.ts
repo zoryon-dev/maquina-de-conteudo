@@ -42,7 +42,7 @@ describe("extractSeedAsBriefing", () => {
       success: true,
       data: {
         sourceUrl: "https://x.com",
-        content: "# Title\n\nContent",
+        content: "# Title\n\nContent " + "lorem ipsum ".repeat(20),
         metadata: { title: "Title", author: "Autor" },
       },
     });
@@ -63,7 +63,7 @@ describe("extractSeedAsBriefing", () => {
       success: true,
       data: {
         sourceUrl: "https://youtube.com/watch?v=abc",
-        transcription: "hello world",
+        transcription: "hello world " + "transcript content ".repeat(10),
         metadata: { title: "Video", channelName: "Channel" },
       },
     });

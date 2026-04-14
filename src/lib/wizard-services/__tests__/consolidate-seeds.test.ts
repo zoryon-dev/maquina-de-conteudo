@@ -43,7 +43,7 @@ describe("integration — seed flow end-to-end", () => {
       success: true,
       data: {
         sourceUrl: "https://x.com/artigo",
-        content: "Conteúdo do artigo scrapado via Firecrawl para teste de integração.",
+        content: "Conteúdo do artigo scrapado via Firecrawl para teste de integração. " + "Texto adicional ".repeat(10),
         metadata: { title: "Artigo X" },
       },
     })
@@ -51,7 +51,7 @@ describe("integration — seed flow end-to-end", () => {
       success: true,
       data: {
         sourceUrl: "https://youtube.com/watch?v=abc",
-        transcription: "transcrição de vídeo completa para teste integração",
+        transcription: "transcrição de vídeo completa para teste integração. " + "Conteúdo da transcrição ".repeat(8),
         metadata: { title: "Video Y", channelName: "Canal" },
       },
     })
@@ -72,9 +72,9 @@ describe("integration — seed flow end-to-end", () => {
     if (!r1.success || !r2.success || !r3.success) return
 
     const seeds: StoredSeed[] = [
-      { type: "link", value: "https://x.com/artigo", briefing: r1.data.briefing },
-      { type: "youtube", value: "https://youtube.com/watch?v=abc", briefing: r2.data.briefing },
-      { type: "theme", value: "marketing digital para clínicas", briefing: r3.data.briefing },
+      { id: "s1", type: "link", value: "https://x.com/artigo", briefing: r1.data.briefing },
+      { id: "s2", type: "youtube", value: "https://youtube.com/watch?v=abc", briefing: r2.data.briefing },
+      { id: "s3", type: "theme", value: "marketing digital para clínicas", briefing: r3.data.briefing },
     ]
 
     const consolidated = consolidateSeeds(seeds)
@@ -106,7 +106,7 @@ describe("integration — seed flow end-to-end", () => {
     if (!r.success) return
 
     const seeds: StoredSeed[] = [
-      { type: "keyword", value: "SEO técnico avançado", briefing: r.data.briefing },
+      { id: "s1", type: "keyword", value: "SEO técnico avançado", briefing: r.data.briefing },
     ]
     const resolved = resolveBdBriefing({ seeds, theme: null })
     expect(resolved.source).toBe("seeds")

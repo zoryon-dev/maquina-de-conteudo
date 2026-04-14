@@ -1189,7 +1189,7 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       if (trimmedLen < 50) {
         console.error("[worker/bd] briefing muito curto — abortando", {
           wizardId,
-          seedsCount: bdSeeds.length,
+          seedsCount: briefingResult.seedsCount,
           briefingLen: trimmedLen,
         });
         await updateWizardProgress(wizardId, {

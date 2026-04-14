@@ -130,7 +130,7 @@ describe("extractSeedAction", () => {
   it("rejeita quando wizard não pertence ao user (select retorna vazio)", async () => {
     authMock.mockResolvedValue({ userId: "user_1" })
     dbSelectState.row = null
-    const r = await extractSeedAction(1, { type: "theme", value: "xyz" })
+    const r = await extractSeedAction(1, { type: "theme", value: "valid theme value" })
     expect(r.success).toBe(false)
     if (r.success) return
     expect(r.error).toMatch(/not found/i)
@@ -383,7 +383,7 @@ describe("removeSeedAction (seedId-based)", () => {
     expect(call.seeds.map((s) => s.id)).toEqual(["s1", "s3"])
   })
 
-  it("seedId inexistente degrada gracefully (no-op)", async () => {
+  it("seedId inexistente retorna erro explícito (não no-op silencioso)", async () => {
     authMock.mockResolvedValue({ userId: "user_1" })
     dbSelectState.row = {
       id: 1,
@@ -392,8 +392,11 @@ describe("removeSeedAction (seedId-based)", () => {
     }
 
     const r = await removeSeedAction(1, "missing-id")
-    // Aceita sucesso (array inalterado) — implementação é graceful no-op.
-    expect(r.success).toBe(true)
+    // Implementação retorna erro pra UI poder mostrar feedback.
+    // Antes era no-op silencioso (lie), agora honesto.
+    expect(r.success).toBe(false)
+    if (r.success) return
+    expect(r.error).toMatch(/não encontrada/i)
   })
 })
 
