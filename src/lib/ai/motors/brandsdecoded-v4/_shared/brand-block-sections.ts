@@ -6,11 +6,13 @@
 // modelo. Aqui declaramos explicitamente quais campos cada stage consome e
 // agrupamos esses campos em seções nomeadas (VOZ, AUDIÊNCIA, ...).
 
+import type { BrandPromptVariables } from "@/lib/brands/injection"
+
 export type BdStage = "triagem" | "headlines" | "espinha" | "copy-blocks" | "legenda"
 
-export type BrandPromptVariables = Record<string, string | undefined>
+export type { BrandPromptVariables }
 
-export const BD_STAGE_FIELDS: Record<BdStage, readonly string[]> = {
+export const BD_STAGE_FIELDS: Record<BdStage, ReadonlyArray<keyof BrandPromptVariables>> = {
   triagem: ["targetAudience", "audienceFears", "differentiators", "niche"],
   headlines: ["tone", "niche", "audienceDesires", "differentiators"],
   espinha: ["targetAudience", "audienceFears", "differentiators", "contentGoals"],
@@ -22,7 +24,7 @@ export type SectionName = "VOZ" | "AUDIÊNCIA" | "POSICIONAMENTO" | "OBJETIVOS E
 
 type SectionDef = {
   name: SectionName
-  fields: ReadonlyArray<readonly [label: string, key: string]>
+  fields: ReadonlyArray<readonly [label: string, key: keyof BrandPromptVariables]>
 }
 
 // Catálogo de seções com labels humanos. Um mesmo key pode aparecer em
@@ -63,7 +65,7 @@ const SECTION_CATALOG: readonly SectionDef[] = [
 
 export function renderSection(
   name: SectionName,
-  fields: ReadonlyArray<readonly [label: string, key: string]>,
+  fields: ReadonlyArray<readonly [label: string, key: keyof BrandPromptVariables]>,
   vars: BrandPromptVariables
 ): string {
   const lines: string[] = []
@@ -85,15 +87,15 @@ export function renderSection(
  */
 export function getSectionsForStage(stage: BdStage): Array<{
   name: SectionName
-  fields: ReadonlyArray<readonly [string, string]>
+  fields: ReadonlyArray<readonly [string, keyof BrandPromptVariables]>
 }> {
-  const stageFields = new Set(BD_STAGE_FIELDS[stage])
+  const stageFieldSet = new Set<keyof BrandPromptVariables>(BD_STAGE_FIELDS[stage])
   const result: Array<{
     name: SectionName
-    fields: ReadonlyArray<readonly [string, string]>
+    fields: ReadonlyArray<readonly [string, keyof BrandPromptVariables]>
   }> = []
   for (const section of SECTION_CATALOG) {
-    const filtered = section.fields.filter(([, key]) => stageFields.has(key))
+    const filtered = section.fields.filter(([, key]) => stageFieldSet.has(key))
     if (filtered.length === 0) continue
     result.push({ name: section.name, fields: filtered })
   }

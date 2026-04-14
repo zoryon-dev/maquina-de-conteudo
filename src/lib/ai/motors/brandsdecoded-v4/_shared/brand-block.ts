@@ -1,3 +1,4 @@
+import type { BrandPromptVariables } from "@/lib/brands/injection"
 import { getSectionsForStage, renderSection, type BdStage } from "./brand-block-sections"
 
 export type BrandBlockOptions = {
@@ -8,7 +9,7 @@ export type BrandBlockOptions = {
 }
 
 export function buildBrandContextBlock(
-  vars: Record<string, string | undefined> | undefined,
+  vars: BrandPromptVariables | undefined,
   opts: BrandBlockOptions = {}
 ): string {
   const heading = opts.heading ?? "# CONTEXTO DE MARCA"
