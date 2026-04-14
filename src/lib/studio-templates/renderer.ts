@@ -6,6 +6,8 @@
  */
 
 import type { StudioSlide, StudioProfile, StudioHeader, FigmaTemplate } from "./types";
+import type { BrandConfig } from "@/lib/brands/schema";
+import { buildBrandTokenCss } from "./brand-tokens-css";
 import { generate01CapaHtml } from "./01-capa";
 import { generate201Html } from "./201";
 import { generate202Html } from "./202";
@@ -40,6 +42,18 @@ export interface RenderSlideInput {
   slideIndex: number;
   /** Total de slides no carrossel */
   totalSlides: number;
+  /**
+   * Brand ativa (Fase 3). Quando presente + `featureFlags.visualTokensV2`,
+   * o renderer injeta `<style>:root { --brand-*: ... }</style>` no HTML
+   * antes do `<body>` (ou no topo se não houver `<head>`).
+   */
+  brand?: BrandConfig | null;
+  /**
+   * Feature flags por request. `visualTokensV2=true` ativa injeção de
+   * brand tokens. Default (flag off / ausente): comportamento pré-Fase 3
+   * intacto.
+   */
+  featureFlags?: { visualTokensV2?: boolean };
 }
 
 export interface RenderSlideResult {
@@ -56,10 +70,25 @@ export interface RenderSlideResult {
 // ============================================================================
 
 /**
+ * Injeta um `<style>` com as CSS custom properties da brand no HTML do
+ * slide. Estratégia: se existir `<head>`, injeta logo após a abertura do
+ * head (ordem correta de cascade). Caso contrário, prepend no doc para que
+ * o navegador processe como style global antes de qualquer render.
+ */
+function injectBrandStyle(html: string, brandCss: string): string {
+  if (!brandCss) return html;
+  const styleTag = `<style data-brand-tokens>${brandCss}</style>`;
+  if (html.includes("<head>")) {
+    return html.replace("<head>", `<head>\n${styleTag}`);
+  }
+  return `${styleTag}\n${html}`;
+}
+
+/**
  * Renderiza um slide para HTML usando o template apropriado
  */
 export function renderSlideToHtml(input: RenderSlideInput): RenderSlideResult {
-  const { slide, profile, header, slideIndex, totalSlides } = input;
+  const { slide, profile, header, slideIndex, totalSlides, brand, featureFlags } = input;
   const isLastSlide = slideIndex === totalSlides - 1;
 
   let html: string;
@@ -167,8 +196,14 @@ export function renderSlideToHtml(input: RenderSlideInput): RenderSlideResult {
     }
   }
 
+  // Fase 3: injeta brand tokens apenas quando flag on + brand presente.
+  // Backcompat estrita: sem flag ou sem brand, HTML idêntico ao original.
+  const brandCss =
+    featureFlags?.visualTokensV2 && brand ? buildBrandTokenCss(brand) : "";
+  const finalHtml = brandCss ? injectBrandStyle(html, brandCss) : html;
+
   return {
-    html,
+    html: finalHtml,
     template: slide.template,
     isLastSlide,
   };
@@ -180,7 +215,11 @@ export function renderSlideToHtml(input: RenderSlideInput): RenderSlideResult {
 export function renderAllSlidesToHtml(
   slides: StudioSlide[],
   profile: StudioProfile,
-  header: StudioHeader
+  header: StudioHeader,
+  options: {
+    brand?: BrandConfig | null;
+    featureFlags?: { visualTokensV2?: boolean };
+  } = {}
 ): RenderSlideResult[] {
   return slides.map((slide, index) =>
     renderSlideToHtml({
@@ -189,6 +228,8 @@ export function renderAllSlidesToHtml(
       header,
       slideIndex: index,
       totalSlides: slides.length,
+      brand: options.brand,
+      featureFlags: options.featureFlags,
     })
   );
 }
