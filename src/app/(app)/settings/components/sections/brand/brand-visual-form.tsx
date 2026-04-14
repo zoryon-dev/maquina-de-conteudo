@@ -6,10 +6,8 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  updateBrandSectionAction,
-  type BrandForEdit,
-} from "@/app/(app)/settings/actions/brand"
+import { updateBrandSectionAction } from "@/app/(app)/settings/actions/brand"
+import type { BrandForEdit } from "@/app/(app)/settings/actions/brand-schemas"
 import type { BrandVisual } from "@/lib/brands/schema"
 
 type Props = {

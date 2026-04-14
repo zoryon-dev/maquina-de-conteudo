@@ -43,11 +43,10 @@ vi.mock("next/cache", () => ({
 // Imports do módulo sob teste (depois dos mocks)
 // ---------------------------------------------------------------------------
 import {
-  SECTION_SCHEMAS,
   updateBrandSectionAction,
   restoreBrandVersionAction,
-  type BrandSection,
 } from "../brand"
+import { SECTION_SCHEMAS, type BrandSection } from "../brand-schemas"
 import { brandConfigSchema, type BrandConfig } from "@/lib/brands/schema"
 import { NotFoundError } from "@/lib/errors"
 

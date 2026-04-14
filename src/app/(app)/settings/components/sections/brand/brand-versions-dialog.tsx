@@ -15,8 +15,8 @@ import {
 import {
   listBrandVersionsAction,
   restoreBrandVersionAction,
-  type BrandVersionRow,
 } from "@/app/(app)/settings/actions/brand"
+import type { BrandVersionRow } from "@/app/(app)/settings/actions/brand-schemas"
 
 type Props = {
   brandId: number

@@ -1,5 +1,9 @@
 "use server"
 
+// Server actions da UI /settings/brand. Next.js proíbe exports não-async
+// em arquivos "use server" — tipos/schemas/constantes ficam em brand-schemas.ts
+// e são RE-exportados aqui só como convenience (via type-only imports).
+
 import { auth } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
 import {
@@ -9,49 +13,18 @@ import {
   restoreBrandVersion,
   updateBrandConfig,
 } from "@/lib/brands/queries"
-import {
-  brandConfigSchema,
-  brandIdentitySchema,
-  brandVoiceSchema,
-  brandVisualSchema,
-  brandAudienceSchema,
-  brandOfferSchema,
-  brandJourneySchema,
-  brandContentSchema,
-  brandMetaSchema,
-  type BrandConfig,
-} from "@/lib/brands/schema"
+import { brandConfigSchema, type BrandConfig } from "@/lib/brands/schema"
 import { isAppError, getErrorMessage } from "@/lib/errors"
 import { isAdmin } from "@/lib/auth/admin"
-import { z, type ZodIssue } from "zod"
+import {
+  SECTION_SCHEMAS,
+  type BrandActionResult,
+  type BrandSection,
+  type BrandForEdit,
+  type BrandVersionRow,
+} from "./brand-schemas"
 
 const ZORYON_SLUG = "zoryon"
-
-export type BrandActionResult<T = void> =
-  | { success: true; data: T }
-  | { success: false; error: string; code?: string; issues?: ZodIssue[] }
-
-export const SECTION_SCHEMAS = {
-  identity: brandIdentitySchema,
-  voice: brandVoiceSchema,
-  visual: brandVisualSchema,
-  audience: brandAudienceSchema,
-  offer: brandOfferSchema,
-  journey: brandJourneySchema,
-  content: brandContentSchema,
-  meta: brandMetaSchema,
-} satisfies Record<keyof BrandConfig, z.ZodType>
-
-export type BrandSection = keyof typeof SECTION_SCHEMAS
-
-export type BrandForEdit = {
-  id: number
-  slug: string
-  name: string
-  isDefault: boolean
-  updatedAt: string
-  config: BrandConfig
-}
 
 export async function getBrandForEditAction(): Promise<
   BrandActionResult<BrandForEdit>
@@ -147,13 +120,6 @@ export async function updateBrandSectionAction<S extends BrandSection>(
     const code = isAppError(err) ? err.code : undefined
     return { success: false, error: getErrorMessage(err), ...(code ? { code } : {}) }
   }
-}
-
-export type BrandVersionRow = {
-  id: number
-  message: string | null
-  createdBy: string | null
-  createdAt: string
 }
 
 export async function listBrandVersionsAction(

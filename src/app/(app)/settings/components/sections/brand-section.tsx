@@ -15,11 +15,11 @@ import {
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import {
-  getBrandForEditAction,
-  type BrandForEdit,
-  type BrandSection,
-} from "@/app/(app)/settings/actions/brand"
+import { getBrandForEditAction } from "@/app/(app)/settings/actions/brand"
+import type {
+  BrandForEdit,
+  BrandSection,
+} from "@/app/(app)/settings/actions/brand-schemas"
 import { BrandIdentityForm } from "./brand/brand-identity-form"
 import { BrandVoiceForm } from "./brand/brand-voice-form"
 import { BrandVisualForm } from "./brand/brand-visual-form"
