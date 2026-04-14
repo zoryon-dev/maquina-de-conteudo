@@ -29,12 +29,26 @@ import {
 } from "@/app/(app)/wizard/actions/extract-seed"
 import type { SeedInput } from "@/lib/wizard-services/content-extractor.service"
 
+/**
+ * Shape local alinhado com `StoredSeed` do server. Inclui `id` (UUID gerado
+ * server-side) pra endereçamento estável — remove/edit usam seedId em vez
+ * de índice de array, evitando bugs off-by-one quando seeds são removidas
+ * em paralelo. Fallback: UUID client-side se o server não retornar id.
+ */
 type Seed = {
+  id: string
   type: SeedInput["type"]
   value: string
   briefing?: string
   metadata?: Record<string, unknown>
   extractedAt?: string
+}
+
+function genId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID()
+  }
+  return `seed-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
 const TAB_ORDER = ["link", "youtube", "keyword", "theme", "insight"] as const
@@ -87,7 +101,14 @@ export function SeedInputPanel({
         setError(r.error)
         return
       }
+      // Server retorna `id` no payload estendido; fallback pra UUID client
+      // se o server ainda não emitir a chave.
+      const returnedId =
+        "id" in r.data.seed && typeof r.data.seed.id === "string"
+          ? r.data.seed.id
+          : undefined
       const newSeed: Seed = {
+        id: returnedId ?? genId(),
         type: r.data.seed.type,
         value:
           "value" in r.data.seed ? r.data.seed.value : r.data.seed.url,
@@ -102,21 +123,21 @@ export function SeedInputPanel({
     })
   }
 
-  const handleRemove = (idx: number) => {
+  const handleRemove = (seedId: string) => {
     startTransition(async () => {
-      const r = await removeSeedAction(wizardId, idx)
+      const r = await removeSeedAction(wizardId, seedId)
       if (!r.success) {
         setError(r.error)
         return
       }
-      const next = seeds.filter((_, i) => i !== idx)
+      const next = seeds.filter((s) => s.id !== seedId)
       setSeeds(next)
       onSeedsChange?.(next)
     })
   }
 
-  const handleBriefingEdit = (idx: number, briefing: string) => {
-    const next = seeds.map((s, i) => (i === idx ? { ...s, briefing } : s))
+  const handleBriefingEdit = (seedId: string, briefing: string) => {
+    const next = seeds.map((s) => (s.id === seedId ? { ...s, briefing } : s))
     setSeeds(next)
     onSeedsChange?.(next)
   }
@@ -186,7 +207,7 @@ export function SeedInputPanel({
           </h4>
           {seeds.map((s, i) => (
             <div
-              key={`${s.type}-${i}-${s.extractedAt ?? ""}`}
+              key={s.id}
               className="rounded-lg border border-white/10 bg-white/[0.02] p-3 space-y-2"
             >
               <div className="flex items-center justify-between gap-2">
@@ -197,7 +218,7 @@ export function SeedInputPanel({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleRemove(i)}
+                  onClick={() => handleRemove(s.id)}
                   disabled={isPending}
                   aria-label={`Remover seed ${i + 1}`}
                 >
@@ -206,7 +227,7 @@ export function SeedInputPanel({
               </div>
               <Textarea
                 value={s.briefing ?? ""}
-                onChange={(e) => handleBriefingEdit(i, e.target.value)}
+                onChange={(e) => handleBriefingEdit(s.id, e.target.value)}
                 rows={6}
                 placeholder="Briefing extraído (editável)"
               />
