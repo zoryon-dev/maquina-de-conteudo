@@ -1,0 +1,23 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "ef2f2b0fad92",
+  "strategy": "manual-commit",
+  "branch": "feat/fase-1-rag-brand-auto-inject",
+  "checkpoints_count": 1,
+  "files_touched": null,
+  "sessions": [
+    {
+      "metadata": "/ef/2f2b0fad92/0/metadata.json",
+      "transcript": "/ef/2f2b0fad92/0/full.jsonl",
+      "content_hash": "/ef/2f2b0fad92/0/content_hash.txt",
+      "prompt": "/ef/2f2b0fad92/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 27432,
+    "cache_creation_tokens": 7484985,
+    "cache_read_tokens": 224103629,
+    "output_tokens": 661956,
+    "api_call_count": 529
+  }
+}
