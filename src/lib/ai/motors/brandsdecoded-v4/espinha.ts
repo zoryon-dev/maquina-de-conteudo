@@ -65,7 +65,13 @@ export async function runTriagem(input: TriagemInput): Promise<TriagemResult> {
 
   const model = input.model ?? DEFAULT_TEXT_MODEL
   const brandBlock = buildBrandContextBlock(input.brandPromptVariables, {
+    stage: "triagem",
     heading: "# CONTEXTO DE MARCA (injetar no tom, sem citar literalmente)",
+  })
+  console.log("[bd/triagem] brand-block", {
+    stage: "triagem",
+    varsKeys: Object.keys(input.brandPromptVariables ?? {}),
+    blockChars: brandBlock.length,
   })
   const brandBlockFormatted = brandBlock ? `\n${brandBlock}\n\n` : ""
 
@@ -148,7 +154,13 @@ export async function buildEspinhaDorsal(input: EspinhaInput): Promise<EspinhaDo
 
   const model = input.model ?? DEFAULT_TEXT_MODEL
   const brandBlock = buildBrandContextBlock(input.brandPromptVariables, {
+    stage: "espinha",
     heading: "# CONTEXTO DE MARCA (injetar no tom, sem citar literalmente)",
+  })
+  console.log("[bd/espinha] brand-block", {
+    stage: "espinha",
+    varsKeys: Object.keys(input.brandPromptVariables ?? {}),
+    blockChars: brandBlock.length,
   })
   const brandBlockFormatted = brandBlock ? `\n${brandBlock}\n\n` : ""
 

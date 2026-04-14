@@ -126,7 +126,13 @@ export async function generateHeadlinesForBD(
 
   const model = input.model ?? DEFAULT_TEXT_MODEL
   const brandBlock = buildBrandContextBlock(input.brandPromptVariables, {
+    stage: "headlines",
     heading: "# CONTEXTO DE MARCA (injetar no tom, sem citar literalmente)",
+  })
+  console.log("[bd/headlines] brand-block", {
+    stage: "headlines",
+    varsKeys: Object.keys(input.brandPromptVariables ?? {}),
+    blockChars: brandBlock.length,
   })
   const brandBlockFormatted = brandBlock ? `${brandBlock}\n\n` : ""
   const libraryBlock = buildHeadlineLibraryPromptBlock()

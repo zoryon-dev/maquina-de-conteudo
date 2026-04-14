@@ -266,8 +266,14 @@ function buildLegendaPrompt(
     .join("\n")
 
   const brandInjection = buildBrandContextBlock(brandVars, {
+    stage: "legenda",
     heading: "## MARCA — variáveis do briefing",
     fallback: "## MARCA — contexto não fornecido",
+  })
+  console.log("[bd/legenda] brand-block", {
+    stage: "legenda",
+    varsKeys: Object.keys(brandVars ?? {}),
+    blockChars: brandInjection.length,
   })
   const ctaHint =
     brandVars?.cta ||
