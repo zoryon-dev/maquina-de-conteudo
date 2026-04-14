@@ -144,6 +144,74 @@ describe("extractSeedAsBriefing", () => {
     if (r.success) return;
     expect(r.error).toMatch(/indisponível|não retornou/i);
   });
+
+  describe("min length validation (C4)", () => {
+    it("link com content vazio → success: false", async () => {
+      extractFromUrlMock.mockResolvedValue({
+        success: true,
+        data: {
+          sourceUrl: "https://x.com",
+          content: "",
+          metadata: {},
+        },
+      });
+      const r = await extractSeedAsBriefing({
+        type: "link",
+        url: "https://x.com",
+      });
+      expect(r.success).toBe(false);
+      if (r.success) return;
+      expect(r.error).toMatch(/curto|vazio|short|empty/i);
+    });
+
+    it("link com content muito curto (<50 chars) → success: false", async () => {
+      extractFromUrlMock.mockResolvedValue({
+        success: true,
+        data: {
+          sourceUrl: "https://x.com",
+          content: "tiny",
+          metadata: {},
+        },
+      });
+      const r = await extractSeedAsBriefing({
+        type: "link",
+        url: "https://x.com",
+      });
+      expect(r.success).toBe(false);
+    });
+
+    it("youtube com transcrição vazia → success: false", async () => {
+      transcribeYouTubeMock.mockResolvedValue({
+        success: true,
+        data: {
+          sourceUrl: "https://youtube.com/watch?v=abc",
+          transcription: "",
+          metadata: { title: "Vid" },
+        },
+      });
+      const r = await extractSeedAsBriefing({
+        type: "youtube",
+        url: "https://youtube.com/watch?v=abc",
+      });
+      expect(r.success).toBe(false);
+    });
+
+    it("keyword muito curto → success: false", async () => {
+      const r = await extractSeedAsBriefing({
+        type: "keyword",
+        value: "x",
+      });
+      expect(r.success).toBe(false);
+    });
+
+    it("theme muito curto → success: false", async () => {
+      const r = await extractSeedAsBriefing({
+        type: "theme",
+        value: "a",
+      });
+      expect(r.success).toBe(false);
+    });
+  });
 });
 
 describe("consolidateSeeds", () => {
