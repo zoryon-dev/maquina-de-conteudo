@@ -5,11 +5,14 @@
  *
  * Fluxo: usuário escolhe tipo (tabs) → digita URL/texto → clica "Extrair".
  * Extração é ação EXPLÍCITA (zero auto-call). YouTube pode levar 10-60s;
- * isPending (useTransition) mantém a UI bloqueada enquanto aguarda.
+ * `isExtracting` (useTransition dedicado) mantém o botão Extrair bloqueado
+ * enquanto aguarda; remoção tem transition separada + `removingId` pra
+ * spinner per-card (não bloqueia o restante da UI).
  *
  * Seeds já extraídas renderizam numa lista com briefing editável inline
- * (textarea) — edição não re-extrai nem persiste automaticamente; o
- * consumidor do componente cuida via `onSeedsChange`.
+ * (textarea). Edição é persistida no server via `updateSeedBriefingAction`
+ * com debounce de 1s — coalesceia digitação rápida e mostra indicador
+ * "salvando…" por card.
  *
  * Props:
  *  - wizardId: id do content_wizard que recebe os seeds persistidos.
@@ -121,7 +124,13 @@ export function SeedInputPanel({
   const [tab, setTab] = useState<SeedInput["type"]>("link")
   const [value, setValue] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  // Transitions separadas: extract e remove são ações independentes —
+  // compartilhar isPending bloqueava o botão de extrair enquanto uma
+  // remoção rodava, e vice-versa. Remove também ganha per-seed state
+  // (`removingId`) pra só desabilitar o card que está sendo removido.
+  const [isExtracting, startExtractTransition] = useTransition()
+  const [, startRemoveTransition] = useTransition()
+  const [removingId, setRemovingId] = useState<string | null>(null)
   // Set de seedIds com edit pendente de salvar (debounce enfileirado ou
   // request em flight) — alimenta o indicador "salvando…" por card.
   const [savingBriefings, setSavingBriefings] = useState<Set<string>>(
@@ -140,7 +149,7 @@ export function SeedInputPanel({
           ? { type: "youtube", url: trimmed }
           : { type: tab, value: trimmed }
 
-    startTransition(async () => {
+    startExtractTransition(async () => {
       try {
         const r = await extractSeedAction(wizardId, seed)
         if (!r.success) {
@@ -179,7 +188,8 @@ export function SeedInputPanel({
 
   const handleRemove = (seedId: string) => {
     setError(null)
-    startTransition(async () => {
+    setRemovingId(seedId)
+    startRemoveTransition(async () => {
       try {
         const r = await removeSeedAction(wizardId, seedId)
         if (!r.success) {
@@ -196,6 +206,8 @@ export function SeedInputPanel({
             : "Falha ao remover seed. Tente novamente."
         setError(msg)
         console.error("[seed-panel] remove failed:", err)
+      } finally {
+        setRemovingId(null)
       }
     })
   }
@@ -268,7 +280,7 @@ export function SeedInputPanel({
                 placeholder={placeholderFor(t)}
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
-                disabled={isPending}
+                disabled={isExtracting}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault()
@@ -278,9 +290,9 @@ export function SeedInputPanel({
               />
               <Button
                 onClick={handleExtract}
-                disabled={!value.trim() || isPending}
+                disabled={!value.trim() || isExtracting}
               >
-                {isPending ? (
+                {isExtracting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Plus className="h-4 w-4" />
@@ -325,10 +337,14 @@ export function SeedInputPanel({
                   variant="ghost"
                   size="sm"
                   onClick={() => handleRemove(s.id)}
-                  disabled={isPending}
+                  disabled={removingId === s.id}
                   aria-label={`Remover seed ${i + 1}`}
                 >
-                  <Trash2 className="h-4 w-4" />
+                  {removingId === s.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
               <Textarea
