@@ -122,6 +122,7 @@ export type {
 export {
   generateWizardRagContext,
   generateWizardRagContextFromSelection,
+  generateWizardRagContextWithBrand,
   isWizardRagAvailable,
   getWizardRagStats,
   formatRagForPrompt,

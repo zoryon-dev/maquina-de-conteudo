@@ -25,11 +25,13 @@ import type { DocumentEmbeddingPayload, WizardNarrativesPayload, WizardGeneratio
 import type { WizardProcessingProgress } from "@/db/schema";
 
 // Wizard services - background job processing
+import { resolveBrandIdForUser } from "@/lib/brands/queries";
 import {
   generateNarratives,
   generateContent,
   generateContentBrandsDecoded,
   generateWizardRagContext,
+  generateWizardRagContextWithBrand,
   formatRagForPrompt,
   formatRagSourcesForMetadata,
   extractFromUrl,
@@ -1033,31 +1035,39 @@ const jobHandlers: Record<string, (payload: unknown) => Promise<unknown>> = {
       throw new Error(`Narrative ${selectedNarrativeId} not found`);
     }
 
-    // 2. Generate RAG context if configured
+    // 2. RAG injection: brand auto-inject sempre on (controlado por flag
+    // RAG_BRAND_AUTO_INJECT internamente), user RAG controlado por ragConfig.
     let ragContextForPrompt: string | undefined;
-    // Check if RAG should be used: auto mode OR has explicit documents/collections selected
-    const shouldUseRag = ragConfig && (
-      ragConfig.mode === "auto" ||
-      ragConfig.mode === undefined ||
-      (ragConfig.documents && ragConfig.documents.length > 0) ||
-      (ragConfig.collections && ragConfig.collections.length > 0)
+    const brandId = await resolveBrandIdForUser(userId);
+
+    await updateWizardProgress(wizardId, {
+      processingProgress: {
+        stage: "generation",
+        percent: 30,
+        message: "Buscando contexto (marca + documentos)...",
+      },
+    });
+
+    const ragQuery = `Context for ${contentType} generation: ${wizard.theme || wizard.objective || "general content"}`;
+    const ragResult = await generateWizardRagContextWithBrand(
+      userId,
+      ragQuery,
+      ragConfig ?? {},
+      brandId
     );
 
-    if (shouldUseRag) {
-      await updateWizardProgress(wizardId, {
-        processingProgress: {
-          stage: "generation",
-          percent: 30,
-          message: "Buscando contexto na base de conhecimento...",
-        },
-      });
-
-      const ragQuery = `Context for ${contentType} generation: ${wizard.theme || wizard.objective || "general content"}`;
-      const ragResult = await generateWizardRagContext(userId, ragQuery, ragConfig);
-
-      if (ragResult.success && ragResult.data) {
-        ragContextForPrompt = formatRagForPrompt(ragResult.data);
-      }
+    if (ragResult.success && ragResult.data) {
+      ragContextForPrompt = formatRagForPrompt(ragResult.data);
+      console.log(
+        "[rag] brand auto-inject:",
+        JSON.stringify({
+          wizardId,
+          brandId,
+          chunksIncluded: ragResult.data.chunksIncluded,
+          tokensUsed: ragResult.data.tokensUsed,
+          sources: ragResult.data.sources.map((s) => s.title).slice(0, 5),
+        })
+      );
     }
 
     // 3. Generate content using AI
