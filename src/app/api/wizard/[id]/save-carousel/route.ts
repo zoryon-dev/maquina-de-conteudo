@@ -150,8 +150,16 @@ export async function POST(
       imageUrls = renderResult.imageUrls;
 
       if (renderResult.errors.length > 0) {
-        console.warn(
-          `[SaveCarousel] ${renderResult.errors.length}/${slides.length} slides failed to render`
+        // `renderAndUploadAllSlides` filtra empty strings antes de retornar,
+        // então `imageUrls` perde o 1-to-1 com os slides originais. Logamos
+        // explicitamente os índices que falharam pra que debug não dependa
+        // de adivinhar quais slides sumiram do carousel salvo.
+        const failedIndices = renderResult.errors
+          .map((e) => e.slideIndex ?? "?")
+          .join(",");
+        console.error(
+          `[SaveCarousel] ${renderResult.errors.length}/${slides.length} slides failed. Indices: [${failedIndices}]`,
+          { errors: renderResult.errors }
         );
       }
     }
