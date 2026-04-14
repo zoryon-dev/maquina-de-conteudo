@@ -1,0 +1,791 @@
+<task-notification>
+<task-id>a7e4150234332deb9</task-id>
+<tool-use-id>toolu_01RtezNpZPoz86pjKf8tmT8m</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/9979560f-63a5-4943-854c-9a4b3b61fcce/tasks/a7e4150234332deb9.output</output-file>
+<status>completed</status>
+<summary>Agent "PR #20 comment analysis" completed</summary>
+<result>**Summary**
+
+Five files reviewed across two implementation files, one UI component, and two test suites. No "Fase X" tags found. Comment density is low overall, which is appropriate for straightforward code. Three issues warrant attention.
+
+---
+
+**Critical Issues**
+
+None. No factually incorrect comments were found.
+
+---
+
+**Improvement Opportunities**
+
+**1. File-level docblock: seed type `"keyword"` and `"insight"` documented but never constructed**
+
+- Location: `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/lib/wizard/create-wizard.ts`, lines 1-12 and 24-31
+- Current state: The opening docblock lists three seed resolution cases (youtube, link, theme). The `Seed` type definition on line 26 includes `"keyword"` and `"insight"` as valid type values. Neither `"keyword"` nor `"insight"` is ever assigned in the factory. The docblock is accurate for the three cases the factory actually handles, but the `Seed` type silently advertises two paths that do not exist in this file.
+- Suggestion: Either narrow the `Seed` type to `"link" | "youtube" | "theme"` to match what `createWizardFromTheme` actually produces, or add a clarifying comment next to the unused variants noting they are reserved for future callers that construct seeds externally. As written, a future maintainer reading the type will reasonably expect the factory to produce all five variants.
+
+**2. Inline comment `// Get more results to have 10 per platform` is a fragile assumption**
+
+- Location: `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/app/(app)/discover/components/discover-page.tsx`, line 326
+- Current state: `maxResults: 30, // Get more results to have 10 per platform`
+- The comment embeds a business assumption (30 / 3 platforms = 10 each) that is not enforced anywhere in this file. The actual per-platform split depends entirely on the `/api/discovery` backend. If the backend changes its distribution logic or a fourth platform is added, the comment becomes wrong without any local signal. The value `30` is also the only place this assumption lives, making it easy to miss when modifying platform count.
+- Suggestion: Remove the comment. The number 30 is readable; the platform math is an upstream concern. If the ratio matters, document it in the API route, not the client.
+
+**3. Test comment `// DB MOCK (exact pattern from plan)` references an external artifact**
+
+- Location: `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/lib/wizard/__tests__/create-wizard.test.ts`, line 4
+- Current state: `// DB MOCK (exact pattern from plan)`
+- "The plan" has no meaning to someone reading this test file six months from now. It implies the mock was mandated by an external spec or implementation plan document, but provides no way to locate that document.
+- Suggestion: Replace with a comment that explains why this mock is structured as it is, e.g., `// Mirrors the chained Drizzle query builder API: insert().values().returning()` — or simply remove it, since the mock structure is self-evident from the code.
+
+---
+
+**Recommended Removals**
+
+**1. Section dividers (`// ============================================================================`)**
+
+- Location: Both `create-wizard.ts` (lines 18-20, 35-37) and `create-wizard.test.ts` (lines 3-5, 31-33, 52-54)
+- Rationale: These decorative banners add visual noise without conveying information. The sections they label (`TYPES`, `FACTORY`, `HELPERS`, `TESTS`) are obvious from the code and TypeScript constructs. In a file of ~120 lines this is especially unnecessary. The same banners in the test file separate three groups that total ~70 lines of substantive code.
+
+**2. `// Fetch theme` (line 43, `create-wizard.ts`)**
+
+- Rationale: The following three lines perform an unambiguous database select on the `themes` table. The comment restates the code exactly without adding context about why a fresh fetch is needed rather than accepting the theme object as a parameter. Remove it.
+
+**3. `// brandsdecoded_v4 — build seed` (line 74, `create-wizard.ts`)**
+
+- Rationale: The comment appears immediately after the `if (motor === "tribal_v4")` block closes and before the seed construction begins. The reader already knows this code path is `brandsdecoded_v4` from the control flow. The comment restates structure, not intent. Remove it.
+
+**4. Inline section comments in `discover-page.tsx` inside JSX (`{/* Header */}`, `{/* Actions */}`, `{/* Context/Snippet */}`, etc.)**
+
+- Location: Lines 57, 86, 123, 130, 153, 160, 254, 449, 460, 518, 545
+- Rationale: These are structural labels for JSX blocks whose content makes them self-evident. `{/* Header */}` before an `&lt;h3&gt;` and two `&lt;div&gt;` labels is not non-obvious logic. They were likely scaffolding comments during development. At this point they pad the file without aiding future maintainers. The only marginal exception is `{/* Platform badges */}` (line 254), which names a visually distinct sub-section — even that is borderline given the surrounding content.
+
+---
+
+**Positive Findings**
+
+**1. `handleCreateWizard` inline step comments (`// Step 1: Save theme`, `// Step 2: Create wizard from theme with selected motor`)**
+
+- Location: `discover-page.tsx`, lines 390 and 416
+- These are the best comments in the PR. The two-step sequence is a non-obvious architectural decision (the component must persist the theme before it can create a wizard, since the wizard API requires a theme ID). The step labels correctly describe *why* two sequential fetches exist, which is exactly what a future maintainer needs to understand before considering any refactor.
+
+**2. `/* optional body */` catch comment in `route.ts` (line 17)**
+
+- Location: `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/app/api/themes/[id]/wizard/route.ts`, line 17
+- A silent `catch` block is the most common source of confusion in JS/TS code. The comment correctly explains that the empty catch is intentional — request body is optional and a parse failure is a valid no-body case. Concise and accurate.</result>
+<usage><total_tokens>34149</total_tokens><tool_uses>5</tool_uses><duration_ms>43058</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>ab89e58360e3ad58c</task-id>
+<tool-use-id>toolu_01LMTHQA1NLeAUcvd5Rcdqpo</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/9979560f-63a5-4943-854c-9a4b3b61fcce/tasks/ab89e58360e3ad58c.output</output-file>
+<status>completed</status>
+<summary>Agent "Fase 7 polimento BD implementation" completed</summary>
+<result>I need permission to use the Read and Bash tools to complete this task. Currently both `Bash` and `Read` are blocked, which are essential for:
+
+1. **Reading** the source files to understand the current code structure (required before making any edits per the task rules)
+2. **Running** the test suite after changes
+3. **Running** the typecheck
+4. **Running** git commits and the final `git push`
+5. **Creating** the PR via `gh`
+
+Without `Read` and `Bash`, I cannot safely edit any files (the task explicitly requires "Read before editing — never edit blindly"), run tests, or push changes.
+
+Could you please grant permission for:
+- **Read** — to read source files before editing
+- **Bash** — to run git commands, tests, typecheck, and `gh pr create`
+
+These are both essential for implementing the three tasks described (Task 46, 47, 48) correctly and safely.</result>
+<usage><total_tokens>24687</total_tokens><tool_uses>6</tool_uses><duration_ms>20501</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>abd163d28136204fe</task-id>
+<tool-use-id>toolu_01Br5P44WteA9FevgxvnGJ1J</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/9979560f-63a5-4943-854c-9a4b3b61fcce/tasks/abd163d28136204fe.output</output-file>
+<status>completed</status>
+<summary>Agent "PR #20 silent failure hunt" completed</summary>
+<result>Now I have a complete picture. Here is the full audit.
+
+---
+
+## Error Handling Audit: PR #20 — feat/fase-6-discover-dual-button
+
+---
+
+### FINDING 1 — CRITICAL: Empty catch block swallows body parse errors without logging
+
+**Location:** `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/app/api/themes/[id]/wizard/route.ts` line 17
+
+**Code:**
+```typescript
+try { body = await request.json() } catch { /* optional body */ }
+```
+
+**Issue:** The catch block is completely empty with only a comment. This is explicitly forbidden by the project's own rules ("Empty catch blocks are never acceptable"). While the intent is to treat the body as optional, the current implementation will silently swallow any error — including errors completely unrelated to an empty body, such as a `SyntaxError` caused by malformed JSON sent by the client (e.g., `{"motor": tribal_v4}` — missing quotes). The caller then silently falls through to the default motor `"tribal_v4"` with zero indication that their request body was ignored.
+
+**Hidden errors this catch block suppresses:**
+- `SyntaxError` from malformed JSON (client bug that should be surfaced as a 400)
+- `TypeError` from a network stream read failure
+- Any future error thrown inside `request.json()` due to middleware or platform behavior
+
+**User impact:** A client sending `motor: "brandsdecoded_v4"` with a malformed JSON body will get a Tribal wizard instead of a BrandsDecoded wizard, with no error returned. The user ends up in the wrong wizard and has no idea why.
+
+**Recommendation:** At minimum, log the body parse failure and, for malformed JSON (`SyntaxError`), return a 400 instead of falling back silently. For a missing body, allow the fallback, but make it explicit.
+
+```typescript
+let body: { motor?: Motor } = {}
+try {
+  body = await request.json()
+} catch (err) {
+  if (err instanceof SyntaxError) {
+    return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 })
+  }
+  // Body is optional — absence is allowed, but log unexpected parse failures
+  console.warn("[wizard/route] Could not parse request body, using defaults:", err)
+}
+```
+
+---
+
+### FINDING 2 — CRITICAL: Raw internal error message leaked to the client
+
+**Location:** `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/app/api/themes/[id]/wizard/route.ts` lines 27–30
+
+**Code:**
+```typescript
+} catch (err) {
+  const msg = err instanceof Error ? err.message : String(err)
+  return NextResponse.json({ error: msg }, { status: 500 })
+}
+```
+
+**Issue:** The outer catch leaks the raw `err.message` string directly into the HTTP response body. `createWizardFromTheme` performs database operations — if Drizzle, Neon, or the PostgreSQL driver throws, the message could contain:
+- SQL query fragments
+- Table or column names
+- Connection strings or DSN components
+- Internal schema details (e.g., `duplicate key value violates unique constraint "content_wizards_pkey"`)
+
+These are internal implementation details that expose the database schema to any client making the request. This violates security best practices and makes the API inconsistent with the project's own `AppError`/`toAppError` pattern defined in `src/lib/errors.ts`.
+
+Additionally, there is no `console.error` call, so server-side logs will have no record of this failure. A 500 error that is not logged is impossible to diagnose.
+
+**Recommendation:** Use the project's established `toAppError` helper, log the full error server-side, and return a sanitized, generic message for unexpected errors. The `theme not found` case (a predictable `Error` thrown by `createWizardFromTheme`) should be mapped to a 404 specifically.
+
+```typescript
+import { toAppError, isAppError, NotFoundError } from "@/lib/errors"
+
+} catch (err) {
+  const appError = toAppError(err, "WIZARD_CREATE_FAILED")
+  console.error("[wizard/route] Failed to create wizard for theme", themeId, appError)
+
+  if (appError.message.includes("not found") || appError instanceof NotFoundError) {
+    return NextResponse.json({ error: `Theme ${themeId} not found` }, { status: 404 })
+  }
+
+  // Never expose internal error details to the client
+  return NextResponse.json(
+    { error: "Failed to create wizard. Please try again." },
+    { status: appError.statusCode ?? 500 }
+  )
+}
+```
+
+The ideal fix is to have `createWizardFromTheme` throw a `NotFoundError` from `src/lib/errors.ts` instead of a generic `new Error(...)` on line 51 of `create-wizard.ts`, which would allow the route to identify the error class precisely rather than doing string matching.
+
+---
+
+### FINDING 3 — HIGH: `create-wizard.ts` throws a plain `Error` instead of a typed `NotFoundError`
+
+**Location:** `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/lib/wizard/create-wizard.ts` line 51
+
+**Code:**
+```typescript
+if (!theme) {
+  throw new Error(`Theme ${themeId} not found`)
+}
+```
+
+**Issue:** The project already has a purpose-built `NotFoundError` class in `src/lib/errors.ts` with a 404 status code and structured fields. Throwing a generic `Error` here forces every caller to do string matching on `.message` to distinguish "not found" from a database connection failure — exactly the antipattern the project's error hierarchy was designed to eliminate.
+
+The route handler at `route.ts` catches `err instanceof Error` and uses the message string, meaning a DB connection failure that says "connection refused" and a legitimate "not found" are handled identically at the HTTP layer — both return status 500 with the raw message leaked.
+
+**Recommendation:**
+```typescript
+import { NotFoundError } from "@/lib/errors"
+
+if (!theme) {
+  throw new NotFoundError("Theme", String(themeId))
+}
+```
+
+---
+
+### FINDING 4 — HIGH: `create-wizard.ts` — DB insert result is used without a null guard (tribal_v4 path)
+
+**Location:** `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/lib/wizard/create-wizard.ts` line 71
+
+**Code:**
+```typescript
+const [row] = await db
+  .insert(contentWizards)
+  .values({ ... })
+  .returning({ id: contentWizards.id })
+
+return { wizardId: row.id, redirectPath: `/wizard/${row.id}` }
+```
+
+**Issue:** If the Drizzle `insert().returning()` call completes but returns an empty array (which can happen under certain database conditions — e.g., a trigger that suppresses the insert, a constraint violation that Drizzle surfaces as an empty result instead of an exception, or a Neon serverless edge case), `row` will be `undefined`. Accessing `row.id` will then throw a `TypeError: Cannot read properties of undefined (reading 'id')` at runtime. This same pattern appears on the `brandsdecoded_v4` path at line 104–114.
+
+**User impact:** The error would propagate up to the route's catch block and return a 500 with the raw TypeError message leaked to the client (per Finding 2).
+
+**Recommendation:** Guard both insert results:
+```typescript
+const [row] = await db.insert(contentWizards).values({ ... }).returning({ id: contentWizards.id })
+
+if (!row?.id) {
+  throw new JobError("Failed to create wizard record — insert returned no ID")
+}
+
+return { wizardId: row.id, redirectPath: `/wizard/${row.id}` }
+```
+
+---
+
+### FINDING 5 — HIGH: `handleSearch` in `discover-page.tsx` — network failure gives a generic error toast with no logging and no detail
+
+**Location:** `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/app/(app)/discover/components/discover-page.tsx` lines 348–350
+
+**Code:**
+```typescript
+} catch (error) {
+  toast.error("Erro ao buscar temas")
+}
+```
+
+**Issue:** When a `fetch` call fails (network offline, timeout, CORS, DNS failure), or when the `response.ok` check throws, the catch block calls a generic toast with no detail and no console logging. There is no server context attached (which keyword was searched, which platforms were selected). The `error` object is completely discarded — developers will have no way to diagnose whether this was a network failure, an API key error, a timeout, or something else.
+
+Additionally, `setResults` is never called in the error path, but `hasSearched` was already set to `true` before the try block (line 316). After a network failure, the UI will show the "Nenhum tema encontrado" empty state rather than an error state, making it look like the search succeeded but found nothing. This is a misleading silent failure from the user's perspective.
+
+**Recommendation:**
+```typescript
+} catch (error) {
+  console.error("[DiscoverPage] Search failed for keyword:", keyword, "platforms:", platforms, error)
+  toast.error(
+    error instanceof Error &amp;&amp; error.message !== "Failed to fetch"
+      ? `Erro ao buscar temas: ${error.message}`
+      : "Erro de conexão. Verifique sua internet e tente novamente."
+  )
+  // Reset results so the UI doesn't show "0 results" after a network failure
+  setResults([])
+}
+```
+
+---
+
+### FINDING 6 — HIGH: `handleSave` in `discover-page.tsx` — error discarded, no logging, error object ignored
+
+**Location:** `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/app/(app)/discover/components/discover-page.tsx` lines 378–381
+
+**Code:**
+```typescript
+} catch (error) {
+  toast.error("Erro ao salvar tema")
+}
+```
+
+**Issue:** Identical problem to Finding 5. The `error` object is silently discarded with no `console.error`. If saving fails due to an auth error, a network error, or a DB constraint, there is no way for a developer to know this happened or why. The toast message "Erro ao salvar tema" is maximally generic.
+
+**Recommendation:**
+```typescript
+} catch (error) {
+  console.error("[DiscoverPage] Failed to save topic:", topic.title, error)
+  toast.error(
+    error instanceof Error
+      ? `Erro ao salvar tema: ${error.message}`
+      : "Erro ao salvar tema. Tente novamente."
+  )
+}
+```
+
+---
+
+### FINDING 7 — HIGH: `handleCreateWizard` — no loading state, no double-click protection
+
+**Location:** `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/app/(app)/discover/components/discover-page.tsx` lines 385–438
+
+**Issue:** `handleCreateWizard` is an async two-step operation (save theme, then create wizard) that can take several seconds. There is no `isCreatingWizard` state and no visual feedback to the user that work is in progress. The Wizard button in `TopicCard` is a `DropdownMenuItem` — it has no disabled state and is not connected to any loading state.
+
+Consequences:
+- A user can click the Wizard button multiple times rapidly, triggering the two-step sequence multiple times in parallel. Each parallel call will create a duplicate theme record in the database and then a duplicate wizard record.
+- The user sees no indication the button was registered, likely interpreting the lack of feedback as a failure and clicking again.
+- After the `toast.success("Wizard criado! Redirecionando...")` fires, there is a `setTimeout(() =&gt; router.push(...), 500)` — during that 500ms, the button remains fully clickable and can spawn another navigation.
+
+**Recommendation:** Add a per-card or page-level `isCreatingWizard` state, pass it down to `TopicCard`, and disable the `DropdownMenu` trigger while the operation is in flight:
+
+```typescript
+const [creatingWizardForTopic, setCreatingWizardForTopic] = useState&lt;string | null&gt;(null)
+
+const handleCreateWizard = async (topic: TrendingTopicWithBriefing, motor: "tribal_v4" | "brandsdecoded_v4") =&gt; {
+  const key = `${topic.id}-${motor}`
+  if (creatingWizardForTopic) return // prevent double-click across any topic
+  setCreatingWizardForTopic(key)
+  try {
+    // ... existing logic
+  } finally {
+    setCreatingWizardForTopic(null)
+  }
+}
+```
+
+Pass `isCreating={creatingWizardForTopic !== null}` to `TopicCard` and add `disabled={isCreating}` to the `DropdownMenuTrigger`.
+
+---
+
+### FINDING 8 — MEDIUM: `handleSearch` — non-`ok` response throws `"Failed to fetch"` instead of surfacing the actual server error
+
+**Location:** `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/app/(app)/discover/components/discover-page.tsx` lines 330–332
+
+**Code:**
+```typescript
+if (!response.ok) {
+  throw new Error("Failed to fetch")
+}
+```
+
+**Issue:** The server may return a structured JSON error body (e.g., `{ error: "API key not configured" }`) or a meaningful status code (401, 429, 503), but this code throws away all of that information. Users and developers get "Erro ao buscar temas" regardless of whether the discovery API is rate-limited, misconfigured, or entirely down. Compare this to `handleCreateWizard` at lines 409–411 and 423–425, which correctly reads `await saveResponse.text()` and includes status codes in the thrown error — the same pattern should be used here.
+
+**Recommendation:**
+```typescript
+if (!response.ok) {
+  const errorText = await response.text().catch(() =&gt; "")
+  throw new Error(`Discovery API error (${response.status}): ${errorText || response.statusText}`)
+}
+```
+
+---
+
+### FINDING 9 — MEDIUM: `handleCreateWizard` — error toast can expose raw server error messages, including DB internals
+
+**Location:** `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/app/(app)/discover/components/discover-page.tsx` lines 435–437
+
+**Code:**
+```typescript
+} catch (error) {
+  toast.error(error instanceof Error ? error.message : "Erro ao criar Wizard")
+}
+```
+
+**Issue:** This catches errors thrown at lines 411 and 425, which include `await saveResponse.text()` and `await wizardResponse.text()` in the message. Per Finding 2, `route.ts` leaks raw DB error messages into the HTTP response body. The chain is therefore: DB error → route.ts response body → `errorText` → thrown Error → toast displayed to user. A real PostgreSQL error message, table name, or constraint violation can appear in a user-facing toast.
+
+**User impact:** Internal schema details are visible to the end user in the toast notification.
+
+**Recommendation:** Sanitize error messages before displaying them in toasts. Only propagate messages from errors you control. For HTTP errors from internal APIs, show a generic user-facing message and log the detailed message to console:
+
+```typescript
+} catch (error) {
+  console.error("[DiscoverPage] Failed to create wizard:", error)
+  const userMessage = error instanceof Error &amp;&amp; !error.message.includes("Failed to")
+    ? error.message
+    : "Erro ao criar Wizard. Tente novamente."
+  toast.error(userMessage)
+}
+```
+
+The root fix is Finding 2 — once `route.ts` stops leaking DB messages, this chain collapses.
+
+---
+
+### FINDING 10 — MEDIUM: `handleCreateWizard` — `new URL(url).hostname` in `TopicCard` throws on invalid URLs with no protection
+
+**Location:** `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/app/(app)/discover/components/discover-page.tsx` lines 143–148
+
+**Code:**
+```typescript
+{topic.source.rawData.allCitations.slice(0, 5).map((url: string, i: number) =&gt; (
+  &lt;a key={i} href={url} ...&gt;
+    &lt;ExternalLink className="size-3" /&gt;
+    {new URL(url).hostname.replace('www.', '')}
+  &lt;/a&gt;
+))}
+```
+
+**Issue:** `new URL(url)` throws a `TypeError` if `url` is not a valid absolute URL (e.g., a relative path, a malformed URL from the Perplexity API, or an empty string from the discovery pipeline). This is a render-time synchronous throw inside a React `map()` with no error boundary wrapping `TopicCard`. The entire `DiscoverPage` will unmount and show a blank screen (or React's default error overlay in dev mode). There is no catch block, no fallback rendering, and no user feedback.
+
+**Recommendation:** Wrap the URL parsing safely:
+```typescript
+{topic.source.rawData.allCitations.slice(0, 5).map((url: string, i: number) =&gt; {
+  let hostname = url
+  try { hostname = new URL(url).hostname.replace('www.', '') } catch { /* keep raw url */ }
+  return (
+    &lt;a key={i} href={url} target="_blank" rel="noopener noreferrer" ...&gt;
+      &lt;ExternalLink className="size-3" /&gt;
+      {hostname}
+    &lt;/a&gt;
+  )
+})}
+```
+
+An error boundary wrapping `TopicCard` would also prevent a single bad URL from crashing the entire page.
+
+---
+
+## Summary Table
+
+| # | File | Line(s) | Severity | Issue |
+|---|------|---------|----------|-------|
+| 1 | `route.ts` | 17 | CRITICAL | Empty `catch {}` block — forbidden by project rules, swallows malformed JSON as a silent fallback to wrong motor |
+| 2 | `route.ts` | 27–30 | CRITICAL | Raw DB/internal error message leaked to HTTP client; no `console.error` on server side |
+| 3 | `create-wizard.ts` | 51 | HIGH | Plain `Error` thrown instead of `NotFoundError` — breaks route's ability to return a 404 |
+| 4 | `create-wizard.ts` | 71, 104–114 | HIGH | DB insert result used with no null guard — `row` can be `undefined`, causing unhandled `TypeError` |
+| 5 | `discover-page.tsx` | 348–350 | HIGH | `handleSearch` catch discards `error` object, no logging, misleading empty-state UI after network failure |
+| 6 | `discover-page.tsx` | 378–381 | HIGH | `handleSave` catch discards `error` object entirely, no logging |
+| 7 | `discover-page.tsx` | 385–438 | HIGH | No loading/in-flight state on `handleCreateWizard` — button is infinitely clickable, creates duplicate DB records |
+| 8 | `discover-page.tsx` | 330–332 | MEDIUM | Non-ok response throws hardcoded `"Failed to fetch"`, discarding actual server error status and body |
+| 9 | `discover-page.tsx` | 435–437 | MEDIUM | Error toast can display raw DB error strings via message chain from `route.ts` response body |
+| 10 | `discover-page.tsx` | 143–148 | MEDIUM | Unguarded `new URL(url)` inside render map — throws synchronously and can crash the entire page |
+
+The two most urgent fixes before merge are **Finding 1** (the empty catch block, which is an absolute project rule violation) and **Finding 2** (the DB error message leak to the client). Both are in `route.ts` and together represent a complete absence of the project's established `toAppError`/`AppError` pattern in this new route.</result>
+<usage><total_tokens>35454</total_tokens><tool_uses>6</tool_uses><duration_ms>104241</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>ae0a816d1a809104a</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/9979560f-63a5-4943-854c-9a4b3b61fcce/tasks/ae0a816d1a809104a.output</output-file>
+<status>completed</status>
+<summary>Agent "PR #20 code review — general quality" completed</summary>
+<result>I have a clear picture now. Let me compile the review. First, let me also check how the `discovery` page's `handleSave` + `handleCreateWizard` perform the save — they do it twice (once in handleSave, once inside handleCreateWizard save step), and the theme created in handleCreateWizard lacks a dedup mechanism. Let me verify a potentially subtle issue: the test's `dbInsertMock` is called inside `returning()` rather than `values()` — meaning the mock captures the value passed to `values()` correctly. Confirmed: `values: (v) =&gt; ({ returning: async () =&gt; { dbInsertMock(v); ... } })` — the value `v` from `values(v)` is captured before the returning is called. Good.
+
+Now let me compile the review findings.
+
+---
+
+## Code Review: PR #20 (feat/fase-6-discover-dual-button)
+
+### Files reviewed
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/lib/wizard/create-wizard.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/lib/wizard/__tests__/create-wizard.test.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/app/api/themes/[id]/wizard/route.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/app/api/themes/__tests__/wizard-route.test.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/app/(app)/discover/components/discover-page.tsx`
+
+Also cross-checked against:
+- `src/stores/bd-wizard-store.ts` (Seed type)
+- `src/lib/wizard-services/content-extractor.service.ts` (SeedType / StoredSeed)
+- `src/app/(app)/wizard/actions/extract-seed.ts` (reference pattern for seed generation)
+- `src/db/schema.ts` (contentWizards, themes)
+- `src/lib/features.ts` (isFeatureEnabled)
+
+---
+
+## Critical (90-100)
+
+### 1. IDOR / Missing theme-ownership check in `createWizardFromTheme`
+**File:** `src/lib/wizard/create-wizard.ts:44-52`
+**Confidence:** 95
+
+The factory receives `userId` (good) but only uses it to *write* the new `contentWizards` row. The SELECT on `themes` has no `userId` filter:
+
+```ts
+const [theme] = await db.select().from(themes).where(eq(themes.id, themeId)).limit(1)
+```
+
+This lets an authenticated user (user A) pass `themeId = &lt;theme of user B&gt;` and produce a `contentWizards` row under A’s id that embeds B’s `title`, `context`, and `sourceUrl`. The route delegates the authorization decision to the factory, which never enforces it. Other places in the codebase (e.g. `src/app/(app)/wizard/actions/extract-seed.ts:101-103`, `src/lib/auth/ensure-user.ts`) already follow a defense-in-depth ownership pattern (`and(eq(x.id, id), eq(x.userId, userId))`) and the `themes` table has `userId` (`src/db/schema.ts:1361-1363`), so the fix is trivial:
+
+```ts
+.where(and(eq(themes.id, themeId), eq(themes.userId, userId)))
+```
+
+This is the same defense-in-depth pattern already used in `extract-seed.ts`. Fix recommended before merge.
+
+---
+
+## Important (80-89)
+
+### 2. Theme-not-found returns HTTP 500 instead of 404
+**File:** `src/app/api/themes/[id]/wizard/route.ts:27-30` (+ `src/lib/wizard/create-wizard.ts:50-51`)
+**Confidence:** 85
+
+CLAUDE.md explicitly states: "O projeto usa uma hierarquia de erros específicos em vez de catch-all genéricos" and lists `NotFoundError (404)`. The factory throws a generic `Error`, and the route catches everything with `status: 500`. A missing theme should be a 404, not a 500; an invalid-motor-but-business-error should be 400/404 depending on cause.
+
+Fix: throw typed errors from the factory and map them with `toAppError` / `isAppError` + `appError.statusCode` in the route, matching the project pattern in `src/lib/errors.ts`.
+
+```ts
+// create-wizard.ts
+import { NotFoundError } from "@/lib/errors"
+if (!theme) throw new NotFoundError(`Theme ${themeId} not found`, "THEME_NOT_FOUND")
+
+// route.ts
+catch (err) {
+  const appError = toAppError(err, "WIZARD_CREATE_FAILED")
+  console.error("[themes/wizard] Error:", appError)
+  return NextResponse.json({ error: getErrorMessage(appError) }, { status: appError.statusCode })
+}
+```
+
+### 3. Error.message leaked to client in the 500 branch
+**File:** `src/app/api/themes/[id]/wizard/route.ts:28-30`
+**Confidence:** 82
+
+```ts
+const msg = err instanceof Error ? err.message : String(err)
+return NextResponse.json({ error: msg }, { status: 500 })
+```
+
+Returning raw error messages from an unknown catch to the client can leak DB/Drizzle internals (SQL fragments, column names, etc.), and there is *no* `console.error` on this path either — so the server loses the stack trace that would help diagnose. The other route handlers in this repo (`src/app/api/themes/route.ts:88-93`) log the error but return a generic `"Failed to create theme"` string. Either log + generic message, or use `toAppError`/`getErrorMessage` which is the sanctioned pattern per CLAUDE.md.
+
+### 4. Discover page double-creates a `theme` row on every Wizard click
+**File:** `src/app/(app)/discover/components/discover-page.tsx:385-438`
+**Confidence:** 88
+
+`handleCreateWizard` always issues `POST /api/themes` first, then `POST /api/themes/:id/wizard`. Every time the user clicks "Tribal v4" (or BD), a brand-new `themes` row is inserted — clicking the Wizard dropdown on the same card twice creates *two* duplicate themes in the DB, each bound to a fresh wizard. There is no dedup (no `sourceUrl`/`title` check) and `handleSave` already has its own "Salvar" button for explicit persistence. This produces silent data duplication in production and inflates `themes` drastically for heavy users.
+
+Minimal fix options:
+- Guard with a local `useState&lt;Map&lt;topicId, themeId&gt;&gt;` so the second click reuses the already-persisted theme.
+- Or make the API endpoint idempotent on `(userId, sourceType, sourceUrl, title)`.
+- Or `await Promise.all([...])` + a dedup key passed to the theme POST.
+
+### 5. Motor validation is a runtime `string[].includes` but the type is `Motor`
+**File:** `src/app/api/themes/[id]/wizard/route.ts:16-22`
+**Confidence:** 80
+
+```ts
+let body: { motor?: Motor } = {}
+try { body = await request.json() } catch { /* optional body */ }
+const motor: Motor = body.motor ?? "tribal_v4"
+if (!["tribal_v4", "brandsdecoded_v4"].includes(motor)) {
+  return NextResponse.json({ error: "invalid motor" }, { status: 400 })
+}
+```
+
+Two issues here:
+1. The TS type annotation `let body: { motor?: Motor } = {}` is a lie — the body is untrusted JSON from the network; the cast gives a false sense of safety and also forces the `includes` call to narrow an already-narrowed type (TS will warn if `noUncheckedIndexedAccess`/strict narrowing is on, since `Motor` is already `"tribal_v4" | "brandsdecoded_v4"`, making `includes` tautological from the TS perspective).
+2. No Zod validation at the boundary, unlike every other action (`src/app/(app)/wizard/actions/extract-seed.ts:82-90`). Use `z.object({ motor: z.enum(["tribal_v4","brandsdecoded_v4"]).optional() }).safeParse(body)` to stay consistent with the repo's validation pattern.
+
+### 6. BD feature flag not enforced at the API route — UI-only gate
+**File:** `src/app/api/themes/[id]/wizard/route.ts:19-22`
+**Confidence:** 82
+
+`discover-page.tsx:279` gates the BD dropdown item with `bdEnabled`, and `src/app/(app)/wizard/brandsdecoded/[id]/page.tsx:16` has a server-side `if (!isFeatureEnabled("NEXT_PUBLIC_FEATURE_BD_WIZARD_V1")) { ... }` guard. But the new creation route itself does not consult the flag — anyone who can call `POST /api/themes/:id/wizard` with `{"motor":"brandsdecoded_v4"}` (curl, Postman, or an older browser session where the flag was toggled off mid-release) will create a BD wizard row without the flag being enabled. Add the same server-side flag check to the route so the UI toggle and API contract stay in sync:
+
+```ts
+if (motor === "brandsdecoded_v4" &amp;&amp; !isFeatureEnabled("NEXT_PUBLIC_FEATURE_BD_WIZARD_V1")) {
+  return NextResponse.json({ error: "BD wizard disabled" }, { status: 403 })
+}
+```
+
+### 7. Test mock consumes `themeFetchMock` value inside `[await themeFetchMock()]`, which will return `[undefined]` on a second call
+**File:** `src/lib/wizard/__tests__/create-wizard.test.ts:22`
+**Confidence:** 80
+
+```ts
+where: () =&gt; ({ limit: async () =&gt; [await themeFetchMock()] }),
+```
+
+Each test uses `mockResolvedValueOnce` exactly once, and each test triggers exactly one SELECT, so today tests pass. But if the factory is ever changed to run a second SELECT (e.g., the ownership-check fix in issue #1 may be accompanied by a second SELECT for `brand` or `user`), the mock silently returns `[undefined]` → `[theme]` destructures to `theme = undefined` → `Theme X not found` is thrown for the wrong reason. Either:
+- Name the helper `withTheme(t)` and have it return a fresh chain (`select: () =&gt; ({...})`), or
+- Use `themeFetchMock.mockResolvedValue(...)` to make it repeatable.
+
+This is fragile test infrastructure — low risk today, but will silently erode.
+
+### 8. `tribal_v4` branch never writes `seeds`, breaking downstream that expects non-null array
+**File:** `src/lib/wizard/create-wizard.ts:57-72`
+**Confidence:** 80
+
+The schema default is `.default([])` (`src/db/schema.ts:611`), so the column will land as `[]` — OK at the DB layer. But the test in `bd-wizard-actions.test.ts` and the extract-seed code (`src/app/(app)/wizard/actions/extract-seed.ts:204-206`) guard defensively with `Array.isArray(wiz.seeds)`, so Tribal rows probably won’t break. However, the asymmetry is still worth flagging: Tribal branch writes `{theme, context, referenceUrl, themeId}` but no `seeds:[]`, while BD branch writes `{theme, seeds:[seed], themeId}` but no `context/referenceUrl`. If Tribal ever reads `referenceUrl` downstream (it does — `src/db/schema.ts:577`), fine; but BD will need `context`/`referenceUrl` eventually, and there is no comment documenting that intentional asymmetry. Consider either writing both branches uniformly or adding an inline comment:
+
+```ts
+// BD não usa referenceUrl — a URL vai dentro do seed.
+// Tribal não usa seeds — consumido apenas pelo pipeline tribal.
+```
+
+---
+
+## Suggestions (≤ 80, included because they caught my eye during review)
+
+These did not hit the report threshold, but may be worth a quick pass:
+
+- **`route.ts:14`** — `!Number.isFinite(themeId)` is correct, but `Number("1.5")` passes and becomes `1.5` which later `eq(themes.id, 1.5)` will not match. Consider `Number.isInteger` or `z.coerce.number().int().positive()`.
+- **`discover-page.tsx:348,379`** — `catch (error) { toast.error("...") }` silently swallows the error without logging. Every other catch in the repo (`extract-seed.ts:126-132`) logs with `console.error` and a `[Context]` prefix per CLAUDE.md ("Padrão de Batch Operations"). Adding `console.error("[discover] ...", error)` would help debugging.
+- **`discover-page.tsx:430-434`** — `setTimeout(() =&gt; router.push(...), 500)` delays navigation by 500 ms just for the toast to render; if the user clicks again during that window, a second wizard is created. Consider `router.push` immediately (the toast library will still show) or guard with a pending state (`useTransition`-style) similar to `wizard-entry.tsx:41`.
+- **`discover-page.tsx:384-388`** — No `isCreating` state during the two-request flow. The "Wizard" dropdown stays clickable, so rapid clicks queue duplicate requests. `wizard-entry.tsx:41,145` uses `useTransition` + `disabled={isPending}` — same pattern would fit here.
+- **`create-wizard.ts:82,89,96`** — The three `crypto.randomUUID()` calls match `extract-seed.ts:141` correctly (no bug), so the reviewer's concern about missing `id` is **not** a problem. Confirmed: BD store `Seed` type requires `id: string` and the factory provides it in all three branches.
+
+---
+
+## Summary
+
+Confirmed the factory does generate `crypto.randomUUID()` for seed IDs (matching `extract-seed.ts` pattern), so the BD wizard store's `Seed` type contract is satisfied.
+
+The two findings that should block merge:
+1. **Issue #1 (Critical)** — missing `userId` filter on the theme SELECT = IDOR.
+2. **Issue #4 (Important)** — silent duplicate theme creation in the UI on every dropdown click.
+
+Everything else is quality/consistency polishing (error hierarchy, Zod validation, feature-flag server enforcement, test mock repeatability) that aligns the new code with existing CLAUDE.md patterns already used elsewhere in the repo.</result>
+<usage><total_tokens>74635</total_tokens><tool_uses>29</tool_uses><duration_ms>163593</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>a776c4bf0c0470f6e</task-id>
+<tool-use-id>toolu_01F1jKtGiW1eweYmAwmPggsi</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jonassilva-Documents-developer-maquina-de-conteudo/9979560f-63a5-4943-854c-9a4b3b61fcce/tasks/a776c4bf0c0470f6e.output</output-file>
+<status>completed</status>
+<summary>Agent "PR #20 test coverage analysis" completed</summary>
+<result>Now I have enough information for a thorough analysis. Let me compile the findings.
+
+---
+
+## Summary
+
+The PR adds two new modules — `createWizardFromTheme` (the factory) and `POST /api/themes/[id]/wizard` (the route) — both of which are tested. Coverage for the core happy paths is solid. However, there are meaningful gaps in error handling, guard coverage, and the discover-page integration that represent real regression risks. The seed `id` question also resolves in the tests' favor with one caveat.
+
+---
+
+## Critical Gaps
+
+**1. Theme not found returns 500 instead of a descriptive 4xx — untested and miscategorized. (Criticality: 8)**
+
+`create-wizard.ts` throws `new Error("Theme ${themeId} not found")` when the DB fetch returns no row (line 50-52). The route's catch block (line 27-29) catches any thrown error and returns `status: 500`. This means a non-existent `themeId` yields a 500 rather than a 404 or 422.
+
+The test suite has no test for this case. The missing test is important in two ways: (a) it would expose the HTTP status contract (500 vs 404), and (b) it would catch any future refactoring where the theme-not-found branch is silently removed. If the error message later changes format, callers silently receive a generic 500.
+
+What to add — in `wizard-route.test.ts`:
+
+```typescript
+it("retorna 500 com mensagem quando tema não existe (theme-not-found propagation)", async () =&gt; {
+  const { createWizardFromTheme } = await import("@/lib/wizard/create-wizard")
+  vi.mocked(createWizardFromTheme).mockRejectedValueOnce(
+    new Error("Theme 99 not found")
+  )
+  const req = new Request("http://x/api/themes/99/wizard", { method: "POST" })
+  const res = await POST(req, { params: Promise.resolve({ id: "99" }) })
+  expect(res.status).toBe(500)
+  const json = await res.json()
+  expect(json.error).toContain("not found")
+})
+```
+
+Alternatively, the more important fix is to make the route distinguish this error (re-throw a `NotFoundError` from `create-wizard.ts` and handle it in the route with 404). The test would then assert `res.status === 404`. Either way the current behavior is untested.
+
+---
+
+**2. Unauthorized request (401) not tested in `wizard-route.test.ts`. (Criticality: 7)**
+
+The route mock at the top of the test file unconditionally returns `{ userId: "user_1" }`. There is no test for the case where `auth()` returns `{ userId: null }`, which triggers the 401 guard at line 10 of the route. The test file's mock cannot be easily overridden per-test since it is hoisted at module level.
+
+What to add — re-mock `auth` for a single test to return `null`, or use `vi.mocked` to configure a per-test return:
+
+```typescript
+it("retorna 401 quando não autenticado", async () =&gt; {
+  const { auth } = await import("@clerk/nextjs/server")
+  vi.mocked(auth).mockResolvedValueOnce({ userId: null } as ReturnType&lt;typeof auth&gt; extends Promise&lt;infer T&gt; ? T : never)
+  const req = new Request("http://x/api/themes/1/wizard", { method: "POST" })
+  const res = await POST(req, { params: Promise.resolve({ id: "1" }) })
+  expect(res.status).toBe(401)
+})
+```
+
+---
+
+**3. `Number("")` produces `0` and passes the `Number.isFinite` guard — untested edge case. (Criticality: 6)**
+
+`Number("")` equals `0`, and `Number.isFinite(0)` is `true`. This means a request with an empty `id` (e.g. from a misconfigured client) passes the guard and reaches `createWizardFromTheme(0, ...)`. Theme with `id=0` does not exist in the DB, so this eventually returns a 500 via the catch block. The `"0"` and `"-1"` cases have the same behavior — they pass the guard but generate a 500 from the factory.
+
+The `Number.isFinite` check is semantically wrong for this use case; it should be `Number.isInteger(themeId) &amp;&amp; themeId &gt; 0`. This is a real bug that could manifest if a client accidentally sends an empty string as `id`. Adding a test would both document the current (incorrect) behavior and force a fix:
+
+```typescript
+it("rejeita id='0' (Number('0') passa isFinite mas é ID inválido)", async () =&gt; {
+  const req = new Request("http://x/api/themes/0/wizard", { method: "POST" })
+  const res = await POST(req, { params: Promise.resolve({ id: "0" }) })
+  expect(res.status).toBe(400)
+})
+```
+
+---
+
+## Important Improvements
+
+**4. `create-wizard.test.ts` does not verify that `userId` is passed to the DB insert. (Criticality: 6)**
+
+All four tests call `createWizardFromTheme(1, motor, "user_abc")` but none of them assert `inserted.userId === "user_abc"`. This is significant because the `userId` is the ownership field — if a future refactor accidentally drops it from the `values()` call, wizards would be created without an owner, making them inaccessible on the BD wizard page (the page query includes `eq(contentWizards.userId, userId)` as a guard — line 32 of the page file). This regression would not be caught by the current tests.
+
+Add to the tribal test or all BD tests: `expect(inserted.userId).toBe("user_abc")`.
+
+---
+
+**5. `create-wizard.test.ts` does not cover the case where `context` is `null` for tribal_v4. (Criticality: 5)**
+
+The `makeTheme` helper defaults `context` to `"Contexto do tema"` (a non-null string). The `tribal_v4` insert passes `context: theme.context ?? undefined`. If `context` is `null`, it correctly becomes `undefined` in the insert. But no test verifies this nullish coalescing behavior. A future change that drops `?? undefined` would silently pass `null` to the DB column. Add a test with `makeTheme({ context: null })` for tribal_v4 and assert `!("context" in inserted) || inserted.context === undefined`.
+
+---
+
+**6. BD motor: youtube detection via URL pattern (not `sourceType`) is tested, but the mixed case (sourceType="youtube" + non-youtube URL) is not. (Criticality: 5)**
+
+There are two signals for youtube: `theme.sourceType === "youtube"` OR `YOUTUBE_REGEX.test(referenceUrl)`. Only the pure cases are tested (sourceType=youtube, URL=youtube.com and sourceType=perplexity, URL=non-youtube). The combined case where `sourceType` doesn't say "youtube" but the URL does contain "youtu.be" would fall into the youtube path via the regex, but the inverted case (sourceType="youtube" but URL is absent/non-youtube) is also untested — in that case `isYoutube` is `true` but `referenceUrl` is falsy, so it falls through to the `type="theme"` branch. This is likely the intended behavior but it is undocumented by tests.
+
+---
+
+**7. `handleCreateWizard` in `discover-page.tsx` — `savedTheme.id` missing guard. (Criticality: 5)**
+
+The two-step flow in `discover-page.tsx` (line 385-438) saves a theme then calls `fetch(`/api/themes/${savedTheme.id}/wizard`, ...)`. If the themes API returns an object without an `id` field (e.g., due to a deserialization error or API shape change), `savedTheme.id` is `undefined`, and the URL becomes `/api/themes/undefined/wizard`. The route would parse `"undefined"` as `NaN`, reject with 400, and then `handleCreateWizard` would throw, showing the user a generic toast error with no indication of which step failed.
+
+This is inherently hard to unit-test in a pure UI component, but the logic is extractable. The `handleCreateWizard` handler could be extracted to a standalone async function (separate module) and tested with `fetch` mocked. The function-level extraction is the key architectural recommendation — it enables testing without a full React render environment and makes the two-step atomicity visible as a tested contract.
+
+---
+
+## Test Quality Issues
+
+**8. `wizard-route.test.ts` — the `createWizardFromTheme` mock is always resolved with a fixed return value.**
+
+The mock at the top of the test file (`vi.fn().mockResolvedValue(...)`) means all tests share the same mock outcome. The "default tribal_v4" test (test 2) only checks `res.status === 200` — it doesn't verify that `createWizardFromTheme` was called with `("tribal_v4", userId)`. This means the test would pass even if `motor` defaulting were broken. The assertion should include:
+
+```typescript
+const { createWizardFromTheme } = await import("@/lib/wizard/create-wizard")
+expect(vi.mocked(createWizardFromTheme)).toHaveBeenCalledWith(1, "tribal_v4", "user_1")
+```
+
+---
+
+**9. `create-wizard.test.ts` DB mock is fragile against chaining API changes.**
+
+The `db.select` mock uses a fixed chain (`from → where → limit`) that mirrors the current Drizzle query API exactly. If Drizzle's fluent API changes order or adds intermediate methods, the mock silently breaks (returns `undefined` from `limit()` rather than throwing), causing `theme` to be `undefined` and hitting the "not found" throw — which would manifest as confusing test failures unrelated to the actual code change. Consider using `vi.spyOn(db, "select")` with a proper mock at the module level instead, or at minimum add a comment documenting the chain assumption.
+
+---
+
+## Seed `id` Field Verdict
+
+The concern that "seeds from the factory lack `id`" is **not a gap** in the current code. `create-wizard.ts` always calls `crypto.randomUUID()` for the `id` field of every BD seed it creates (lines 82, 90, 97). The test at line 87 (`expect(inserted.seeds[0].id).toBeTruthy()`) explicitly covers this. The DB schema marks `id` as optional (`id?: string`) only for back-compat with pre-existing rows that predate the factory — new rows from this PR always have `id`. The `bd-wizard-store.test.ts` also uses seeds with explicit `id` fields in all fixtures. So the seeding concern is well-handled.
+
+---
+
+## Positive Observations
+
+- The four `create-wizard.test.ts` tests cover all three seed-type branches of the BD path (youtube-by-sourceType, youtube-by-URL, link, theme) — the most critical branching in the factory — and correctly assert on `redirectPath` format per motor.
+- The `inserted.seeds[0].id` and `extractedAt` assertions (lines 87-88) directly prevent the regression of accidentally stripping the `id` from seeds before DB write, which would break `SeedInputPanel`'s remove and briefing-edit operations (both use `seed.id` as the stable key).
+- The `bd-wizard-store.test.ts` covers the full state machine lifecycle including `reset()`, which is important given that the store is a singleton and leaked state between navigations would cause incorrect step rendering.
+- The mock for `createWizardFromTheme` in `wizard-route.test.ts` correctly isolates the route from DB operations, making the route tests fast and reliable without requiring DB mocks.
+
+---
+
+### Files reviewed
+
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/lib/wizard/__tests__/create-wizard.test.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/app/api/themes/__tests__/wizard-route.test.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/lib/wizard/create-wizard.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/app/api/themes/[id]/wizard/route.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/app/(app)/discover/components/discover-page.tsx`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/stores/bd-wizard-store.ts`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/app/(app)/wizard/brandsdecoded/[id]/page.tsx`
+- `/Users/jonassilva/Documents/developer/maquina-de-conteudo/.claude/worktrees/fase-6-impl/src/db/schema.ts` (seeds column, lines 600-611)</result>
+<usage><total_tokens>56324</total_tokens><tool_uses>43</tool_uses><duration_ms>181856</duration_ms></usage>
+</task-notification>
