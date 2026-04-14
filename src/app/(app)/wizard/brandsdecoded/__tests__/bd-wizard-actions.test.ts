@@ -15,7 +15,9 @@ const generateWithBdMock = vi.fn()
 const ragMock = vi.fn()
 const resolveBrandIdMock = vi.fn()
 const getBrandConfigMock = vi.fn()
-const brandConfigToPromptVariablesMock = vi.fn(() => ({
+const brandConfigToPromptVariablesMock = vi.fn<
+  (...args: unknown[]) => Record<string, string>
+>(() => ({
   tone: "editorial",
 }))
 
