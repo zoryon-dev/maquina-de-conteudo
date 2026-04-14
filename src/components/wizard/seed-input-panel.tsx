@@ -17,7 +17,13 @@
  *  - onSeedsChange: callback opcional chamado após append/remove/edit local.
  */
 
-import { useState, useTransition } from "react"
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,8 +32,42 @@ import { Loader2, Trash2, Plus } from "lucide-react"
 import {
   extractSeedAction,
   removeSeedAction,
+  updateSeedBriefingAction,
 } from "@/app/(app)/wizard/actions/extract-seed"
 import type { SeedInput } from "@/lib/wizard-services/content-extractor.service"
+
+/**
+ * Debounce simples pra callbacks — coalesceia múltiplos edits consecutivos
+ * numa única chamada ao server. Timer é limpo no unmount (cleanup no
+ * useEffect) pra evitar setState em componente desmontado.
+ */
+function useDebouncedCallback<Args extends unknown[]>(
+  fn: (...args: Args) => void,
+  delay: number
+): (...args: Args) => void {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const fnRef = useRef(fn)
+
+  useEffect(() => {
+    fnRef.current = fn
+  }, [fn])
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [])
+
+  return useCallback(
+    (...args: Args) => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => {
+        fnRef.current(...args)
+      }, delay)
+    },
+    [delay]
+  )
+}
 
 /**
  * Shape local alinhado com `StoredSeed` do server. Inclui `id` (UUID gerado
@@ -82,6 +122,11 @@ export function SeedInputPanel({
   const [value, setValue] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  // Set de seedIds com edit pendente de salvar (debounce enfileirado ou
+  // request em flight) — alimenta o indicador "salvando…" por card.
+  const [savingBriefings, setSavingBriefings] = useState<Set<string>>(
+    () => new Set()
+  )
 
   const handleExtract = () => {
     const trimmed = value.trim()
@@ -155,10 +200,45 @@ export function SeedInputPanel({
     })
   }
 
+  // Persiste edit do briefing via debounce (1s) — evita hammer no server
+  // enquanto o usuário digita. Falha não reverte o estado local, apenas
+  // exibe erro; próxima edição tenta de novo.
+  const saveBriefing = useCallback(
+    (seedId: string, briefing: string) => {
+      updateSeedBriefingAction(wizardId, seedId, briefing)
+        .then((r) => {
+          if (!r.success) {
+            setError(`Falha ao salvar edição: ${r.error}`)
+          }
+        })
+        .catch((err) => {
+          console.error("[seed-panel] save briefing failed:", err)
+          setError("Falha ao salvar edição.")
+        })
+        .finally(() => {
+          setSavingBriefings((prev) => {
+            if (!prev.has(seedId)) return prev
+            const next = new Set(prev)
+            next.delete(seedId)
+            return next
+          })
+        })
+    },
+    [wizardId]
+  )
+  const debouncedSaveBriefing = useDebouncedCallback(saveBriefing, 1000)
+
   const handleBriefingEdit = (seedId: string, briefing: string) => {
     const next = seeds.map((s) => (s.id === seedId ? { ...s, briefing } : s))
     setSeeds(next)
     onSeedsChange?.(next)
+    setSavingBriefings((prev) => {
+      if (prev.has(seedId)) return prev
+      const nextSet = new Set(prev)
+      nextSet.add(seedId)
+      return nextSet
+    })
+    debouncedSaveBriefing(seedId, briefing)
   }
 
   return (
@@ -250,6 +330,15 @@ export function SeedInputPanel({
                 rows={6}
                 placeholder="Briefing extraído (editável)"
               />
+              {savingBriefings.has(s.id) && (
+                <p
+                  className="text-xs text-white/40 flex items-center gap-1"
+                  aria-live="polite"
+                >
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  salvando…
+                </p>
+              )}
             </div>
           ))}
         </div>
