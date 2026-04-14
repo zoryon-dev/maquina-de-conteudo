@@ -117,7 +117,7 @@ const fixtureState: StudioState = {
     {
       id: "s1",
       template: "DARK_MODE",
-      content: { texto1: "H", texto1Bold: false, texto3Bold: false },
+      content: { texto1: "H", texto1Bold: false, texto2: "B", texto3Bold: false },
       style: {
         backgroundColor: "#000",
         textColor: "#fff",
@@ -131,6 +131,10 @@ const fixtureState: StudioState = {
   projectTitle: "Teste",
   caption: "c",
   hashtags: [],
+  activeSlideIndex: 0,
+  isDirty: false,
+  isSaving: false,
+  isPublishing: false,
 }
 
 // ---------------------------------------------------------------------------
@@ -211,7 +215,7 @@ describe("POST /api/studio/save — brand_id persistence (T3)", () => {
 
     // Log com contexto da brand corrompida
     expect(errorSpy).toHaveBeenCalled()
-    const loggedAny = errorSpy.mock.calls.flat().some((arg) => {
+    const loggedAny = errorSpy.mock.calls.flat().some((arg: unknown) => {
       const s = typeof arg === "string" ? arg : JSON.stringify(arg)
       return s.includes("42") || s.includes("ConfigError")
     })

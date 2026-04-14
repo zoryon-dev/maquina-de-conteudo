@@ -83,6 +83,34 @@ describe("renderSlideToHtml — brand tokens (Fase 3)", () => {
     expect(result.html).not.toContain(DECL_PRIMARY)
   })
 
+  // T6: fortalece contract — flag on + brand=undefined deve produzir HTML
+  // BYTE-FOR-BYTE idêntico ao flag off. Isso prova que a flag só ativa
+  // injeção quando HÁ brand, nunca como side effect solo.
+  it("flag on + brand=undefined é byte-for-byte idêntico a flag off", () => {
+    const flagOn = renderSlideToHtml({
+      ...baseInput,
+      featureFlags: { visualTokensV2: true },
+    })
+    const flagOff = renderSlideToHtml({
+      ...baseInput,
+      featureFlags: { visualTokensV2: false },
+    })
+    expect(flagOn.html).toBe(flagOff.html)
+  })
+
+  it("flag on + brand=null é byte-for-byte idêntico a flag off", () => {
+    const flagOnNull = renderSlideToHtml({
+      ...baseInput,
+      brand: null,
+      featureFlags: { visualTokensV2: true },
+    })
+    const flagOff = renderSlideToHtml({
+      ...baseInput,
+      featureFlags: { visualTokensV2: false },
+    })
+    expect(flagOnNull.html).toBe(flagOff.html)
+  })
+
   it("sem flags e sem brand → HTML idêntico entre undefined e null brand", () => {
     const legacy = renderSlideToHtml(baseInput)
     const withNullBrand = renderSlideToHtml({ ...baseInput, brand: null })
