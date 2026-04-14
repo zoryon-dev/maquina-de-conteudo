@@ -1,5 +1,10 @@
 import type { BrandPromptVariables } from "@/lib/brands/injection"
-import { getSectionsForStage, renderSection, type BdStage } from "./brand-block-sections"
+import {
+  BD_STAGE_FIELDS,
+  getSectionsForStage,
+  renderSection,
+  type BdStage,
+} from "./brand-block-sections"
 
 export type BrandBlockOptions = {
   stage?: BdStage    // quando presente, usa renderização semântica por seções
@@ -22,9 +27,22 @@ export function buildBrandContextBlock(
     const parts: string[] = [heading]
     if (opts.note) parts.push(opts.note)
     parts.push("")
+    let sectionsRendered = 0
     for (const section of sections) {
       const rendered = renderSection(section.name, section.fields, vars ?? {})
-      if (rendered) parts.push(rendered, "")
+      if (rendered) {
+        parts.push(rendered, "")
+        sectionsRendered++
+      }
+    }
+    if (sectionsRendered === 0) {
+      console.warn(
+        "[bd/brand-block] stage %s produced no sections — vars keys=%o, stage fields=%o",
+        opts.stage,
+        Object.keys(vars ?? {}),
+        BD_STAGE_FIELDS[opts.stage]
+      )
+      return opts.fallback ?? ""
     }
     return parts.join("\n").trimEnd()
   }
