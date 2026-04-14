@@ -20,7 +20,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import { isFeatureEnabled } from "@/lib/features"
+import { FEATURE_BD_WIZARD_V1 } from "@/lib/features"
 import type { Platform, TrendingTopicWithBriefing } from "@/lib/discovery-services/types"
 
 // ============================================================================
@@ -283,7 +283,7 @@ function EmptyState() {
 
 export function DiscoverPage() {
   const router = useRouter()
-  const bdEnabled = isFeatureEnabled("NEXT_PUBLIC_FEATURE_BD_WIZARD_V1")
+  const bdEnabled = FEATURE_BD_WIZARD_V1
 
   const [keyword, setKeyword] = useState("")
   const [isSearching, setIsSearching] = useState(false)
