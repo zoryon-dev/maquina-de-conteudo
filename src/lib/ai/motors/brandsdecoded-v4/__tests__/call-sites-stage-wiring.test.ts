@@ -183,6 +183,7 @@ describe("call-site stage wiring (T1)", () => {
 
   it("generateLegendaInstagram passa stage='legenda'", async () => {
     const { generateLegendaInstagram } = await import("../orchestrator")
+    const { BLOCK_SPEC } = await import("../copy-blocks")
     await generateLegendaInstagram({
       espinha: {
         headline: "h",
@@ -192,14 +193,7 @@ describe("call-site stage wiring (T1)", () => {
         aplicacao: "a",
         direcao: "d",
       },
-      blocks: Array.from({ length: 18 }, (_, i) => ({
-        index: i + 1,
-        slide: Math.ceil((i + 1) / 2),
-        position: (i % 2 === 0 ? "a" : "b") as "a" | "b",
-        targetWords: 20,
-        sectionLabel: "x",
-        text: `bloco ${i + 1}`,
-      })),
+      blocks: BLOCK_SPEC.map((spec) => ({ ...spec, text: `bloco ${spec.index}` })),
       brandPromptVariables: BRAND_VARS,
     })
     const stages = stageCalls.map((c) => c.stage).filter(Boolean)
@@ -211,7 +205,7 @@ describe("call-site stage wiring (T1)", () => {
     // estrutural: nenhum call site foi esquecido.
     const { runTriagem, buildEspinhaDorsal } = await import("../espinha")
     const { generateHeadlinesForBD } = await import("../headline-patterns")
-    const { generateCopyBlocks } = await import("../copy-blocks")
+    const { generateCopyBlocks, BLOCK_SPEC } = await import("../copy-blocks")
     const { generateLegendaInstagram } = await import("../orchestrator")
 
     const espinhaShape = {
@@ -246,14 +240,7 @@ describe("call-site stage wiring (T1)", () => {
     })
     await generateLegendaInstagram({
       espinha: espinhaShape,
-      blocks: Array.from({ length: 18 }, (_, i) => ({
-        index: i + 1,
-        slide: Math.ceil((i + 1) / 2),
-        position: (i % 2 === 0 ? "a" : "b") as "a" | "b",
-        targetWords: 20,
-        sectionLabel: "x",
-        text: `bloco ${i + 1}`,
-      })),
+      blocks: BLOCK_SPEC.map((spec) => ({ ...spec, text: `bloco ${spec.index}` })),
       brandPromptVariables: BRAND_VARS,
     })
 
