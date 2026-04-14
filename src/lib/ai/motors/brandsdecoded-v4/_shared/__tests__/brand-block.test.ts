@@ -22,6 +22,27 @@ describe("buildBrandContextBlock — legacy mode (sem stage)", () => {
     expect(out).toContain("- **niche:** Y")
   })
 
+  // T2 — Byte-for-byte snapshot. `toContain` é flexível demais para refactors
+  // silenciosos (ex: mudar a ordem de campos, retirar linha em branco).
+  it("legacy mode output é byte-for-byte estável (backcompat snapshot)", () => {
+    const out = buildBrandContextBlock({
+      tone: "editorial",
+      niche: "estratégia",
+      targetAudience: "PMEs",
+    })
+    expect(out).toBe(
+      "# CONTEXTO DE MARCA\n\n- **tone:** editorial\n- **niche:** estratégia\n- **targetAudience:** PMEs"
+    )
+  })
+
+  it("legacy + heading + note é byte-for-byte estável (backcompat snapshot)", () => {
+    const out = buildBrandContextBlock(
+      { tone: "X" },
+      { heading: "## CUSTOM", note: "nota" }
+    )
+    expect(out).toBe("## CUSTOM\nnota\n\n- **tone:** X")
+  })
+
   it("filtra vars vazias / whitespace", () => {
     const out = buildBrandContextBlock({ tone: "X", niche: "  ", brandVoice: "" })
     expect(out).toContain("- **tone:** X")
